@@ -179,9 +179,8 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
                ~marshaller op_fn
            )
            ()
-        ) ;
+        )
       (* Return task id immediately *)
-      Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
     in
     let user_agent_option = http_req.user_agent in
     let peek_result =
@@ -189,34 +188,48 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
           Rate_limit.Bucket_table.peek Xapi_rate_limit.bucket_table ~user_agent
       )
     in
-    let callback () =
+    let handle_request () =
       match sync_ty with
       | `Sync ->
           sync ()
       | `Async ->
           let need_complete = not (Context.forwarded_task __context) in
-          async ~need_complete
+          async ~need_complete ;
+          Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
       | `InternalAsync ->
-          async ~need_complete:true
+          async ~need_complete:true ;
+          Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
     in
     match user_agent_option with
     | Some user_agent -> (
       match peek_result with
-      | Some tokens ->
+      | Some tokens -> (
           D.debug
             "Bucket table: Expecting to consume 1 token from user_agent %s \
              with available tokens %f"
             user_agent tokens ;
-          Rate_limit.Bucket_table.submit_sync Xapi_rate_limit.bucket_table
-            ~user_agent:(Option.value http_req.user_agent ~default:"")
-            ~callback 1.
+          match sync_ty with
+          | `Sync ->
+              Rate_limit.Bucket_table.submit_sync Xapi_rate_limit.bucket_table
+                ~user_agent ~callback:sync 1.
+          | `Async ->
+              let need_complete = not (Context.forwarded_task __context) in
+              Rate_limit.Bucket_table.submit Xapi_rate_limit.bucket_table
+                ~user_agent
+                ~callback:(fun () -> async ~need_complete)
+                1. ;
+              Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+          | `InternalAsync ->
+              async ~need_complete:true ;
+              Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+        )
       | None ->
           D.debug "%s not registered, not throttling" user_agent ;
-          callback ()
+          handle_request ()
     )
     | None ->
         D.debug "Bucket table: user_agent was None, not throttling" ;
-        callback ()
+        handle_request ()
 
 (* regardless of forwarding, we are expected to complete the task *)
 
