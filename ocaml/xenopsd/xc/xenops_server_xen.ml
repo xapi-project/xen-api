@@ -3021,6 +3021,26 @@ module VM = struct
         Domain.shutdown ~xc ~xs di.Xenctrl.domid Domain.S3Suspend
     )
 
+  let resume t vm =
+    on_domain t vm (fun xc xs task _vm di ->
+        let domid = di.Xenctrl.domid in
+        let qemu_domid = this_domid ~xs in
+        let domain_type =
+          match get_domain_type ~xs di with
+          | Vm.Domain_HVM ->
+              `hvm
+          | Vm.Domain_PV ->
+              `pv
+          | Vm.Domain_PVinPVH ->
+              `pvh
+          | Vm.Domain_PVH ->
+              `pvh
+          | Vm.Domain_undefined ->
+              failwith "undefined domain type: cannot resume"
+        in
+        Domain.resume task ~xc ~xs ~qemu_domid ~domain_type domid
+    )
+
   let s3resume t vm =
     (* XXX: TODO: monitor the guest's response; track the s3 state *)
     on_domain t vm (fun xc _xs _task _vm di ->
@@ -5394,7 +5414,13 @@ let init () =
   ) ;
   Device.Backend.init () ;
   Xenops_server.default_numa_affinity_policy :=
-    if !Xenopsd.numa_placement_compat then Best_effort else Any ;
+    if !Xenopsd.numa_placement_compat then
+      if !Xenopsd.numa_best_effort_prio_mem_only then
+        Prio_mem_only
+      else
+        Best_effort
+    else
+      Any ;
   info "Default NUMA affinity policy is '%s'"
     Xenops_server.(string_of_numa_affinity_policy !default_numa_affinity_policy) ;
   Xenops_server.numa_placement := !Xenops_server.default_numa_affinity_policy ;

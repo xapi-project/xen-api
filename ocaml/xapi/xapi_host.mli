@@ -138,6 +138,8 @@ val create :
   -> ssh_auto_mode:bool
   -> secure_boot:bool
   -> software_version:(string * string) list
+  -> https_only:bool
+  -> numa_affinity_policy:API.host_numa_affinity_policy
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit

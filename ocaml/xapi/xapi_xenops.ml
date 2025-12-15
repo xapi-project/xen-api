@@ -2350,8 +2350,13 @@ let update_vm_internal ~__context ~id ~self ~previous ~info ~localhost =
           then (
             Xapi_vm_lifecycle.remove_pending_guidance ~__context ~self
               ~value:`restart_device_model ;
-            Xapi_vm_lifecycle.remove_pending_guidance ~__context ~self
-              ~value:`restart_vm
+            (* Only remove RestartVM guidance if host is up-to-date with coordinator *)
+            if
+              Helpers.Checks.RPU.are_host_versions_same_on_master ~__context
+                ~host:localhost
+            then
+              Xapi_vm_lifecycle.remove_pending_guidance ~__context ~self
+                ~value:`restart_vm
           )
         ) ;
         create_guest_metrics_if_needed () ;

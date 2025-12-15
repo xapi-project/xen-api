@@ -175,7 +175,7 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
     ?(last_software_update = Date.epoch) ?(last_update_hash = "")
     ?(ssh_enabled = true) ?(ssh_enabled_timeout = 0L) ?(ssh_expiry = Date.epoch)
     ?(console_idle_timeout = 0L) ?(ssh_auto_mode = false) ?(secure_boot = false)
-    () =
+    ?(https_only = false) () =
   let host =
     Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname
       ~address ~external_auth_type ~external_auth_service_name
@@ -184,6 +184,7 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
       ~last_update_hash ~ssh_enabled ~ssh_enabled_timeout ~ssh_expiry
       ~console_idle_timeout ~ssh_auto_mode ~secure_boot
       ~software_version:(Xapi_globs.software_version ())
+      ~https_only ~numa_affinity_policy:`default_policy
   in
   Db.Host.set_cpu_info ~__context ~self:host ~value:default_cpu_info ;
   host
@@ -194,15 +195,14 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(external_auth_type = "") ?(external_auth_service_name = "")
     ?(external_auth_configuration = []) ?(license_params = [])
     ?(edition = "free") ?(license_server = []) ?(local_cache_sr = Ref.null)
-    ?(chipset_info = []) ?(ssl_legacy = false) () =
+    ?(chipset_info = []) ?(ssl_legacy = false) ?(https_only = false) () =
   let pool = Helpers.get_pool ~__context in
   let tls_verification_enabled =
     Db.Pool.get_tls_verification_enabled ~__context ~self:pool
   in
   Db.Host.create ~__context ~ref ~current_operations:[] ~allowed_operations:[]
     ~software_version:(Xapi_globs.software_version ())
-    ~https_only:false ~enabled:false
-    ~aPI_version_major:Datamodel_common.api_version_major
+    ~enabled:false ~aPI_version_major:Datamodel_common.api_version_major
     ~aPI_version_minor:Datamodel_common.api_version_minor
     ~aPI_version_vendor:Datamodel_common.api_version_vendor
     ~aPI_version_vendor_implementation:
@@ -224,7 +224,7 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~pending_guidances_recommended:[] ~pending_guidances_full:[]
     ~last_update_hash:"" ~ssh_enabled:true ~ssh_enabled_timeout:0L
     ~ssh_expiry:Date.epoch ~console_idle_timeout:0L ~ssh_auto_mode:false
-    ~secure_boot:false ;
+    ~secure_boot:false ~https_only ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")

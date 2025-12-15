@@ -1209,6 +1209,23 @@ let license_remove =
        to the unlicensed edition"
     ~allowed_roles:_R_POOL_OP ()
 
+let host_numa_affinity_policy =
+  Enum
+    ( "host_numa_affinity_policy"
+    , [
+        ("any", "VMs are spread across all available NUMA nodes")
+      ; ( "best_effort"
+        , "VMs are placed on the smallest number of NUMA nodes that they fit \
+           using soft-pinning, but the policy doesn't guarantee a balanced \
+           placement, falling back to the 'any' policy."
+        )
+      ; ( "default_policy"
+        , "Use the NUMA affinity policy that is the default for the current \
+           version"
+        )
+      ]
+    )
+
 let create_params =
   [
     {
@@ -1398,6 +1415,21 @@ let create_params =
     ; param_release= numbered_release "25.32.0-next"
     ; param_default= Some (VMap [])
     }
+  ; {
+      param_type= Bool
+    ; param_name= "https_only"
+    ; param_doc=
+        "updates firewall to open or close port 80 depending on the value"
+    ; param_release= numbered_release "25.38.0-next"
+    ; param_default= Some (VBool false)
+    }
+  ; {
+      param_type= host_numa_affinity_policy
+    ; param_name= "numa_affinity_policy"
+    ; param_doc= "NUMA-aware VM memory and vCPU placement policy"
+    ; param_release= numbered_release "25.39.0-next"
+    ; param_default= Some (VEnum "default_policy")
+    }
   ]
 
 let create =
@@ -1416,6 +1448,7 @@ let create =
            --console_idle_timeout --ssh_auto_mode options to allow them to be \
            configured for new host"
         )
+      ; (Changed, "25.38.0-next", "Added --https_only to disable http")
       ]
     ~versioned_params:create_params ~doc:"Create a new host record"
     ~result:(Ref _host, "Reference to the newly created host object.")
@@ -2301,23 +2334,6 @@ let cleanup_pool_secret =
       ; (SecretString, "new_ps", "New pool secret")
       ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ~hide_from_docs:true ()
-
-let host_numa_affinity_policy =
-  Enum
-    ( "host_numa_affinity_policy"
-    , [
-        ("any", "VMs are spread across all available NUMA nodes")
-      ; ( "best_effort"
-        , "VMs are placed on the smallest number of NUMA nodes that they fit \
-           using soft-pinning, but the policy doesn't guarantee a balanced \
-           placement, falling back to the 'any' policy."
-        )
-      ; ( "default_policy"
-        , "Use the NUMA affinity policy that is the default for the current \
-           version"
-        )
-      ]
-    )
 
 let set_numa_affinity_policy =
   call ~name:"set_numa_affinity_policy" ~lifecycle:[]

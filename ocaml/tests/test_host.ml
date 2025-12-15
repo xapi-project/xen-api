@@ -27,6 +27,7 @@ let add_host __context name =
        ~ssh_enabled:true ~ssh_enabled_timeout:0L ~ssh_expiry:Clock.Date.epoch
        ~console_idle_timeout:0L ~ssh_auto_mode:false ~secure_boot:false
        ~software_version:(Xapi_globs.software_version ())
+       ~https_only:false ~numa_affinity_policy:`default_policy
     )
 
 (* Creates an unlicensed pool with the maximum number of hosts *)

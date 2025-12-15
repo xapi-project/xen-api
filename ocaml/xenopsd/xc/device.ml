@@ -2774,7 +2774,7 @@ module Backend = struct
         ]
 
       (* 4 and 5 are NICs, and we can only have two, 6 is platform *)
-      let extra_args = ["-device"; "nvme,serial=nvme0,id=nvme0,addr=7"]
+      let extra_args = ["-device"; "nvme,serial=nvme0,mdts=9,id=nvme0,addr=7"]
     end
 
     module XenPV = struct let addr ~xs:_ ~domid:_ _ ~nics:_ = 6 end
