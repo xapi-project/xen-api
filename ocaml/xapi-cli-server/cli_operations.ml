@@ -1409,6 +1409,11 @@ let gen_cmds rpc session_id =
           ["uuid"; "vendor-name"; "device-name"; "pci-id"]
           rpc session_id
       )
+    ; Client.Rate_limit.(
+        mk get_all_records_where get_by_uuid rate_limit_record "rate-limit" []
+          ["uuid"; "client-id"; "burst-size"; "fill-rate"]
+          rpc session_id
+      )
     ]
 
 let message_create (_ : printer) rpc session_id params =
