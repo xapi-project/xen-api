@@ -1062,6 +1062,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~secure_boot:host.API.host_secure_boot
           ~software_version:host.API.host_software_version
           ~https_only:host.API.host_https_only
+          ~numa_affinity_policy:host.API.host_numa_affinity_policy
       in
       (* Copy other-config into newly created host record: *)
       no_exn

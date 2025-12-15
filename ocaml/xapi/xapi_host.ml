@@ -1029,7 +1029,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
     ~ssl_legacy:_ ~last_software_update ~last_update_hash ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
-    ~secure_boot ~software_version ~https_only =
+    ~secure_boot ~software_version ~https_only ~numa_affinity_policy =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
      pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
      the initial setup of the database *)
@@ -1073,8 +1073,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~name_label ~uuid ~other_config:[] ~capabilities:[]
     ~cpu_configuration:[] (* !!! FIXME hard coding *)
     ~cpu_info:[] ~chipset_info ~memory_overhead:0L
-    ~sched_policy:"credit" (* !!! FIXME hard coding *)
-    ~numa_affinity_policy:`default_policy
+    ~sched_policy:"credit" (* !!! FIXME hard coding *) ~numa_affinity_policy
     ~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
     ~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null ~logging:[] ~hostname
     ~address ~metrics ~license_params ~boot_free_mem:0L ~ha_statefiles:[]
