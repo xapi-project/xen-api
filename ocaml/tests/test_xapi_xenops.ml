@@ -3,6 +3,92 @@ open Test_common
 module D = Debug.Make (struct let name = "test_xapi_xenops" end)
 
 open D
+module Date = Clock.Date
+
+(** Helper to create a Xenops VM state for testing *)
+let make_xenops_state ~power_state ?(last_start_time = 0.0) () =
+  let open Xenops_interface.Vm in
+  {
+    power_state
+  ; domids= [0]
+  ; consoles= []
+  ; memory_target= 0L
+  ; memory_actual= 0L
+  ; memory_limit= 0L
+  ; vcpu_target= 1
+  ; shadow_multiplier_target= 1.0
+  ; rtc_timeoffset= ""
+  ; uncooperative_balloon_driver= false
+  ; guest_agent= []
+  ; xsdata_state= []
+  ; pv_drivers_detected= false
+  ; last_start_time
+  ; hvm= false
+  ; nomigrate= false
+  ; nested_virt= false
+  ; domain_type= Domain_PV
+  ; featureset= ""
+  }
+
+(** Helper to set up VM for testing: sets pending guidances, resident host, and power state *)
+let setup_vm_for_test ~__context ~vm ~guidances ~resident_on ~power_state =
+  Db.VM.set_pending_guidances ~__context ~self:vm ~value:guidances ;
+  Db.VM.set_resident_on ~__context ~self:vm ~value:resident_on ;
+  Db.VM.set_power_state ~__context ~self:vm ~value:power_state
+
+(** Helper to check pending guidances after an operation *)
+let check_pending_guidances ~__context ~vm ~expect_restart_vm
+    ~expect_restart_device_model ~test_description =
+  let remaining = Db.VM.get_pending_guidances ~__context ~self:vm in
+  Alcotest.(check bool)
+    (Printf.sprintf "restart_vm guidance %s - %s"
+       (if expect_restart_vm then "present" else "cleared")
+       test_description
+    )
+    expect_restart_vm
+    (List.mem `restart_vm remaining) ;
+  Alcotest.(check bool)
+    (Printf.sprintf "restart_device_model guidance %s - %s"
+       (if expect_restart_device_model then "present" else "cleared")
+       test_description
+    )
+    expect_restart_device_model
+    (List.mem `restart_device_model remaining)
+
+(** Helper to simulate a VM state update via update_vm_internal *)
+let simulate_vm_state_update ~__context ~vm ~previous_power_state
+    ~new_power_state ~localhost =
+  let previous_state = make_xenops_state ~power_state:previous_power_state () in
+  let new_state =
+    make_xenops_state ~power_state:new_power_state ~last_start_time:100.0 ()
+  in
+  let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+  let metrics = Db.VM.get_metrics ~__context ~self:vm in
+  Db.VM_metrics.set_start_time ~__context ~self:metrics
+    ~value:(Date.of_unix_time 50.0) ;
+  ignore
+    (Xapi_xenops.update_vm_internal ~__context ~id:vm_uuid ~self:vm
+       ~previous:(Some previous_state) ~info:(Some new_state) ~localhost
+    )
+
+(** Helper to set host software version *)
+let set_host_software_version ~__context ~host ~platform_version ~xapi_version =
+  Db.Host.remove_from_software_version ~__context ~self:host
+    ~key:Xapi_globs._platform_version ;
+  Db.Host.add_to_software_version ~__context ~self:host
+    ~key:Xapi_globs._platform_version ~value:platform_version ;
+  Db.Host.remove_from_software_version ~__context ~self:host
+    ~key:Xapi_globs._xapi_version ;
+  Db.Host.add_to_software_version ~__context ~self:host
+    ~key:Xapi_globs._xapi_version ~value:xapi_version
+
+(** Helper to get the pool from the test database *)
+let get_pool ~__context =
+  match Db.Pool.get_all ~__context with
+  | pool :: _ ->
+      pool
+  | [] ->
+      failwith "No pool found in test database"
 
 let simulator_setup = ref false
 
@@ -187,4 +273,132 @@ let test_xapi_restart () =
     )
     unsetup_simulator
 
-let test = [("test_xapi_restart", `Quick, test_xapi_restart)]
+(** Test that RestartVM guidance is only cleared when VM starts on up-to-date host *)
+let test_pending_guidance_vm_start () =
+  let __context = make_test_database () in
+  Context.set_test_rpc __context (Mock_rpc.rpc __context) ;
+
+  let localhost = Helpers.get_localhost ~__context in
+  let host2 = make_host ~__context ~name_label:"host2" ~hostname:"host2" () in
+
+  (* Set up software versions - localhost is up-to-date, host2 is not *)
+  set_host_software_version ~__context ~host:localhost ~platform_version:"1.2.3"
+    ~xapi_version:"4.5.6" ;
+  set_host_software_version ~__context ~host:host2 ~platform_version:"1.2.2"
+    ~xapi_version:"4.5.5" ;
+
+  (* Set localhost as the pool coordinator *)
+  let pool = get_pool ~__context in
+  Db.Pool.set_master ~__context ~self:pool ~value:localhost ;
+
+  let vm = make_vm ~__context () in
+
+  (* Set up VM guidances - both restart_vm and restart_device_model *)
+  let guidances = [`restart_vm; `restart_device_model] in
+
+  (* Test 1: VM starting on up-to-date host - should clear restart_vm *)
+  setup_vm_for_test ~__context ~vm ~guidances ~resident_on:localhost
+    ~power_state:`Halted ;
+  simulate_vm_state_update ~__context ~vm
+    ~previous_power_state:Xenops_interface.Halted
+    ~new_power_state:Xenops_interface.Running ~localhost ;
+  check_pending_guidances ~__context ~vm ~expect_restart_vm:false
+    ~expect_restart_device_model:false
+    ~test_description:"VM started on up-to-date host" ;
+
+  (* Test 2: VM starting on old host - should NOT clear restart_vm *)
+  setup_vm_for_test ~__context ~vm ~guidances ~resident_on:host2
+    ~power_state:`Halted ;
+  simulate_vm_state_update ~__context ~vm
+    ~previous_power_state:Xenops_interface.Halted
+    ~new_power_state:Xenops_interface.Running ~localhost:host2 ;
+  check_pending_guidances ~__context ~vm ~expect_restart_vm:true
+    ~expect_restart_device_model:false
+    ~test_description:"VM started on old host"
+
+(** Test that NO guidance is cleared when suspended VM resumes *)
+let test_pending_guidance_vm_resume () =
+  let __context = make_test_database () in
+  Context.set_test_rpc __context (Mock_rpc.rpc __context) ;
+
+  let localhost = Helpers.get_localhost ~__context in
+  let host2 = make_host ~__context ~name_label:"host2" ~hostname:"host2" () in
+
+  (* Set up software versions - localhost is up-to-date, host2 is not *)
+  set_host_software_version ~__context ~host:localhost ~platform_version:"1.2.3"
+    ~xapi_version:"4.5.6" ;
+  set_host_software_version ~__context ~host:host2 ~platform_version:"1.2.2"
+    ~xapi_version:"4.5.5" ;
+
+  (* Set localhost as the pool coordinator *)
+  let pool = get_pool ~__context in
+  Db.Pool.set_master ~__context ~self:pool ~value:localhost ;
+
+  (* Test 1: Suspended VM resumed on up-to-date host - should NOT clear any guidance *)
+  let vm = make_vm ~__context () in
+  let guidances = [`restart_vm; `restart_device_model] in
+  setup_vm_for_test ~__context ~vm ~guidances ~resident_on:localhost
+    ~power_state:`Suspended ;
+  simulate_vm_state_update ~__context ~vm
+    ~previous_power_state:Xenops_interface.Suspended
+    ~new_power_state:Xenops_interface.Running ~localhost ;
+  check_pending_guidances ~__context ~vm ~expect_restart_vm:true
+    ~expect_restart_device_model:true
+    ~test_description:"suspended VM resumed on up-to-date host" ;
+
+  (* Test 2: Suspended VM resumed on old host - should NOT clear any guidance *)
+  setup_vm_for_test ~__context ~vm ~guidances ~resident_on:host2
+    ~power_state:`Suspended ;
+  simulate_vm_state_update ~__context ~vm
+    ~previous_power_state:Xenops_interface.Suspended
+    ~new_power_state:Xenops_interface.Running ~localhost:host2 ;
+  check_pending_guidances ~__context ~vm ~expect_restart_vm:true
+    ~expect_restart_device_model:true
+    ~test_description:"suspended VM resumed on old host"
+
+(** Test that RestartVM guidance is always cleared when VM is halted *)
+let test_pending_guidance_vm_halt () =
+  let __context = make_test_database () in
+  Context.set_test_rpc __context (Mock_rpc.rpc __context) ;
+
+  let localhost = Helpers.get_localhost ~__context in
+  let host2 = make_host ~__context ~name_label:"host2" ~hostname:"host2" () in
+
+  (* Set up software versions - localhost is up-to-date, host2 is not *)
+  set_host_software_version ~__context ~host:localhost ~platform_version:"1.2.3"
+    ~xapi_version:"4.5.6" ;
+  set_host_software_version ~__context ~host:host2 ~platform_version:"1.2.2"
+    ~xapi_version:"4.5.5" ;
+
+  (* Set localhost as the pool coordinator *)
+  let pool = get_pool ~__context in
+  Db.Pool.set_master ~__context ~self:pool ~value:localhost ;
+
+  let vm = make_vm ~__context () in
+  let guidances = [`restart_vm; `restart_device_model] in
+
+  (* Test 1: VM halted on up-to-date host - should clear both guidances *)
+  setup_vm_for_test ~__context ~vm ~guidances ~resident_on:localhost
+    ~power_state:`Running ;
+  Xapi_vm_lifecycle.force_state_reset_keep_current_operations ~__context
+    ~self:vm ~value:`Halted ;
+  check_pending_guidances ~__context ~vm ~expect_restart_vm:false
+    ~expect_restart_device_model:false
+    ~test_description:"VM halted on up-to-date host" ;
+
+  (* Test 2: VM halted on old host - should ALSO clear both guidances
+     because VM.start_on will enforce host version check on next start *)
+  setup_vm_for_test ~__context ~vm ~guidances ~resident_on:host2
+    ~power_state:`Running ;
+  Xapi_vm_lifecycle.force_state_reset_keep_current_operations ~__context
+    ~self:vm ~value:`Halted ;
+  check_pending_guidances ~__context ~vm ~expect_restart_vm:false
+    ~expect_restart_device_model:false ~test_description:"VM halted on old host"
+
+let test =
+  [
+    ("test_xapi_restart", `Quick, test_xapi_restart)
+  ; ("test_pending_guidance_vm_start", `Quick, test_pending_guidance_vm_start)
+  ; ("test_pending_guidance_vm_resume", `Quick, test_pending_guidance_vm_resume)
+  ; ("test_pending_guidance_vm_halt", `Quick, test_pending_guidance_vm_halt)
+  ]

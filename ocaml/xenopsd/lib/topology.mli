@@ -29,10 +29,21 @@ end
 
 module NUMAResource : sig
   (** A NUMA node providing CPU and memory resources *)
-  type t = private {affinity: CPUSet.t; memfree: int64}
+  type t = private {
+      affinity: CPUSet.t
+          (** logical CPUs. This is the smallest unit of scheduling available,
+              e.g. a hyperthread.
+              This can be used directly as a soft-, or hard-affinity mask. *)
+    ; cores: int
+          (** number of physical cores fully contained in this node, each containing threads_per_core CPUs,
+              although some of them may be disabled if [smt=false] *)
+    ; memfree: int64
+          (** free (not reserved, not in use) memory available on this NUMA
+          node or set of NUMA nodes *)
+  }
 
-  val make : affinity:CPUSet.t -> memfree:int64 -> t
-  (** [make ~affinity ~memfree] constructs a resource requiring affinity to be
+  val make : affinity:CPUSet.t -> cores:int -> memfree:int64 -> t
+  (** [make ~affinity ~cores ~memfree] constructs a resource requiring affinity to be
       non-empty and memfree to be > 0. A zero request is allowed due to
       [shrink]. * *)
 
@@ -51,11 +62,11 @@ end
 
 module NUMARequest : sig
   (** A (VM) requesting resources *)
-  type t = private {memory: int64; vcpus: int}
+  type t = private {memory: int64; vcpus: int; cores: int}
 
-  val make : memory:int64 -> vcpus:int -> t
-  (**[make ~memory ~vcpus] constructs a request. [memory] and [vcpus] must be
-     strictly positive. *)
+  val make : memory:int64 -> vcpus:int -> cores:int -> t
+  (**[make ~memory ~vcpus ~cores] constructs a request. [memory], [vcpus] and
+     [cores] must be strictly positive. *)
 
   val fits : t -> NUMAResource.t -> bool
   (** [fits requested available] checks whether the [available] resources can
@@ -78,8 +89,12 @@ module NUMA : sig
   (** A NUMA node index. Distinct from an int to avoid mixing with CPU numbers *)
   type node = private Node of int
 
-  val make : distances:int array array -> cpu_to_node:int array -> t option
-  (** [make distances cpu_to_node] stores the topology. [distances] is a square
+  val make :
+       distances:int array array
+    -> cpu_to_node:int array
+    -> node_cores:int array
+    -> t option
+  (** [make distances cpu_to_node node_cores] stores the topology. [distances] is a square
       matrix [d] where [d.(i).(j)] is an approximation to how much slower it is
       to access memory from node [j] when running on node [i]. Distances are
       normalized to 10, [d.(i).(i)] must equal to 10, and all values must be >=
@@ -94,6 +109,7 @@ module NUMA : sig
       in Xen and then to -1 by the bindings).
 
       [cpu_to_nodes.(i)] = NUMA node of CPU [i]
+      [node_cores.(i)] = number of cores on NUMA node [i]
 
       NUMA nodes without any CPUs are accepted (to handle hard affinities).
 

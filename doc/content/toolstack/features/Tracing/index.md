@@ -81,13 +81,16 @@ and also assist newcomers in onboarding to the project.
 
 By default, traces are generated locally in the `/var/log/dt` directory. You can copy or forward
 these traces to another location or endpoint using the `xs-trace` tool. For example, if you have
-a *Jaeger* server running locally, you can run:
+a *Jaeger* server running locally, you can copy a trace to an endpoint by running:
 
 ```sh
-xs-trace /var/log/dt/ http://127.0.0.1:9411/api/v2/spans
+xs-trace cp /var/log/dt/ http://127.0.0.1:9411/api/v2/spans
 ```
 
 You will then be able to visualize the traces in Jaeger.
+
+The `xs-trace` tool also supports trace files in `.ndjson` and compressed `.zst` formats, so
+you can copy or forward these files directly as well.
 
 ### Tagging Trace Sessions for Easier Search
 

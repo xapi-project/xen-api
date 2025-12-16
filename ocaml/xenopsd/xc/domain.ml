@@ -908,8 +908,18 @@ let numa_hierarchy =
   lazy
     (let xcext = get_handle () in
      let distances = (numainfo xcext).distances in
-     let cpu_to_node = cputopoinfo xcext |> Array.map (fun t -> t.node) in
-     NUMA.make ~distances ~cpu_to_node
+     let topoinfo = cputopoinfo xcext in
+     let core t = t.core and node t = t.node in
+     let cpu_to_node = topoinfo |> Array.map node
+     and node_cores =
+       let module IntSet = Set.Make (Int) in
+       let a = Array.make (Array.length distances) IntSet.empty in
+       Array.iter
+         (fun t -> a.(node t) <- IntSet.add (core t) a.(node t))
+         topoinfo ;
+       Array.map IntSet.cardinal a
+     in
+     NUMA.make ~distances ~cpu_to_node ~node_cores
     )
 
 let numa_mutex = Mutex.create ()
@@ -935,40 +945,48 @@ let set_affinity = function
   | Xenops_server.Soft ->
       Xenctrlext.vcpu_setaffinity_soft
 
-let numa_placement domid ~vcpus ~memory affinity =
+let numa_placement domid ~vcpus ~cores ~memory affinity =
   let open Xenctrlext in
   let open Topology in
   with_lock numa_mutex (fun () ->
       let ( let* ) = Option.bind in
       let xcext = get_handle () in
       let* host = Lazy.force numa_hierarchy in
-      let numa_meminfo = (numainfo xcext).memory |> Array.to_list in
+      let numa_meminfo = (numainfo xcext).memory |> Array.to_seq in
       let nodes =
-        ListLabels.map2
-          (NUMA.nodes host |> List.of_seq)
-          numa_meminfo
-          ~f:(fun node m -> NUMA.resource host node ~memory:m.memfree)
+        Seq.map2
+          (fun node m -> NUMA.resource host node ~memory:m.memfree)
+          (NUMA.nodes host) numa_meminfo
       in
-      let vm = NUMARequest.make ~memory ~vcpus in
+      let vm = NUMARequest.make ~memory ~vcpus ~cores in
       let nodea =
         match !numa_resources with
         | None ->
-            Array.of_list nodes
+            Array.of_seq nodes
         | Some a ->
-            Array.map2 NUMAResource.min_memory (Array.of_list nodes) a
+            Array.map2 NUMAResource.min_memory (Array.of_seq nodes) a
       in
       numa_resources := Some nodea ;
-      let memory_plan =
+      let cpu_affinity, memory_plan =
         match Softaffinity.plan ~vm host nodea with
         | None ->
             D.debug "NUMA-aware placement failed for domid %d" domid ;
-            []
+            (None, [])
         | Some (cpu_affinity, mem_plan) ->
+            (Some cpu_affinity, mem_plan)
+      in
+      let set_vcpu_affinity = function
+        | None ->
+            D.debug "%s: not setting vcpu affinity for domain %d" __FUNCTION__
+              domid
+        | Some cpu_affinity ->
+            D.debug "%s: setting vcpu affinity for domain %d: %s" __FUNCTION__
+              domid
+              (Fmt.to_to_string CPUSet.pp_dump cpu_affinity) ;
             let cpus = CPUSet.to_mask cpu_affinity in
             for i = 0 to vcpus - 1 do
               set_affinity affinity xcext domid i cpus
-            done ;
-            mem_plan
+            done
       in
       (* Xen only allows a single node when using memory claims, or none at all. *)
       let* numa_node, node =
@@ -985,6 +1003,7 @@ let numa_placement domid ~vcpus ~memory affinity =
       let nr_pages = Int64.div memory 4096L |> Int64.to_int in
       try
         Xenctrlext.domain_claim_pages xcext domid ~numa_node nr_pages ;
+        set_vcpu_affinity cpu_affinity ;
         Some (node, memory)
       with
       | Xenctrlext.Not_available ->
@@ -1080,16 +1099,17 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
     match !Xenops_server.numa_placement with
     | Any ->
         None
-    | (Best_effort | Best_effort_hard) as pin ->
+    | (Best_effort | Best_effort_hard | Prio_mem_only) as pin ->
         log_reraise (Printf.sprintf "NUMA placement") (fun () ->
             if hard_affinity <> [] then (
               D.debug "VM has hard affinity set, skipping NUMA optimization" ;
               None
             ) else
-              let affinity =
-                Xenops_server.affinity_of_numa_affinity_policy pin
+              let affinity = Xenops_server.affinity_of_numa_affinity_policy pin
+              and cores =
+                Xenops_server.cores_of_numa_affinity_policy pin ~vcpus
               in
-              numa_placement domid ~vcpus
+              numa_placement domid ~vcpus ~cores
                 ~memory:(Int64.mul memory.xen_max_mib 1048576L)
                 affinity
               |> Option.map fst
@@ -1352,6 +1372,19 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
   let local_stuff = console_keys console_port console_mfn in
   build_post ~xc ~xs ~target_mib ~static_max_mib domid domain_type store_mfn
     store_port local_stuff vm_stuff
+
+let resume_post ~xc:_ ~xs domid =
+  let dom_path = xs.Xs.getdomainpath domid in
+  let store_mfn_s = xs.Xs.read (dom_path ^ "/store/ring-ref") in
+  let store_mfn = Nativeint.of_string store_mfn_s in
+  let store_port = int_of_string (xs.Xs.read (dom_path ^ "/store/port")) in
+  xs.Xs.introduce domid store_mfn store_port
+
+let resume (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~domain_type
+    domid =
+  Xenctrl.domain_resume_fast xc domid ;
+  resume_post ~xc ~xs domid ;
+  if domain_type = `hvm then Device.Dm.resume task ~xs ~qemu_domid domid
 
 type suspend_flag = Live | Debug
 

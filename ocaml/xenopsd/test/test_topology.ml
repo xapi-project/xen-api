@@ -58,25 +58,35 @@ module Distances = struct
     (numa, distances)
 end
 
-let make_numa_common ~cores_per_numa (distances : Distances.t) =
+let make_numa_common ~logical_per_physical ~cores_per_numa
+    (distances : Distances.t) =
+  (* cores_per_numa refers to logical cores, i.e. cpus *)
   let numa, distances = distances in
   let cpu_to_node =
-    Array.init (cores_per_numa * numa) (fun core -> core / cores_per_numa)
+    Array.init (cores_per_numa * numa) (fun cpu -> cpu / cores_per_numa)
+  and node_cores =
+    (* core here refers to physical *)
+    Array.init numa (fun _ -> cores_per_numa / logical_per_physical)
   in
   Option.map
     (fun d -> (cores_per_numa * numa, d))
-    (NUMA.make ~distances ~cpu_to_node)
+    (NUMA.make ~distances ~cpu_to_node ~node_cores)
 
 let make_numa ~numa ~cores =
   let cores_per_numa = cores / numa in
-  match make_numa_common ~cores_per_numa (Distances.example numa) with
+  match
+    make_numa_common ~logical_per_physical:2 ~cores_per_numa
+      (Distances.example numa)
+  with
   | None ->
       Alcotest.fail "Synthetic matrix can't fail to load"
   | Some d ->
       d
 
 let make_numa_amd ~cores_per_numa =
-  match make_numa_common ~cores_per_numa Distances.opteron with
+  match
+    make_numa_common ~cores_per_numa ~logical_per_physical:2 Distances.opteron
+  with
   | None ->
       Alcotest.fail "Synthetic matrix can't fail to load"
   | Some d ->
@@ -206,7 +216,7 @@ let test_allocate ?(mem = default_mem) (expected_cores, h) ~vms () =
   |> List.fold_left
        (fun (costs_old, costs_new, plans) i ->
          D.debug "Planning VM %d" i ;
-         let vm = NUMARequest.make ~memory:mem ~vcpus:vm_cores in
+         let vm = NUMARequest.make ~memory:mem ~vcpus:vm_cores ~cores:0 in
          match Softaffinity.plan h nodes ~vm with
          | None ->
              Alcotest.fail "No NUMA plan"
@@ -304,7 +314,9 @@ let distances_tests =
   in
   let test_of_spec (name, distances, expected) =
     let test () =
-      let numa_t = make_numa_common ~cores_per_numa:1 distances in
+      let numa_t =
+        make_numa_common ~logical_per_physical:1 ~cores_per_numa:1 distances
+      in
       match (expected, numa_t) with
       | None, None ->
           ()

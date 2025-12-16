@@ -28,19 +28,16 @@ let comment doc ?(indent = 0) s =
   let buf = Buffer.create 16 in
   let formatter = Format.formatter_of_buffer buf in
   let open Format in
-  let out, flush, newline, spaces =
-    let funcs = Format.pp_get_formatter_out_functions formatter () in
-    (funcs.out_string, funcs.out_flush, funcs.out_newline, funcs.out_spaces)
-  in
-
+  let funcs = Format.pp_get_formatter_out_functions formatter () in
+  let original_out_newline = funcs.out_newline in
   let funcs =
     {
-      out_string= out
-    ; out_flush= flush
-    ; out_newline=
-        (fun () -> out (Printf.sprintf "\n%s * " indent_str) 0 (indent + 4))
-    ; out_spaces= spaces
-    ; out_indent= spaces
+      funcs with
+      out_newline=
+        (fun () ->
+          funcs.out_string (Printf.sprintf "\n%s * " indent_str) 0 (indent + 4)
+        )
+    ; out_indent= funcs.out_spaces
     }
   in
   Format.pp_set_formatter_out_functions formatter funcs ;
@@ -61,7 +58,7 @@ let comment doc ?(indent = 0) s =
   Format.fprintf formatter "%!" ;
 
   Format.pp_set_formatter_out_functions formatter
-    {funcs with out_newline= newline} ;
+    {funcs with out_newline= original_out_newline} ;
 
   let result = Buffer.contents buf in
   let n = String.length result in

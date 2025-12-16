@@ -1133,6 +1133,8 @@ let xapi_requests_cgroup =
 
 let genisoimage_path = ref "/usr/bin/genisoimage"
 
+let https_only = ref false
+
 (* Event.{from,next} batching delays *)
 let make_batching name ~delay_before ~delay_between =
   let name = Printf.sprintf "%s_delay" name in
@@ -1833,6 +1835,11 @@ let other_options =
     , Arg.Set_int max_span_depth
     , (fun () -> string_of_int !max_span_depth)
     , "The maximum depth to which spans are recorded in a trace in Tracing"
+    )
+  ; ( "https-only-default"
+    , Arg.Set https_only
+    , (fun () -> string_of_bool !https_only)
+    , "Only expose HTTPS service, disable HTTP/80 in firewall when set to true"
     )
   ; ( "firewall-backend"
     , Arg.String
