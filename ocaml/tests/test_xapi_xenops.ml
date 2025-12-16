@@ -28,6 +28,9 @@ let make_xenops_state ~power_state ?(last_start_time = 0.0) () =
   ; nested_virt= false
   ; domain_type= Domain_PV
   ; featureset= ""
+  ; numa_optimised= false
+  ; numa_nodes= 0
+  ; numa_node_memory= []
   }
 
 (** Helper to set up VM for testing: sets pending guidances, resident host, and power state *)
