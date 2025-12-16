@@ -184,7 +184,8 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
       ~last_update_hash ~ssh_enabled ~ssh_enabled_timeout ~ssh_expiry
       ~console_idle_timeout ~ssh_auto_mode ~secure_boot
       ~software_version:(Xapi_globs.software_version ())
-      ~https_only
+      ~https_only ~max_cstate:"" ~ntp_mode:`Factory ~ntp_custom_servers:[]
+      ~timezone:"UTC"
   in
   Db.Host.set_cpu_info ~__context ~self:host ~value:default_cpu_info ;
   host

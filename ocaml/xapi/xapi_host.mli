@@ -139,6 +139,10 @@ val create :
   -> secure_boot:bool
   -> software_version:(string * string) list
   -> https_only:bool
+  -> max_cstate:string
+  -> ntp_mode:API.host_ntp_mode
+  -> ntp_custom_servers:string list
+  -> timezone:string
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit
