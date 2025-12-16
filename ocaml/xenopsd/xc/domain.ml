@@ -1110,7 +1110,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
                 Xenops_server.cores_of_numa_affinity_policy pin ~vcpus
               in
               numa_placement domid ~vcpus ~cores
-                ~memory:(Int64.mul memory.xen_max_mib 1048576L)
+                ~memory:(Int64.mul memory.required_host_free_mib 1048576L)
                 affinity
               |> Option.map fst
         )
