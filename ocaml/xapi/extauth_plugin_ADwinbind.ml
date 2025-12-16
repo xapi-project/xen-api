@@ -36,9 +36,14 @@ let ( <!> ) x f = Rresult.R.reword_error f x
 
 let ( >>| ) = Rresult.( >>| )
 
+let min_debug_level = 0
+
 let max_debug_level = 10
 
 let default_debug_level = 2
+
+let clamp v ~low ~high ~default =
+  match v with n when n >= low && n <= high -> n | _ -> default
 
 let maybe_raise (x : ('a, exn) result) : 'a =
   match x with Ok x -> x | Error e -> raise e
@@ -69,13 +74,10 @@ let tdb_tool = !Xapi_globs.tdb_tool
 
 let domain_krb5_dir = Filename.concat Xapi_globs.samba_dir "lock/smb_krb5"
 
-let debug_level =
-  ( match !Xapi_globs.winbind_debug_level with
-  | n when n >= 0 && n <= max_debug_level ->
-      n
-  | _ ->
-      default_debug_level
-  )
+let debug_level () =
+  clamp
+    !Xapi_globs.winbind_debug_level
+    ~low:min_debug_level ~high:max_debug_level ~default:default_debug_level
   |> string_of_int
 
 let err_msg_to_tag_map =
@@ -108,8 +110,11 @@ let is_samba_updated =
 let kerberos_opt =
   match is_samba_updated with true -> [] | false -> ["--kerberos"]
 
-(* Global cache for netbios name to domain name mapping *)
-let domain_netbios_name_map : (string, string) Hashtbl.t = Hashtbl.create 10
+(* Global cache for netbios name to domain name mapping using atomic map for thread safety *)
+module StringMap = Map.Make (String)
+
+let domain_netbios_name_map : string StringMap.t Atomic.t =
+  Atomic.make StringMap.empty
 
 let krb5_conf_path ~domain_netbios =
   Filename.concat domain_krb5_dir (Printf.sprintf "krb5.conf.%s" domain_netbios)
@@ -414,7 +419,7 @@ module Ldap = struct
           ; "sid"
           ; sid
           ; "-d"
-          ; debug_level
+          ; debug_level ()
           ; "--server"
           ; kdc
           ; "--machine-pass"
@@ -438,7 +443,7 @@ module Ldap = struct
         domain_netbios
     in
     let args =
-      ["ads"; "search"; "-d"; debug_level; "--machine-pass"; query; key]
+      ["ads"; "search"; "-d"; debug_level (); "--machine-pass"; query; key]
     in
     try
       Helpers.call_script ~env !Xapi_globs.net_cmd args
@@ -452,7 +457,7 @@ module Ldap = struct
     (* Escape name to avoid injection detection *)
     let query = Printf.sprintf "(|(sAMAccountName=%s)(name=%s))" name name in
     let args =
-      ["ads"; "search"; "-d"; debug_level; "--server"; kdc; "--machine-pass"]
+      ["ads"; "search"; "-d"; debug_level (); "--server"; kdc; "--machine-pass"]
       @ kerberos_opt
       @ [query; key]
     in
@@ -741,7 +746,7 @@ end
 let kdcs_of_domain domain =
   try
     Helpers.call_script ~log_output:On_failure net_cmd
-      (["lookup"; "kdc"; domain; "-d"; debug_level] @ kerberos_opt)
+      (["lookup"; "kdc"; domain; "-d"; debug_level ()] @ kerberos_opt)
     (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
     |> String.split_on_char '\n'
     |> List.filter (fun x -> String.trim x <> "") (* Remove empty lines *)
@@ -755,7 +760,9 @@ let workgroup_from_server kdc =
   let key = "Pre-Win2k Domain" in
   try
     Helpers.call_script ~log_output:On_failure net_cmd
-      (["ads"; "lookup"; "-S"; KDC.server kdc; "-d"; debug_level] @ kerberos_opt)
+      (["ads"; "lookup"; "-S"; KDC.server kdc; "-d"; debug_level ()]
+      @ kerberos_opt
+      )
     |> Xapi_cmd_result.of_output ~sep:':' ~key
     |> Result.ok
   with _ ->
@@ -829,8 +836,8 @@ let config_winbind_daemon ~workgroup ~netbios_name ~domain =
         ; Printf.sprintf "workgroup = %s" wkgroup
         ; Printf.sprintf "netbios name = %s" netbios
         ; "idmap config * : backend = autorid"
-        ; "idmap config * : range = 2000000-99999999"
-        ; Printf.sprintf "log level = %s" debug_level
+        ; Printf.sprintf "idmap config * : range = %d-%d" 2_000_000 99_999_999
+        ; Printf.sprintf "log level = %s" (debug_level ())
         ; "" (* Empty line at the end *)
         ]
   | _ ->
@@ -910,7 +917,9 @@ let clear_machine_account ~service_name = function
   | Some u, Some p -> (
       (* Disable machine account in DC *)
       let env = [|Printf.sprintf "PASSWD=%s" p|] in
-      let args = ["ads"; "leave"; "-U"; u; "-d"; debug_level] @ kerberos_opt in
+      let args =
+        ["ads"; "leave"; "-U"; u; "-d"; debug_level ()] @ kerberos_opt
+      in
       try
         Helpers.call_script ~env net_cmd args |> ignore ;
         debug "Succeed to clear the machine account for domain %s" service_name
@@ -1079,7 +1088,7 @@ module Winbind = struct
           ; "set"
           ; "--machine-pass"
           ; "-d"
-          ; debug_level
+          ; debug_level ()
           ; Printf.sprintf "%s$" netbios_name
           ; Printf.sprintf "%d"
               (Kerberos_encryption_types.Winbind.to_encoding
@@ -1305,8 +1314,17 @@ let domain_name_of_netbios netbios =
   (*
    * Query the domain name from netbios name with caching
    * Check cache first, if not found, perform LDAP query and cache the result
+   * Thread-safe using atomic map
    *)
-  match Hashtbl.find_opt domain_netbios_name_map netbios with
+  let cache_domain netbios domain_name current_map =
+    let new_map = StringMap.add netbios domain_name current_map in
+    if Atomic.compare_and_set domain_netbios_name_map current_map new_map = true
+    then (* Just ignore it if update fail, as it will be cached next time *)
+      debug "Cached netbios '%s' -> domain '%s'" netbios domain_name
+  in
+
+  let current_map = Atomic.get domain_netbios_name_map in
+  match StringMap.find_opt netbios current_map with
   | Some domain_name ->
       debug "Cache hit for netbios '%s' -> domain '%s'" netbios domain_name ;
       Ok domain_name
@@ -1314,17 +1332,15 @@ let domain_name_of_netbios netbios =
       let {service_name; workgroup; _} = get_domain_info_from_db () in
       match netbios = Option.value workgroup ~default:"" with
       | true ->
-          Hashtbl.replace domain_netbios_name_map netbios service_name ;
-          debug "Cached netbios '%s' -> domain '%s' as joined domain" netbios
-            service_name ;
+          cache_domain netbios service_name current_map ;
+          debug "Netbios '%s' is the joined domain" netbios ;
           Ok service_name (* It is joined domain *)
       | false ->
           debug "Cache miss for netbios '%s', performing LDAP query" netbios ;
           let result = Ldap.query_trusted_domain_name netbios in
           ( match result with
           | Ok domain_name ->
-              Hashtbl.replace domain_netbios_name_map netbios domain_name ;
-              debug "Cached netbios '%s' -> domain '%s'" netbios domain_name
+              cache_domain netbios domain_name current_map
           | Error _ ->
               debug "Failed to query domain name for netbios '%s'" netbios
           ) ;
@@ -1358,7 +1374,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
           )
         in
         (* Query kdc of the domain, so user in trusted domain is supported as well *)
-        let* kdc = Wbinfo.kdc_of_domain (Result.get_ok domain) in
+        let* kdc = Wbinfo.kdc_of_domain (domain |> maybe_raise) in
         Ldap.query_sid ~name ~kdc
 
   (* subject_id get_subject_identifier(string subject_name)
@@ -1442,18 +1458,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let sam_uname = user_name in
     let* domain_netbios, user = user_of_sam user_name in
     (* permit unnkown domain if ldap query failed, update subject task will update it later *)
-    let unkown_domain = "Unkown_domain" in
-    let domain =
-      match domain_name_of_netbios domain_netbios with
-      | Ok domain_name ->
-          Some domain_name
-      | Error _ ->
-          debug
-            "Failed to query domain name for netbios '%s', using '%s as \
-             fallback"
-            domain_netbios unkown_domain ;
-          None
-    in
+    let domain = domain_name_of_netbios domain_netbios |> Result.to_option in
     let default_account =
       Ldap.
         {
@@ -1512,8 +1517,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         , if upn <> "" then
             upn
           else
-            Printf.sprintf "%s@%s" user
-              (Option.value domain ~default:unkown_domain)
+            Printf.sprintf "%s@%s" user (Option.value domain ~default:"unknown")
         )
       ; ("subject-account-disabled", string_of_bool account_disabled)
       ; ("subject-account-locked", string_of_bool account_locked)
@@ -1622,7 +1626,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         ; "-n"
         ; netbios_name
         ; "-d"
-        ; debug_level
+        ; debug_level ()
         ; "--no-dns-updates"
         ]
         @ kerberos_opt
