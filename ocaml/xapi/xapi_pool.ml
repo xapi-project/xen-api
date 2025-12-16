@@ -1063,6 +1063,11 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~software_version:host.API.host_software_version
           ~https_only:host.API.host_https_only
           ~numa_affinity_policy:host.API.host_numa_affinity_policy
+          ~latest_synced_updates_applied:
+            host.API.host_latest_synced_updates_applied
+          ~pending_guidances_full:host.API.host_pending_guidances_full
+          ~pending_guidances_recommended:
+            host.API.host_pending_guidances_recommended
       in
       (* Copy other-config into newly created host record: *)
       no_exn
