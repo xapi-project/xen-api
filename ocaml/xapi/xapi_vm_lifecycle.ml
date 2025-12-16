@@ -909,6 +909,9 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
     (* Blank the requires_reboot flag *)
     Db.VM.set_requires_reboot ~__context ~self ~value:false ;
     remove_pending_guidance ~__context ~self ~value:`restart_device_model ;
+    (* Always remove RestartVM guidance when VM becomes Halted: VM.start_on checks
+       host version via assert_host_has_highest_version_in_pool, preventing the VM
+       from starting on an outdated host, so it will necessarily start on an up-to-date host *)
     remove_pending_guidance ~__context ~self ~value:`restart_vm
   ) ;
   (* Do not clear resident_on for VM and VGPU in a checkpoint operation *)

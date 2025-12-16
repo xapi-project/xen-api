@@ -66,6 +66,7 @@ let create_localhost ~__context info =
         ~console_idle_timeout:Constants.default_console_idle_timeout
         ~ssh_auto_mode:!Xapi_globs.ssh_auto_mode_default
         ~secure_boot:false ~software_version:[]
+        ~https_only:!Xapi_globs.https_only ~numa_affinity_policy:`default_policy
     in
     ()
 
