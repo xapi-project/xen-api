@@ -138,21 +138,34 @@ let submit t ~user_agent ~callback amount =
             if need_signal then Condition.signal worker_thread_cond
       )
 
+(* Block and execute on the same thread *)
 let submit_sync t ~user_agent ~callback amount =
-  let result = ref None in
-  let mutex = Mutex.create () in
-  let condition = Condition.create () in
-  let wrapped_callback () =
-    let r = callback () in
-    Mutex.lock mutex ;
-    result := Some r ;
-    Condition.signal condition ;
-    Mutex.unlock mutex
-  in
-  submit t ~user_agent ~callback:wrapped_callback amount ;
-  Mutex.lock mutex ;
-  while Option.is_none !result do
-    Condition.wait condition mutex
-  done ;
-  Mutex.unlock mutex ;
-  Option.get !result
+  let map = Atomic.get t in
+  match StringMap.find_opt user_agent map with
+  | None ->
+      callback ()
+  | Some bucket_data -> (
+      let channel_opt =
+        with_lock bucket_data.process_queue_lock (fun () ->
+            if
+              Queue.is_empty bucket_data.process_queue
+              && Token_bucket.consume bucket_data.bucket amount
+            then
+              None (* Can run callback immediately after releasing lock *)
+            else
+              (* Rate limited, need to retrieve function result via channel *)
+              let channel = Event.new_channel () in
+              Queue.add
+                (amount, fun () -> Event.sync (Event.send channel ()))
+                bucket_data.process_queue ;
+              Condition.signal bucket_data.worker_thread_cond ;
+              Some channel
+        )
+      in
+      match channel_opt with
+      | None ->
+          callback ()
+      | Some channel ->
+          Event.sync (Event.receive channel) ;
+          callback ()
+    )
