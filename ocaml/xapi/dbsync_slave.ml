@@ -68,6 +68,9 @@ let create_localhost ~__context info =
         ~secure_boot:false ~software_version:[]
         ~https_only:!Xapi_globs.https_only ~max_cstate:"" ~ntp_mode:`Factory
         ~ntp_custom_servers:[] ~timezone:"UTC"
+        ~numa_affinity_policy:`default_policy
+        ~latest_synced_updates_applied:`unknown ~pending_guidances_full:[]
+        ~pending_guidances_recommended:[]
     in
     ()
 

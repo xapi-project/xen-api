@@ -29,6 +29,9 @@ let add_host __context name =
        ~software_version:(Xapi_globs.software_version ())
        ~https_only:false ~max_cstate:"" ~ntp_mode:`Factory
        ~ntp_custom_servers:[] ~timezone:"UTC"
+       ~numa_affinity_policy:`default_policy
+       ~latest_synced_updates_applied:`unknown ~pending_guidances_full:[]
+       ~pending_guidances_recommended:[]
     )
 
 (* Creates an unlicensed pool with the maximum number of hosts *)
