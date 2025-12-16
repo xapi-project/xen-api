@@ -143,6 +143,10 @@ val create :
   -> ntp_mode:API.host_ntp_mode
   -> ntp_custom_servers:string list
   -> timezone:string
+  -> numa_affinity_policy:API.host_numa_affinity_policy
+  -> latest_synced_updates_applied:API.latest_synced_updates_applied_state
+  -> pending_guidances_full:API.update_guidances_set
+  -> pending_guidances_recommended:API.update_guidances_set
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit

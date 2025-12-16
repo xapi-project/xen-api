@@ -1030,7 +1030,9 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~ssl_legacy:_ ~last_software_update ~last_update_hash ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
     ~secure_boot ~software_version ~https_only ~max_cstate ~ntp_mode
-    ~ntp_custom_servers ~timezone =
+    ~ntp_custom_servers ~timezone ~numa_affinity_policy
+    ~latest_synced_updates_applied ~pending_guidances_full
+    ~pending_guidances_recommended =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
      pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
      the initial setup of the database *)
@@ -1074,8 +1076,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~name_label ~uuid ~other_config:[] ~capabilities:[]
     ~cpu_configuration:[] (* !!! FIXME hard coding *)
     ~cpu_info:[] ~chipset_info ~memory_overhead:0L
-    ~sched_policy:"credit" (* !!! FIXME hard coding *)
-    ~numa_affinity_policy:`default_policy
+    ~sched_policy:"credit" (* !!! FIXME hard coding *) ~numa_affinity_policy
     ~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
     ~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null ~logging:[] ~hostname
     ~address ~metrics ~license_params ~boot_free_mem:0L ~ha_statefiles:[]
@@ -1092,8 +1093,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
     ~tls_verification_enabled ~last_software_update ~last_update_hash
-    ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
-    ~pending_guidances_recommended:[] ~pending_guidances_full:[] ~ssh_enabled
+    ~recommended_guidances:[] ~latest_synced_updates_applied
+    ~pending_guidances_recommended ~pending_guidances_full ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
     ~max_cstate ~secure_boot ~ntp_mode ~ntp_custom_servers ~timezone ;
   (* If the host we're creating is us, make sure its set to live *)
