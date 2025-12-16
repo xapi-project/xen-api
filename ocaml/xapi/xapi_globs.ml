@@ -1631,7 +1631,7 @@ let other_options =
   ; ( "winbind_scan_trusted_domains"
     , Arg.Set winbind_scan_trusted_domains
     , (fun () -> string_of_bool !winbind_scan_trusted_domains)
-    , "Whether periodically scan for new trusted domains"
+    , "Whether to periodically scan trusted domains"
     )
   ; ( "winbind_keep_configuration"
     , Arg.Set winbind_keep_configuration
