@@ -1057,7 +1057,7 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
               __FUNCTION__ domid ;
             None
       in
-      let nr_pages = Int64.div memory 4096L |> Int64.to_int in
+      let nr_pages = Memory.pages_of_bytes_used memory |> Int64.to_int in
       try
         D.debug "NUMAClaim domid %d: local claim on node %d: %d pages" domid
           node nr_pages ;
@@ -1170,10 +1170,31 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
               and cores =
                 Xenops_server.cores_of_numa_affinity_policy pin ~vcpus
               in
-              numa_placement domid ~vcpus ~cores
-                ~memory:(Int64.mul memory.xen_max_mib 1048576L)
-                affinity
-              |> Option.map fst
+              let memory = Memory.bytes_of_pages memory.build_claim_pages in
+              match numa_placement domid ~vcpus ~cores ~memory affinity with
+              | None ->
+                  (* Always perform a global claim when NUMA placement is
+                     enabled, and single node claims failed or were
+                     unavailable:
+                     This tries to ensures that memory allocated for this
+                     domain won't use up memory claimed by other domains.
+                     If claims are mixed with non-claims then Xen can't
+                     currently guarantee that it would honour the existing
+                     claims.
+                     A failure here is a hard failure: we'd fail allocating
+                     memory later anyway
+                  *)
+                  let nr_pages =
+                    Memory.pages_of_bytes_used memory |> Int64.to_int
+                  in
+                  let xcext = Xenctrlext.get_handle () in
+                  D.debug "NUMAClaim domid %d: global claim: %d pages" domid
+                    nr_pages ;
+                  Xenctrlext.domain_claim_pages xcext domid
+                    ~numa_node:Xenctrlext.NumaNode.none nr_pages ;
+                  None
+              | Some (plan, _) ->
+                  Some plan
         )
   in
   let store_chan, console_chan = create_channels ~xc uuid domid in
