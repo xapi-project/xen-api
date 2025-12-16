@@ -1209,6 +1209,17 @@ let license_remove =
        to the unlicensed edition"
     ~allowed_roles:_R_POOL_OP ()
 
+let host_ntp_mode =
+  Enum
+    ( "host_ntp_mode"
+    , [
+        ("DHCP", "Using NTP servers assigned by DHCP to sync time")
+      ; ("Custom", "Using custom NTP servers configured by user to sync time")
+      ; ("Factory", "Using built-in NTP servers to sync time")
+      ; ("Disabled", "NTP is disabled on the host")
+      ]
+    )
+
 let create_params =
   [
     {
@@ -1405,6 +1416,41 @@ let create_params =
         "updates firewall to open or close port 80 depending on the value"
     ; param_release= numbered_release "25.38.0-next"
     ; param_default= Some (VBool false)
+    }
+  ; {
+      param_type= String
+    ; param_name= "max_cstate"
+    ; param_doc=
+        "The maximum C-state that the host is allowed to enter, \"\" means \
+         unlimited; \"N\" means limit to CN; \"N,M\" means limit to CN with \
+         max sub cstate M."
+    ; param_release= numbered_release "25.38.0-next"
+    ; param_default= Some (VString "")
+    }
+  ; {
+      param_type= host_ntp_mode
+    ; param_name= "ntp_mode"
+    ; param_doc=
+        "Indicates NTP servers are assigned by DHCP, or configured by user, or \
+         the factory servers, or NTP is disabled"
+    ; param_release= numbered_release "25.38.0-next"
+    ; param_default= Some (VEnum "Factory")
+    }
+  ; {
+      param_type= Set String
+    ; param_name= "ntp_custom_servers"
+    ; param_doc=
+        "Custom NTP servers configured by users, used in Custom NTP mode"
+    ; param_release= numbered_release "25.38.0-next"
+    ; param_default= Some (VSet [])
+    }
+  ; {
+      param_type= String
+    ; param_name= "timezone"
+    ; param_doc=
+        "The time zone identifier as defined in the IANA Time Zone Database"
+    ; param_release= numbered_release "25.38.0-next"
+    ; param_default= Some (VString "UTC")
     }
   ]
 
@@ -2583,17 +2629,6 @@ let set_max_cstate =
       ; (String, "value", "The max_cstate to apply to a host")
       ]
     ~allowed_roles:_R_POOL_OP ()
-
-let host_ntp_mode =
-  Enum
-    ( "host_ntp_mode"
-    , [
-        ("DHCP", "Using NTP servers assigned by DHCP to sync time")
-      ; ("Custom", "Using custom NTP servers configured by user to sync time")
-      ; ("Factory", "Using built-in NTP servers to sync time")
-      ; ("Disabled", "NTP is disabled on the host")
-      ]
-    )
 
 let set_ntp_mode =
   call ~name:"set_ntp_mode" ~lifecycle:[] ~doc:"Set the NTP mode for the host"

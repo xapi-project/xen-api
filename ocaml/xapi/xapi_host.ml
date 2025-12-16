@@ -1029,7 +1029,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
     ~ssl_legacy:_ ~last_software_update ~last_update_hash ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
-    ~secure_boot ~software_version ~https_only =
+    ~secure_boot ~software_version ~https_only ~max_cstate ~ntp_mode
+    ~ntp_custom_servers ~timezone =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
      pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
      the initial setup of the database *)
@@ -1094,8 +1095,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
     ~pending_guidances_recommended:[] ~pending_guidances_full:[] ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
-    ~max_cstate:"" ~secure_boot ~ntp_mode:`Factory ~ntp_custom_servers:[]
-    ~timezone:"UTC" ;
+    ~max_cstate ~secure_boot ~ntp_mode ~ntp_custom_servers ~timezone ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
