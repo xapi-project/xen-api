@@ -57,6 +57,16 @@ module List = struct
 
   let mapi_tr f l = rev (rev_mapi f l)
 
+  let try_map f l =
+    let rec loop acc = function
+      | [] ->
+          Ok (List.rev acc)
+      | x :: xs -> (
+        match f x with Ok x -> loop (x :: acc) xs | Error _ as e -> e
+      )
+    in
+    loop [] l
+
   let take n list =
     let rec loop i acc = function
       | x :: xs when i < n ->
