@@ -35,6 +35,12 @@ let test_error tested_f (name, case, expected) =
   let check () = Alcotest.check_raises name expected (tested_f case) in
   (name, `Quick, check)
 
+let test_try_map tested_f (name, case, expected) =
+  let check () =
+    Alcotest.(check @@ result (list int) int) name expected (tested_f case)
+  in
+  (name, `Quick, check)
+
 let test_iteri_right =
   let specs =
     [
@@ -160,6 +166,29 @@ let test_split_at =
   let tests = List.map test specs in
   ("split_at", tests)
 
+let test_try_map =
+  let only_positive = function i when i >= 0 -> Ok i | i -> Error i in
+  let specs =
+    [
+      ([], Ok [])
+    ; ([0; 1], Ok [0; 1])
+    ; ([-1], Error (-1))
+    ; ([-2; 0], Error (-2))
+    ; ([0; -3], Error (-3))
+    ; ([-4; -3], Error (-4))
+    ]
+  in
+  let test (lst, expected) =
+    let name =
+      Printf.sprintf "try_map only_positive [%s]"
+        (String.concat "; " (List.map string_of_int lst))
+    in
+    test_try_map (Listext.try_map only_positive) (name, lst, expected)
+  in
+
+  let tests = List.map test specs in
+  ("try_map", tests)
+
 let test_find_minimum (name, pp, typ, specs) =
   let test ((cmp, cmp_name), input, expected) =
     let name = Printf.sprintf "%s of [%s]" cmp_name (pp input) in
@@ -215,6 +244,7 @@ let () =
     ; test_drop
     ; test_last
     ; test_split_at
+    ; test_try_map
     ; test_find_minimum_int
     ; test_find_minimum_tuple
     ]

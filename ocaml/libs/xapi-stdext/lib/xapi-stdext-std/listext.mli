@@ -37,6 +37,11 @@ module List : sig
   (** [last l] returns the last element of a list or raise Invalid_argument if 
     the list is empty *)
 
+  val try_map : ('a -> ('b, 'c) result) -> 'a list -> ('b list, 'c) result
+  (** [try_map f l] applies [f] to all elements of [l] in turn. Returns the
+      first [Error] result encountered or, if no errors were produced, returns
+      all the [Ok] results. *)
+
   val rev_mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
   (** [rev_map f l] gives the same result as {!Stdlib.List.rev}[ (]
       {!Stdlib.List.mapi}[ f l)], but is tail-recursive and more efficient. *)
