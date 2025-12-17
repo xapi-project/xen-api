@@ -1318,8 +1318,9 @@ let domain_name_of_netbios netbios =
    *)
   let cache_domain netbios domain_name current_map =
     let new_map = StringMap.add netbios domain_name current_map in
+    (* Just ignore it if the update fails, as it will be cached next time *)
     if Atomic.compare_and_set domain_netbios_name_map current_map new_map = true
-    then (* Just ignore it if update fail, as it will be cached next time *)
+    then
       debug "Cached netbios '%s' -> domain '%s'" netbios domain_name
   in
 

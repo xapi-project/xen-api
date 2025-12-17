@@ -818,9 +818,10 @@ module MIRROR : SMAPIv2_MIRROR = struct
     let start = Mtime_clock.counter () in
     State.find_active_local_mirror id
     |> Option.iter (fun s ->
-           (* We used to pause here and then check the nbd_mirror_failed key. Now, we poll
-              					   until the number of outstanding requests has gone to zero, then check the
-              					   status. This avoids confusing the backend (CA-128460) *)
+           (* We used to pause here and then check the nbd_mirror_failed key.
+              Now, we poll until the number of outstanding requests has gone to
+              zero, then check the status. This avoids confusing the backend
+              (CA-128460) *)
            try
              match s.tapdev with
              | None ->

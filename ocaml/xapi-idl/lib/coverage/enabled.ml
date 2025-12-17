@@ -103,12 +103,12 @@ module Dispatcher = struct
             |> (* filter out ourselves *)
             List.filter (fun q -> self <> q)
             |> (* best-effort: collect and return all non-failed results, log
-                                    errors *)
+                           errors *)
             List.rev_map (rpc_ignore_err ~t ~body)
             |> (* multiple return values converted to a single string, suitable
-                                    for use in a command like: mv $(message-cli call
-                                    org.xen.xapi.coverage.dispatch --timeout 60 --body 'dump
-                                    {jobid}') /tmp/coverage/ *)
+                           for use in a command like: mv $(message-cli call
+                            org.xen.xapi.coverage.dispatch --timeout 60 --body 'dump
+                            {jobid}') /tmp/coverage/ *)
             String.concat " "
             |> ok
           )
