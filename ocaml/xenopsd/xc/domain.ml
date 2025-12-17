@@ -1012,6 +1012,7 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
           (* Xen does not provide the interface to claim pages from a single NUMA
              node, ignore the error and continue. *)
           D.debug "NUMAClaim domid %d: local claim not available" domid ;
+          set_vcpu_affinity cpu_affinity ;
           None
       | Xenctrlext.Unix_error (errno, _) ->
           D.info
