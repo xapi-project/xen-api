@@ -1002,6 +1002,8 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
       in
       let nr_pages = Int64.div memory 4096L |> Int64.to_int in
       try
+        D.debug "NUMAClaim domid %d: local claim on node %d: %d pages" domid
+          node nr_pages ;
         Xenctrlext.domain_claim_pages xcext domid ~numa_node nr_pages ;
         set_vcpu_affinity cpu_affinity ;
         Some (node, memory)
@@ -1009,6 +1011,8 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
       | Xenctrlext.Not_available ->
           (* Xen does not provide the interface to claim pages from a single NUMA
              node, ignore the error and continue. *)
+          D.debug "NUMAClaim domid %d: local claim not available" domid ;
+          set_vcpu_affinity cpu_affinity ;
           None
       | Xenctrlext.Unix_error (errno, _) ->
           D.info
