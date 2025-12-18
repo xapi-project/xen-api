@@ -1071,7 +1071,7 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
           D.debug "NUMAClaim domid %d: local claim not available" domid ;
           set_vcpu_affinity cpu_affinity ;
           None
-      | Xenctrlext.Unix_error (errno, _) ->
+      | Xenctrlext.Unix_error ((Unix.ENOMEM as errno), _) ->
           D.info
             "%s: unable to claim enough memory, domain %d won't be hosted in a \
              single NUMA node. (error %s)"
