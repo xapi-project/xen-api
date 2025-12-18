@@ -1114,8 +1114,6 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
                 Xenops_server.cores_of_numa_affinity_policy pin ~vcpus
               in
               let memory =
-                Int64.(mul memory.required_host_free_mib (shift_left 1L 20))
-              and memory_hard =
                 Int64.(mul memory.build_start_mib (shift_left 1L 20))
               in
               match numa_placement domid ~vcpus ~cores ~memory affinity with
@@ -1131,7 +1129,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
                      A failure here is a hard failure: we'd fail allocating
                      memory later anyway
                   *)
-                  let nr_pages = Int64.div memory_hard 4096L |> Int64.to_int in
+                  let nr_pages = Int64.div memory 4096L |> Int64.to_int in
                   let xcext = Xenctrlext.get_handle () in
                   D.debug "NUMAClaim domid %d: global claim: %d pages" domid
                     nr_pages ;
