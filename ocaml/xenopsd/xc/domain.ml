@@ -1113,7 +1113,9 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
               and cores =
                 Xenops_server.cores_of_numa_affinity_policy pin ~vcpus
               in
-              let memory = Int64.mul memory.required_host_free_mib 1048576L in
+              let memory =
+                Int64.(mul memory.required_host_free_mib (shift_left 1L 20))
+              in
               match numa_placement domid ~vcpus ~cores ~memory affinity with
               | None ->
                   (* Always perform a global claim when NUMA placement is
