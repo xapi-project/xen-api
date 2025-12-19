@@ -391,41 +391,59 @@ let find_backend_device path =
         raise Not_found
   with _ -> None
 
-(** [backing_info_of_device] returns Some (driver_type, backing_file) for the
-    leaf backing a particular device [path]. *)
+type backing_file_error =
+  | Driver_mismatch of {expected: string; actual: string option}
+  | Driver_unknown of {path: string}
+  | Not_a_device
+
+let backing_file_error_to_string = function
+  | Not_a_device ->
+      "Not a device"
+  | Driver_mismatch {expected; actual= None} ->
+      Printf.sprintf "Driver mismatch {expected=%s; actual=None}" expected
+  | Driver_mismatch {expected; actual= Some actual} ->
+      Printf.sprintf "Driver mismatch {expected=%s; actual=%s}" expected actual
+  | Driver_unknown {path} ->
+      Printf.sprintf "Driver unknown {path=%s}" path
+
+(** [backing_info_of_device] returns [Ok (Some (driver_type, backing_file))]
+    for the leaf backing a particular device [path]. *)
 let backing_info_of_device path =
   let tapdisk_of_path path =
-    try
-      let ( let* ) = Option.bind in
-      let* _, _, backing_info = Tapctl.of_device (Tapctl.create ()) path in
-      backing_info
-    with
-    | Tapctl.Not_a_device ->
+    match Tapctl.of_device (Tapctl.create ()) path with
+    | Some (_, _, backing_info) ->
+        Ok backing_info
+    | None ->
+        Ok None
+    | exception Tapctl.Not_a_device ->
         debug "%s is not a device" path ;
-        None
-    | Tapctl.Not_blktap -> (
+        Error Not_a_device
+    | exception Tapctl.Not_blktap -> (
         debug "Device %s is not controlled by blktap" path ;
         (* Check if it is a [driver] behind a NBD device *)
         get_nbd_device path |> image_behind_nbd_device |> function
         | Some (typ, backing_file) as backing_info ->
             debug "%s is a %s behind NBD device %s" backing_file typ path ;
-            backing_info
+            Ok backing_info
         | _ ->
-            None
+            Ok None
       )
   in
   find_backend_device path |> Option.value ~default:path |> tapdisk_of_path
 
-(** [backing_file_of_device_with_driver path driver] returns Some backing_file
+(** [backing_file_of_device_with_driver path driver] returns [Ok backing_file]
     where [backing_file] is the leaf backing a particular device [path]
-    (with a driver of type [driver]) or None.
+    (with a driver of type [driver]) or [Error backing_file_error].
     [path] may either be a blktap2 device *or* a blkfront device backed by a
     blktap2 device. If the latter then the script must be
     run in the same domain as blkback. *)
 let backing_file_of_device_with_driver path ~driver =
   match backing_info_of_device path with
-  | Some (typ, backing_file) when typ = driver ->
-      Some backing_file
-  | _ ->
+  | Ok (Some (typ, backing_file)) when typ = driver ->
+      Ok backing_file
+  | Ok info ->
       debug "Device %s has an unknown driver" path ;
-      None
+      let typ = Option.map fst info in
+      Error (Driver_mismatch {expected= driver; actual= typ})
+  | Error _ as err ->
+      err
