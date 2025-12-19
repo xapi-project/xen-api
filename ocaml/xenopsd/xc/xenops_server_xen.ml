@@ -1848,6 +1848,10 @@ module VM = struct
               let dbg = Xenops_task.get_dbg task in
               Mem.with_reservation dbg min_kib max_kib
                 (fun target_plus_overhead_kib reservation_id ->
+                  debug
+                    "VM = %s, memory [%Ld KiB, %Ld KiB], \
+                     target_plus_overhead=%Ld KiB"
+                    vm.Vm.id min_kib max_kib target_plus_overhead_kib ;
                   let domain_config, persistent =
                     match persistent.VmExtra.domain_config with
                     | Some dc ->
@@ -1888,6 +1892,9 @@ module VM = struct
                     let target_bytes =
                       target_plus_overhead_bytes --- overhead_bytes
                     in
+                    debug
+                      "VM = %s, memory target_bytes = %Ld, dynamic max = %Ld"
+                      vm.Vm.id target_bytes vm.memory_dynamic_max ;
                     min vm.memory_dynamic_max target_bytes
                   in
                   set_initial_target ~xs domid (Int64.div initial_target 1024L) ;
@@ -3005,6 +3012,7 @@ module VM = struct
               | _ ->
                   ""
             in
+            debug "VM = %s, initial_target = %Ld" vm.Vm.id initial_target ;
             ({x with Domain.memory_target= initial_target}, timeoffset)
       in
       let vtpm = vtpm_of ~vm in
@@ -3144,7 +3152,10 @@ module VM = struct
             let memory_actual =
               let pages = Int64.of_nativeint di.Xenctrl.total_memory_pages in
               let kib = Xenctrl.pages_to_kib pages in
-              Memory.bytes_of_kib kib
+              let bytes = Memory.bytes_of_kib kib in
+              D.debug "VM %s memory actual: %Ld pages = %Ld KiB = %Ld bytes"
+                (Uuidm.to_string uuid) pages kib bytes ;
+              bytes
             in
             let memory_limit =
               (* The maximum amount of memory the domain can consume is the max
@@ -3167,7 +3178,10 @@ module VM = struct
               in
               (* CA-31764: may be larger than static_max if maxmem has been
                  increased to initial-reservation. *)
-              max memory_actual max_memory_bytes
+              let result = max memory_actual max_memory_bytes in
+              D.debug "VM %s memory limit = %Ld bytes" (Uuidm.to_string uuid)
+                result ;
+              result
             in
             let rtc =
               try

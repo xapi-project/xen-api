@@ -246,7 +246,10 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds = 64) required_memory_kib
     in
     (* At exponentially increasing intervals, write  *)
     (* a debug message saying how long we've waited: *)
-    if is_power_of_2 accumulated_wait_time_seconds then
+    if
+      accumulated_wait_time_seconds = 0
+      || is_power_of_2 accumulated_wait_time_seconds
+    then
       debug
         "Waited %i second(s) for memory to become available: %Ld KiB free, %Ld \
          KiB scrub, %Ld KiB required"
@@ -1083,6 +1086,13 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
 let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
   let open Memory in
   let uuid = get_uuid ~xc domid in
+  debug
+    "VM = %s, build_max_mib = %Ld, build_start_mib = %Ld, xen_max_mib =\n\
+    \    %Ld, shadow_mib = %Ld, required_host_free_mib = %Ld, overhead_mib = \
+     %Ld"
+    (Uuidx.to_string uuid) memory.build_max_mib memory.build_start_mib
+    memory.xen_max_mib memory.shadow_mib memory.required_host_free_mib
+    memory.overhead_mib ;
   debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory"
     (Uuidx.to_string uuid) domid memory.required_host_free_mib ;
   (* CA-39743: Wait, if necessary, for the Xen scrubber to catch up. *)
