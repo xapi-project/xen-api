@@ -128,6 +128,18 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "message-destroy-all"
+    , {
+        reqd= []
+      ; optn= ["before"; "after"; "priority"]
+      ; help=
+          "Destroy all messages matching the given conditions (combined with \
+           logical AND). If no conditions are provided, all messages are \
+           destroyed."
+      ; implementation= No_fd Cli_operations.message_destroy_all
+      ; flags= []
+      }
+    )
   ; ( "pool-enable-binary-storage"
     , {
         reqd= []
