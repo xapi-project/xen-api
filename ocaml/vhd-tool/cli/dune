@@ -19,6 +19,7 @@
     vhd-format-lwt
     xapi-idl
     xapi-log
+    xapi-stdext-unix
     xenstore_transport.unix
     ezxenstore
   )
