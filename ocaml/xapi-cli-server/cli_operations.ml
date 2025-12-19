@@ -550,20 +550,18 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
             )
             all
         in
-        (* Filter on everything on the cmd line except params=... *)
         let filter_params =
-          List.filter
-            (fun (p, _) -> not (List.mem p ("params" :: stdparams)))
-            params
+          (* Add in the default filters *)
+          def_filters
+          @ List.filter
+              (fun (p, _) ->
+                (* Filter on everything on the cmd line except params=... *)
+                (not (List.mem p ("params" :: stdparams)))
+                (* Filter out all params beginning with "database:" *)
+                && not (Astring.String.is_prefix ~affix:"database:" p)
+              )
+              params
         in
-        (* Filter out all params beginning with "database:" *)
-        let filter_params =
-          List.filter
-            (fun (p, _) -> not (Astring.String.is_prefix ~affix:"database:" p))
-            filter_params
-        in
-        (* Add in the default filters *)
-        let filter_params = def_filters @ filter_params in
         (* Filter all the records *)
         let records =
           List.fold_left filter_records_on_fields all_recs filter_params
@@ -573,22 +571,20 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
           select_fields params
             (if print_all then all_recs else records)
             def_list_params
-        in
-        let print_params =
-          List.map
-            (fun fields -> List.filter (fun field -> not field.hidden) fields)
-            print_params
-        in
-        let print_params =
-          List.map
-            (fun fields ->
-              List.map
-                (fun field ->
-                  if field.expensive then makeexpensivefield field else field
+          (* Hide hidden fields, redact expensive fields *)
+          |> List.map
+               (List.filter_map (fun field ->
+                    if field.hidden then
+                      None
+                    else
+                      Some
+                        ( if field.expensive then
+                            makeexpensivefield field
+                          else
+                            field
+                        )
                 )
-                fields
-            )
-            print_params
+               )
         in
         printer
           (Cli_printer.PTable (List.map (List.map print_field) print_params))
