@@ -213,10 +213,11 @@ let after f g =
 let find_backend_device path =
   try
     let open Ezxenstore_core.Xenstore in
+    let module Stat = Xapi_stdext_unix.Unixext.Stat in
     (* If we're looking at a xen frontend device, see if the backend
        is in the same domain. If so check if it looks like a .vhd *)
     let rdev = (Unix.LargeFile.stat path).Unix.LargeFile.st_rdev in
-    let major = rdev / 256 and minor = rdev mod 256 in
+    let Stat.{major; minor} = Stat.decode_st_dev rdev in
     let link =
       Unix.readlink (Printf.sprintf "/sys/dev/block/%d:%d/device" major minor)
     in

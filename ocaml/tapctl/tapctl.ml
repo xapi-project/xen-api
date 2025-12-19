@@ -529,9 +529,9 @@ exception Not_a_device
 
 let of_device ctx path =
   let stat = Unix.stat path in
+  let module Stat = Unixext.Stat in
   if stat.Unix.st_kind <> Unix.S_BLK then raise Not_a_device ;
-  let major = stat.Unix.st_rdev / 256 in
-  let minor = stat.Unix.st_rdev mod 256 in
+  let Stat.{major; minor} = Stat.decode_st_dev stat.Unix.st_rdev in
   if driver_of_major major <> "tapdev" then raise Not_blktap ;
   match List.filter (fun (tapdev, _, _) -> tapdev.minor = minor) (list ctx) with
   | [t] ->
