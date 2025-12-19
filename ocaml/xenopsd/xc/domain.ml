@@ -244,7 +244,10 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds = 64) required_memory_kib
     in
     (* At exponentially increasing intervals, write  *)
     (* a debug message saying how long we've waited: *)
-    if is_power_of_2 accumulated_wait_time_seconds then
+    if
+      accumulated_wait_time_seconds = 0
+      || is_power_of_2 accumulated_wait_time_seconds
+    then
       debug
         "Waited %i second(s) for memory to become available: %Ld KiB free, %Ld \
          KiB scrub, %Ld KiB required"
@@ -1000,7 +1003,7 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
               __FUNCTION__ domid ;
             None
       in
-      let nr_pages = Int64.div memory 4096L |> Int64.to_int in
+      let nr_pages = (Int64.div memory 4096L |> Int64.to_int) - 32 in
       try
         D.debug "NUMAClaim domid %d: local claim on node %d: %d pages" domid
           node nr_pages ;
@@ -1129,7 +1132,9 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
                      A failure here is a hard failure: we'd fail allocating
                      memory later anyway
                   *)
-                  let nr_pages = Int64.div memory 4096L |> Int64.to_int in
+                  let nr_pages =
+                    (Int64.div memory 4096L |> Int64.to_int) - 32
+                  in
                   let xcext = Xenctrlext.get_handle () in
                   D.debug "NUMAClaim domid %d: global claim: %d pages" domid
                     nr_pages ;
