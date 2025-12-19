@@ -312,3 +312,29 @@ module Daemon : sig
 
       See sd_booted(3) for more information. *)
 end
+
+module Stat : sig
+  type device = private {major: int; minor: int}
+  (* A Linux-specific device ID *)
+
+  val decode_st_dev : int -> device
+  (** [decode_st_dev st_dev] decodes the integer [st_dev] into a device, with
+      separate major and minor device IDs. *)
+
+  (**/**)
+
+  (* Testing-specific functions.
+      For more information on how device IDs are handles in linux, see
+      https://github.com/torvalds/linux/blob/ea1013c1539270e372fc99854bc6e4d94eaeff66/include/linux/kdev_t.h#L39
+      and how glibc handles them, see
+      https://elixir.bootlin.com/glibc/glibc-2.42.9000/source/bits/sysmacros.h#L37
+  *)
+
+  val device : major:int -> minor:int -> device option
+  (** [device ~major ~minor] creates a device datatype if [major] and [minor]
+      are 32-bit wide or less, or returns [None]. *)
+
+  val encode_st_dev : device -> int
+  (** [encode_st_dev device] encodes [device] into a single integer, using
+      glibc's [makedev] macro *)
+end
