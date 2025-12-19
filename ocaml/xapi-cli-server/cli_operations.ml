@@ -1424,6 +1424,28 @@ let message_destroy (_ : printer) rpc session_id params =
   in
   Client.Message.destroy_many ~rpc ~session_id ~messages
 
+let message_destroy_all (_ : printer) rpc session_id params =
+  let fail msg = raise (Cli_util.Cli_failure msg) in
+  let before_str = List.assoc_opt "before" params in
+  let after_str = List.assoc_opt "after" params in
+  let priority_str = List.assoc_opt "priority" params in
+  let before =
+    try
+      Option.map Date.of_iso8601 before_str
+      |> Option.value ~default:(Date.of_ptime Ptime.max)
+      (* Default value is Ptime.max - everything is before it *)
+    with _ -> fail "invalid timestamp format for 'before' (expected RFC3339)"
+  in
+  let after =
+    try Option.map Date.of_iso8601 after_str |> Option.value ~default:Date.epoch
+    with _ -> fail "Invalid timestamp format for 'after' (expected RFC3339)"
+  in
+  let priority =
+    try Option.map Int64.of_string priority_str |> Option.value ~default:(-1L)
+    with _ -> fail "Invalid priority format (expected integer)"
+  in
+  Client.Message.destroy_all ~rpc ~session_id ~before ~after ~priority
+
 (* Pool operations *)
 
 let get_pool_with_default rpc session_id params key =

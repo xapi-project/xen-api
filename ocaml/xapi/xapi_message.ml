@@ -730,6 +730,24 @@ let get_record ~__context ~self =
 
 let get_all_records ~__context = get_real message_dir (fun _ -> true) 0.0
 
+let destroy_all ~__context ~before ~after ~priority =
+  let filter_timestamp ts =
+    Date.is_earlier ts ~than:before && Date.is_later ts ~than:after
+  in
+  let priority_filter =
+    (* Default priority is -1, which stands for any priority *)
+    if priority = -1L then fun _ -> true else fun p -> p = priority
+  in
+  let message_filter msg =
+    filter_timestamp msg.API.message_timestamp
+    && priority_filter msg.API.message_priority
+  in
+  let messages =
+    get_real_inner message_dir message_filter (fun _ -> true)
+    |> List.map (fun (_, msg, _) -> msg)
+  in
+  destroy_many ~__context ~messages
+
 let get_all_records_where ~__context ~expr =
   let open Xapi_database in
   let expr = Db_filter.expr_of_string expr in
