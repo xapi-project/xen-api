@@ -507,18 +507,15 @@ let stats ctx t =
 let read_proc_devices () : (int * string) list =
   let parse_line x =
     match List.filter (fun x -> x <> "") (String.split_on_char ' ' x) with
-    | [x; y] -> (
-      try Some (int_of_string x, y) with _ -> None
-    )
+    | [x; y] ->
+        Option.bind (int_of_string_opt x) (fun x -> Some (x, y))
     | _ ->
         None
   in
-  List.concat
-    (List.map Option.to_list
-       (Unixext.file_lines_fold
-          (fun acc x -> parse_line x :: acc)
-          [] "/proc/devices"
-       )
+  List.concat_map Option.to_list
+    (Unixext.file_lines_fold
+       (fun acc x -> parse_line x :: acc)
+       [] "/proc/devices"
     )
 
 let driver_of_major major = List.assoc major (read_proc_devices ())

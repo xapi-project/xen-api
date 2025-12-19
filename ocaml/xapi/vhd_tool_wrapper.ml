@@ -150,6 +150,21 @@ let find_backend_device path =
         raise Not_found
   with _ -> None
 
+type backing_file_error =
+  | Driver_mismatch of {expected: string; actual: string option}
+  | Driver_unknown of {path: string}
+  | Not_a_device
+
+let backing_file_error_to_string = function
+  | Not_a_device ->
+      "Not a device"
+  | Driver_mismatch {expected; actual= None} ->
+      Printf.sprintf "Driver mismatch {expected=%s; actual=None}" expected
+  | Driver_mismatch {expected; actual= Some actual} ->
+      Printf.sprintf "Driver mismatch {expected=%s; actual=%s}" expected actual
+  | Driver_unknown {path} ->
+      Printf.sprintf "Driver unknown {path=%s}" path
+
 (** [backing_file_of_device path] returns (Some backing_file) where 'backing_file'
     is the leaf backing a particular device [path] (with a driver of type
     [driver] or None. [path] may either be a blktap2 device *or* a blkfront
@@ -157,34 +172,40 @@ let find_backend_device path =
     run in the same domain as blkback. *)
 let backing_file_of_device path ~driver =
   let tapdisk_of_path path =
-    try
-      match Tapctl.of_device (Tapctl.create ()) path with
-      | _, _, Some (typ, backing_file) when typ = driver ->
-          Some backing_file
-      | _, _, _ ->
-          raise Not_found
-    with
-    | Tapctl.Not_blktap -> (
+    match Tapctl.of_device (Tapctl.create ()) path with
+    | _, _, Some (typ, backing_file) when typ = driver ->
+        Ok backing_file
+    | _, _, Some (typ, _) ->
+        Error (Driver_mismatch {expected= driver; actual= Some typ})
+    | _, _, None ->
+        Error (Driver_mismatch {expected= driver; actual= None})
+    | exception Tapctl.Not_blktap -> (
         debug "Device %s is not controlled by blktap" path ;
         (* Check if it is a [driver] behind a NBD device *)
         Stream_vdi.(get_nbd_device path |> image_behind_nbd_device) |> function
         | Some (typ, backing_file) when typ = driver ->
             debug "%s is a %s behind NBD device %s" backing_file driver path ;
-            Some backing_file
-        | _ ->
-            None
+            Ok backing_file
+        | Some (typ, _) ->
+            Error (Driver_mismatch {expected= driver; actual= Some typ})
+        | None ->
+            Error (Driver_mismatch {expected= driver; actual= None})
       )
-    | Tapctl.Not_a_device ->
+    | exception Tapctl.Not_a_device ->
         debug "%s is not a device" path ;
-        None
-    | _ ->
+        Error Not_a_device
+    | exception Not_found ->
         debug "Device %s has an unknown driver" path ;
-        None
+        Error (Driver_unknown {path})
+    | exception (Unix.Unix_error _ as e) ->
+        debug "Could not read device %s: %s" path (Printexc.to_string e) ;
+        Error (Driver_unknown {path})
   in
   find_backend_device path |> Option.value ~default:path |> tapdisk_of_path
 
 let send progress_cb ?relative_to (protocol : string) (dest_format : string)
     (s : Unix.file_descr) (path : string) (size : Int64.t) (prefix : string) =
+  let __FUN = __FUNCTION__ in
   let vhd_of_device = backing_file_of_device ~driver:"vhd" in
   let s' = Uuidx.(to_string (make ())) in
   let source_format, source =
@@ -193,26 +214,29 @@ let send progress_cb ?relative_to (protocol : string) (dest_format : string)
         ( "nbdhybrid"
         , Printf.sprintf "%s:%s:%s:%Ld" path nbd_server exportname size
         )
-    | Some _, Some vhd, Some _ | None, Some vhd, _ ->
+    | Some _, Ok vhd, Some _ | None, Ok vhd, _ ->
         ("hybrid", path ^ ":" ^ vhd)
-    | None, None, None ->
+    | None, Error _, None ->
         ("raw", path)
-    | _, None, Some _ ->
+    | _, Error _, Some _ ->
         let msg = "Cannot compute differences on non-VHD images" in
         error "%s" msg ; failwith msg
   in
   let relative_to =
-    match relative_to with
-    | Some path -> (
+    let maybe_device path =
       match vhd_of_device path with
-      | Some vhd ->
+      | Ok vhd ->
           Some vhd
-      | None ->
-          error "base VDI is not a vhd; cannot compute differences" ;
-          failwith "base VDI is not a vhd; cannot compute differences"
-    )
-    | None ->
-        None
+      | Error e ->
+          let explanation = backing_file_error_to_string e in
+          let msg =
+            Printf.sprintf
+              "%s: base VDI is not a vhd; cannot compute differences: %s" __FUN
+              explanation
+          in
+          error "%s" msg ; failwith msg
+    in
+    Option.bind relative_to maybe_device
   in
   let args =
     [
