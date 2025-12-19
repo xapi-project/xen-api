@@ -22,6 +22,13 @@
 
 (test
  (modes exe)
+ (name test_stat)
+ (package xapi-stdext-unix)
+ (modules test_stat)
+ (libraries alcotest fmt xapi-stdext-unix unix))
+
+(test
+ (modes exe)
  (name test_systemd)
  (package xapi-stdext-unix)
  (modules test_systemd)
