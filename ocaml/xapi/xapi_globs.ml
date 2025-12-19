@@ -379,6 +379,12 @@ let sync_chipset_info = "sync_chipset_info"
 
 let sync_ssh_status = "sync_ssh_status"
 
+let sync_max_cstate = "sync_max_cstate"
+
+let sync_ntp_config = "sync_ntp_config"
+
+let sync_timezone = "sync_timezone"
+
 let sync_secure_boot = "sync_secure_boot"
 
 let sync_pci_devices = "sync_pci_devices"
@@ -798,6 +804,18 @@ let stunnel_conf = ref "/etc/stunnel/xapi.conf"
 
 let udhcpd_conf = ref (Filename.concat "/etc/xensource" "udhcpd.conf")
 
+let ntp_service = ref "chronyd"
+
+let ntp_conf = ref (Filename.concat "/etc" "chrony.conf")
+
+let ntp_dhcp_script = ref (Filename.concat "/etc/dhcp/dhclient.d" "chrony.sh")
+
+let ntp_dhcp_dir = ref "/run/chrony-dhcp"
+
+let ntp_client_path = ref "/usr/bin/chronyc"
+
+let timedatectl = ref "/usr/bin/timedatectl"
+
 let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
 
 let udhcpd_leases_db = ref "/var/lib/xcp/dhcp-leases.db"
@@ -932,6 +950,8 @@ let list_domains = ref "/usr/bin/list_domains"
 let systemctl = ref "/usr/bin/systemctl"
 
 let xen_cmdline_script = ref "/opt/xensource/libexec/xen-cmdline"
+
+let xenpm_bin = ref "/usr/sbin/xenpm"
 
 let alert_certificate_check = ref "alert-certificate-check"
 
@@ -1409,6 +1429,10 @@ let nvidia_gpumon_detach = ref false
 
 let failed_login_alert_freq = ref 3600
 
+let factory_ntp_servers = ref []
+
+let legacy_factory_ntp_servers = ref []
+
 let other_options =
   [
     gen_list_option "sm-plugins"
@@ -1876,6 +1900,46 @@ let other_options =
     , (fun () -> string_of_bool !dynamic_control_firewalld_service)
     , "Enable dynamic control firewalld service"
     )
+  ; ( "ntp-service"
+    , Arg.Set_string ntp_service
+    , (fun () -> !ntp_service)
+    , "Name of the NTP service to manage"
+    )
+  ; ( "ntp-config-path"
+    , Arg.Set_string ntp_conf
+    , (fun () -> !ntp_conf)
+    , "Path to the ntp configuration file"
+    )
+  ; ( "ntp-dhcp-script-path"
+    , Arg.Set_string ntp_dhcp_script
+    , (fun () -> !ntp_dhcp_script)
+    , "Path to the ntp dhcp script file"
+    )
+  ; ( "ntp-dhcp-dir"
+    , Arg.Set_string ntp_dhcp_dir
+    , (fun () -> !ntp_dhcp_dir)
+    , "Path to the ntp dhcp directory"
+    )
+  ; ( "ntp-client-path"
+    , Arg.Set_string ntp_client_path
+    , (fun () -> !ntp_client_path)
+    , "Path to the ntp client binary"
+    )
+  ; ( "timedatectl"
+    , Arg.Set_string timedatectl
+    , (fun () -> !timedatectl)
+    , "Path to the timedatectl executable"
+    )
+  ; gen_list_option "legacy-factory-ntp-servers"
+      "space-separated list of legacy default NTP servers"
+      (fun s -> s)
+      (fun s -> s)
+      legacy_factory_ntp_servers
+  ; gen_list_option "factory-ntp-servers"
+      "space-separated list of default NTP servers"
+      (fun s -> s)
+      (fun s -> s)
+      factory_ntp_servers
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.

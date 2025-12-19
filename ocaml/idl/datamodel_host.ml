@@ -1209,6 +1209,17 @@ let license_remove =
        to the unlicensed edition"
     ~allowed_roles:_R_POOL_OP ()
 
+let host_ntp_mode =
+  Enum
+    ( "host_ntp_mode"
+    , [
+        ("DHCP", "Using NTP servers assigned by DHCP to sync time")
+      ; ("Custom", "Using custom NTP servers configured by user to sync time")
+      ; ("Factory", "Using built-in NTP servers to sync time")
+      ; ("Disabled", "NTP is disabled on the host")
+      ]
+    )
+
 let host_numa_affinity_policy =
   Enum
     ( "host_numa_affinity_policy"
@@ -1440,6 +1451,41 @@ let create_params =
         "updates firewall to open or close port 80 depending on the value"
     ; param_release= numbered_release "25.38.0-next"
     ; param_default= Some (VBool false)
+    }
+  ; {
+      param_type= String
+    ; param_name= "max_cstate"
+    ; param_doc=
+        "The maximum C-state that the host is allowed to enter, \"\" means \
+         unlimited; \"N\" means limit to CN; \"N,M\" means limit to CN with \
+         max sub cstate M."
+    ; param_release= numbered_release "25.39.0-next"
+    ; param_default= Some (VString "")
+    }
+  ; {
+      param_type= host_ntp_mode
+    ; param_name= "ntp_mode"
+    ; param_doc=
+        "Indicates NTP servers are assigned by DHCP, or configured by user, or \
+         the factory servers, or NTP is disabled"
+    ; param_release= numbered_release "25.39.0-next"
+    ; param_default= Some (VEnum "Factory")
+    }
+  ; {
+      param_type= Set String
+    ; param_name= "ntp_custom_servers"
+    ; param_doc=
+        "Custom NTP servers configured by users, used in Custom NTP mode"
+    ; param_release= numbered_release "25.39.0-next"
+    ; param_default= Some (VSet [])
+    }
+  ; {
+      param_type= String
+    ; param_name= "timezone"
+    ; param_doc=
+        "The time zone identifier as defined in the IANA Time Zone Database"
+    ; param_release= numbered_release "25.39.0-next"
+    ; param_default= Some (VString "UTC")
     }
   ; {
       param_type= host_numa_affinity_policy
@@ -2606,6 +2652,97 @@ let get_tracked_user_agents =
       )
     ()
 
+let set_max_cstate =
+  call ~name:"set_max_cstate" ~lifecycle:[]
+    ~doc:
+      "Sets xen's max-cstate on a host. See: \
+       https://xenbits.xen.org/docs/unstable/misc/xen-command-line.html#max_cstate-x86. \
+       \"\" means unlimited; \"N\" means limit to CN; \"N,M\" means limit to \
+       CN with max sub cstate M. Note: Only C0, C1, unlimited are supported \
+       currently."
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (String, "value", "The max_cstate to apply to a host")
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let set_ntp_mode =
+  call ~name:"set_ntp_mode" ~lifecycle:[] ~doc:"Set the NTP mode for the host"
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (host_ntp_mode, "value", "The NTP mode to set")
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let set_ntp_custom_servers =
+  call ~name:"set_ntp_custom_servers" ~lifecycle:[]
+    ~doc:"Set the custom NTP servers for the host"
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (Set String, "value", "The set of custom NTP servers to configure")
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let get_ntp_servers_status =
+  call ~name:"get_ntp_servers_status" ~lifecycle:[]
+    ~doc:"Get the NTP servers status on the host"
+    ~params:[(Ref _host, "self", "The host")]
+    ~result:
+      ( Map (String, String)
+      , "The map of NTP server to its status, status may be \
+         synced/combined/uncombined/error/variable/unreachable/unknown"
+      )
+    ~allowed_roles:_R_READ_ONLY ()
+
+let set_timezone =
+  call ~name:"set_timezone" ~lifecycle:[] ~doc:"Set the host's timezone."
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; ( String
+        , "value"
+        , "The time zone identifier as defined in the IANA Time Zone Database"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let list_timezones =
+  call ~name:"list_timezones" ~lifecycle:[]
+    ~doc:"List all available timezones on the host."
+    ~params:[(Ref _host, "self", "The host")]
+    ~result:(Set String, "The set of available timezones on the host")
+    ~allowed_roles:_R_READ_ONLY ()
+
+let get_ntp_synchronized =
+  call ~name:"get_ntp_synchronized" ~lifecycle:[]
+    ~doc:
+      "Returns true if the system clock on the host is synchronized with the \
+       NTP servers."
+    ~params:[(Ref _host, "self", "The host")]
+    ~result:
+      ( Bool
+      , "true if the system clock on the host is synchronized with the NTP \
+         servers."
+      )
+    ~allowed_roles:_R_READ_ONLY ()
+
+let set_servertime =
+  call ~name:"set_servertime" ~lifecycle:[]
+    ~doc:"Set the host's system clock when NTP is disabled."
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; ( DateTime
+        , "value"
+        , "A date/time to be set. When a timezone offset is missing, UTC is \
+           assumed."
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
 (** Hosts *)
 let t =
   create_obj ~in_db:true
@@ -2752,6 +2889,14 @@ let t =
       ; set_ssh_auto_mode
       ; get_tracked_user_agents
       ; update_firewalld_service_status
+      ; set_max_cstate
+      ; set_ntp_mode
+      ; set_ntp_custom_servers
+      ; get_ntp_servers_status
+      ; set_timezone
+      ; list_timezones
+      ; get_ntp_synchronized
+      ; set_servertime
       ]
     ~contents:
       ([
@@ -3211,9 +3356,24 @@ let t =
             ~default_value:(Some (VBool Constants.default_ssh_auto_mode))
             "ssh_auto_mode"
             "Reflects whether SSH auto mode is enabled for the host"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
+            ~default_value:(Some (VString "")) "max_cstate"
+            "The maximum C-state that the host is allowed to enter, \"\" means \
+             unlimited; \"N\" means limit to CN; \"N,M\" means limit to CN \
+             with max sub cstate M."
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "secure_boot"
             "Whether the host has booted in secure boot mode"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:host_ntp_mode
+            ~default_value:(Some (VEnum "Factory")) "ntp_mode"
+            "Indicates NTP servers are assigned by DHCP, or configured by \
+             user, or the factory servers, or NTP is disabled"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set String)
+            ~default_value:(Some (VSet [])) "ntp_custom_servers"
+            "Custom NTP servers configured by users, used in Custom NTP mode"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
+            ~default_value:(Some (VString "UTC")) "timezone"
+            "The time zone identifier as defined in the IANA Time Zone Database"
         ]
       )
     ()

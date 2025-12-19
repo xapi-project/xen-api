@@ -1029,7 +1029,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
     ~ssl_legacy:_ ~last_software_update ~last_update_hash ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
-    ~secure_boot ~software_version ~https_only ~numa_affinity_policy
+    ~secure_boot ~software_version ~https_only ~max_cstate ~ntp_mode
+    ~ntp_custom_servers ~timezone ~numa_affinity_policy
     ~latest_synced_updates_applied ~pending_guidances_full
     ~pending_guidances_recommended =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
@@ -1095,7 +1096,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~recommended_guidances:[] ~latest_synced_updates_applied
     ~pending_guidances_recommended ~pending_guidances_full ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
-    ~secure_boot ;
+    ~max_cstate ~secure_boot ~ntp_mode ~ntp_custom_servers ~timezone ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
@@ -3433,3 +3434,186 @@ let update_firewalld_service_status ~__context =
         all_service_types
   | Iptables ->
       debug "No need to update firewalld service status when using iptables"
+
+let set_max_cstate ~__context ~self ~value =
+  if Helpers.get_localhost ~__context <> self then
+    failwith "Forwarded to the wrong host" ;
+  let allowed_cstates = [None; Some 0; Some 1] in
+  let max_cstate, max_sub_cstate =
+    try Xapi_host_max_cstate.of_string value
+    with e ->
+      error "Invalid max_cstate value: %s" (Printexc.to_string e) ;
+      raise Api_errors.(Server_error (invalid_value, ["max_cstate"; value]))
+  in
+  if not (List.mem max_cstate allowed_cstates) then
+    let err_msg = "Only C0, C1 and unlimited are supported for max-cstate" in
+    raise
+      Api_errors.(
+        Server_error (value_not_supported, ["max_cstate"; value; err_msg])
+      )
+  else
+    try
+      Xapi_host_max_cstate.xenpm_set max_cstate max_sub_cstate ;
+      Xapi_host_max_cstate.xen_cmdline_set max_cstate max_sub_cstate ;
+      Db.Host.set_max_cstate ~__context ~self ~value
+    with e ->
+      let err_msg =
+        Printf.sprintf "Failed to update max_cstate: %s" (Printexc.to_string e)
+      in
+      error "%s" err_msg ;
+      Helpers.internal_error "%s" err_msg
+
+let sync_max_cstate ~__context ~host =
+  try
+    let max_cstate, max_sub_cstate = Xapi_host_max_cstate.xen_cmdline_get () in
+    let value = Xapi_host_max_cstate.to_string (max_cstate, max_sub_cstate) in
+    Db.Host.set_max_cstate ~__context ~self:host ~value
+  with e -> error "Failed to sync max_cstate: %s" (Printexc.to_string e)
+
+let set_ntp_mode ~__context ~self ~value =
+  let current_mode = Db.Host.get_ntp_mode ~__context ~self in
+  if current_mode <> value then (
+    let open Xapi_host_ntp in
+    let ensure_servers_exist servers msg =
+      if servers = [] then
+        raise Api_errors.(Server_error (invalid_ntp_config, [msg]))
+    in
+    let enter_mode = function
+      | `DHCP ->
+          add_dhcp_ntp_servers ()
+      | `Custom ->
+          let custom_servers =
+            Db.Host.get_ntp_custom_servers ~__context ~self
+          in
+          ensure_servers_exist custom_servers
+            "Can't set ntp_mode to Custom when ntp_custom_servers is empty" ;
+          set_servers_in_conf custom_servers
+      | `Factory ->
+          let factory_servers = !Xapi_globs.factory_ntp_servers in
+          ensure_servers_exist factory_servers
+            "Can't set ntp_mode to Factory when factory ntp servers is empty" ;
+          set_servers_in_conf factory_servers
+      | `Disabled ->
+          ()
+    in
+    let exit_mode = function
+      | `DHCP ->
+          remove_dhcp_ntp_servers ()
+      | `Custom | `Factory ->
+          clear_servers_in_conf ()
+      | `Disabled ->
+          ()
+    in
+    ( match (current_mode, value) with
+    | `Disabled, next ->
+        enter_mode next ; enable_ntp_service ()
+    | _, `Disabled ->
+        exit_mode current_mode ; disable_ntp_service ()
+    | current, next ->
+        exit_mode current ;
+        enter_mode next ;
+        Xapi_host_ntp.restart_ntp_service ()
+    ) ;
+    Db.Host.set_ntp_mode ~__context ~self ~value
+  )
+
+let set_ntp_custom_servers ~__context ~self ~value =
+  let current_mode = Db.Host.get_ntp_mode ~__context ~self in
+  match (current_mode, value) with
+  | `Custom, [] ->
+      raise
+        Api_errors.(
+          Server_error
+            ( invalid_ntp_config
+            , ["Can't set ntp_custom_servers empty when ntp_mode is Custom"]
+            )
+        )
+  | `Custom, servers ->
+      Xapi_host_ntp.set_servers_in_conf servers ;
+      Xapi_host_ntp.restart_ntp_service () ;
+      Db.Host.set_ntp_custom_servers ~__context ~self ~value
+  | _ ->
+      Db.Host.set_ntp_custom_servers ~__context ~self ~value
+
+let sync_ntp_config ~__context ~host =
+  Xapi_host_ntp.promote_legacy_default_servers () ;
+  let servers = Xapi_host_ntp.get_servers_from_conf () in
+  let is_ntp_dhcp_enabled = Xapi_host_ntp.is_ntp_dhcp_enabled () in
+  let ntp_enabled = Xapi_host_ntp.is_ntp_service_active () in
+  let ntp_mode =
+    match (ntp_enabled, is_ntp_dhcp_enabled, servers) with
+    | false, _, _ ->
+        `Disabled
+    | _, true, _ ->
+        `DHCP
+    | _, false, s
+      when Xapi_stdext_std.Listext.List.set_equiv s
+             !Xapi_globs.factory_ntp_servers ->
+        `Factory
+    | _, false, _ ->
+        `Custom
+  in
+  Db.Host.set_ntp_mode ~__context ~self:host ~value:ntp_mode ;
+  if ntp_mode = `Custom then
+    Db.Host.set_ntp_custom_servers ~__context ~self:host ~value:servers
+
+let get_ntp_servers_status ~__context ~self:_ =
+  if Xapi_host_ntp.is_ntp_service_active () then
+    Xapi_host_ntp.get_servers_status ()
+  else
+    []
+
+(* Prevent concurrent time/timezeone operations from interleaving. *)
+let time_m = Mutex.create ()
+
+let set_timezone ~__context ~self ~value =
+  try
+    with_lock time_m @@ fun () ->
+    let _ =
+      Helpers.call_script !Xapi_globs.timedatectl ["set-timezone"; value]
+    in
+    Db.Host.set_timezone ~__context ~self ~value
+  with
+  | Forkhelpers.Spawn_internal_error (stderr, _, _)
+    when String.starts_with ~prefix:"Failed to set time zone: Invalid" stderr ->
+      raise
+        (Api_errors.Server_error (Api_errors.invalid_value, ["timezone"; value]))
+  | e ->
+      Helpers.internal_error "%s" (ExnHelper.string_of_exn e)
+
+let list_timezones ~__context ~self:_ =
+  try
+    Helpers.call_script !Xapi_globs.timedatectl ["list-timezones"]
+    |> Astring.String.cuts ~empty:false ~sep:"\n"
+  with e -> Helpers.internal_error "%s" (ExnHelper.string_of_exn e)
+
+let get_ntp_synchronized ~__context ~self:_ =
+  match Xapi_host_ntp.is_synchronized () with
+  | Ok r ->
+      r
+  | Error msg ->
+      Helpers.internal_error "%s" msg
+
+let set_servertime ~__context ~self ~value =
+  let f = Helpers.call_script !Xapi_globs.timedatectl in
+  with_lock time_m @@ fun () ->
+  let tz = Db.Host.get_timezone ~__context ~self in
+  let not_utc = tz <> "UTC" in
+  try
+    (* The [value] stores only a naive date/time and a fixed timezone offset.
+       Convert it to UTC to avoid ambiguities caused by additional timezone
+       details, such as Daylight Saving Time (DST) rules or historical changes. *)
+    match Date.to_utc value |> Option.map Date.to_ptime with
+    | Some t ->
+        let (y, mon, d), ((h, min, s), _) = Ptime.to_date_time t in
+        let naive_in_utc =
+          Printf.sprintf "%04i-%02i-%02i %02i:%02i:%02i" y mon d h min s
+        in
+        if not_utc then (f ["set-timezone"; "UTC"] : string) |> ignore ;
+        (f ["set-time"; naive_in_utc] : string) |> ignore ;
+        if not_utc then (f ["set-timezone"; tz] : string) |> ignore ;
+        debug "%s: %s" __FUNCTION__ (f ["status"])
+    | None ->
+        raise (Invalid_argument "Missing timezone offset in value")
+  with e ->
+    Helpers.internal_error "%s: %s" __FUNCTION__ (ExnHelper.string_of_exn e)

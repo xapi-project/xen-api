@@ -27,7 +27,9 @@ let add_host __context name =
        ~ssh_enabled:true ~ssh_enabled_timeout:0L ~ssh_expiry:Clock.Date.epoch
        ~console_idle_timeout:0L ~ssh_auto_mode:false ~secure_boot:false
        ~software_version:(Xapi_globs.software_version ())
-       ~https_only:false ~numa_affinity_policy:`default_policy
+       ~https_only:false ~max_cstate:"" ~ntp_mode:`Factory
+       ~ntp_custom_servers:[] ~timezone:"UTC"
+       ~numa_affinity_policy:`default_policy
        ~latest_synced_updates_applied:`unknown ~pending_guidances_full:[]
        ~pending_guidances_recommended:[]
     )

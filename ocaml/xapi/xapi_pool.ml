@@ -1062,6 +1062,9 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~secure_boot:host.API.host_secure_boot
           ~software_version:host.API.host_software_version
           ~https_only:host.API.host_https_only
+          ~max_cstate:host.API.host_max_cstate ~ntp_mode:host.API.host_ntp_mode
+          ~ntp_custom_servers:host.API.host_ntp_custom_servers
+          ~timezone:host.API.host_timezone
           ~numa_affinity_policy:host.API.host_numa_affinity_policy
           ~latest_synced_updates_applied:
             host.API.host_latest_synced_updates_applied
