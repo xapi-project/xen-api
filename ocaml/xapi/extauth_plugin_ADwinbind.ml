@@ -1238,59 +1238,6 @@ module ConfigHosts = struct
     |> write_string_to_file path
 end
 
-module DNSSync = struct
-  let task_name = "Sync hostname with DNS"
-
-  type t = Register | Unregister
-
-  let handle op hostname netbios_name domain =
-    (* By default, hostname should equal to netbios_name, just register it to DNS server*)
-    try
-      let ops =
-        match op with Register -> "register" | Unregister -> "unregister"
-      in
-      let netbios_fqdn = Printf.sprintf "%s.%s" netbios_name domain in
-      let args = ["ads"; "dns"] @ [ops] @ ["--machine-pass"] in
-      Helpers.call_script net_cmd (args @ [netbios_fqdn]) |> ignore ;
-      if hostname <> netbios_name then
-        let hostname_fqdn = Printf.sprintf "%s.%s" hostname domain in
-        (* netbios_name is compressed, op on extra hostname *)
-        Helpers.call_script net_cmd (args @ [hostname_fqdn]) |> ignore
-    with e ->
-      debug "Register/unregister with DNS failed %s" (ExnHelper.string_of_exn e)
-
-  let register hostname netbios_name domain =
-    handle Register hostname netbios_name domain
-
-  let unregister hostname netbios_name domain =
-    handle Unregister hostname netbios_name domain
-
-  let sync () =
-    Server_helpers.exec_with_new_task "sync hostname with DNS"
-    @@ fun __context ->
-    let host = Helpers.get_localhost ~__context in
-    let service_name =
-      Db.Host.get_external_auth_service_name ~__context ~self:host
-    in
-    let netbios_name =
-      Db.Host.get_external_auth_configuration ~__context ~self:host
-      |> fun config -> List.assoc_opt "netbios_name" config
-    in
-    let hostname = Db.Host.get_hostname ~__context ~self:host in
-    match netbios_name with
-    | Some netbios ->
-        register hostname netbios service_name
-    | None ->
-        debug "Netbios name is none, skip sync hostname to DNS"
-
-  let trigger_sync ~start =
-    debug "Trigger task: %s" task_name ;
-    Scheduler.add_to_queue task_name
-      (Scheduler.Periodic !Xapi_globs.winbind_dns_sync_interval) start sync
-
-  let stop_sync () = Scheduler.remove_from_queue task_name
-end
-
 let build_netbios_name ~config_params =
   let key = "netbios-name" in
   match List.assoc_opt key config_params with
@@ -1657,7 +1604,6 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
           [get_localhost_name ()]
       in
       (* Trigger right now *)
-      DNSSync.trigger_sync ~start:0. ;
       Winbind.set_machine_account_encryption_type netbios_name ;
       debug "Succeed to join domain %s" service_name
     with
@@ -1697,12 +1643,9 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let user = List.assoc_opt "user" config_params in
     let pass = List.assoc_opt "pass" config_params in
     let {service_name; netbios_name; _} = get_domain_info_from_db () in
-    DNSSync.stop_sync () ;
     ( match netbios_name with
     | Some netbios ->
-        ConfigHosts.leave ~domain:service_name ~name:netbios ;
-        let hostname = get_localhost_name () in
-        DNSSync.unregister hostname netbios service_name
+        ConfigHosts.leave ~domain:service_name ~name:netbios
     | _ ->
         ()
     ) ;
@@ -1731,7 +1674,6 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     RotateMachinePassword.trigger_rotate ~start:5. ;
     Winbind.check_ready_to_serve ~timeout:300. ;
     Winbind.flush_cache () ;
-    DNSSync.trigger_sync ~start:5. ;
 
     let {service_name; netbios_name; _} = get_domain_info_from_db () in
     match netbios_name with
