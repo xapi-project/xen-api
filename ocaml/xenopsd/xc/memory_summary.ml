@@ -38,7 +38,7 @@ let _ =
     finished := !delay < 0. ;
     if !delay > 0. then Unix.sleepf !delay ;
     flush stdout ;
-    let physinfo = Xenctrl.physinfo xc in
+    let physinfo = Xenctrlext.physinfo xc in
     let one_page = 4096L in
     let total_pages = Int64.of_nativeint physinfo.Xenctrl.total_pages in
     let free_pages =

@@ -235,7 +235,7 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds = 64) required_memory_kib
     : bool =
   let open Memory in
   let rec wait accumulated_wait_time_seconds =
-    let host_info = Xenctrl.physinfo xc in
+    let host_info = Xenctrlext.physinfo xc in
     let free_memory_kib =
       kib_of_pages (Int64.of_nativeint host_info.Xenctrl.free_pages)
     in
@@ -275,7 +275,7 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds = 64) required_memory_kib
 let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
     num_of_vbds num_of_vifs =
   let open Xenctrl in
-  let host_info = Xenctrl.physinfo xc in
+  let host_info = Xenctrlext.physinfo xc in
 
   (* Confirm that the running hypervisor supports a specific capability. *)
   let assert_capability cap ~on_error =

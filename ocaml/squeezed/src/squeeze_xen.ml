@@ -579,7 +579,7 @@ let make_host ~verbose ~xc =
      pages -- this might cause something else to fail (eg domain builder?) *)
   while
     Int64.div
-      ((Xenctrl.physinfo xc).Xenctrl.scrub_pages |> Int64.of_nativeint)
+      ((Xenctrlext.physinfo xc).Xenctrl.scrub_pages |> Int64.of_nativeint)
       1024L
     <> 0L
   do
@@ -762,7 +762,7 @@ let make_host ~verbose ~xc =
   (* For the host free memory we sum the free pages and the pages needing
      scrubbing: we don't want to adjust targets simply because the scrubber is
      slow. *)
-  let physinfo = Xenctrl.physinfo xc in
+  let physinfo = Xenctrlext.physinfo xc in
   let free_pages_kib =
     Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages)
   and scrub_pages_kib =

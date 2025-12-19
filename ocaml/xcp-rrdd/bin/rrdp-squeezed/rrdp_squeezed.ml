@@ -169,7 +169,7 @@ let generate_host_sources xc counters =
   in
   let memory_reclaimed = bytes_of_kib memory_reclaimed in
   let memory_possibly_reclaimed = bytes_of_kib memory_possibly_reclaimed in
-  let physinfo = Xenctrl.physinfo xc in
+  let physinfo = Xenctrlext.physinfo xc in
   let total_kib =
     Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages)
   in

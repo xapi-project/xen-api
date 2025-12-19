@@ -184,7 +184,7 @@ let dss_pcpus xc =
   let len = Array.length !physcpus in
   let newinfos =
     if len = 0 then (
-      let physinfo = Xenctrl.physinfo xc in
+      let physinfo = Xenctrlext.physinfo xc in
       let pcpus = physinfo.Xenctrl.nr_cpus in
       physcpus := if pcpus > 0 then Array.make pcpus 0L else [||] ;
       Xenctrl.pcpu_info xc pcpus
@@ -237,7 +237,7 @@ let count_power_state_running_domains domains =
     0 domains
 
 let dss_hostload xc domains =
-  let physinfo = Xenctrl.physinfo xc in
+  let physinfo = Xenctrlext.physinfo xc in
   let pcpus = physinfo.Xenctrl.nr_cpus in
   let rec sum acc n f =
     match n with n when n >= 0 -> sum (acc + f n) (n - 1) f | _ -> acc
@@ -298,7 +298,7 @@ let _ =
       let _, domains, _ = Xenctrl_lib.domain_snapshot xc in
       Process.initialise () ;
       (* Share one page per PCPU and dom each *)
-      let physinfo = Xenctrl.physinfo xc in
+      let physinfo = Xenctrlext.physinfo xc in
       let shared_page_count =
         physinfo.Xenctrl.nr_cpus
         + Int.max Rrd_interface.max_supported_vms (List.length domains)

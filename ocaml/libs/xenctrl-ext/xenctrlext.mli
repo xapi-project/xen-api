@@ -107,3 +107,5 @@ val domain_claim_pages : handle -> domid -> ?numa_node:NumaNode.t -> int -> unit
 
 val get_nr_nodes : handle -> int
 (** Returns the count of NUMA nodes available in the system. *)
+
+val physinfo : Xenctrl.handle -> Xenctrl.physinfo

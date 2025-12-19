@@ -131,3 +131,8 @@ let domain_claim_pages handle domid ?(numa_node = NumaNode.none) nr_pages =
 let get_nr_nodes handle =
   let info = numainfo handle in
   Array.length info.memory
+
+let physinfo xc =
+  let info = Xenctrl.physinfo xc in
+  let emergency_reserve_pages = Nativeint.shift_left 1n 16 in
+  {info with free_pages= Nativeint.sub info.free_pages emergency_reserve_pages}

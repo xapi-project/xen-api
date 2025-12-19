@@ -11,6 +11,7 @@
     xapi-rrd
     xapi-stdext-unix
     xenctrl
+    xenctrl_ext
   )
 )
 

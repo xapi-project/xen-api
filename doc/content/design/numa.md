@@ -112,7 +112,7 @@ This function receives as arguments a domain ID and the number of nodes
 this domain is using (acquired using `domain_get_numa_info_node_pages`)
 
 The number of NUMA nodes of the host (not domain) is reported by
-`Xenctrl.physinfo` which returns a value of type `physinfo`.
+`Xenctrlext.physinfo` which returns a value of type `physinfo`.
 
 ```diff
     index b4579862ff..491bd3fc73 100644

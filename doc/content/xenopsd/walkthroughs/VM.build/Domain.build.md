@@ -64,7 +64,7 @@ to call:
     [wait_xen_free_mem](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/domain.ml#L236-L272)
     to wait (if necessary), for the Xen memory scrubber to catch up reclaiming memory.
     It
-    1. calls `Xenctrl.physinfo` which returns:
+    1. calls `Xenctrlext.physinfo` which returns:
        - `hostinfo.free_pages` - the free and already scrubbed pages (available)
        - `host.scrub_pages` - the not yet scrubbed pages (not yet available)
     2. repeats this until a timeout as long as `free_pages` is *lower*
