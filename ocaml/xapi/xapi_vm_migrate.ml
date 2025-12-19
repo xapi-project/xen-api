@@ -162,8 +162,12 @@ open Storage_interface
 
 let supported_on ~ops sr sr_features =
   let open Smint.Feature in
-  if not (List.for_all (fun op -> has_capability op sr_features) ops) then
-    let msg = [Ref.string_of sr] in
+  let missing =
+    List.filter (fun op -> not (has_capability op sr_features)) ops
+  in
+  if missing <> [] then
+    let missing = List.map capability_to_string missing |> String.concat ";" in
+    let msg = [Ref.string_of sr; missing] in
     raise Api_errors.(Server_error (sr_does_not_support_migration, msg))
 
 let assert_sr_support_operations ~__context ~vdi_map ~remote ~local_ops
