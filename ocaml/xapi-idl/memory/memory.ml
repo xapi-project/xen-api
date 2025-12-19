@@ -192,9 +192,6 @@ module Memory_model (D : MEMORY_MODEL_DATA) = struct
     static_max_mib --- Int64.of_int video_mib +++ D.shim_mib static_max_mib
 
   let build_start_mib static_max_mib target_mib video_mib =
-    D.extra_internal_mib
-    +++ D.extra_external_mib
-    +++
     if D.can_start_ballooned_down then
       target_mib --- Int64.of_int video_mib +++ D.shim_mib target_mib
     else
