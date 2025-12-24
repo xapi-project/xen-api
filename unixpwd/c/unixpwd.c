@@ -88,7 +88,8 @@ unixpwd_setpwd(const char *user, char *password)
                    *pw;
     char            buf[BUFLEN];
     int             tmp;
-    FILE           *tmp_file;
+    FILE           *tmp_file,
+                   *passwd_file;
     char            tmp_name[PATH_MAX];
     struct stat     statbuf;
     int             rc;
@@ -98,18 +99,28 @@ unixpwd_setpwd(const char *user, char *password)
     tmp = mkstemp(tmp_name);
     if (tmp == -1)
         return errno;
-    if (stat(ETC_PASSWD, &statbuf) != 0
+
+    passwd_file = fopen(ETC_PASSWD, "rbe");
+    if (passwd_file == NULL) {
+        rc = errno;
+        close(tmp);
+        unlink(tmp_name);
+        return rc;
+    }
+
+    if (fstat(fileno(passwd_file), &statbuf) != 0
         || fchown(tmp, statbuf.st_uid, statbuf.st_gid) != 0
         || fchmod(tmp, statbuf.st_mode) != 0
         || (tmp_file = fdopen(tmp, "w")) == NULL) {
         rc = errno ? errno : EPERM;
+        fclose(passwd_file);
         close(tmp);
+        unlink(tmp_name);
         return rc;
     }
 
-    setpwent();
     while (1) {
-        rc = getpwent_r(&pwd, buf, BUFLEN, &pw);
+        rc = fgetpwent_r(passwd_file, &pwd, buf, BUFLEN, &pw);
         if (rc != 0 || !pw)
             break;
         if (!strcmp(user, pw->pw_name)) {
@@ -118,8 +129,8 @@ unixpwd_setpwd(const char *user, char *password)
         }
         putpwent(pw, tmp_file);
     }
-    endpwent();
 
+    fclose(passwd_file);
     fclose(tmp_file);
     if (rc != ENOENT) {
         unlink(tmp_name);
@@ -146,7 +157,8 @@ unixpwd_setspw(const char *user, char *password)
                    *sp;
     char            buf[BUFLEN];
     int             tmp;
-    FILE           *tmp_file = NULL;
+    FILE           *tmp_file = NULL,
+                   *spasswd_file;
     char            tmp_name[PATH_MAX];
     struct stat     statbuf;
     int             rc;
@@ -156,26 +168,37 @@ unixpwd_setspw(const char *user, char *password)
     tmp = mkstemp(tmp_name);
     if (tmp == -1)
         return errno;
-    if (stat(ETC_SPASSWD, &statbuf) != 0
+
+    spasswd_file = fopen(ETC_SPASSWD, "rbe");
+    if (spasswd_file == NULL) {
+        rc = errno;
+        close(tmp);
+        unlink(tmp_name);
+        return rc;
+    }
+
+    if (fstat(fileno(spasswd_file), &statbuf) != 0
         || fchown(tmp, statbuf.st_uid, statbuf.st_gid) != 0
         || fchmod(tmp, statbuf.st_mode) != 0
         || (tmp_file = fdopen(tmp, "w")) == NULL) {
         rc = errno ? errno : EPERM;
+        fclose(spasswd_file);
         close(tmp);
         unlink(tmp_name);
         return rc;
     }
     if (lckpwdf() != 0) {
+        fclose(spasswd_file);
         if (tmp_file)
             fclose(tmp_file);
-        close(tmp);
+        else
+            close(tmp);
         unlink(tmp_name);
         return ENOLCK;
     }
 
-    setspent();
     while (1) {
-        rc = getspent_r(&spw, buf, BUFLEN, &sp);
+        rc = fgetspent_r(spasswd_file, &spw, buf, BUFLEN, &sp);
         if (rc != 0 || !sp)
             break;
         if (!strcmp(user, sp->sp_namp)) {
@@ -184,8 +207,8 @@ unixpwd_setspw(const char *user, char *password)
         }
         putspent(sp, tmp_file);
     }
-    endspent();
 
+    fclose(spasswd_file);
     fclose(tmp_file);
     if (rc != ENOENT) {
         ulckpwdf();
