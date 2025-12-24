@@ -4,6 +4,7 @@
   (libraries
     threads
     unix
+    xapi-stdext-std
     xapi-stdext-unix
   )
 )

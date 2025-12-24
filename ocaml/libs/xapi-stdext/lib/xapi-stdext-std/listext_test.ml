@@ -14,7 +14,7 @@
 module Listext = Xapi_stdext_std.Listext.List
 
 let test_last_list tested_f (name, case, expected) =
-  let check () = Alcotest.(check @@ int) name expected (tested_f case) in
+  let check () = Alcotest.(check @@ option int) name expected (tested_f case) in
   (name, `Quick, check)
 
 let test_list tested_f (name, case, expected) =
@@ -31,8 +31,10 @@ let test_split_at_list tested_f (name, case, expected) =
   in
   (name, `Quick, check)
 
-let test_error tested_f (name, case, expected) =
-  let check () = Alcotest.check_raises name expected (tested_f case) in
+let test_try_map tested_f (name, case, expected) =
+  let check () =
+    Alcotest.(check @@ result (list int) int) name expected (tested_f case)
+  in
   (name, `Quick, check)
 
 let test_iteri_right =
@@ -114,8 +116,7 @@ let test_drop =
   ("drop", tests)
 
 let test_last =
-  let specs = [([1], 0, 1); ([1; 2; 3], 1, 3)] in
-  let error_specs = [([], -1, Invalid_argument "last: empty list")] in
+  let specs = [([1], 0, Some 1); ([1; 2; 3], 1, Some 3); ([], -1, None)] in
   let test_good (whole, number, expected) =
     let name =
       Printf.sprintf "get last %i from [%s]" number
@@ -124,16 +125,7 @@ let test_last =
     test_last_list Listext.last (name, whole, expected)
   in
   let tests = List.map test_good specs in
-  let error_test (whole, number, error) =
-    let name =
-      Printf.sprintf "last [%s] with %i fails"
-        (String.concat "; " (List.map string_of_int whole))
-        number
-    in
-    test_error (fun ls () -> ignore (Listext.last ls)) (name, whole, error)
-  in
-  let error_tests = List.map error_test error_specs in
-  ("last", tests @ error_tests)
+  ("last", tests)
 
 let test_split_at =
   let specs =
@@ -159,6 +151,29 @@ let test_split_at =
   in
   let tests = List.map test specs in
   ("split_at", tests)
+
+let test_try_map =
+  let only_positive = function i when i >= 0 -> Ok i | i -> Error i in
+  let specs =
+    [
+      ([], Ok [])
+    ; ([0; 1], Ok [0; 1])
+    ; ([-1], Error (-1))
+    ; ([-2; 0], Error (-2))
+    ; ([0; -3], Error (-3))
+    ; ([-4; -3], Error (-4))
+    ]
+  in
+  let test (lst, expected) =
+    let name =
+      Printf.sprintf "try_map only_positive [%s]"
+        (String.concat "; " (List.map string_of_int lst))
+    in
+    test_try_map (Listext.try_map only_positive) (name, lst, expected)
+  in
+
+  let tests = List.map test specs in
+  ("try_map", tests)
 
 let test_find_minimum (name, pp, typ, specs) =
   let test ((cmp, cmp_name), input, expected) =
@@ -215,6 +230,7 @@ let () =
     ; test_drop
     ; test_last
     ; test_split_at
+    ; test_try_map
     ; test_find_minimum_int
     ; test_find_minimum_tuple
     ]

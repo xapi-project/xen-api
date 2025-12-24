@@ -17,7 +17,7 @@ val get_dbs_and_gen_counts : unit -> (int64 * Parse_db_conf.db_connection) list
 val choose :
   Parse_db_conf.db_connection list -> Parse_db_conf.db_connection option
 
-val preferred_write_db : unit -> Parse_db_conf.db_connection
+val preferred_write_db : unit -> Parse_db_conf.db_connection option
 
 val exit_on_next_flush : bool ref
 

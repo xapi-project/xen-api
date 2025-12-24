@@ -57,6 +57,16 @@ module List = struct
 
   let mapi_tr f l = rev (rev_mapi f l)
 
+  let try_map f l =
+    let rec loop acc = function
+      | [] ->
+          Ok (List.rev acc)
+      | x :: xs -> (
+        match f x with Ok x -> loop (x :: acc) xs | Error _ as e -> e
+      )
+    in
+    loop [] l
+
   let take n list =
     let rec loop i acc = function
       | x :: xs when i < n ->
@@ -75,13 +85,9 @@ module List = struct
     in
     loop 0 list
 
-  let rec last = function
-    | [] ->
-        invalid_arg "last: empty list"
-    | [x] ->
-        x
-    | _ :: xs ->
-        last xs
+  let head = function [] -> None | x :: _ -> Some x
+
+  let rec last = function [] -> None | [x] -> Some x | _ :: xs -> last xs
 
   let split_at n list =
     let rec loop i acc = function

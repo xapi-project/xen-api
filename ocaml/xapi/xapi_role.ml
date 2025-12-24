@@ -233,12 +233,12 @@ let get_by_permission ~__context ~permission =
 
 let get_by_permission_name_label ~__context ~label =
   let permission =
-    let ps = get_by_name_label ~__context ~label in
-    if ps <> [] then
-      List.hd ps (* names are unique, there's either 0 or 1*)
-    else
-      Ref.null
-    (* name not found *)
+    match get_by_name_label ~__context ~label with
+    | role :: _ ->
+        (* names are unique, there's either 0 or 1 *)
+        role
+    | [] ->
+        Ref.null
   in
   get_by_permission_common ~__context ~permission ~cmp_fn:(fun perm ->
       label = get_name_label ~__context ~self:perm
