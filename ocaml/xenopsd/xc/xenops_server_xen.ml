@@ -1064,7 +1064,7 @@ module HOST = struct
         let pages_per_mib = 256L in
         Int64.(
           div
-            ((Xenctrl.physinfo xc).Xenctrl.total_pages |> of_nativeint)
+            ((Xenctrlext.physinfo xc).Xenctrl.total_pages |> of_nativeint)
             pages_per_mib
         )
     )

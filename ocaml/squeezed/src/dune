@@ -13,6 +13,7 @@
     threads.posix
     unix
     xenctrl
+    xenctrl_ext
     xenstore
     xenstore.unix
     xenstore_transport

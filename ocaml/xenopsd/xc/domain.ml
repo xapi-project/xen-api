@@ -235,7 +235,7 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds = 64) required_memory_kib
     : bool =
   let open Memory in
   let rec wait accumulated_wait_time_seconds =
-    let host_info = Xenctrl.physinfo xc in
+    let host_info = Xenctrlext.physinfo xc in
     let free_memory_kib =
       kib_of_pages (Int64.of_nativeint host_info.Xenctrl.free_pages)
     in
@@ -244,7 +244,10 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds = 64) required_memory_kib
     in
     (* At exponentially increasing intervals, write  *)
     (* a debug message saying how long we've waited: *)
-    if is_power_of_2 accumulated_wait_time_seconds then
+    if
+      accumulated_wait_time_seconds = 0
+      || is_power_of_2 accumulated_wait_time_seconds
+    then
       debug
         "Waited %i second(s) for memory to become available: %Ld KiB free, %Ld \
          KiB scrub, %Ld KiB required"
@@ -272,7 +275,7 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds = 64) required_memory_kib
 let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
     num_of_vbds num_of_vifs =
   let open Xenctrl in
-  let host_info = Xenctrl.physinfo xc in
+  let host_info = Xenctrlext.physinfo xc in
 
   (* Confirm that the running hypervisor supports a specific capability. *)
   let assert_capability cap ~on_error =
@@ -1000,8 +1003,10 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
               __FUNCTION__ domid ;
             None
       in
-      let nr_pages = Int64.div memory 4096L |> Int64.to_int in
+      let nr_pages = (Int64.div memory 4096L |> Int64.to_int) - 32 in
       try
+        D.debug "NUMAClaim domid %d: local claim on node %d: %d pages" domid
+          node nr_pages ;
         Xenctrlext.domain_claim_pages xcext domid ~numa_node nr_pages ;
         set_vcpu_affinity cpu_affinity ;
         Some (node, memory)
@@ -1009,8 +1014,10 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
       | Xenctrlext.Not_available ->
           (* Xen does not provide the interface to claim pages from a single NUMA
              node, ignore the error and continue. *)
+          D.debug "NUMAClaim domid %d: local claim not available" domid ;
+          set_vcpu_affinity cpu_affinity ;
           None
-      | Xenctrlext.Unix_error (errno, _) ->
+      | Xenctrlext.Unix_error ((Unix.ENOMEM as errno), _) ->
           D.info
             "%s: unable to claim enough memory, domain %d won't be hosted in a \
              single NUMA node. (error %s)"
@@ -1109,10 +1116,33 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
               and cores =
                 Xenops_server.cores_of_numa_affinity_policy pin ~vcpus
               in
-              numa_placement domid ~vcpus ~cores
-                ~memory:(Int64.mul memory.xen_max_mib 1048576L)
-                affinity
-              |> Option.map fst
+              let memory =
+                Int64.(mul memory.build_start_mib (shift_left 1L 20))
+              in
+              match numa_placement domid ~vcpus ~cores ~memory affinity with
+              | None ->
+                  (* Always perform a global claim when NUMA placement is
+                     enabled, and single node claims failed or were
+                     unavailable:
+                     This tries to ensures that memory allocated for this
+                     domain won't use up memory claimed by other domains.
+                     If claims are mixed with non-claims then Xen can't
+                     currently guarantee that it would honour the existing
+                     claims.
+                     A failure here is a hard failure: we'd fail allocating
+                     memory later anyway
+                  *)
+                  let nr_pages =
+                    (Int64.div memory 4096L |> Int64.to_int) - 32
+                  in
+                  let xcext = Xenctrlext.get_handle () in
+                  D.debug "NUMAClaim domid %d: global claim: %d pages" domid
+                    nr_pages ;
+                  Xenctrlext.domain_claim_pages xcext domid
+                    ~numa_node:Xenctrlext.NumaNode.none nr_pages ;
+                  None
+              | Some (plan, _) ->
+                  Some plan
         )
   in
   let store_chan, console_chan = create_channels ~xc uuid domid in

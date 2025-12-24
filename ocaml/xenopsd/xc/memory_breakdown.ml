@@ -217,7 +217,7 @@ let print_memory_field_names () =
 
 (** Prints memory field values to the console. *)
 let print_memory_field_values xc xs =
-  let host = Xenctrl.physinfo xc in
+  let host = Xenctrlext.physinfo xc in
   let control_domain_info = Xenctrl.domain_getinfo xc 0 in
   let control_domain_id = control_domain_info.Xenctrl.handle in
   let guests =
