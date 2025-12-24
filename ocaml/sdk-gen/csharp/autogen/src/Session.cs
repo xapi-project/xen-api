@@ -48,7 +48,15 @@ namespace XenAPI
         /// <summary>
         /// This string is used as the HTTP UserAgent for each request.
         /// </summary>
-        public static string UserAgent = $"XenAPI/{Helper.APIVersionString(API_Version.LATEST)}";
+        public static string DefaultUserAgent => $"XenAPI/{Helper.APIVersionString(API_Version.LATEST)}";
+
+        private static string _userAgent = null;
+
+        public static string UserAgent
+        {
+            get => _userAgent ?? DefaultUserAgent;
+            set => _userAgent = value;
+        }
 
         /// <summary>
         /// If null, no proxy is used, otherwise this proxy is used for each request.
@@ -65,7 +73,7 @@ namespace XenAPI
         {
             client.Timeout = STANDARD_TIMEOUT;
             client.KeepAlive = true;
-            client.UserAgent = UserAgent;
+            UserAgent = !string.IsNullOrEmpty(client.UserAgent) ? client.UserAgent : UserAgent;
             client.WebProxy = Proxy;
             client.AllowAutoRedirect = true;
             JsonRpcClient = client;
