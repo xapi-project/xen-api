@@ -1,11 +1,11 @@
+module Stat = Xapi_stdext_unix.Unixext.Stat
+
 let get_device_numbers path =
-  let rdev = (Unix.LargeFile.stat path).Unix.LargeFile.st_rdev in
-  let major = rdev / 256 and minor = rdev mod 256 in
-  (major, minor)
+  Unix.LargeFile.((stat path).st_rdev) |> Stat.decode_st_dev
 
 let is_nbd_device path =
   let nbd_device_num = 43 in
-  let major, _ = get_device_numbers path in
+  let Stat.{major; _} = get_device_numbers path in
   major = nbd_device_num
 
 type t = [`Vhd of string | `Raw of string | `Nbd of string * string]

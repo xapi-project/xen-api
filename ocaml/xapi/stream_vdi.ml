@@ -132,13 +132,11 @@ let write_block ~__context filename buffer ofd len =
       raise e
 
 let get_device_numbers path =
-  let rdev = (Unix.LargeFile.stat path).Unix.LargeFile.st_rdev in
-  let major = rdev / 256 and minor = rdev mod 256 in
-  (major, minor)
+  Unix.LargeFile.((stat path).st_rdev) |> Unixext.Stat.decode_st_dev
 
 let is_nbd_device path =
   let nbd_device_num = 43 in
-  let major, _ = get_device_numbers path in
+  let Unixext.Stat.{major; _} = get_device_numbers path in
   major = nbd_device_num
 
 type nbd_connect_info = {path: string; exportname: string} [@@deriving rpc]
