@@ -8915,6 +8915,40 @@ module Message = struct
       ~params:[(Set (Ref _message), "messages", "Messages to destroy")]
       ~allowed_roles:_R_POOL_OP ()
 
+  let destroy_all =
+    call ~name:"destroy_all" ~lifecycle:[]
+      ~versioned_params:
+        [
+          {
+            param_type= DateTime
+          ; param_name= "before"
+          ; param_doc=
+              "Cutoff time for destroyed messages - only destroy messages with \
+               an earlier timestamp. When no timezone is specified UTC is \
+               assumed."
+          ; param_release= numbered_release "25.39.0-next"
+          ; param_default= Some (VDateTime (Date.of_ptime Ptime.max))
+          }
+        ; {
+            param_type= DateTime
+          ; param_name= "after"
+          ; param_doc=
+              "Cutoff time for destroyed messages - only destroy messages with \
+               a later timestamp. When no timezone is specified UTC is \
+               assumed."
+          ; param_release= numbered_release "25.39.0-next"
+          ; param_default= Some (VDateTime Date.epoch)
+          }
+        ; {
+            param_type= Int
+          ; param_name= "priority"
+          ; param_doc= "Priority of messages to be destroyed"
+          ; param_release= numbered_release "25.39.0-next"
+          ; param_default= Some (VInt (-1L))
+          }
+        ]
+      ~allowed_roles:_R_POOL_OP ()
+
   let get_all =
     call ~name:"get_all"
       ~lifecycle:[(Published, rel_orlando, "")]
@@ -9002,6 +9036,7 @@ module Message = struct
           create
         ; destroy
         ; destroy_many
+        ; destroy_all
         ; get
         ; get_all
         ; get_since

@@ -223,6 +223,8 @@ let prototyped_of_message = function
       Some "24.14.0"
   | "PCI", "disable_dom0_access" ->
       Some "24.14.0"
+  | "message", "destroy_all" ->
+      Some "25.39.0-next"
   | "message", "destroy_many" ->
       Some "22.19.0"
   | "VTPM", "set_contents" ->
