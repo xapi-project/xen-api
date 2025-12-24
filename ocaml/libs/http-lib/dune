@@ -63,6 +63,7 @@
   xapi-backtrace
   xapi-log
   xapi-stdext-pervasives
+  xapi-stdext-std
   xapi-stdext-threads
   xapi-stdext-unix))
 

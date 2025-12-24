@@ -149,10 +149,10 @@ module Ds_selector = struct
 
   let of_string str =
     let open Rrd in
-    let splitted = Xstringext.String.split ',' str in
+    let splitted = String.split_on_char ',' str in
     match splitted with
     | without_trailing_comma :: _ -> (
-        let splitted = Xstringext.String.split ':' without_trailing_comma in
+        let splitted = String.split_on_char ':' without_trailing_comma in
         match splitted with
         | [cf; owner; uuid; metric] ->
             {
@@ -185,14 +185,7 @@ module Ds_selector = struct
   let escape_metric s =
     let quote s = Printf.sprintf "\"%s\"" s in
     if String.contains s '"' then
-      quote
-        (Xstringext.String.map_unlikely s (function
-          | '\"' ->
-              Some "\"\""
-          | _ ->
-              None
-          )
-          )
+      quote (Xstringext.String.replace '"' ~by:{|""|} s)
     else if String.contains s ',' || String.contains s '\n' then
       quote s
     else

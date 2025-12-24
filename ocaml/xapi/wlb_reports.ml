@@ -92,7 +92,6 @@
 
 open Printf
 open Http
-open Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "wlb_reports" end)
 

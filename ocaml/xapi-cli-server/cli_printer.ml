@@ -47,9 +47,15 @@ let rec multi_line_record r =
 
 (* Used to escape commas in --minimal mode *)
 let escape_commas x =
-  (* Escaping rules: *)
-  let rules = [(',', "\\,"); (* , -> \, *) ('\\', "\\\\") (* \ -> \\ *)] in
-  Xapi_stdext_std.Xstringext.String.escaped ~rules x
+  let replace = function
+    | ',' ->
+        Some "\\,"
+    | '\\' ->
+        Some "\\\\"
+    | _ ->
+        None
+  in
+  Xapi_stdext_std.Xstringext.String.replaced ~replace x
 
 let make_printer sock minimal =
   let buffer = ref [] in
