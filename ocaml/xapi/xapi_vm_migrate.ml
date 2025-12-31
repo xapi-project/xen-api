@@ -492,6 +492,7 @@ let pool_migrate_complete ~__context ~vm ~host:_ =
   if Xapi_xenops.vm_exists_in_xenopsd queue_name dbg id then (
     remove_stale_pcis ~__context ~vm ;
     Xapi_xenops.set_resident_on ~__context ~self:vm ;
+    Xapi_xenops.Events_from_xenopsd.wait queue_name dbg id () ;
     Xapi_xenops.add_caches id ;
     Xapi_xenops.refresh_vm ~__context ~self:vm ;
     Monitor_dbcalls_cache.clear_cache_for_vm ~vm_uuid:id
