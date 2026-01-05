@@ -248,10 +248,11 @@ module SR = struct
         List.mem `vdi_create sr_info.Qt.allowed_operations
         && List.mem `vdi_destroy sr_info.Qt.allowed_operations
         || not
-             (is_empty
+             (Seq.is_empty
                 (Client.Client.SR.get_VDIs ~rpc:!A.rpc ~session_id:!session_id
                    ~self:sr_info.Qt.sr
-                |> List.filter (fun vdi ->
+                |> List.to_seq
+                |> Seq.filter (fun vdi ->
                        not
                          (Client.Client.VDI.get_missing ~rpc:!A.rpc
                             ~session_id:!session_id ~self:vdi
