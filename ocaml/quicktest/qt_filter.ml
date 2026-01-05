@@ -346,9 +346,8 @@ module SR = struct
   let list_srs srs = with_xapi_query srs
 
   let f srs tcs =
-    for_each
-      (fun test_case -> List.map (specialise test_case) (list_srs srs))
-      tcs
+    let srs = list_srs srs in
+    for_each (fun test_case -> List.map (specialise test_case) srs) tcs
 end
 
 let sr = SR.f
