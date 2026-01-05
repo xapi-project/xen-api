@@ -17,11 +17,12 @@ let vdi_count = Hashtbl.create 4
 let count_vdis rpc session_id sr =
   Client.Client.SR.scan ~rpc ~session_id ~sr ;
   let managed_vdis =
-    Client.Client.SR.get_VDIs ~rpc ~session_id ~self:sr
+    let expr =
+      Printf.sprintf {|field "SR"="%s" and field "managed" = "true"|}
+        (Ref.string_of sr)
+    in
+    Client.Client.VDI.get_all_records_where ~rpc ~session_id ~expr
     (* NB vhd backends may delete records beneath us *)
-    |> Valid_ref_list.filter (fun vdi ->
-           Client.Client.VDI.get_managed ~rpc ~session_id ~self:vdi
-       )
   in
   List.length managed_vdis
 
