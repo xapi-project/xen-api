@@ -363,6 +363,7 @@ module SR = struct
 
   let f srs tcs =
     let srs = list_srs srs in
+    if srs = [] then Printf.eprintf "No SRs found that match condition\n" ;
     for_each (fun test_case -> List.map (specialise test_case) srs) tcs
 end
 
