@@ -361,7 +361,7 @@ let add_handler (name, handler) =
       | Some user_agent ->
           debug "Rate limiting handler %s with user_agent %s" name user_agent ;
           Rate_limit.Bucket_table.submit Xapi_rate_limit.bucket_table
-            ~user_agent ~callback:handler 1.0
+            ~user_agent ~callback:handler Xapi_rate_limit.median_token_cost
   in
   let h req ic () =
     let client =
