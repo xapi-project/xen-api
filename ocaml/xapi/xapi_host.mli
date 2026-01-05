@@ -139,7 +139,14 @@ val create :
   -> secure_boot:bool
   -> software_version:(string * string) list
   -> https_only:bool
+  -> max_cstate:string
+  -> ntp_mode:API.host_ntp_mode
+  -> ntp_custom_servers:string list
+  -> timezone:string
   -> numa_affinity_policy:API.host_numa_affinity_policy
+  -> latest_synced_updates_applied:API.latest_synced_updates_applied_state
+  -> pending_guidances_full:API.update_guidances_set
+  -> pending_guidances_recommended:API.update_guidances_set
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit
@@ -591,9 +598,6 @@ val schedule_disable_ssh_job :
   -> auto_mode:bool
   -> unit
 
-val set_ssh_auto_mode :
-  __context:Context.t -> self:API.ref_host -> value:bool -> unit
-
 val get_tracked_user_agents :
   __context:Context.t -> self:API.ref_host -> (string * string) list
 
@@ -609,3 +613,32 @@ val update_firewalld_service_status : __context:Context.t -> unit
       default status. This function should be called to update these firewalld
       services to the correct status. Xapi will expose an xe command line for
       this scenario. *)
+
+val set_ssh_auto_mode :
+  __context:Context.t -> self:API.ref_host -> value:bool -> unit
+
+val set_max_cstate :
+  __context:Context.t -> self:API.ref_host -> value:string -> unit
+
+val sync_max_cstate : __context:Context.t -> host:API.ref_host -> unit
+
+val set_ntp_mode :
+  __context:Context.t -> self:API.ref_host -> value:API.host_ntp_mode -> unit
+
+val set_ntp_custom_servers :
+  __context:Context.t -> self:API.ref_host -> value:string list -> unit
+
+val sync_ntp_config : __context:Context.t -> host:API.ref_host -> unit
+
+val get_ntp_servers_status :
+  __context:Context.t -> self:API.ref_host -> (string * string) list
+
+val set_timezone :
+  __context:Context.t -> self:API.ref_host -> value:string -> unit
+
+val list_timezones : __context:Context.t -> self:API.ref_host -> string list
+
+val get_ntp_synchronized : __context:Context.t -> self:API.ref_host -> bool
+
+val set_servertime :
+  __context:Context.t -> self:API.ref_host -> value:Clock.Date.t -> unit

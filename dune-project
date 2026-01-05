@@ -858,7 +858,6 @@
   (alcotest :with-test)
   astring
   base-unix
-  (bisect_ppx :with-test)
   (clock
    (and
     (= :version)

@@ -3427,8 +3427,41 @@ let host_record rpc session_id host =
               ~value:(safe_bool_of_string "ssh-auto-mode" value)
           )
           ()
+      ; make_field ~name:"max-cstate"
+          ~get:(fun () -> (x ()).API.host_max_cstate)
+          ~set:(fun value ->
+            Client.Host.set_max_cstate ~rpc ~session_id ~self:host ~value
+          )
+          ()
       ; make_field ~name:"secure-boot"
           ~get:(fun () -> string_of_bool (x ()).API.host_secure_boot)
+          ()
+      ; make_field ~name:"ntp-mode"
+          ~get:(fun () ->
+            Record_util.host_ntp_mode_to_string (x ()).API.host_ntp_mode
+          )
+          ~set:(fun value ->
+            Client.Host.set_ntp_mode ~rpc ~session_id ~self:host
+              ~value:(Record_util.host_ntp_mode_of_string value)
+          )
+          ()
+      ; make_field ~name:"ntp-custom-servers"
+          ~get:(fun () -> concat_with_comma (x ()).API.host_ntp_custom_servers)
+          ~get_set:(fun () -> (x ()).API.host_ntp_custom_servers)
+          ~set:(fun value ->
+            Client.Host.set_ntp_custom_servers ~rpc ~session_id ~self:host
+              ~value:
+                (String.split_on_char ',' value
+                |> List.map String.trim
+                |> List.filter (( <> ) "")
+                )
+          )
+          ()
+      ; make_field ~name:"timezone"
+          ~get:(fun () -> (x ()).API.host_timezone)
+          ~set:(fun value ->
+            Client.Host.set_timezone ~rpc ~session_id ~self:host ~value
+          )
           ()
       ]
   }
