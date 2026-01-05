@@ -357,6 +357,7 @@ let vm_template template_name =
       with_xapi_query @@ fun () ->
       match Qt.VM.Template.find !A.rpc !session_id template_name with
       | None ->
+          Printf.eprintf "Template not found: %S\n" template_name;
           []
       | Some vm_template ->
           [(name, speed, test vm_template)]
