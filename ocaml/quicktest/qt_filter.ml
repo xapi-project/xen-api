@@ -241,6 +241,13 @@ module SR = struct
         <> "iso"
     )
 
+  let is_iso =
+    sr_filter (fun sr_info ->
+        Client.Client.SR.get_content_type ~rpc:!A.rpc ~session_id:!session_id
+          ~self:sr_info.Qt.sr
+        = "iso"
+    )
+
   let is_empty = function [] -> true | _ :: _ -> false
 
   let with_any_vdi =

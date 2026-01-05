@@ -152,16 +152,29 @@ module VM = struct
       cmd @ Option.fold ~none:[] ~some:(fun x -> ["sr-uuid=" ^ x]) sr_uuid
     in
     let newvm_uuid = cli_cmd cmd in
-    Client.Client.VM.get_by_uuid ~rpc ~session_id ~uuid:newvm_uuid
+    (newvm_uuid, Client.Client.VM.get_by_uuid ~rpc ~session_id ~uuid:newvm_uuid)
 
   let uninstall rpc session_id vm =
     let uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:vm in
     cli_cmd ["vm-uninstall"; "uuid=" ^ uuid; "--force"] |> ignore
 
-  let with_new rpc session_id ~template ?sr f =
-    let vm =
+  let with_new rpc session_id ~template ?iso ?sr f =
+    let uuid, vm =
       install rpc session_id ~template ~name:"temp_quicktest_vm" ?sr ()
     in
+    iso
+    |> Option.iter (fun iso ->
+        let (_ : string) =
+          cli_cmd
+            [
+              "vm-cd-add"
+            ; "uuid=" ^ uuid
+            ; "cd-name=" ^ iso.API.vDI_name_label
+            ; "device=0"
+            ]
+        in
+        ()
+    ) ;
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () -> f vm)
       (fun () -> uninstall rpc session_id vm)
