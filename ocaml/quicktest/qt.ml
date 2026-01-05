@@ -118,22 +118,20 @@ module VM = struct
     let other = "Other install media"
 
     let find rpc session_id startswith =
-      let vms = Client.Client.VM.get_all ~rpc ~session_id in
+      let vms = Client.Client.VM.get_all_records ~rpc ~session_id in
       match
         List.filter
-          (fun self ->
-            String.starts_with ~prefix:startswith
-              (Client.Client.VM.get_name_label ~rpc ~session_id ~self)
-            && Client.Client.VM.get_is_a_template ~rpc ~session_id ~self
+          (fun (_, self) ->
+            String.starts_with ~prefix:startswith self.API.vM_name_label
+            && self.API.vM_is_a_template
           )
           vms
       with
       | [] ->
           None
-      | x :: _ ->
-          Printf.printf "Choosing template with name: %s\n"
-            (Client.Client.VM.get_name_label ~rpc ~session_id ~self:x) ;
-          Some x
+      | (r, vm) :: _ ->
+          Printf.printf "Choosing template with name: %s\n" vm.API.vM_name_label ;
+          Some r
   end
 
   let install rpc session_id ~template ~name ?sr () =
