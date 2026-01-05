@@ -14,8 +14,6 @@
 
 (** A central location for settings related to xapi *)
 
-module String_plain = String (* For when we don't want the Xstringext version *)
-open Xapi_stdext_std.Xstringext
 module StringSet = Set.Make (String)
 
 module D = Debug.Make (struct let name = "xapi_globs" end)
@@ -1385,12 +1383,12 @@ let citrix_patch_key =
 
 let trusted_patch_key = ref citrix_patch_key
 
+let fields_of = Astring.(String.fields ~empty:false ~is_sep:Char.Ascii.is_white)
+
 let gen_list_option name desc of_string string_of opt =
   let parse s =
     opt := [] ;
-    try
-      String.split_f String.isspace s
-      |> List.iter (fun x -> opt := of_string x :: !opt)
+    try fields_of s |> List.iter (fun x -> opt := of_string x :: !opt)
     with e ->
       D.error "Unable to parse %s=%s (expected space-separated list) error: %s"
         name s (Printexc.to_string e)
@@ -1489,7 +1487,7 @@ let other_options =
       (fun s -> s)
       disable_dbsync_for
   ; ( "xenopsd-queues"
-    , Arg.String (fun x -> xenopsd_queues := String.split ',' x)
+    , Arg.String (fun x -> xenopsd_queues := String.split_on_char ',' x)
     , (fun () -> String.concat "," !xenopsd_queues)
     , "list of xenopsd instances to manage"
     )
@@ -1576,7 +1574,8 @@ let other_options =
   ; ( "nvidia_multi_vgpu_enabled_driver_versions"
     , Arg.String
         (fun x ->
-          nvidia_multi_vgpu_enabled_driver_versions := String.split ',' x
+          nvidia_multi_vgpu_enabled_driver_versions :=
+            String.split_on_char ',' x
         )
     , (fun () -> String.concat "," !nvidia_multi_vgpu_enabled_driver_versions)
     , "list of nvidia host driver versions with multiple vGPU supported.\n\

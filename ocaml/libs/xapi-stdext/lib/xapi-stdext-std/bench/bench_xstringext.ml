@@ -8,36 +8,42 @@ let make_string len = String.init len (fun i -> Char.chr (33 + (i mod 94)))
 let escape_rules =
   [('a', "[A]"); ('e', "[E]"); ('i', "[I]"); ('o', "[O]"); ('u', "[U]")]
 
-(* Reference implementation from xstringext_test.ml *)
-let escaped_spec ?rules string =
-  match rules with
-  | None ->
-      String.escaped string
-  | Some rules ->
-      let apply_rules char =
-        match List.assoc_opt char rules with
-        | None ->
-            Seq.return char
-        | Some replacement ->
-            String.to_seq replacement
-      in
-      string |> String.to_seq |> Seq.concat_map apply_rules |> String.of_seq
+let replace = function
+  | 'a' ->
+      Some "[A]"
+  | 'e' ->
+      Some "[E]"
+  | 'i' ->
+      Some "[I]"
+  | 'o' ->
+      Some "[O]"
+  | 'u' ->
+      Some "[U]"
+  | _ ->
+      None
 
-let escaped_benchmark n =
+(* Reference implementation using lists *)
+let replaced_spec ~rules string =
+  let apply_rules char = List.assoc_opt char rules in
+  XString.replaced ~replace:apply_rules string
+
+let replaced ~rules string = XString.replaced ~replace:rules string
+
+let replaced_benchmark n =
   let s = make_string n in
-  Staged.stage @@ fun () -> ignore (XString.escaped ~rules:escape_rules s)
+  Staged.stage @@ fun () -> ignore (replaced ~rules:replace s)
 
-let escaped_spec_benchmark n =
+let replaced_spec_benchmark n =
   let s = make_string n in
-  Staged.stage @@ fun () -> ignore (escaped_spec ~rules:escape_rules s)
+  Staged.stage @@ fun () -> ignore (replaced_spec ~rules:escape_rules s)
 
-let test_escaped =
-  Test.make_indexed ~name:"escaped" ~fmt:"%s %d" ~args:[100; 500; 1000]
-    escaped_benchmark
+let test_replaced =
+  Test.make_indexed ~name:"replaced" ~fmt:"%s %d" ~args:[100; 500; 1000]
+    replaced_benchmark
 
-let test_escaped_spec =
-  Test.make_indexed ~name:"escaped-spec" ~fmt:"%s %d" ~args:[100; 500; 1000]
-    escaped_spec_benchmark
+let test_replaced_spec =
+  Test.make_indexed ~name:"replaced-spec" ~fmt:"%s %d" ~args:[100; 500; 1000]
+    replaced_spec_benchmark
 
 let benchmark () =
   let ols =
@@ -50,8 +56,8 @@ let benchmark () =
     Benchmark.cfg ~limit:2000 ~quota:(Time.second 0.5) ~kde:(Some 1000) ()
   in
   let test =
-    Test.make_grouped ~name:"escaped-comparison"
-      [test_escaped; test_escaped_spec]
+    Test.make_grouped ~name:"replaced-comparison"
+      [test_replaced; test_replaced_spec]
   in
   let raw_results = Benchmark.all cfg instances test in
   let results =
@@ -97,8 +103,10 @@ let () =
   List.iter
     (fun size ->
       Printf.printf "String size %s:\n" size ;
-      let opt_test = Printf.sprintf "escaped-comparison/escaped %s" size in
-      let ref_test = Printf.sprintf "escaped-comparison/escaped-spec %s" size in
+      let opt_test = Printf.sprintf "replaced-comparison/replaced %s" size in
+      let ref_test =
+        Printf.sprintf "replaced-comparison/replaced-spec %s" size
+      in
       match (get_timing opt_test, get_timing ref_test) with
       | Some opt_time, Some ref_time ->
           let improvement = (ref_time -. opt_time) /. ref_time *. 100.0 in

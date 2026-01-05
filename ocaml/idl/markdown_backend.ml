@@ -43,41 +43,41 @@ let compare_case_ins x y =
   compare (String.lowercase_ascii x) (String.lowercase_ascii y)
 
 let escape s =
-  let esc_char = function
+  let replace = function
     | '\\' ->
-        "&#92;"
+        Some "&#92;"
     | '*' ->
-        "&#42;"
+        Some "&#42;"
     | '_' ->
-        "&#95;"
+        Some "&#95;"
     | '{' ->
-        "&#123;"
+        Some "&#123;"
     | '}' ->
-        "&#125;"
+        Some "&#125;"
     | '[' ->
-        "&#91;"
+        Some "&#91;"
     | ']' ->
-        "&#93;"
+        Some "&#93;"
     | '(' ->
-        "&#40;"
+        Some "&#40;"
     | ')' ->
-        "&#41;"
+        Some "&#41;"
     | '>' ->
-        "&gt;"
+        Some "&gt;"
     | '<' ->
-        "&lt;"
+        Some "&lt;"
     | '#' ->
-        "&#35;"
+        Some "&#35;"
     | '+' ->
-        "&#43;"
+        Some "&#43;"
     | '-' ->
-        "&#45;"
+        Some "&#45;"
     | '!' ->
-        "&#33;"
-    | c ->
-        String.make 1 c
+        Some "&#33;"
+    | _ ->
+        None
   in
-  String.to_seq s |> Seq.map esc_char |> List.of_seq |> String.concat ""
+  Xapi_stdext_std.Xstringext.String.replaced ~replace s
 
 let rec of_ty_verbatim = function
   | SecretString | String ->

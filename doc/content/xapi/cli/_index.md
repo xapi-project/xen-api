@@ -156,7 +156,7 @@ So each function receives a printer for sending text output to the xe client, an
       let mac = List.assoc_default "mac" params "" in
       let network = Client.Network.get_by_uuid rpc session_id network in
       let pifs = List.assoc "pif-uuids" params in
-      let uuids = String.split ',' pifs in
+      let uuids = String.split_on_char ',' pifs in
       let pifs = List.map (fun uuid -> Client.PIF.get_by_uuid rpc session_id uuid) uuids in
       let mode = Record_util.bond_mode_of_string (List.assoc_default "mode" params "") in
       let properties = read_map_params "properties" params in

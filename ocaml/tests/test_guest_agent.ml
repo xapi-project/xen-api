@@ -42,9 +42,7 @@ module Networks = Generic.MakeStateless (struct
     )
 
   let construct_tree tree path =
-    let nodes =
-      Xapi_stdext_std.Xstringext.String.split_f (fun s -> s = '/') path
-    in
+    let nodes = Astring.String.cuts ~empty:false ~sep:"/" path in
     add_path_to_tree tree nodes
 
   let rec list_helper children = function
@@ -60,9 +58,7 @@ module Networks = Generic.MakeStateless (struct
     )
 
   let list (T (_root, children)) path =
-    let nodes =
-      Xapi_stdext_std.Xstringext.String.split_f (fun s -> s = '/') path
-    in
+    let nodes = Astring.String.cuts ~empty:false ~sep:"/" path in
     list_helper children nodes
 
   let transform input =
@@ -231,9 +227,7 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
     )
 
   let construct_mtree mtree (path, leaf_value) =
-    let nodes =
-      Xapi_stdext_std.Xstringext.String.split_f (fun s -> s = '/') path
-    in
+    let nodes = Astring.String.cuts ~empty:false ~sep:"/" path in
     add_leaf_to_mtree nodes leaf_value mtree
 
   let rec list_helper children = function
@@ -254,9 +248,7 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
     | Lf (_, _) ->
         []
     | Mt (_, children) ->
-        let nodes =
-          Xapi_stdext_std.Xstringext.String.split_f (fun s -> s = '/') path
-        in
+        let nodes = Astring.String.cuts ~empty:false ~sep:"/" path in
         list_helper children nodes
 
   let rec lookup_helper mtree = function
@@ -274,9 +266,7 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
     )
 
   let lookup mtree path =
-    let nodes =
-      Xapi_stdext_std.Xstringext.String.split_f (fun s -> s = '/') path
-    in
+    let nodes = Astring.String.cuts ~empty:false ~sep:"/" path in
     lookup_helper mtree nodes
 
   let transform input =

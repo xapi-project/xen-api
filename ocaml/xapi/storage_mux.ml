@@ -97,7 +97,8 @@ module Mux = struct
 
     let m = Mutex.create ()
 
-    let filename_of dp = Xapi_stdext_std.Xstringext.String.replace "/" "-" dp
+    let filename_of dp =
+      Xapi_stdext_std.Xstringext.String.replace '/' ~by:"-" dp
 
     let write dp info =
       let filename = filename_of dp in
@@ -780,9 +781,9 @@ module Mux = struct
     (* Assume it has either the format:
        SR/VDI -- for a particular SR and VDI
        content_id -- for a particular content *)
-    let open Xapi_stdext_std.Xstringext in
+    let split = Xapi_stdext_std.Xstringext.String.split in
     with_dbg ~name:"get_by_name" ~dbg @@ fun di ->
-    match List.filter (fun x -> x <> "") (String.split ~limit:2 '/' name) with
+    match List.filter (fun x -> x <> "") (split ~limit:2 '/' name) with
     | [sr; name] ->
         let sr = Storage_interface.Sr.of_string sr in
         let module C = StorageAPI (Idl.Exn.GenClient (struct

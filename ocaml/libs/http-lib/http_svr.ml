@@ -331,28 +331,22 @@ module Server = struct
       x.handlers []
 end
 
-let escape uri =
-  (* from xapi-stdext-std xstringext *)
-  let escaped ~rules string =
-    let aux h t =
-      ( if List.mem_assoc h rules then
-          List.assoc h rules
-        else
-          Astring.String.of_char h
+let escape_html uri =
+  Xapi_stdext_std.Xstringext.String.replaced
+    ~replace:(function
+      | '<' ->
+          Some "&lt;"
+      | '>' ->
+          Some "&gt;"
+      | '\'' ->
+          Some "&apos;"
+      | '"' ->
+          Some "&quot;"
+      | '&' ->
+          Some "&amp;"
+      | _ ->
+          None
       )
-      :: t
-    in
-    String.concat "" (Astring.String.fold_right aux string [])
-  in
-  escaped
-    ~rules:
-      [
-        ('<', "&lt;")
-      ; ('>', "&gt;")
-      ; ('\'', "&apos;")
-      ; ('"', "&quot;")
-      ; ('&', "&amp;")
-      ]
     uri
 
 exception Generic_error of string
@@ -508,7 +502,7 @@ let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
                 )
         | exc ->
             response_internal_error exc fd
-              ~extra:(escape (Printexc.to_string exc))
+              ~extra:(escape_html (Printexc.to_string exc))
     ) ;
     (None, None)
 
@@ -557,7 +551,7 @@ let handle_one (x : 'a Server.t) ss context req =
                 )
         | exc ->
             response_internal_error ~req exc ss
-              ~extra:(escape (Printexc.to_string exc))
+              ~extra:(escape_html (Printexc.to_string exc))
     ) ;
     !finished
 

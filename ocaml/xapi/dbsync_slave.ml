@@ -17,7 +17,6 @@
 *)
 
 module Rrdd = Rrd_client.Client
-open Xapi_stdext_std.Xstringext
 module Unixext = Xapi_stdext_unix.Unixext
 module Date = Clock.Date
 open Create_misc
@@ -79,9 +78,9 @@ let get_start_time () =
     match
       Unixext.string_of_file "/proc/stat"
       |> String.trim
-      |> String.split '\n'
+      |> String.split_on_char '\n'
       |> List.find (fun s -> String.starts_with ~prefix:"btime" s)
-      |> String.split ' '
+      |> String.split_on_char ' '
     with
     | _ :: btime :: _ ->
         let boot_time = Date.of_unix_time (float_of_string btime) in
@@ -115,7 +114,7 @@ let refresh_localhost_info ~__context info =
     | None ->
         []
     | Some {capabilities; _} ->
-        String.split ' ' capabilities
+        String.split_on_char ' ' capabilities
   in
   Db.Host.set_capabilities ~__context ~self:host ~value:caps ;
   Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr ~__context) ;
