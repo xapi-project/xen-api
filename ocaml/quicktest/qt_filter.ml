@@ -256,6 +256,13 @@ module SR = struct
         <> "iso"
     )
 
+  let is_iso =
+    sr_filter (fun sr_info ->
+        Client.Client.SR.get_content_type ~rpc:!A.rpc ~session_id:!session_id
+          ~self:sr_info.Qt.sr
+        = "iso"
+    )
+
   let is_empty = function [] -> true | _ :: _ -> false
 
   let with_any_vdi =
@@ -347,6 +354,8 @@ module SR = struct
 
   let f srs tcs =
     let srs = list_srs srs in
+    if srs = [] then
+      Printf.eprintf "No SRs found that match condition\n" ;
     for_each (fun test_case -> List.map (specialise test_case) srs) tcs
 end
 
@@ -357,7 +366,7 @@ let vm_template template_name =
       with_xapi_query @@ fun () ->
       match Qt.VM.Template.find !A.rpc !session_id template_name with
       | None ->
-          Printf.eprintf "Template not found: %S\n" template_name;
+          Printf.eprintf "Template not found: %S\n" template_name ;
           []
       | Some vm_template ->
           [(name, speed, test vm_template)]

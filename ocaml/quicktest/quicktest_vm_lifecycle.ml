@@ -91,11 +91,29 @@ let one rpc session_id vm test =
   | Halted ->
       wait_for_domid (fun domid' -> domid' = -1L)
 
-let test rpc session_id sr_info vm_template () =
+let test rpc session_id sr_info vm_template iso_info () =
   let sr = sr_info.Qt.sr in
-  Qt.VM.with_new rpc session_id ~template:vm_template ~sr (fun vm ->
-      List.iter (one rpc session_id vm) all_possible_tests
-  )
+  let expr =
+    Printf.sprintf {|field "SR" = "%s"|} (Ref.string_of iso_info.Qt.sr)
+  in
+  let prefix = "memtest" in
+  let isos =
+    Client.Client.VDI.get_all_records_where ~rpc ~session_id ~expr
+    |> List.filter (fun (_, iso) ->
+           String.starts_with ~prefix iso.API.vDI_name_label
+       )
+    |> List.sort (fun (_, a) (_, b) ->
+           -String.compare a.API.vDI_name_label b.API.vDI_name_label
+       )
+  in
+  match isos with
+  | [] ->
+      Printf.eprintf "No ISO found with prefix %S\n%!" prefix
+  | (_, iso) :: _ ->
+      Printf.eprintf "Choosing ISO %S\n%!" iso.API.vDI_name_label ;
+      Qt.VM.with_new rpc session_id ~template:vm_template ~iso ~sr (fun vm ->
+          List.iter (one rpc session_id vm) all_possible_tests
+      )
 
 let tests () =
   let open Qt_filter in
@@ -103,6 +121,7 @@ let tests () =
     [("VM lifecycle tests", `Slow, test)]
     |> conn
     |> sr SR.(all |> allowed_operations [`vdi_create])
-    |> vm_template "CoreOS"
+    |> vm_template Qt.VM.Template.other
+    |> sr SR.(all |> is_iso)
   ]
   |> List.concat

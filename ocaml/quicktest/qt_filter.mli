@@ -51,6 +51,8 @@ module SR : sig
 
   val not_iso : srs -> srs
 
+  val is_iso : srs -> srs
+
   val with_any_vdi : srs -> srs
   (** Selects SRs that either have a VDI or we can create & destroy a VDI on them.
       This filter should be called from tests using [VDI.with_any] *)
