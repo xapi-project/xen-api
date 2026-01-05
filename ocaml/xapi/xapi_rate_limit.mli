@@ -14,6 +14,10 @@
 
 val bucket_table : Rate_limit.Bucket_table.t
 
+val get_token_cost : string -> float
+
+val median_token_cost : float
+
 val create :
      __context:Context.t
   -> client_id:string
