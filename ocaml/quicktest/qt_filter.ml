@@ -47,7 +47,14 @@ let init () =
   Client.Client.SR.get_all_records ~rpc:!A.rpc ~session_id:!session_id
   |> List.iter (fun (ref, sr) ->
          if test_sr_uuid = "" || sr.API.sR_uuid = test_sr_uuid then
-           if List.mem `scan sr.API.sR_allowed_operations then
+           if
+             List.(
+               mem `scan sr.API.sR_allowed_operations
+               && (mem `vdi_create sr.API.sR_allowed_operations
+                  || mem `vdi_destroy sr.API.sR_allowed_operations
+                  )
+             )
+           then
              let before = count_vdis !A.rpc !session_id ref in
              Hashtbl.add vdi_count sr.API.sR_uuid before
      )
@@ -61,7 +68,14 @@ let finish () =
          match Hashtbl.find_opt vdi_count sr.API.sR_uuid with
          | Some before ->
              if test_sr_uuid = "" || sr.API.sR_uuid = test_sr_uuid then
-               if List.mem `scan sr.API.sR_allowed_operations then
+               if
+                 List.(
+                   mem `scan sr.API.sR_allowed_operations
+                   && (mem `vdi_create sr.API.sR_allowed_operations
+                      || mem `vdi_destroy sr.API.sR_allowed_operations
+                      )
+                 )
+               then
                  let after = count_vdis !A.rpc !session_id ref in
                  if after <> before then
                    failwith
