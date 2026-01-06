@@ -12,7 +12,7 @@
    GNU Lesser General Public License for more details.
  *)
 
-type t_trusted = CA_Certificate | CRL
+type t_trusted = CA_Certificate | CRL | Root_CA | Leaf_Pinned
 
 (* Information extraction *)
 
@@ -50,15 +50,37 @@ val install_server_certificate :
   -> path:string
   -> X509.Certificate.t
 
-val host_install : t_trusted -> name:string -> cert:string -> unit
+val host_install :
+     t_trusted
+  -> name:string
+  -> cert:string
+  -> purpose:API.certificate_purpose list
+  -> unit
 
-val host_uninstall : t_trusted -> name:string -> force:bool -> unit
+val host_uninstall :
+     t_trusted
+  -> name:string
+  -> purpose:API.certificate_purpose list
+  -> force:bool
+  -> unit
 
 val pool_install :
-  t_trusted -> __context:Context.t -> name:string -> cert:string -> unit
+     t_trusted
+  -> __context:Context.t
+  -> name:string
+  -> cert:string
+  -> purpose:API.certificate_purpose list
+  -> unit
 
 val pool_uninstall :
-  t_trusted -> __context:Context.t -> name:string -> force:bool -> unit
+     t_trusted
+  -> __context:Context.t
+  -> name:string
+  -> purpose:API.certificate_purpose list
+  -> force:bool
+  -> unit
+
+val name_of_uuid : string -> string
 
 (* Database manipulation *)
 
@@ -68,10 +90,11 @@ module Db_util : sig
     -> type':
          [< `ca of string
          | `host of API.ref_host
-         | `host_internal of API.ref_host ]
+         | `host_internal of API.ref_host
+         | `pinned ]
     -> purpose:API.certificate_purpose list
     -> X509.Certificate.t
-    -> API.ref_Certificate
+    -> API.ref_Certificate * string
 
   val remove_cert_by_ref : __context:Context.t -> API.ref_Certificate -> unit
 

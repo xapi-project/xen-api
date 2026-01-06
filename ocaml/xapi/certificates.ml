@@ -29,7 +29,7 @@ open D
  *
  * Note that the bundles (e) and (f) are generated automatically using the contents of (c) and (d) respectively *)
 
-type t_trusted = CA_Certificate | CRL
+type t_trusted = CA_Certificate | CRL | Root_CA | Leaf_Pinned
 
 let pem_of_string x =
   match X509.Certificate.decode_pem x with
@@ -45,8 +45,12 @@ let library_path = function
       !Xapi_globs.trusted_certs_dir
   | CRL ->
       Stunnel.crl_path
+  | Root_CA | Leaf_Pinned ->
+      !Xapi_globs.trusted_certs_by_purpose_dir
 
-let library_filename kind name = Filename.concat (library_path kind) name
+let ( // ) = Filename.concat
+
+let library_filename kind name = library_path kind // name
 
 let mkdir_cert_path kind = Unixext.mkdir_rec (library_path kind) 0o700
 
@@ -69,7 +73,15 @@ let rehash () =
 
 let update_ca_bundle () = Helpers.update_ca_bundle ()
 
-let to_string = function CA_Certificate -> "CA certificate" | CRL -> "CRL"
+let to_string = function
+  | CA_Certificate ->
+      "CA certificate"
+  | CRL ->
+      "CRL"
+  | Root_CA ->
+      "root CA certificate"
+  | Leaf_Pinned ->
+      "pinned leaf certificate"
 
 (** {pp_hash hash} outputs the hexadecimal representation of the {hash}
     adding a colon between every octet, in uppercase.
@@ -118,7 +130,7 @@ let raise_server_error parameters err = raise (Server_error (err, parameters))
 let raise_name_invalid kind n =
   let err =
     match kind with
-    | CA_Certificate ->
+    | CA_Certificate | Root_CA | Leaf_Pinned ->
         certificate_name_invalid
     | CRL ->
         crl_name_invalid
@@ -132,7 +144,7 @@ let validate_name kind name =
 let raise_already_exists kind n =
   let err =
     match kind with
-    | CA_Certificate ->
+    | CA_Certificate | Root_CA | Leaf_Pinned ->
         certificate_already_exists
     | CRL ->
         crl_already_exists
@@ -142,7 +154,7 @@ let raise_already_exists kind n =
 let raise_does_not_exist kind n =
   let err =
     match kind with
-    | CA_Certificate ->
+    | CA_Certificate | Root_CA | Leaf_Pinned ->
         certificate_does_not_exist
     | CRL ->
         crl_does_not_exist
@@ -151,7 +163,11 @@ let raise_does_not_exist kind n =
 
 let raise_corrupt kind n =
   let err =
-    match kind with CA_Certificate -> certificate_corrupt | CRL -> crl_corrupt
+    match kind with
+    | CA_Certificate | Root_CA | Leaf_Pinned ->
+        certificate_corrupt
+    | CRL ->
+        crl_corrupt
   in
   raise_server_error [n] err
 
@@ -164,10 +180,13 @@ module Db_util : sig
   val add_cert :
        __context:Context.t
     -> type':
-         [< `host of API.ref_host | `host_internal of API.ref_host | `ca of name]
+         [< `host of API.ref_host
+         | `host_internal of API.ref_host
+         | `ca of name
+         | `pinned ]
     -> purpose:API.certificate_purpose list
     -> X509.Certificate.t
-    -> API.ref_Certificate
+    -> API.ref_Certificate * string
 
   val remove_cert_by_ref : __context:Context.t -> API.ref_Certificate -> unit
 
@@ -222,6 +241,8 @@ end = struct
             List.iter (remove_cert_by_ref ~__context) certs
           in
           (name, Ref.null, `ca, remove_obsoleted_copies)
+      | `pinned ->
+          ("", Ref.null, `pinned, Fun.id)
     in
     let date_of_ptime time = Date.of_unix_time (Ptime.to_float_s time) in
     let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
@@ -237,7 +258,7 @@ end = struct
       ~fingerprint_sha1 ~name ~_type ~purpose ;
     debug "added cert %s under uuid=%s ref=%s" name uuid (Ref.string_of ref') ;
     post_action () ;
-    ref'
+    (ref', uuid)
 
   let remove_ca_cert_by_name ~__context name =
     let certs =
@@ -289,7 +310,7 @@ let cert_perms kind =
   debug "%d %d" perm stat.Unix.st_perm ;
   perm
 
-let host_install kind ~name ~cert =
+let host_install kind ~name ~cert ~purpose =
   validate_name kind name ;
   let filename = library_filename kind name in
   if Sys.file_exists filename then
@@ -305,7 +326,7 @@ let host_install kind ~name ~cert =
       (ExnHelper.string_of_exn e) ;
     raise_library_corrupt ()
 
-let host_uninstall kind ~name ~force =
+let host_uninstall kind ~name ~purpose ~force =
   validate_name kind name ;
   let filename = library_filename kind name in
   if Sys.file_exists filename then (
@@ -385,6 +406,8 @@ let sync_certs kind ~__context master_certs host =
           Client.Host.crl_uninstall ~rpc ~session_id ~host ~name
         )
         ~__context master_certs host
+  | Root_CA | Leaf_Pinned ->
+      ()
 
 let sync_certs_all_hosts kind ~__context master_certs hosts_but_master =
   let exn = ref None in
@@ -405,19 +428,19 @@ let pool_sync ~__context =
   sync_certs_all_hosts CA_Certificate ~__context master_certs hosts_but_master ;
   sync_certs_all_hosts CRL ~__context master_crls hosts_but_master
 
-let pool_install kind ~__context ~name ~cert =
-  host_install kind ~name ~cert ;
+let pool_install kind ~__context ~name ~cert ~purpose =
+  host_install kind ~name ~cert ~purpose ;
   try pool_sync ~__context
   with exn ->
-    ( try host_uninstall kind ~name ~force:false
+    ( try host_uninstall kind ~name ~purpose ~force:false
       with e ->
         warn "Exception unwinding install of %s %s: %s" (to_string kind) name
           (ExnHelper.string_of_exn e)
     ) ;
     raise exn
 
-let pool_uninstall kind ~__context ~name ~force =
-  host_uninstall kind ~name ~force ;
+let pool_uninstall kind ~__context ~name ~purpose ~force =
+  host_uninstall kind ~name ~purpose ~force ;
   pool_sync ~__context
 
 (* Extracts the server certificate from the server certificate pem file.
@@ -455,3 +478,5 @@ let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key ~path =
       cert
   | Error (`Msg (err, msg)) ->
       raise_server_error msg err
+
+let name_of_uuid uuid = Printf.sprintf "%s.pem" uuid

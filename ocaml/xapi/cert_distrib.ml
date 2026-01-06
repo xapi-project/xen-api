@@ -585,7 +585,7 @@ let exchange_ca_certificates_with_joiner ~__context ~import ~export =
   Worker.local_regen_bundle ~__context ;
   List.iter
     (fun (name, cert) ->
-      let (_ : API.ref_Certificate) =
+      let (_ : API.ref_Certificate), _ =
         C.Db_util.add_cert ~__context ~type':(`ca name) ~purpose:[] cert
       in
       ()
