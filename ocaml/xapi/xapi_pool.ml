@@ -1583,8 +1583,8 @@ let certificate_install ~__context ~name ~cert =
     | Ok x ->
         x
   in
-  pool_install CA_Certificate ~__context ~name ~cert ;
-  let (_ : API.ref_Certificate) =
+  pool_install Root_legacy ~__context ~name ~cert ;
+  let (_ : API.ref_Certificate), _ =
     Db_util.add_cert ~__context ~type':(`ca name) ~purpose:[] certificate
   in
   ()
@@ -1593,7 +1593,7 @@ let install_ca_certificate = certificate_install
 
 let uninstall_ca_certificate ~__context ~name ~force =
   let open Certificates in
-  pool_uninstall CA_Certificate ~__context ~name ~force ;
+  pool_uninstall Root_legacy ~__context ~name ~force ;
   Db_util.remove_ca_cert_by_name ~__context name
 
 let certificate_uninstall = uninstall_ca_certificate ~force:false
@@ -4213,6 +4213,51 @@ let set_console_idle_timeout = Ssh.set_console_timeout
 
 let set_ssh_auto_mode = Ssh.set_ssh_auto_mode
 
-let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose = ()
+let install_trusted_certificate ~__context ~self:_ ~ca ~cert ~purpose =
+  let open Certificates in
+  let certificate =
+    let open Api_errors in
+    match
+      Gencertlib.Lib.validate_not_expired cert
+        ~error_not_yet:trusted_certificate_not_valid_yet
+        ~error_expired:trusted_certificate_expired
+        ~error_invalid:trusted_certificate_invalid
+    with
+    | Error e ->
+        raise e
+    | Ok x ->
+        x
+  in
+  let cert_type, kind =
+    match (ca, purpose = []) with
+    | true, _ ->
+        (`ca "", Root purpose)
+    | false, false ->
+        (`pinned, Pinned purpose)
+    | false, true ->
+        raise Api_errors.(Server_error (certificate_lacks_purpose, []))
+  in
+  let (_ : API.ref_Certificate), uuid =
+    Db_util.add_cert ~__context ~type':cert_type ~purpose certificate
+  in
+  let name = Certificates.name_of_uuid uuid in
+  pool_install kind ~__context ~name ~cert ;
+  ()
 
-let uninstall_trusted_certificate ~__context ~self ~certificate = ()
+let uninstall_trusted_certificate ~__context ~self:_ ~certificate =
+  let open Certificates in
+  let cert_rec = Db.Certificate.get_record ~__context ~self:certificate in
+  let purposes = cert_rec.API.certificate_purpose in
+  let kind =
+    match cert_rec.API.certificate_type with
+    | `ca ->
+        Root purposes
+    | `pinned ->
+        Pinned purposes
+    | _ ->
+        raise Api_errors.(Server_error (not_trusted_certificate, []))
+  in
+  let name = Certificates.name_of_uuid cert_rec.API.certificate_uuid in
+  Db_util.remove_cert_by_ref ~__context certificate ;
+  pool_uninstall kind ~__context ~name ~force:true ;
+  ()

@@ -572,7 +572,7 @@ let exchange_ca_certificates_with_joiner ~__context ~import ~export =
   let parsed =
     List.map
       (fun WireProtocol.{filename; content} ->
-        let () = C.(validate_name CA_Certificate filename) in
+        let () = C.(validate_name Root_legacy filename) in
         let cert = C.pem_of_string content in
         (filename, cert)
       )
@@ -583,7 +583,7 @@ let exchange_ca_certificates_with_joiner ~__context ~import ~export =
   Worker.local_regen_bundle ~__context ;
   List.iter
     (fun (name, cert) ->
-      let (_ : API.ref_Certificate) =
+      let (_ : API.ref_Certificate), _ =
         C.Db_util.add_cert ~__context ~type':(`ca name) ~purpose:[] cert
       in
       ()

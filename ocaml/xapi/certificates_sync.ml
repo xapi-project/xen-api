@@ -22,7 +22,7 @@ let uninstall ~__context cert =
   file system. This creates a new entry in the database. *)
 let install ~__context ~host:_ ~type' cert =
   try
-    let ref =
+    let ref, _ =
       Certificates.Db_util.add_cert ~__context ~type' ~purpose:[] cert
     in
     info "Adding host certificicate %s to database" (Ref.string_of ref) ;

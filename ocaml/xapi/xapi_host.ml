@@ -1574,14 +1574,13 @@ let get_uncooperative_domains ~__context ~self:_ = []
 
 let install_ca_certificate ~__context ~host:_ ~name ~cert =
   (* don't modify db - Pool.install_ca_certificate will handle that *)
-  Certificates.(host_install CA_Certificate ~name ~cert)
+  Certificates.(host_install Root_legacy ~name ~cert)
 
 let uninstall_ca_certificate ~__context ~host:_ ~name ~force =
   (* don't modify db - Pool.uninstall_ca_certificate will handle that *)
-  Certificates.(host_uninstall CA_Certificate ~name ~force)
+  Certificates.(host_uninstall Root_legacy ~name ~force)
 
-let certificate_list ~__context ~host:_ =
-  Certificates.(local_list CA_Certificate)
+let certificate_list ~__context ~host:_ = Certificates.(local_list Root_legacy)
 
 let crl_install ~__context ~host:_ ~name ~crl =
   Certificates.(host_install CRL ~name ~cert:crl)
@@ -1612,7 +1611,7 @@ let replace_host_certificate ~__context ~type' ~host
   with_cert_lock @@ fun () ->
   let old_certs = Db_util.get_host_certs ~__context ~type' ~host in
   let new_cert = write_cert_fs () in
-  let (_ : API.ref_Certificate) =
+  let (_ : API.ref_Certificate), _ =
     match type' with
     | `host ->
         Db_util.add_cert ~__context ~type':(`host host) ~purpose:[] new_cert

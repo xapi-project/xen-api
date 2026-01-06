@@ -1157,6 +1157,13 @@ let server_certificate_expired = add_error "SERVER_CERTIFICATE_EXPIRED"
 
 let ca_certificate_expired = add_error "CA_CERTIFICATE_EXPIRED"
 
+let trusted_certificate_expired = add_error "TRUSTED_CERTIFICATE_EXPIRED"
+
+let trusted_certificate_not_valid_yet =
+  add_error "TRUSTED_CERTIFICATE_NOT_VALID_YET"
+
+let trusted_certificate_invalid = add_error "TRUSTED_CERTIFICATE_INVALID"
+
 let server_certificate_signature_not_supported =
   add_error "SERVER_CERTIFICATE_SIGNATURE_NOT_SUPPORTED"
 
@@ -1443,3 +1450,7 @@ let invalid_ntp_config = add_error "INVALID_NTP_CONFIG"
 
 let not_allowed_when_ntp_is_enabled =
   add_error "NOT_ALLOWED_WHEN_NTP_IS_ENABLED"
+
+let not_trusted_certificate = add_error "NOT_TRUSTED_CERTIFICATE"
+
+let certificate_lacks_purpose = add_error "CERTIFICATE_LACKS_PURPOSE"
