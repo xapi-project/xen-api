@@ -275,7 +275,10 @@ let gc_certificates ~__context =
      related to any single host *)
   all_certificates
   |> List.filter (fun (cert, record) ->
-      record.API.certificate_type <> `ca && not (List.mem cert host_certificates)
+      (record.API.certificate_type = `host
+      || record.API.certificate_type = `host_internal
+      )
+      && not (List.mem cert host_certificates)
   )
   |> List.iter (fun (cert, _) -> Db.Certificate.destroy ~__context ~self:cert)
 
