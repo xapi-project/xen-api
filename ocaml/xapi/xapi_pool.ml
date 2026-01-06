@@ -4212,3 +4212,7 @@ let set_ssh_enabled_timeout = Ssh.set_enabled_timeout
 let set_console_idle_timeout = Ssh.set_console_timeout
 
 let set_ssh_auto_mode = Ssh.set_ssh_auto_mode
+
+let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose = ()
+
+let uninstall_trusted_certificate ~__context ~self ~certificate = ()
