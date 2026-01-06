@@ -799,6 +799,8 @@ let c_rehash = ref "/usr/bin/c_rehash"
 
 let trusted_certs_dir = ref "/etc/stunnel/certs"
 
+let trusted_certs_by_purpose_dir = ref "/etc/trusted-certs"
+
 let trusted_pool_certs_dir = ref "/etc/stunnel/certs-pool"
 
 let stunnel_bundle_path = ref "/etc/stunnel/xapi-stunnel-ca-bundle.pem"

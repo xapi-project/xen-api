@@ -1704,6 +1704,21 @@ let _ =
     ~doc:"The provided intermediate certificates are not in a PEM-encoded X509."
     () ;
 
+  error Api_errors.not_trusted_certificate ["ref"]
+    ~doc:"The provided certificate is not a trusted certificate." () ;
+
+  error Api_errors.certificate_lacks_purpose []
+    ~doc:"No purpose is specified for the provided certificate." () ;
+
+  error Api_errors.trusted_certificate_expired ["now"; "not_after"]
+    ~doc:"The provided certificate has expired." () ;
+
+  error Api_errors.trusted_certificate_not_valid_yet ["now"; "not_before"]
+    ~doc:"The provided certificate is not valid yet." () ;
+
+  error Api_errors.trusted_certificate_invalid []
+    ~doc:"The provided certificate is not in a PEM-encoded X509." () ;
+
   error Api_errors.vmpp_has_vm []
     ~doc:"There is at least one VM assigned to this protection policy." () ;
   error Api_errors.vmpp_archive_more_frequent_than_backup []

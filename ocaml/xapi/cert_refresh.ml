@@ -90,7 +90,7 @@ let host ~__context ~type' =
   (* remove old from database, add new *)
   Certificates.Db_util.get_host_certs ~__context ~type' ~host
   |> List.iter (Certificates.Db_util.remove_cert_by_ref ~__context) ;
-  let ref =
+  let ref, _ =
     match type' with
     | `host ->
         Certificates.Db_util.add_cert ~__context ~type':(`host host) ~purpose:[]
