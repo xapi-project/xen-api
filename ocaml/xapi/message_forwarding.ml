@@ -4134,6 +4134,71 @@ functor
       let update_firewalld_service_status ~__context =
         info "Host.update_firewalld_service_status" ;
         Local.Host.update_firewalld_service_status ~__context
+
+      let set_max_cstate ~__context ~self ~value =
+        info "Host.set_max_cstate: host='%s' value='%s'"
+          (host_uuid ~__context self)
+          value ;
+        let local_fn = Local.Host.set_max_cstate ~self ~value in
+        let remote_fn = Client.Host.set_max_cstate ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_ntp_mode ~__context ~self ~value =
+        info "Host.set_ntp_mode: host='%s' value='%s'"
+          (host_uuid ~__context self)
+          (Record_util.host_ntp_mode_to_string value) ;
+        let local_fn = Local.Host.set_ntp_mode ~self ~value in
+        let remote_fn = Client.Host.set_ntp_mode ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_ntp_custom_servers ~__context ~self ~value =
+        info "Host.set_ntp_custom_servers: host='%s' value='%s'"
+          (host_uuid ~__context self)
+          ("[" ^ String.concat ", " value ^ "]") ;
+        let local_fn = Local.Host.set_ntp_custom_servers ~self ~value in
+        let remote_fn = Client.Host.set_ntp_custom_servers ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let get_ntp_servers_status ~__context ~self =
+        info "Host.get_ntp_servers_status: host = '%s'"
+          (host_uuid ~__context self) ;
+        let local_fn = Local.Host.get_ntp_servers_status ~self in
+        let remote_fn = Client.Host.get_ntp_servers_status ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_timezone ~__context ~self ~value =
+        info "Host.set_timezone: host = '%s'; value = '%s'"
+          (host_uuid ~__context self)
+          value ;
+        let local_fn = Local.Host.set_timezone ~self ~value in
+        let remote_fn = Client.Host.set_timezone ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let list_timezones ~__context ~self =
+        info "Host.list_timezones: host = '%s'" (host_uuid ~__context self) ;
+        let local_fn = Local.Host.list_timezones ~self in
+        let remote_fn = Client.Host.list_timezones ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let get_ntp_synchronized ~__context ~self =
+        info "Host.get_ntp_synchronized: host = '%s'" (host_uuid ~__context self) ;
+        let local_fn = Local.Host.get_ntp_synchronized ~self in
+        let remote_fn = Client.Host.get_ntp_synchronized ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_servertime ~__context ~self ~value =
+        info "Host.set_servertime : host = '%s'; value = '%s'"
+          (host_uuid ~__context self)
+          (Clock.Date.to_rfc3339 value) ;
+        if Db.Host.get_ntp_mode ~__context ~self <> `Disabled then
+          raise
+            (Api_errors.Server_error
+               (Api_errors.not_allowed_when_ntp_is_enabled, [Ref.string_of self])
+            )
+        else
+          let local_fn = Local.Host.set_servertime ~self ~value in
+          let remote_fn = Client.Host.set_servertime ~self ~value in
+          do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 
     module Host_crashdump = struct

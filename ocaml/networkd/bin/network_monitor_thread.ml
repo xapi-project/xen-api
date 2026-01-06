@@ -126,7 +126,7 @@ let get_link_stats dbg () =
     in
     List.map (fun link -> standardise_name (Link.get_name link)) links
     |> (* Only keep interfaces with prefixes on the whitelist, and exclude VLAN
-                devices (ethx.y). *)
+          devices (ethx.y). *)
     List.filter (fun name -> is_whitelisted name && not (is_vlan name))
   in
   Cache.free cache ; Socket.close s ; Socket.free s ; links

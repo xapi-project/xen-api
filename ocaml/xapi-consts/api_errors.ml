@@ -1438,3 +1438,8 @@ let tls_verification_not_enabled_in_pool =
   add_error "TLS_VERIFICATION_NOT_ENABLED_IN_POOL"
 
 let sysprep = add_error "SYSPREP"
+
+let invalid_ntp_config = add_error "INVALID_NTP_CONFIG"
+
+let not_allowed_when_ntp_is_enabled =
+  add_error "NOT_ALLOWED_WHEN_NTP_IS_ENABLED"

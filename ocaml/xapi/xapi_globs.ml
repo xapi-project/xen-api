@@ -379,6 +379,12 @@ let sync_chipset_info = "sync_chipset_info"
 
 let sync_ssh_status = "sync_ssh_status"
 
+let sync_max_cstate = "sync_max_cstate"
+
+let sync_ntp_config = "sync_ntp_config"
+
+let sync_timezone = "sync_timezone"
+
 let sync_secure_boot = "sync_secure_boot"
 
 let sync_pci_devices = "sync_pci_devices"
@@ -798,6 +804,18 @@ let stunnel_conf = ref "/etc/stunnel/xapi.conf"
 
 let udhcpd_conf = ref (Filename.concat "/etc/xensource" "udhcpd.conf")
 
+let ntp_service = ref "chronyd"
+
+let ntp_conf = ref (Filename.concat "/etc" "chrony.conf")
+
+let ntp_dhcp_script = ref (Filename.concat "/etc/dhcp/dhclient.d" "chrony.sh")
+
+let ntp_dhcp_dir = ref "/run/chrony-dhcp"
+
+let ntp_client_path = ref "/usr/bin/chronyc"
+
+let timedatectl = ref "/usr/bin/timedatectl"
+
 let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
 
 let udhcpd_leases_db = ref "/var/lib/xcp/dhcp-leases.db"
@@ -933,6 +951,8 @@ let systemctl = ref "/usr/bin/systemctl"
 
 let xen_cmdline_script = ref "/opt/xensource/libexec/xen-cmdline"
 
+let xenpm_bin = ref "/usr/sbin/xenpm"
+
 let alert_certificate_check = ref "alert-certificate-check"
 
 let sr_health_check_task_label = "SR Recovering"
@@ -1031,8 +1051,6 @@ let winbind_cache_time = ref 60
 
 let winbind_machine_pwd_timeout = ref (2. *. 7. *. 24. *. 3600.)
 
-let winbind_dns_sync_interval = ref 3600.
-
 let winbind_update_closest_kdc_interval = ref (3600. *. 22.)
 (* every 22 hours *)
 
@@ -1041,6 +1059,8 @@ let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
 let winbind_set_machine_account_kerberos_encryption_type = ref false
 
 let winbind_allow_kerberos_auth_fallback = ref false
+
+let winbind_scan_trusted_domains = ref false
 
 let winbind_keep_configuration = ref false
 
@@ -1248,7 +1268,6 @@ let xapi_globs_spec =
   ; ("winbind_debug_level", Int winbind_debug_level)
   ; ("winbind_cache_time", Int winbind_cache_time)
   ; ("winbind_machine_pwd_timeout", Float winbind_machine_pwd_timeout)
-  ; ("winbind_dns_sync_interval", Float winbind_dns_sync_interval)
   ; ( "winbind_update_closest_kdc_interval"
     , Float winbind_update_closest_kdc_interval
     )
@@ -1406,6 +1425,10 @@ let nvidia_t4_sriov = ref Nvidia_DEFAULT
 let nvidia_gpumon_detach = ref false
 
 let failed_login_alert_freq = ref 3600
+
+let factory_ntp_servers = ref []
+
+let legacy_factory_ntp_servers = ref []
 
 let other_options =
   [
@@ -1627,6 +1650,11 @@ let other_options =
     , Arg.Set winbind_allow_kerberos_auth_fallback
     , (fun () -> string_of_bool !winbind_allow_kerberos_auth_fallback)
     , "Whether to allow fallback to other auth on kerberos failure"
+    )
+  ; ( "winbind_scan_trusted_domains"
+    , Arg.Set winbind_scan_trusted_domains
+    , (fun () -> string_of_bool !winbind_scan_trusted_domains)
+    , "Whether to periodically scan trusted domains"
     )
   ; ( "winbind_keep_configuration"
     , Arg.Set winbind_keep_configuration
@@ -1869,6 +1897,46 @@ let other_options =
     , (fun () -> string_of_bool !dynamic_control_firewalld_service)
     , "Enable dynamic control firewalld service"
     )
+  ; ( "ntp-service"
+    , Arg.Set_string ntp_service
+    , (fun () -> !ntp_service)
+    , "Name of the NTP service to manage"
+    )
+  ; ( "ntp-config-path"
+    , Arg.Set_string ntp_conf
+    , (fun () -> !ntp_conf)
+    , "Path to the ntp configuration file"
+    )
+  ; ( "ntp-dhcp-script-path"
+    , Arg.Set_string ntp_dhcp_script
+    , (fun () -> !ntp_dhcp_script)
+    , "Path to the ntp dhcp script file"
+    )
+  ; ( "ntp-dhcp-dir"
+    , Arg.Set_string ntp_dhcp_dir
+    , (fun () -> !ntp_dhcp_dir)
+    , "Path to the ntp dhcp directory"
+    )
+  ; ( "ntp-client-path"
+    , Arg.Set_string ntp_client_path
+    , (fun () -> !ntp_client_path)
+    , "Path to the ntp client binary"
+    )
+  ; ( "timedatectl"
+    , Arg.Set_string timedatectl
+    , (fun () -> !timedatectl)
+    , "Path to the timedatectl executable"
+    )
+  ; gen_list_option "legacy-factory-ntp-servers"
+      "space-separated list of legacy default NTP servers"
+      (fun s -> s)
+      (fun s -> s)
+      legacy_factory_ntp_servers
+  ; gen_list_option "factory-ntp-servers"
+      "space-separated list of default NTP servers"
+      (fun s -> s)
+      (fun s -> s)
+      factory_ntp_servers
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.

@@ -64,9 +64,9 @@
 )
 
 (tests
-  (names schematest test_datetimes)
+  (names schematest test_datetimes test_host)
   (modes exe)
-  (modules schematest test_datetimes)
+  (modules schematest test_datetimes test_host)
   (libraries
     astring
     rpclib.core

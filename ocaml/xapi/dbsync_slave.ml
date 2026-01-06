@@ -66,7 +66,11 @@ let create_localhost ~__context info =
         ~console_idle_timeout:Constants.default_console_idle_timeout
         ~ssh_auto_mode:!Xapi_globs.ssh_auto_mode_default
         ~secure_boot:false ~software_version:[]
-        ~https_only:!Xapi_globs.https_only ~numa_affinity_policy:`default_policy
+        ~https_only:!Xapi_globs.https_only ~max_cstate:"" ~ntp_mode:`Factory
+        ~ntp_custom_servers:[] ~timezone:"UTC"
+        ~numa_affinity_policy:`default_policy
+        ~latest_synced_updates_applied:`unknown ~pending_guidances_full:[]
+        ~pending_guidances_recommended:[]
     in
     ()
 
@@ -413,6 +417,25 @@ let update_env __context sync_keys =
         Xapi_host.set_console_idle_timeout ~__context ~self:localhost
           ~value:console_timeout
   ) ;
+  switched_sync Xapi_globs.sync_max_cstate (fun () ->
+      Xapi_host.sync_max_cstate ~__context ~host:localhost
+  ) ;
+  switched_sync Xapi_globs.sync_ntp_config (fun () ->
+      Xapi_host.sync_ntp_config ~__context ~host:localhost
+  ) ;
+  switched_sync Xapi_globs.sync_timezone (fun () ->
+      let timezone =
+        try
+          let linkpath = Unix.realpath "/etc/localtime" in
+          Scanf.sscanf linkpath "/usr/share/zoneinfo/%s" (fun tz -> tz)
+        with e ->
+          warn "%s error when sync timezone: %s" __FUNCTION__
+            (Printexc.to_string e) ;
+          "UTC"
+      in
+      Db.Host.set_timezone ~__context ~self:localhost ~value:timezone
+  ) ;
+
   switched_sync Xapi_globs.sync_secure_boot (fun () ->
       let result =
         try

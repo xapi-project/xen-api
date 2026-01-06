@@ -267,9 +267,9 @@ let refresh_phypath_to_sr_vdi () =
              |> Array.iter (fun vdi_entry ->
                     (* in /dev/sm/phy vdi_entry __should__ be a vdiuuid
                        in /var/run/sr-mount vdi_entry might look like:
-                         - "$vdiuuid.vhd",
-                         - "$vdiuuid.vhdcache",
-                         -  ".*" *)
+                       - "$vdiuuid.vhd",
+                       - "$vdiuuid.vhdcache",
+                       -  ".*" *)
                     f sruuid vdi_entry
                 )
          )
