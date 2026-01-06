@@ -271,6 +271,7 @@ let gc_certificates ~__context =
   all_certificates
   |> List.filter (fun (cert, record) ->
          record.API.certificate_type <> `ca
+         && record.API.certificate_type <> `pinned
          && not (List.mem cert host_certificates)
      )
   |> List.iter (fun (cert, _) -> Db.Certificate.destroy ~__context ~self:cert)

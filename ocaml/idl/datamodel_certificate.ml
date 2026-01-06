@@ -30,6 +30,7 @@ let certificate_type =
       ; ( "host_internal"
         , "Certificate that identifies a single host to other pool members"
         )
+      ; ("pinned", "Pinned leaf certificate that is trusted by the whole pool")
       ]
     )
 
