@@ -62,6 +62,155 @@ let get_master ~rpc ~session_id =
   let pool = get_pool ~rpc ~session_id in
   Client.Pool.get_master ~rpc ~session_id ~self:pool
 
+(* MTU diagnostics during pool join - CA-384228
+ *
+ * This provides visibility into MTU issues but does NOT block pool join because:
+ * 1. ICMP may be blocked by firewalls, causing false negatives
+ * 2. TCP PMTUD (net.ipv4.tcp_mtu_probing=1) is now enabled by default and handles
+ *    MTU mismatches automatically at the TCP layer
+ * 3. TCP PMTUD works even when ICMP is blocked (detects via packet loss + retries)
+ *)
+let check_mtu_connectivity ~__context ~rpc ~session_id ~master_address
+    ~master_host =
+  (* Query the master's management PIF to get the actual configured MTU *)
+  let master_mgmt_pif =
+    Client.Host.get_management_interface ~rpc ~session_id ~host:master_host
+  in
+  let master_network =
+    Client.PIF.get_network ~rpc ~session_id ~self:master_mgmt_pif
+  in
+  let configured_mtu =
+    Client.Network.get_MTU ~rpc ~session_id ~self:master_network
+  in
+  (* Check if management interface is on a VLAN *)
+  let vlan_tag = Client.PIF.get_VLAN ~rpc ~session_id ~self:master_mgmt_pif in
+  (* VLAN adds 4 bytes *)
+  let vlan_overhead = if vlan_tag >= 0L then 4 else 0 in
+
+  let has_higher_mtu = configured_mtu > 1500L in
+
+  debug
+    "MTU diagnostics: configured MTU=%Ld on master's management network to \
+     master %s%s. TCP PMTUD enabled via sysctl - will auto-adjust if path MTU \
+     is smaller"
+    configured_mtu master_address
+    (if vlan_overhead > 0 then " (VLAN detected)" else "") ;
+
+  (* Calculate ICMP payload sizes dynamically:
+     ICMP payload = MTU - IP header (20) - ICMP header (8) - VLAN tag (4 if present)
+     Always test standard 1500 MTU, and test configured MTU if different *)
+  let ip_overhead = 20 in
+  let icmp_overhead = 8 in
+  let standard_mtu_icmp_payload =
+    1500 - ip_overhead - icmp_overhead - vlan_overhead
+  in
+  let configured_mtu_icmp_payload =
+    Int64.to_int configured_mtu - ip_overhead - icmp_overhead - vlan_overhead
+  in
+
+  (* Test MTU connectivity using ping - ICMP-based, informational only *)
+  let test_ping size desc =
+    try
+      let timeout = Mtime.Span.(3 * s) in
+      let _stdout, _stderr =
+        Forkhelpers.execute_command_get_output ~timeout "/usr/bin/ping"
+          [
+            "-c"
+          ; "3"
+          ; "-M"
+          ; "do"
+          ; "-s"
+          ; string_of_int size
+          ; "-W"
+          ; "1"
+          ; master_address
+          ]
+      in
+      debug "MTU diagnostics: %s test PASSED (ICMP payload %d bytes)" desc size ;
+      true
+    with e ->
+      debug "MTU diagnostics: %s test FAILED (ICMP payload %d bytes): %s" desc
+        size
+        (ExnHelper.string_of_exn e) ;
+      false
+  in
+
+  let standard_ok = test_ping standard_mtu_icmp_payload "standard MTU (1500)" in
+
+  (* Check MTU connectivity and report results *)
+  if has_higher_mtu then
+    let configured_ok =
+      test_ping configured_mtu_icmp_payload
+        (Printf.sprintf "configured MTU (%Ld)" configured_mtu)
+    in
+    match (standard_ok, configured_ok) with
+    | true, false -> (
+        (* CA-384228 scenario: standard works but configured MTU fails *)
+        let msg_body =
+          Printf.sprintf
+            "Higher MTU (%Ld) configured but network path does not support it! \
+             Standard MTU (1500) works, but configured MTU fails. This can \
+             cause TCP connection hangs during pool operations with large \
+             requests. TCP PMTUD (net.ipv4.tcp_mtu_probing=1) is enabled and \
+             should handle this automatically, but if you experience hangs, \
+             consider reducing MTU to 1500 or fixing network infrastructure."
+            configured_mtu
+        in
+        warn "MTU diagnostics: MTU CONFIGURATION ISSUE DETECTED (CA-384228): %s"
+          msg_body ;
+        (* Create pool-level alert on master's pool for customer visibility.
+           Use try-catch to ensure alert creation failure doesn't break pool join. *)
+        try
+          let master_pool =
+            match Client.Pool.get_all ~rpc ~session_id with
+            | [] ->
+                failwith "No pool found on master"
+            | pool :: _ ->
+                pool
+          in
+          let master_pool_uuid =
+            Client.Pool.get_uuid ~rpc ~session_id ~self:master_pool
+          in
+          let name, priority = Api_messages.pool_mtu_mismatch_detected in
+          Client.Message.create ~rpc ~session_id ~name ~priority ~cls:`Pool
+            ~obj_uuid:master_pool_uuid ~body:msg_body
+          |> ignore
+        with e ->
+          warn "MTU diagnostics: Failed to create alert on master pool: %s"
+            (ExnHelper.string_of_exn e)
+      )
+    | false, false ->
+        (* Both tests failed - ICMP may be blocked *)
+        warn
+          "MTU diagnostics: Both standard MTU (1500) and configured MTU (%Ld) \
+           tests failed (ICMP may be blocked). If ICMP is blocked, ignore this \
+           - TCP PMTUD will handle it. If ICMP is NOT blocked, check network \
+           connectivity to master %s"
+          configured_mtu master_address
+    | false, true ->
+        (* Unusual: standard failed but configured MTU passed *)
+        warn
+          "MTU diagnostics: Unusual result - standard MTU (1500) failed but \
+           configured MTU (%Ld) passed (likely ICMP issue). TCP PMTUD will \
+           handle this - monitor for issues"
+          configured_mtu
+    | true, true ->
+        (* Both tests passed - ideal case *)
+        debug
+          "MTU diagnostics: Both standard MTU (1500) and configured MTU (%Ld) \
+           tests passed - network path fully supports configured MTU"
+          configured_mtu
+  else if not standard_ok then
+    warn
+      "MTU diagnostics: Standard MTU (1500) test failed (ICMP may be blocked \
+       or connectivity issue to %s). TCP PMTUD will handle this - monitor for \
+       issues"
+      master_address
+  else
+    debug
+      "MTU diagnostics: Standard MTU (1500) test passed, no higher MTU \
+       configured"
+
 (* Pre-join asserts *)
 let pre_join_checks ~__context ~rpc ~session_id ~force =
   (* I cannot join a Pool unless my management interface exists in the db, otherwise
@@ -1631,6 +1780,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
          side. If we're trying to join a host that does not support pooling
          then an error will be thrown at this stage *)
       pre_join_checks ~__context ~rpc:unverified_rpc ~session_id ~force ;
+
       (* get hold of cluster secret - this is critical; if this fails whole pool join fails *)
       new_pool_secret :=
         Client.Pool.initial_auth ~rpc:unverified_rpc ~session_id ;
@@ -1665,6 +1815,10 @@ let join_common ~__context ~master_address ~master_username ~master_password
   in
 
   let remote_coordinator = get_master ~rpc ~session_id in
+
+  check_mtu_connectivity ~__context ~rpc ~session_id ~master_address
+    ~master_host:remote_coordinator ;
+
   (* If management is on a VLAN, then get the Pool master
      management network bridge before we logout the session *)
   let pool_master_bridge, mgmt_pif =
