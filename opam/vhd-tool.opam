@@ -40,7 +40,6 @@ depends: [
   "xen-api-client-lwt" {= version}
   "xenstore"
   "xenstore_transport"
-  "yojson"
   "odoc" {with-doc}
 ]
 build: [

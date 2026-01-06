@@ -2883,37 +2883,6 @@ functor
 
       let raw ?from (vhd : fd Vhd.t) = raw_common ?from vhd
 
-      let vhd_blocks_to_json (t : fd Vhd.t) =
-        let block_size_sectors_shift =
-          t.Vhd.header.Header.block_size_sectors_shift
-        in
-        let max_table_entries = Vhd.used_max_table_entries t in
-
-        let include_block = include_block None t in
-
-        let blocks =
-          Seq.init max_table_entries Fun.id
-          |> Seq.filter_map (fun i ->
-                 if include_block i then
-                   Some (`Int i)
-                 else
-                   None
-             )
-          |> List.of_seq
-        in
-        let json =
-          `Assoc
-            [
-              ( "virtual_size"
-              , `Int (Int64.to_int t.Vhd.footer.Footer.current_size)
-              )
-            ; ("cluster_bits", `Int (block_size_sectors_shift + sector_shift))
-            ; ("data_clusters", `List blocks)
-            ]
-        in
-        let json_string = Yojson.to_string json in
-        print_string json_string ; return ()
-
       let vhd_common ?from ?raw ?(emit_batmap = false) (t : fd Vhd.t) =
         let block_size_sectors_shift =
           t.Vhd.header.Header.block_size_sectors_shift
@@ -3150,8 +3119,6 @@ functor
 
       let vhd ?from (raw : 'a) (vhd : fd Vhd.t) =
         Vhd_input.vhd_common ?from ~raw vhd
-
-      let blocks_json = Vhd_input.vhd_blocks_to_json
     end
 
     (* Create a VHD stream from data on t, using `include_block` guide us which blocks have data *)

@@ -537,8 +537,7 @@
   (xen-api-client-lwt
    (= :version))
   xenstore
-  xenstore_transport
-  yojson))
+  xenstore_transport))
 
 (package
  (name vhd-format))

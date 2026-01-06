@@ -66,11 +66,11 @@ let image_behind_nbd_device image =
 
 let of_device path =
   match Tapctl.of_device (Tapctl.create ()) path with
-  | Some (_, _, Some ("vhd", vhd)) ->
+  | _, _, Some ("vhd", vhd) ->
       Some (`Vhd vhd)
-  | Some (_, _, Some ("aio", vhd)) ->
+  | _, _, Some ("aio", vhd) ->
       Some (`Raw vhd)
-  | _ ->
+  | _, _, _ ->
       None
   | exception Tapctl.Not_blktap ->
       get_nbd_device path |> image_behind_nbd_device

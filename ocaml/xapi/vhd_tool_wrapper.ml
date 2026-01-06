@@ -18,6 +18,7 @@
 module D = Debug.Make (struct let name = "vhd_tool_wrapper" end)
 
 open D
+open Xapi_stdext_std.Xstringext
 
 (* .vhds on XenServer are sometimes found via /dev/mapper *)
 let vhd_search_path = "/dev/mapper:."
@@ -112,33 +113,81 @@ let receive progress_cb format protocol (s : Unix.file_descr)
   in
   run_vhd_tool progress_cb args s s' path
 
-let read_vhd_header path =
-  let vhd_tool = !Xapi_globs.vhd_tool in
-  let args = ["read_headers"; path] in
-  let pipe_reader, pipe_writer = Unix.pipe ~cloexec:true () in
+(** [find_backend_device path] returns [Some path'] where [path'] is the backend path in
+    the driver domain corresponding to the frontend device [path] in this domain. *)
+let find_backend_device path =
+  try
+    let open Ezxenstore_core.Xenstore in
+    (* If we're looking at a xen frontend device, see if the backend
+       is in the same domain. If so check if it looks like a .vhd *)
+    let rdev = (Unix.stat path).Unix.st_rdev in
+    let major = rdev / 256 and minor = rdev mod 256 in
+    let link =
+      Unix.readlink (Printf.sprintf "/sys/dev/block/%d:%d/device" major minor)
+    in
+    match List.rev (String.split '/' link) with
+    | id :: "xen" :: "devices" :: _
+      when Astring.String.is_prefix ~affix:"vbd-" id ->
+        let id = int_of_string (String.sub id 4 (String.length id - 4)) in
+        with_xs (fun xs ->
+            let self = xs.Xs.read "domid" in
+            let backend =
+              xs.Xs.read (Printf.sprintf "device/vbd/%d/backend" id)
+            in
+            let params = xs.Xs.read (Printf.sprintf "%s/params" backend) in
+            match String.split '/' backend with
+            | "local" :: "domain" :: bedomid :: _ ->
+                if not (self = bedomid) then
+                  Helpers.internal_error
+                    "find_backend_device: Got domid %s but expected %s" bedomid
+                    self ;
+                Some params
+            | _ ->
+                raise Not_found
+        )
+    | _ ->
+        raise Not_found
+  with _ -> None
 
-  let progress_cb _ = () in
-  Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () ->
-      Vhd_qcow_parsing.run_tool vhd_tool progress_cb args ~output_fd:pipe_writer
-    )
-    (fun () -> Unix.close pipe_writer) ;
-  pipe_reader
-
-let parse_header vhd_path =
-  let pipe_reader = read_vhd_header vhd_path in
-  Vhd_qcow_parsing.parse_header pipe_reader
+(** [backing_file_of_device path] returns (Some backing_file) where 'backing_file'
+    is the leaf backing a particular device [path] (with a driver of type
+    [driver] or None. [path] may either be a blktap2 device *or* a blkfront
+    device backed by a blktap2 device. If the latter then the script must be
+    run in the same domain as blkback. *)
+let backing_file_of_device path ~driver =
+  let tapdisk_of_path path =
+    try
+      match Tapctl.of_device (Tapctl.create ()) path with
+      | _, _, Some (typ, backing_file) when typ = driver ->
+          Some backing_file
+      | _, _, _ ->
+          raise Not_found
+    with
+    | Tapctl.Not_blktap -> (
+        debug "Device %s is not controlled by blktap" path ;
+        (* Check if it is a [driver] behind a NBD device *)
+        Stream_vdi.(get_nbd_device path |> image_behind_nbd_device) |> function
+        | Some (typ, backing_file) when typ = driver ->
+            debug "%s is a %s behind NBD device %s" backing_file driver path ;
+            Some backing_file
+        | _ ->
+            None
+      )
+    | Tapctl.Not_a_device ->
+        debug "%s is not a device" path ;
+        None
+    | _ ->
+        debug "Device %s has an unknown driver" path ;
+        None
+  in
+  find_backend_device path |> Option.value ~default:path |> tapdisk_of_path
 
 let send progress_cb ?relative_to (protocol : string) (dest_format : string)
     (s : Unix.file_descr) (path : string) (size : Int64.t) (prefix : string) =
-  let vhd_of_device =
-    Xapi_vdi_helpers.backing_file_of_device_with_driver ~driver:"vhd"
-  in
+  let vhd_of_device = backing_file_of_device ~driver:"vhd" in
   let s' = Uuidx.(to_string (make ())) in
   let source_format, source =
-    match
-      (Xapi_vdi_helpers.get_nbd_device path, vhd_of_device path, relative_to)
-    with
+    match (Stream_vdi.get_nbd_device path, vhd_of_device path, relative_to) with
     | Some (nbd_server, exportname), _, None ->
         ( "nbdhybrid"
         , Printf.sprintf "%s:%s:%s:%Ld" path nbd_server exportname size

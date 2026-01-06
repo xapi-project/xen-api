@@ -474,8 +474,6 @@ module From_file : functor (F : S.FILE) -> sig
         copies from the virtual disk [raw]. If [from] is provided then the
         stream will contain only the virtual updates required to transform
         [from] into [t] *)
-
-    val blocks_json : fd Vhd.t -> unit t
   end
 
   module Raw_input : sig
