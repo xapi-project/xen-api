@@ -66,6 +66,10 @@ val pool_uninstall :
 
 val name_of_uuid : string -> string
 
+val all_purposes : API.certificate_purpose list list
+
+type trusted_store = {cert_dir: string; bundle: (string * string) option}
+
 (* Database manipulation *)
 
 module Db_util : sig
