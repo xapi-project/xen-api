@@ -535,9 +535,9 @@ let of_device ctx path =
   if driver_of_major major <> "tapdev" then raise Not_blktap ;
   match List.filter (fun (tapdev, _, _) -> tapdev.minor = minor) (list ctx) with
   | [t] ->
-      t
+      Some t
   | _ ->
-      raise Not_found
+      None
 
 let find ctx ~pid ~minor =
   match list ~t:{minor; tapdisk_pid= pid} ctx with

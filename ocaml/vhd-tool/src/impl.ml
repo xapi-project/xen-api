@@ -1164,6 +1164,14 @@ let stream_t common args ?(progress = no_progress_bar) () =
     args.StreamCommon.tar_filename_prefix args.StreamCommon.good_ciphersuites
     args.StreamCommon.verify_cert
 
+let read_headers common source =
+  let path = [Filename.dirname source] in
+  let thread =
+    retry common 3 (fun () -> Vhd_IO.openchain ~path source false) >>= fun t ->
+    Vhd_IO.close t >>= fun () -> Hybrid_input.blocks_json t
+  in
+  Lwt_main.run thread ; `Ok ()
+
 let stream common args =
   try
     Vhd_format_lwt.File.use_unbuffered := common.Common.unbuffered ;
