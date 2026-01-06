@@ -20,7 +20,9 @@ install:
 	mkdir -p $(DESTDIR)/usr/lib/yum-plugins
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
 	mkdir -p $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/
+	mkdir -p $(DESTDIR)/usr/lib/sysctl.d
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
+	$(IDATA) 92-xapi-tcp-mtu.conf $(DESTDIR)/usr/lib/sysctl.d/92-xapi-tcp-mtu.conf
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) thread_diagnostics $(DESTDIR)$(LIBEXECDIR)
