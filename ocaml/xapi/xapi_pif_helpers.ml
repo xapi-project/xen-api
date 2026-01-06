@@ -273,7 +273,7 @@ let get_primary_address ~__context ~pif =
     match Db.PIF.get_IP ~__context ~self:pif with "" -> None | ip -> Some ip
   )
   | `IPv6 ->
-      List.nth_opt (get_non_link_ipv6 ~__context ~pif) 0
+      Xapi_stdext_std.Listext.List.head (get_non_link_ipv6 ~__context ~pif)
 
 let get_pif_position ~__context ~pif_rec =
   let n_of_xenbrn_opt bridge =

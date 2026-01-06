@@ -30,6 +30,7 @@ depends: [
   "yojson"
   "rrd-transport"
   "rrdd-plugin"
+  "xapi-stdext-std"
   "xapi-tracing-export"
   "xen-api-client"
   "alcotest" {with-test}

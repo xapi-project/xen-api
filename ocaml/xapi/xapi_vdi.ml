@@ -886,28 +886,14 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
   let classes = [Printf.sprintf "VDI/%s" (Ref.string_of self)] in
   let next_token_and_vbds ~token ~timeout =
     let most_recent_vbds_field events =
-      (* We do not assume anything here about the order of the list of events we get. *)
-      let most_recent_snapshot =
-        let events_from_newest_to_oldest =
-          (* We need to sort the timestamp strings in decreasing order *)
-          List.sort
-            (fun e1 e2 -> Event_types.(-String.compare e1.ts e2.ts))
-            events
-        in
-        let snapshots_from_newest_to_oldest =
-          (* filter_map preserves the order of elements *)
-          List.filter_map
-            (fun event -> event.Event_types.snapshot)
-            events_from_newest_to_oldest
-        in
-        List.nth_opt snapshots_from_newest_to_oldest 0
-      in
-      Option.map
-        (fun snapshot ->
-          let vdi = API.vDI_t_of_rpc snapshot in
-          vdi.API.vDI_VBDs
-        )
-        most_recent_snapshot
+      (* We need to sort the timestamp strings in decreasing order *)
+      List.sort (fun e1 e2 -> Event_types.(-String.compare e1.ts e2.ts)) events
+      |> List.filter_map (fun event -> event.Event_types.snapshot)
+      |> Xapi_stdext_std.Listext.List.head
+      |> Option.map (fun snapshot ->
+             let vdi = API.vDI_t_of_rpc snapshot in
+             vdi.API.vDI_VBDs
+         )
     in
     let from =
       let timeout = Scheduler.span_to_s timeout in

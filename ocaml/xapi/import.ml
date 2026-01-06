@@ -439,9 +439,8 @@ module VM : HandlerTools = struct
     in
 
     let maybe_template =
-      List.nth_opt
+      Listext.List.head
         (Db.VM.get_by_name_label ~__context ~label:vm_record.API.vM_name_label)
-        0
     in
     match (is_default_template, maybe_template) with
     | true, Some template ->

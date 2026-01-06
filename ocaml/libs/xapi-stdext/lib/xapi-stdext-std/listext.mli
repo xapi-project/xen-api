@@ -33,9 +33,16 @@ module List : sig
   element being the rest of elements of the list (or [] if the list is
   shorter). The results with negative values of [n] are the same as using 0. *)
 
-  val last : 'a list -> 'a
-  (** [last l] returns the last element of a list or raise Invalid_argument if 
-    the list is empty *)
+  val head : 'a list -> 'a option
+  (** [head l] returns the first element of [l] or [None] if [l] is empty *)
+
+  val last : 'a list -> 'a option
+  (** [last l] returns the last element of [l] or None if [l] is empty *)
+
+  val try_map : ('a -> ('b, 'c) result) -> 'a list -> ('b list, 'c) result
+  (** [try_map f l] applies [f] to all elements of [l] in turn. Returns the
+      first [Error] result encountered or, if no errors were produced, returns
+      all the [Ok] results. *)
 
   val rev_mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
   (** [rev_map f l] gives the same result as {!Stdlib.List.rev}[ (]
