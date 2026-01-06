@@ -35,6 +35,16 @@ type t_trusted =
   | Root of API.certificate_purpose list
   | Pinned of API.certificate_purpose list
 
+let all_purposes = [] :: List.map (fun x -> [x]) API.certificate_purpose__all
+
+let all_trusted_kinds =
+  List.concat
+    [
+      List.map (fun p -> Root p) all_purposes
+    ; List.map (fun p -> Pinned p) all_purposes
+    ; [Root_legacy; CRL]
+    ]
+
 let pem_of_string x =
   match X509.Certificate.decode_pem x with
   | Error _ ->
@@ -56,7 +66,66 @@ let ( // ) = Filename.concat
 
 let library_filename kind name = library_path kind // name
 
-let mkdir_cert_path kind = Unixext.mkdir_rec (library_path kind) 0o700
+let ps = Printf.sprintf
+
+let of_purposes = function
+  | [] ->
+      ["general"]
+  | purposes ->
+      List.map (fun p -> Record_util.certificate_purpose_to_string p) purposes
+
+type trusted_store = {cert_dir: string; bundle_dir: string; bundle_name: string}
+
+let trusted_store_locations kind =
+  let parent = library_path kind in
+  match kind with
+  | Root_legacy | CRL ->
+      [
+        {
+          cert_dir= parent
+        ; bundle_dir= Filename.dirname !Xapi_globs.stunnel_bundle_path
+        ; bundle_name= Filename.basename !Xapi_globs.stunnel_bundle_path
+        }
+      ]
+  | Root purposes ->
+      List.map
+        (fun p ->
+          {
+            cert_dir= parent // ps "ca-%s" p
+          ; bundle_dir= parent
+          ; bundle_name= ps "ca-bundle-%s.pem" p
+          }
+        )
+        (of_purposes purposes)
+  | Pinned purposes ->
+      List.map
+        (fun p ->
+          {
+            cert_dir= parent // ps "pinned-%s" p
+          ; bundle_dir= parent
+          ; bundle_name= ps "pinned-bundle-%s.pem" p
+          }
+        )
+        (of_purposes purposes)
+
+let with_cert_store kind f =
+  trusted_store_locations kind
+  |> List.iter (fun store ->
+      f ~cert_dir:store.cert_dir ~bundle_dir:store.bundle_dir
+        ~bundle_name:store.bundle_name
+  )
+
+let with_cert_paths kind name f =
+  with_cert_store kind @@ fun ~cert_dir ~bundle_dir ~bundle_name ->
+  f cert_dir (cert_dir // name) (bundle_dir // bundle_name)
+
+let mkdir_cert_path kind =
+  trusted_store_locations kind
+  |> List.iter (fun store ->
+      Unixext.mkdir_rec store.cert_dir 0o700 ;
+      Unixext.mkdir_rec store.bundle_dir 0o700 ;
+      ()
+  )
 
 let rehash' path =
   match Sys.file_exists !Xapi_globs.c_rehash with
@@ -70,10 +139,12 @@ let rehash' path =
       |> ignore
 
 let rehash () =
-  mkdir_cert_path Root_legacy ;
-  mkdir_cert_path CRL ;
-  rehash' (library_path Root_legacy) ;
-  rehash' (library_path CRL)
+  List.iter
+    (fun kind ->
+      with_cert_store kind @@ fun ~cert_dir ~bundle_dir:_ ~bundle_name:_ ->
+      mkdir_cert_path kind ; rehash' cert_dir
+    )
+    all_trusted_kinds
 
 let update_ca_bundle () = Helpers.update_ca_bundle ()
 
@@ -344,23 +415,26 @@ let local_sync () =
     warn "Exception rehashing certificates: %s" (ExnHelper.string_of_exn e) ;
     raise_library_corrupt ()
 
-let cert_perms kind =
-  let stat = Unix.stat (library_path kind) in
-  let mask = 0o666 in
-  let perm = stat.Unix.st_perm land mask in
-  debug "%d %d" perm stat.Unix.st_perm ;
-  perm
+let update_bundle kind cert_dir bundle_path =
+  match kind with
+  | Root_legacy | CRL ->
+      update_ca_bundle ()
+  | Root _ | Pinned _ ->
+      () (* TODO: implementation in the following commit *)
 
 let host_install kind ~name ~cert =
   validate_name kind name ;
-  let filename = library_filename kind name in
-  if Sys.file_exists filename then raise_already_exists kind name ;
-  debug "Installing %s %s" (to_string kind) name ;
+  with_cert_paths kind name @@ fun cert_dir cert_path bundle_path ->
+  if Sys.file_exists cert_path then raise_already_exists kind name ;
+  debug "Installing %s %s under %s and in %s" (to_string kind) name cert_path
+    bundle_path ;
   try
     mkdir_cert_path kind ;
-    Unixext.write_string_to_file filename cert ;
-    Unix.chmod filename (cert_perms kind) ;
-    update_ca_bundle ()
+    Unixext.write_string_to_file cert_path cert ;
+    Unix.chmod cert_path 0o644 ;
+    update_bundle kind cert_dir bundle_path ;
+    Unix.chmod bundle_path 0o644 ;
+    rehash' cert_dir
   with e ->
     warn "Exception installing %s %s: %s" (to_string kind) name
       (ExnHelper.string_of_exn e) ;
