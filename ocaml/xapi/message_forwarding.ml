@@ -650,6 +650,14 @@ functor
           Ref.string_of observer
       with _ -> "invalid"
 
+    let certificate_uuid ~__context certificate =
+      try
+        if Pool_role.is_master () then
+          Db.Certificate.get_uuid ~__context ~self:certificate
+        else
+          Ref.string_of certificate
+      with _ -> "invalid"
+
     module Session = struct
       include Local.Session
 
@@ -1201,6 +1209,22 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_ssh_auto_mode ~__context ~self ~value
+
+      let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose =
+        info "Pool.install_trusted_certificate: pool='%s' ca='%b' purpose=[%s]"
+          (pool_uuid ~__context self)
+          ca
+          (List.map Record_util.certificate_purpose_to_string purpose
+          |> String.concat "; "
+          ) ;
+        Local.Pool.install_trusted_certificate ~__context ~self ~ca ~cert
+          ~purpose
+
+      let uninstall_trusted_certificate ~__context ~self ~certificate =
+        info "Pool.uninstall_trusted_certificate: pool='%s' certificate='%s'"
+          (pool_uuid ~__context self)
+          (certificate_uuid ~__context certificate) ;
+        Local.Pool.uninstall_trusted_certificate ~__context ~self ~certificate
     end
 
     module VM = struct
