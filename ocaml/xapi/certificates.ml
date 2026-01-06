@@ -29,7 +29,11 @@ open D
  *
  * Note that the bundles (e) and (f) are generated automatically using the contents of (c) and (d) respectively *)
 
-type t_trusted = CA_Certificate | CRL
+type t_trusted =
+  | Root_legacy
+  | CRL
+  | Root of API.certificate_purpose list
+  | Pinned of API.certificate_purpose list
 
 let pem_of_string x =
   match X509.Certificate.decode_pem x with
@@ -41,12 +45,16 @@ let pem_of_string x =
       x
 
 let library_path = function
-  | CA_Certificate ->
+  | Root_legacy ->
       !Xapi_globs.trusted_certs_dir
   | CRL ->
       Stunnel.crl_path
+  | Root _ | Pinned _ ->
+      !Xapi_globs.trusted_certs_by_purpose_dir
 
-let library_filename kind name = Filename.concat (library_path kind) name
+let ( // ) = Filename.concat
+
+let library_filename kind name = library_path kind // name
 
 let mkdir_cert_path kind = Unixext.mkdir_rec (library_path kind) 0o700
 
@@ -62,14 +70,26 @@ let rehash' path =
       |> ignore
 
 let rehash () =
-  mkdir_cert_path CA_Certificate ;
+  mkdir_cert_path Root_legacy ;
   mkdir_cert_path CRL ;
-  rehash' (library_path CA_Certificate) ;
+  rehash' (library_path Root_legacy) ;
   rehash' (library_path CRL)
 
 let update_ca_bundle () = Helpers.update_ca_bundle ()
 
-let to_string = function CA_Certificate -> "CA certificate" | CRL -> "CRL"
+let to_string = function
+  | Root_legacy ->
+      "legacy root CA certificate"
+  | CRL ->
+      "CRL"
+  | Root purposes ->
+      List.map API.certificate_purpose_to_string purposes
+      |> String.concat "; "
+      |> Printf.sprintf "root CA certificate [%s]"
+  | Pinned purposes ->
+      List.map API.certificate_purpose_to_string purposes
+      |> String.concat "; "
+      |> Printf.sprintf "pinned leaf certificate [%s]"
 
 (** {pp_hash hash} outputs the hexadecimal representation of the {hash}
     adding a colon between every octet, in uppercase.
@@ -118,7 +138,7 @@ let raise_server_error parameters err = raise (Server_error (err, parameters))
 let raise_name_invalid kind n =
   let err =
     match kind with
-    | CA_Certificate ->
+    | Root_legacy | Root _ | Pinned _ ->
         certificate_name_invalid
     | CRL ->
         crl_name_invalid
@@ -131,7 +151,7 @@ let validate_name kind name =
 let raise_already_exists kind n =
   let err =
     match kind with
-    | CA_Certificate ->
+    | Root_legacy | Root _ | Pinned _ ->
         certificate_already_exists
     | CRL ->
         crl_already_exists
@@ -141,7 +161,7 @@ let raise_already_exists kind n =
 let raise_does_not_exist kind n =
   let err =
     match kind with
-    | CA_Certificate ->
+    | Root_legacy | Root _ | Pinned _ ->
         certificate_does_not_exist
     | CRL ->
         crl_does_not_exist
@@ -150,7 +170,11 @@ let raise_does_not_exist kind n =
 
 let raise_corrupt kind n =
   let err =
-    match kind with CA_Certificate -> certificate_corrupt | CRL -> crl_corrupt
+    match kind with
+    | Root_legacy | Root _ | Pinned _ ->
+        certificate_corrupt
+    | CRL ->
+        crl_corrupt
   in
   raise_server_error [n] err
 
@@ -163,10 +187,13 @@ module Db_util : sig
   val add_cert :
        __context:Context.t
     -> type':
-         [< `host of API.ref_host | `host_internal of API.ref_host | `ca of name]
+         [< `host of API.ref_host
+         | `host_internal of API.ref_host
+         | `ca of name
+         | `pinned ]
     -> purpose:API.certificate_purpose list
     -> X509.Certificate.t
-    -> API.ref_Certificate
+    -> API.ref_Certificate * string
 
   val remove_cert_by_ref : __context:Context.t -> API.ref_Certificate -> unit
 
@@ -215,12 +242,16 @@ end = struct
           ("", host, `host, Fun.id)
       | `host_internal host ->
           ("", host, `host_internal, Fun.id)
-      | `ca name ->
+      | `ca name when name <> "" ->
           let certs = get_ca_certs ~__context name in
           let remove_obsoleted_copies () =
             List.iter (remove_cert_by_ref ~__context) certs
           in
           (name, Ref.null, `ca, remove_obsoleted_copies)
+      | `ca _name ->
+          ("", Ref.null, `ca, Fun.id)
+      | `pinned ->
+          ("", Ref.null, `pinned, Fun.id)
     in
     let date_of_ptime time = Date.of_unix_time (Ptime.to_float_s time) in
     let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
@@ -234,9 +265,10 @@ end = struct
     Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
       ~not_after ~fingerprint:fingerprint_sha256 ~fingerprint_sha256
       ~fingerprint_sha1 ~name ~_type ~purpose ;
-    debug "added cert %s under uuid=%s ref=%s" name uuid (Ref.string_of ref') ;
+    debug "added cert (name='%s') under uuid=%s ref=%s" name uuid
+      (Ref.string_of ref') ;
     post_action () ;
-    ref'
+    (ref', uuid)
 
   let remove_ca_cert_by_name ~__context name =
     let certs =
@@ -261,7 +293,9 @@ end = struct
   let get_ca_certs ~__context =
     let expr =
       let open Xapi_database.Db_filter_types in
-      Eq (Field "type", Literal "ca")
+      let type' = Eq (Field "type", Literal "ca") in
+      let name = Not (Eq (Field "name", Literal "")) in
+      And (type', name)
     in
     Db.Certificate.get_refs_where ~__context ~expr
 end
@@ -360,8 +394,8 @@ let sync_certs_crls kind list_func install_func uninstall_func ~__context
 
 let sync_certs kind ~__context master_certs host =
   match kind with
-  | CA_Certificate ->
-      sync_certs_crls CA_Certificate
+  | Root_legacy ->
+      sync_certs_crls Root_legacy
         (fun rpc session_id host ->
           Client.Host.certificate_list ~rpc ~session_id ~host
         )
@@ -383,6 +417,8 @@ let sync_certs kind ~__context master_certs host =
           Client.Host.crl_uninstall ~rpc ~session_id ~host ~name
         )
         ~__context master_certs host
+  | Root _ | Pinned _ ->
+      ()
 
 let sync_certs_all_hosts kind ~__context master_certs hosts_but_master =
   let exn = ref None in
@@ -398,9 +434,9 @@ let pool_sync ~__context =
   let master = Helpers.get_localhost ~__context in
   let hosts_but_master = List.filter (fun h -> h <> master) hosts in
   sync_all_hosts ~__context hosts ;
-  let master_certs = local_list CA_Certificate in
+  let master_certs = local_list Root_legacy in
   let master_crls = local_list CRL in
-  sync_certs_all_hosts CA_Certificate ~__context master_certs hosts_but_master ;
+  sync_certs_all_hosts Root_legacy ~__context master_certs hosts_but_master ;
   sync_certs_all_hosts CRL ~__context master_crls hosts_but_master
 
 let pool_install kind ~__context ~name ~cert =
@@ -453,3 +489,5 @@ let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key ~path =
       cert
   | Error (`Msg (err, msg)) ->
       raise_server_error msg err
+
+let name_of_uuid uuid = Printf.sprintf "%s.pem" uuid
