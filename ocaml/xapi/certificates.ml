@@ -31,6 +31,10 @@ open D
 
 type t_trusted = CA_Certificate | CRL | Root_CA | Leaf_Pinned
 
+let all_trusted_kinds = [CA_Certificate; CRL; Root_CA; Leaf_Pinned]
+
+let all_purposes = [] :: List.map (fun x -> [x]) API.certificate_purpose__all
+
 let pem_of_string x =
   match X509.Certificate.decode_pem x with
   | Error _ ->
@@ -52,7 +56,62 @@ let ( // ) = Filename.concat
 
 let library_filename kind name = library_path kind // name
 
-let mkdir_cert_path kind = Unixext.mkdir_rec (library_path kind) 0o700
+let string_of_purpose =
+  Option.fold ~none:"general" ~some:Record_util.certificate_purpose_to_string
+
+let ps = Printf.sprintf
+
+let trusted_cert_dirs kind (purpose : API.certificate_purpose option) =
+  let p = string_of_purpose purpose in
+  let parent = library_path kind in
+  match kind with
+  | CA_Certificate | CRL ->
+      [parent]
+  | Root_CA ->
+      [parent // ps "ca-%s" p]
+  | Leaf_Pinned ->
+      [parent // ps "pinned-%s" p]
+
+let trusted_bundle_location kind (purpose : API.certificate_purpose option) =
+  let parent = library_path kind in
+  let p = string_of_purpose purpose in
+  match kind with
+  | CA_Certificate | CRL ->
+      ( Filename.dirname !Xapi_globs.stunnel_bundle_path
+      , [Filename.basename !Xapi_globs.stunnel_bundle_path]
+      )
+  | Root_CA ->
+      (parent, [ps "ca-bundle-%s.pem" p])
+  | Leaf_Pinned ->
+      (parent, [ps "pinned-bundle-%s.pem" p])
+
+let with_cert_store kind (purposes : API.certificate_purpose list) f =
+  let ( let* ) l f = List.iter f l in
+  match (kind, purposes) with
+  | CA_Certificate, _ | CRL, _ | _, [] ->
+      let* cert_dir = trusted_cert_dirs kind None in
+      let bundle_dir, bundle_names = trusted_bundle_location kind None in
+      let* bundle_name = bundle_names in
+      f ~purpose:None ~cert_dir ~bundle_dir ~bundle_name
+  | Root_CA, purposes | Leaf_Pinned, purposes ->
+      let* purpose = purposes in
+      let p' = Some purpose in
+      let* cert_dir = trusted_cert_dirs kind p' in
+      let bundle_dir, bundle_names = trusted_bundle_location kind p' in
+      let* bundle_name = bundle_names in
+      f ~purpose:p' ~cert_dir ~bundle_dir ~bundle_name
+
+let with_cert_paths kind name (purposes : API.certificate_purpose list) f =
+  with_cert_store kind purposes
+  @@ fun ~purpose ~cert_dir ~bundle_dir ~bundle_name ->
+  f purpose (cert_dir // name) (bundle_dir // bundle_name)
+
+let mkdir_cert_path kind (purpose : API.certificate_purpose option) =
+  trusted_cert_dirs kind purpose
+  |> List.iter (fun cert_dir -> Unixext.mkdir_rec cert_dir 0o700) ;
+  let bundle_dir, _ = trusted_bundle_location kind purpose in
+  Unixext.mkdir_rec bundle_dir 0o700 ;
+  ()
 
 let rehash' path =
   match Sys.file_exists !Xapi_globs.c_rehash with
@@ -66,10 +125,13 @@ let rehash' path =
       |> ignore
 
 let rehash () =
-  mkdir_cert_path CA_Certificate ;
-  mkdir_cert_path CRL ;
-  rehash' (library_path CA_Certificate) ;
-  rehash' (library_path CRL)
+  let ( let* ) l f = List.iter f l in
+  let* kind = all_trusted_kinds in
+  let* purposes = all_purposes in
+  with_cert_store kind purposes
+  @@ fun ~purpose ~cert_dir ~bundle_dir:_ ~bundle_name:_ ->
+  mkdir_cert_path kind purpose ;
+  rehash' cert_dir
 
 let update_ca_bundle () = Helpers.update_ca_bundle ()
 
@@ -289,7 +351,7 @@ end = struct
 end
 
 let local_list kind =
-  mkdir_cert_path kind ;
+  mkdir_cert_path kind None ;
   List.filter
     (fun n ->
       let stat = Unix.lstat (library_filename kind n) in
@@ -303,24 +365,28 @@ let local_sync () =
     warn "Exception rehashing certificates: %s" (ExnHelper.string_of_exn e) ;
     raise_library_corrupt ()
 
-let cert_perms kind =
-  let stat = Unix.stat (library_path kind) in
-  let mask = 0o666 in
-  let perm = stat.Unix.st_perm land mask in
-  debug "%d %d" perm stat.Unix.st_perm ;
-  perm
+let update_bundle kind cert_dir bundle_path =
+  match kind with
+  | CA_Certificate | CRL ->
+      update_ca_bundle ()
+  | Root_CA | Leaf_Pinned ->
+      () (* TODO: update_trusted_bundle cert_dir bundle_path *)
 
 let host_install kind ~name ~cert ~purpose =
   validate_name kind name ;
-  let filename = library_filename kind name in
-  if Sys.file_exists filename then
+  with_cert_paths kind name purpose @@ fun purpose cert_path bundle_path ->
+  if Sys.file_exists cert_path then
     raise_already_exists kind name ;
-  debug "Installing %s %s" (to_string kind) name ;
+  debug "Installing %s %s under %s and in %s" (to_string kind) name cert_path
+    bundle_path ;
+  let cert_dir = Filename.dirname cert_path in
   try
-    mkdir_cert_path kind ;
-    Unixext.write_string_to_file filename cert ;
-    Unix.chmod filename (cert_perms kind) ;
-    update_ca_bundle ()
+    mkdir_cert_path kind purpose ;
+    Unixext.write_string_to_file cert_path cert ;
+    Unix.chmod cert_path 0o644 ;
+    update_bundle kind cert_dir bundle_path ;
+    Unix.chmod bundle_path 0o644 ;
+    rehash' cert_dir
   with e ->
     warn "Exception installing %s %s: %s" (to_string kind) name
       (ExnHelper.string_of_exn e) ;
