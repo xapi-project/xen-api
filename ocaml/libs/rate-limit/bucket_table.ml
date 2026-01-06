@@ -45,12 +45,14 @@ let rec worker_loop ~bucket ~process_queue ~process_queue_lock
     Token_bucket.delay_then_consume bucket cost ;
     callback ()
   in
-  Mutex.lock process_queue_lock ;
-  while Queue.is_empty process_queue && not !should_terminate do
-    Condition.wait worker_thread_cond process_queue_lock
-  done ;
-  let item_opt = Queue.take_opt process_queue in
-  Mutex.unlock process_queue_lock ;
+  let item_opt =
+    with_lock process_queue_lock (fun () ->
+        while Queue.is_empty process_queue && not !should_terminate do
+          Condition.wait worker_thread_cond process_queue_lock
+        done ;
+        Queue.take_opt process_queue
+    )
+  in
   match item_opt with
   | None ->
       (* Queue is empty only when termination was signalled *)
@@ -102,10 +104,10 @@ let delete_bucket t ~user_agent =
   | None ->
       ()
   | Some data ->
-      Mutex.lock data.process_queue_lock ;
-      data.should_terminate := true ;
-      Condition.signal data.worker_thread_cond ;
-      Mutex.unlock data.process_queue_lock ;
+      with_lock data.process_queue_lock (fun () ->
+          data.should_terminate := true ;
+          Condition.signal data.worker_thread_cond
+      ) ;
       Atomic.set t (StringMap.remove user_agent map)
 
 let try_consume t ~user_agent amount =
