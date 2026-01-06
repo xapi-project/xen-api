@@ -164,6 +164,7 @@ module Db_util : sig
        __context:Context.t
     -> type':
          [< `host of API.ref_host | `host_internal of API.ref_host | `ca of name]
+    -> purpose:API.certificate_purpose list
     -> X509.Certificate.t
     -> API.ref_Certificate
 
@@ -207,7 +208,7 @@ end = struct
     debug "deleting cert ref=%s from the database" (Ref.string_of self) ;
     Db.Certificate.destroy ~__context ~self
 
-  let add_cert ~__context ~type' certificate =
+  let add_cert ~__context ~type' ~purpose certificate =
     let name, host, _type, post_action =
       match type' with
       | `host host ->
@@ -232,7 +233,7 @@ end = struct
     let ref' = Ref.make () in
     Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
       ~not_after ~fingerprint:fingerprint_sha256 ~fingerprint_sha256
-      ~fingerprint_sha1 ~name ~_type ;
+      ~fingerprint_sha1 ~name ~_type ~purpose ;
     debug "added cert %s under uuid=%s ref=%s" name uuid (Ref.string_of ref') ;
     post_action () ;
     ref'

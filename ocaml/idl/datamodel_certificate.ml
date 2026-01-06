@@ -33,6 +33,12 @@ let certificate_type =
       ]
     )
 
+let certificate_purpose =
+  Enum
+    ( "certificate_purpose"
+    , [("licensing", "Trusted certificates that are for licensing purpose.")]
+    )
+
 let t =
   create_obj ~name:_certificate
     ~descr:"An X509 certificate used for TLS connections" ~doccomments:[]
@@ -75,5 +81,8 @@ let t =
       ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:String "fingerprint_sha1"
           ~default_value:(Some (VString ""))
           "The certificate's SHA1 fingerprint / hash"
+      ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:(Set certificate_purpose)
+          "purpose" ~default_value:(Some (VSet []))
+          "The purposes of the certificate"
       ]
     ~messages:[] ()
