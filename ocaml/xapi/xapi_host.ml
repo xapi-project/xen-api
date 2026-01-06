@@ -1613,9 +1613,10 @@ let replace_host_certificate ~__context ~type' ~host
   let (_ : API.ref_Certificate) =
     match type' with
     | `host ->
-        Db_util.add_cert ~__context ~type':(`host host) new_cert
+        Db_util.add_cert ~__context ~type':(`host host) ~purpose:[] new_cert
     | `host_internal ->
-        Db_util.add_cert ~__context ~type':(`host_internal host) new_cert
+        Db_util.add_cert ~__context ~type':(`host_internal host) ~purpose:[]
+          new_cert
   in
   List.iter (Db_util.remove_cert_by_ref ~__context) old_certs ;
   let task = Context.get_task_id __context in
