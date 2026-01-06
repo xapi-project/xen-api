@@ -93,10 +93,11 @@ let host ~__context ~type' =
   let ref =
     match type' with
     | `host ->
-        Certificates.Db_util.add_cert ~__context ~type':(`host host) cert
+        Certificates.Db_util.add_cert ~__context ~type':(`host host) ~purpose:[]
+          cert
     | `host_internal ->
         Certificates.Db_util.add_cert ~__context ~type':(`host_internal host)
-          cert
+          ~purpose:[] cert
   in
   (* We might have a slow client that connects using the old cert and
      has not picked up the new cert. To avoid that the connection fails,

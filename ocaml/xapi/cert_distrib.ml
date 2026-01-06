@@ -584,7 +584,7 @@ let exchange_ca_certificates_with_joiner ~__context ~import ~export =
   List.iter
     (fun (name, cert) ->
       let (_ : API.ref_Certificate) =
-        C.Db_util.add_cert ~__context ~type':(`ca name) cert
+        C.Db_util.add_cert ~__context ~type':(`ca name) ~purpose:[] cert
       in
       ()
     )

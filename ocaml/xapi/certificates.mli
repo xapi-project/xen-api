@@ -69,6 +69,7 @@ module Db_util : sig
          [< `ca of string
          | `host of API.ref_host
          | `host_internal of API.ref_host ]
+    -> purpose:API.certificate_purpose list
     -> X509.Certificate.t
     -> API.ref_Certificate
 

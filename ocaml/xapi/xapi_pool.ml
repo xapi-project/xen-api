@@ -1585,7 +1585,7 @@ let certificate_install ~__context ~name ~cert =
   in
   pool_install CA_Certificate ~__context ~name ~cert ;
   let (_ : API.ref_Certificate) =
-    Db_util.add_cert ~__context ~type':(`ca name) certificate
+    Db_util.add_cert ~__context ~type':(`ca name) ~purpose:[] certificate
   in
   ()
 
