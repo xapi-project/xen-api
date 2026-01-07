@@ -133,26 +133,28 @@ let populate_audit_record_with_obj_names_of_refs line =
     let sexpr_idx = String.index line ']' + 1 in
     let before_sexpr_str = String.sub line 0 sexpr_idx in
     (* remove the [...] prefix *)
-    let sexpr_str =
-      Xapi_stdext_std.Xstringext.String.sub_to_end line sexpr_idx
-    in
-    let sexpr = SExpr_TS.of_string sexpr_str in
-    match sexpr with
-    | SExpr.Node [] ->
-        line
-    | SExpr.Node els -> (
-        let (args : SExpr.t) = List.hd (List.rev els) in
-        match List.partition (fun (e : SExpr.t) -> e <> args) els with
-        | prefix, [SExpr.Node arg_list] ->
-            (* paste together the prefix of original audit record *)
-            let the_sexpr =
-              SExpr.Node (prefix @ [SExpr.Node (get_obj_names_of_refs arg_list)])
-            in
-            String.concat " " [before_sexpr_str; SExpr.string_of the_sexpr]
-        | _ ->
-            line
-      )
-    | _ ->
+    (Xapi_stdext_std.Xstringext.String.sub_to_end line sexpr_idx
+     |> SExpr_TS.of_string
+     |> function
+     | SExpr.Node list ->
+         Xapi_stdext_std.Listext.List.last list
+         |> Option.map (fun last -> (list, last))
+     | _ ->
+         None
+    )
+    |> function
+    | Some (els, args) -> (
+      match List.partition (fun (e : SExpr.t) -> e <> args) els with
+      | prefix, [SExpr.Node arg_list] ->
+          (* paste together the prefix of original audit record *)
+          let the_sexpr =
+            SExpr.Node (prefix @ [SExpr.Node (get_obj_names_of_refs arg_list)])
+          in
+          String.concat " " [before_sexpr_str; SExpr.string_of the_sexpr]
+      | _ ->
+          line
+    )
+    | None ->
         line
   with e ->
     D.debug "error populating audit record arg names: %s"

@@ -507,9 +507,7 @@ let check_operation_error ~__context ~ref =
     (* if other operations are in progress, check that the new operation is allowed concurrently with them. *)
     let current_error =
       check current_error (fun () ->
-          if
-            List.length current_ops <> 0
-            && not (is_allowed_concurrently ~op ~current_ops)
+          if current_ops <> [] && not (is_allowed_concurrently ~op ~current_ops)
           then
             report_concurrent_operations_error ~current_ops ~ref_str
           else
@@ -862,6 +860,9 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   (* First update the power_state. Some operations below indirectly rely on this. *)
   let old_state = Db.VM.get_power_state ~__context ~self in
   Db.VM.set_power_state ~__context ~self ~value:state ;
+  debug "%s: VM power state changed from %s to %s" __FUNCTION__
+    (Record_util.vm_power_state_to_string old_state)
+    (Record_util.vm_power_state_to_string state) ;
   if state = `Suspended then
     remove_pending_guidance ~__context ~self ~value:`restart_device_model ;
   if state = `Halted then (
@@ -908,6 +909,9 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
     (* Blank the requires_reboot flag *)
     Db.VM.set_requires_reboot ~__context ~self ~value:false ;
     remove_pending_guidance ~__context ~self ~value:`restart_device_model ;
+    (* Always remove RestartVM guidance when VM becomes Halted: VM.start_on checks
+       host version via assert_host_has_highest_version_in_pool, preventing the VM
+       from starting on an outdated host, so it will necessarily start on an up-to-date host *)
     remove_pending_guidance ~__context ~self ~value:`restart_vm
   ) ;
   (* Do not clear resident_on for VM and VGPU in a checkpoint operation *)

@@ -246,6 +246,15 @@ let is_device_underneath_same_type ~__context pif1 pif2 =
   in
   get_device_info pif1 = get_device_info pif2
 
+let is_pluggable ~__context pif_ref =
+  let pif_rec = Db.PIF.get_record ~__context ~self:pif_ref in
+  (* If the root pif is a bond slave, it is not pluggable *)
+  match List.rev (get_pif_topo ~__context ~pif_rec) with
+  | Physical pif_rec :: _ ->
+      not (Db.is_valid_ref __context pif_rec.API.pIF_bond_slave_of)
+  | _ ->
+      true
+
 let get_non_link_ipv6 ~__context ~pif =
   let valid_nonlink ipv6 =
     let open Ipaddr.V6 in
@@ -264,7 +273,7 @@ let get_primary_address ~__context ~pif =
     match Db.PIF.get_IP ~__context ~self:pif with "" -> None | ip -> Some ip
   )
   | `IPv6 ->
-      List.nth_opt (get_non_link_ipv6 ~__context ~pif) 0
+      Xapi_stdext_std.Listext.List.head (get_non_link_ipv6 ~__context ~pif)
 
 let get_pif_position ~__context ~pif_rec =
   let n_of_xenbrn_opt bridge =

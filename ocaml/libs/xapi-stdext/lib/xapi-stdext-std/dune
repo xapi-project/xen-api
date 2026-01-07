@@ -7,5 +7,5 @@
   (names xstringext_test listext_test)
   (package xapi-stdext-std)
   (modules xstringext_test listext_test)
-  (libraries xapi_stdext_std alcotest)
+  (libraries xapi_stdext_std fmt alcotest qcheck-core qcheck-alcotest)
 )

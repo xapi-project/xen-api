@@ -27,13 +27,18 @@ let add_host __context name =
        ~ssh_enabled:true ~ssh_enabled_timeout:0L ~ssh_expiry:Clock.Date.epoch
        ~console_idle_timeout:0L ~ssh_auto_mode:false ~secure_boot:false
        ~software_version:(Xapi_globs.software_version ())
+       ~https_only:false ~max_cstate:"" ~ntp_mode:`Factory
+       ~ntp_custom_servers:[] ~timezone:"UTC"
+       ~numa_affinity_policy:`default_policy
+       ~latest_synced_updates_applied:`unknown ~pending_guidances_full:[]
+       ~pending_guidances_recommended:[]
     )
 
 (* Creates an unlicensed pool with the maximum number of hosts *)
 let setup_test () =
   (* Create an unlicensed pool *)
   let __context = make_test_database () in
-  let pool = Db.Pool.get_all ~__context |> List.hd in
+  let pool = Helpers.get_pool ~__context in
   Db.Pool.set_restrictions ~__context ~self:pool
     ~value:(Features.to_assoc_list []) ;
   (* Add hosts until we're at the maximum unlicensed pool size *)
@@ -58,7 +63,7 @@ let test_host_join_restriction () =
     )
     (fun () -> ignore (add_host __context "badhost")) ;
   (* License the pool *)
-  let pool = Db.Pool.get_all ~__context |> List.hd in
+  let pool = Helpers.get_pool ~__context in
   Db.Pool.set_restrictions ~__context ~self:pool
     ~value:(Features.to_assoc_list [Features.Pool_size]) ;
   (* Adding hosts should now work *)

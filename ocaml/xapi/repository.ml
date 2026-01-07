@@ -232,7 +232,7 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
         let config_repo config =
-          if List.length config <> 0 then (* Set params to yum/dnf *)
+          if config <> [] then (* Set params to yum/dnf *)
             let Pkg_mgr.{cmd; params} = Pkgs.config_repo ~repo_name ~config in
             ignore
               (Helpers.call_script ~log_output:Helpers.On_failure cmd params)
@@ -293,7 +293,11 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
          * will always write_initial_yum_config every time before syncing repo,
          * this should be ok.
          *)
-        write_initial_yum_config ~binary_url
+        match Pkgs.manager with
+        | Yum ->
+            write_initial_yum_config ~binary_url
+        | Dnf ->
+            Unixext.unlink_safe !Xapi_globs.dnf_repo_config_file
       ) ;
     (* The custom yum-utils will fully download repository metadata including
      * the repo gpg signature.
@@ -598,7 +602,7 @@ let get_host_updates_in_json ~__context ~installed =
 
 let get_repository_handler (req : Http.Request.t) s _ =
   let open Http in
-  debug "%s URL: %s" __FUNCTION__ req.Request.uri ;
+  debug "%s URL: %s" __FUNCTION__ req.Request.path ;
   req.Request.close <- true ;
   Fileserver.send_file Constants.get_repository_uri
     !Xapi_globs.local_pool_repo_dir
@@ -606,7 +610,7 @@ let get_repository_handler (req : Http.Request.t) s _ =
 
 let get_enabled_repository_handler (req : Http.Request.t) s _ =
   let open Http in
-  debug "%s URL: %s" __FUNCTION__ req.Request.uri ;
+  debug "%s URL: %s" __FUNCTION__ req.Request.path ;
   req.Request.close <- true ;
   Xapi_http.with_context __FUNCTION__ req s (fun __context ->
       let enabled_repo = get_single_enabled_update_repository ~__context in

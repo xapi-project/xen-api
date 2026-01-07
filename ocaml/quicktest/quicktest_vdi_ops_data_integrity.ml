@@ -76,44 +76,92 @@ let check_vdi_unchanged rpc session_id ~vdi_size ~prepare_vdi ~vdi_op sr_info ()
       )
   )
 
+let check_vdi_delta rpc session_id ~vdi_size ~prepare_vdi ~prepare_vdi_base
+    ~vdi_op sr_info () =
+  let sR = sr_info.Qt.sr in
+  Qt.VDI.with_new ~virtual_size:vdi_size rpc session_id sR
+  @@ fun vdi_original ->
+  Qt.VDI.with_new ~virtual_size:vdi_size rpc session_id sR @@ fun base_vdi ->
+  prepare_vdi rpc session_id vdi_original ;
+  let checksum_original = checksum rpc session_id vdi_original in
+  prepare_vdi_base rpc session_id base_vdi ;
+
+  vdi_op rpc session_id ~vdi:vdi_original ~base_vdi ;
+  let checksum_copy = checksum rpc session_id base_vdi in
+  if checksum_copy <> checksum_original then
+    failwith
+      (Printf.sprintf
+         "New VDI (checksum: %s) has different data than original (checksum: \
+          %s)."
+         checksum_copy checksum_original
+      )
+
 let copy_vdi rpc session_id sr vdi =
   Client.Client.VDI.copy ~rpc ~session_id ~vdi ~base_vdi:API.Ref.null
     ~into_vdi:API.Ref.null ~sr
 
-let export_import_vdi rpc session_id ~exportformat sR vdi =
-  let vdi_uuid = Client.Client.VDI.get_uuid ~rpc ~session_id ~self:vdi in
+let export_vdi_to_file ~rpc ~session_id ~exportformat ?base_vdi ~vdi () =
+  let get_uuid vdi = Client.Client.VDI.get_uuid ~rpc ~session_id ~self:vdi in
+  let vdi_uuid = get_uuid vdi in
+  let base_vdi_uuid = Option.map get_uuid base_vdi in
   let file = "/tmp/quicktest_export_" ^ vdi_uuid in
   Qt.cli_cmd
+    ([
+       "vdi-export"
+     ; "uuid=" ^ vdi_uuid
+     ; "filename=" ^ file
+     ; "format=" ^ exportformat
+     ]
+    @ match base_vdi_uuid with None -> [] | Some x -> ["base=" ^ x]
+    )
+  |> ignore ;
+  file
+
+let create_new_vdi ~rpc ~session_id ~sR ~vdi =
+  let virtual_size =
+    Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
+  in
+  let new_vdi =
+    Client.Client.VDI.create ~rpc ~session_id ~name_label:""
+      ~name_description:"" ~sR ~virtual_size ~_type:`user ~sharable:false
+      ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[]
+  in
+  let new_vdi_uuid =
+    Client.Client.VDI.get_uuid ~rpc ~session_id ~self:new_vdi
+  in
+  (new_vdi_uuid, new_vdi)
+
+let import_file_into_vdi ~file ~vdi_uuid ~exportformat =
+  Qt.cli_cmd
     [
-      "vdi-export"
+      "vdi-import"
     ; "uuid=" ^ vdi_uuid
     ; "filename=" ^ file
     ; "format=" ^ exportformat
     ]
-  |> ignore ;
+  |> ignore
+
+let export_import_vdi rpc session_id ~exportformat sR vdi =
+  let file = export_vdi_to_file ~rpc ~session_id ~exportformat ~vdi () in
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
-      let virtual_size =
-        Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
-      in
-      let new_vdi =
-        Client.Client.VDI.create ~rpc ~session_id ~name_label:""
-          ~name_description:"" ~sR ~virtual_size ~_type:`user ~sharable:false
-          ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[]
-          ~tags:[]
-      in
-      let new_vdi_uuid =
-        Client.Client.VDI.get_uuid ~rpc ~session_id ~self:new_vdi
-      in
-      Qt.cli_cmd
-        [
-          "vdi-import"
-        ; "uuid=" ^ new_vdi_uuid
-        ; "filename=" ^ file
-        ; "format=" ^ exportformat
-        ]
-      |> ignore ;
+      let new_vdi_uuid, new_vdi = create_new_vdi ~rpc ~session_id ~sR ~vdi in
+      import_file_into_vdi ~file ~vdi_uuid:new_vdi_uuid ~exportformat ;
       new_vdi
+    )
+    (fun () -> Sys.remove file)
+
+let export_delta_import_vdi rpc session_id ~exportformat ~vdi ~base_vdi =
+  let file =
+    export_vdi_to_file ~rpc ~session_id ~exportformat ~vdi ~base_vdi ()
+  in
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () ->
+      (* Import delta on top of base_vdi *)
+      let base_uuid =
+        Client.Client.VDI.get_uuid ~rpc ~session_id ~self:base_vdi
+      in
+      import_file_into_vdi ~file ~vdi_uuid:base_uuid ~exportformat
     )
     (fun () -> Sys.remove file)
 
@@ -122,6 +170,12 @@ let export_import_raw = export_import_vdi ~exportformat:"raw"
 let export_import_vhd = export_import_vdi ~exportformat:"vhd"
 
 let export_import_tar = export_import_vdi ~exportformat:"tar"
+
+let export_import_qcow = export_import_vdi ~exportformat:"qcow2"
+
+let delta_export_import_vhd = export_delta_import_vdi ~exportformat:"vhd"
+
+let delta_export_import_qcow = export_delta_import_vdi ~exportformat:"qcow2"
 
 let data_integrity_tests vdi_op op_name =
   [
@@ -138,6 +192,47 @@ let data_integrity_tests vdi_op op_name =
   ; ( op_name ^ ": small full VDI"
     , `Slow
     , check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:fill ~vdi_op
+    )
+  ]
+
+let delta_data_integrity_tests vdi_op op_name =
+  [
+    ( op_name ^ ": delta between empty & empty VDI"
+    , `Slow
+    , check_vdi_delta
+        ~vdi_size:Sizes.(4L ** mib)
+        ~prepare_vdi:noop ~prepare_vdi_base:noop ~vdi_op
+    )
+  ; ( op_name ^ ": delta between random & empty VDI"
+    , `Slow
+    , check_vdi_delta
+        ~vdi_size:Sizes.(4L ** mib)
+        ~prepare_vdi:write_random_data ~prepare_vdi_base:noop ~vdi_op
+    )
+  ; ( op_name ^ ": delta between random & random VDI"
+    , `Slow
+    , check_vdi_delta
+        ~vdi_size:Sizes.(4L ** mib)
+        ~prepare_vdi:write_random_data ~prepare_vdi_base:write_random_data
+        ~vdi_op
+    )
+  ; ( op_name ^ ": delta between full and empty VDI"
+    , `Slow
+    , check_vdi_delta
+        ~vdi_size:Sizes.(4L ** mib)
+        ~prepare_vdi:fill ~prepare_vdi_base:noop ~vdi_op
+    )
+  ; ( op_name ^ ": delta between full and random VDI"
+    , `Slow
+    , check_vdi_delta
+        ~vdi_size:Sizes.(4L ** mib)
+        ~prepare_vdi:fill ~prepare_vdi_base:write_random_data ~vdi_op
+    )
+  ; ( op_name ^ ": delta between full and full VDI"
+    , `Slow
+    , check_vdi_delta
+        ~vdi_size:Sizes.(4L ** mib)
+        ~prepare_vdi:fill ~prepare_vdi_base:fill ~vdi_op
     )
   ]
 
@@ -179,7 +274,19 @@ let tests () =
   @ (data_integrity_tests export_import_vhd "VDI export/import to/from VHD file"
     |> supported_srs
     )
+  @ (delta_data_integrity_tests delta_export_import_vhd
+       "VDI delta export/import to/from VHD file"
+    |> supported_srs
+    )
   @ (data_integrity_tests export_import_tar "VDI export/import to/from TAR file"
+    |> supported_srs
+    )
+  @ (data_integrity_tests export_import_qcow
+       "VDI export/import to/from QCOW file"
+    |> supported_srs
+    )
+  @ (delta_data_integrity_tests delta_export_import_qcow
+       "VDI delta export/import to/from QCOW file"
     |> supported_srs
     )
   @ (large_data_integrity_tests export_import_tar

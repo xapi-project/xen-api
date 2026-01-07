@@ -181,20 +181,24 @@ let assert_operation_valid ~__context ~self ~(op : API.host_allowed_operations)
   throw_error table op
 
 let update_allowed_operations ~__context ~self : unit =
-  let all = Db.Host.get_record_internal ~__context ~self in
-  let valid = valid_operations ~__context all self in
-  let keys =
-    Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid []
-  in
-  (* CA-18377: If there's a rolling upgrade in progress, only send Miami keys across the wire. *)
-  let keys =
-    if Helpers.rolling_upgrade_in_progress ~__context then
-      Xapi_stdext_std.Listext.List.intersect keys
-        Xapi_globs.host_operations_miami
-    else
-      keys
-  in
-  Db.Host.set_allowed_operations ~__context ~self ~value:keys
+  try
+    (* This might fail if the coordinator has been updated *)
+    let all = Db.Host.get_record_internal ~__context ~self in
+    let valid = valid_operations ~__context all self in
+    let keys =
+      Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid []
+    in
+    (* CA-18377: If there's a rolling upgrade in progress, only send Miami keys across the wire. *)
+    let keys =
+      if Helpers.rolling_upgrade_in_progress ~__context then
+        Xapi_stdext_std.Listext.List.intersect keys
+          Xapi_globs.host_operations_miami
+      else
+        keys
+    in
+    Db.Host.set_allowed_operations ~__context ~self ~value:keys
+  with e ->
+    error "Failed to update host.allowed_operations: %s" (Printexc.to_string e)
 
 let update_allowed_operations_all_hosts ~__context : unit =
   let hosts = Db.Host.get_all ~__context in
@@ -380,7 +384,7 @@ let consider_enabling_host_nolock ~__context =
         Disabled hosts are excluded from the HA planning calculations. Otherwise a host may boot,
         fail to plug in a PBD and cause all protected VMs to suddenly become non-agile. *)
   let ha_enabled =
-    try bool_of_string (Localdb.get Constants.ha_armed) with _ -> false
+    Localdb.get_bool Constants.ha_armed |> Option.value ~default:false
   in
   let localhost = Helpers.get_localhost ~__context in
   let pbds = Db.Host.get_PBDs ~__context ~self:localhost in
@@ -423,8 +427,7 @@ let consider_enabling_host_nolock ~__context =
         f ()
     in
     let host_auto_enable =
-      try bool_of_string (Localdb.get Constants.host_auto_enable)
-      with _ -> true
+      Localdb.get_bool Constants.host_auto_enable |> Option.value ~default:true
     in
     if !Xapi_globs.on_system_boot then (
       debug "Host.enabled: system has just restarted" ;
@@ -451,8 +454,8 @@ let consider_enabling_host_nolock ~__context =
                until manually re-enabled by the user"
       )
     ) else if
-        try bool_of_string (Localdb.get Constants.host_disabled_until_reboot)
-        with _ -> false
+        Localdb.get_bool Constants.host_disabled_until_reboot
+        |> Option.value ~default:false
       then
       debug
         "Host.enabled: system not just rebooted but host_disabled_until_reboot \

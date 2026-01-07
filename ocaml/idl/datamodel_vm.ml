@@ -1742,7 +1742,7 @@ let assert_can_migrate =
       ; {
           param_type= Map (String, String)
         ; param_name= "dest"
-        ; param_doc= "The result of a VM.migrate_receive call."
+        ; param_doc= "The result of a Host.migrate_receive call."
         ; param_release= tampa_release
         ; param_default= None
         }
@@ -1797,7 +1797,7 @@ let assert_can_migrate_sender =
         (Ref _vm, "vm", "The VM")
       ; ( Map (String, String)
         , "dest"
-        , "The result of a VM.migrate_receive call."
+        , "The result of a Host.migrate_receive call."
         )
       ; (Bool, "live", "Live migration")
       ; ( Map (Ref _vdi, Ref _sr)

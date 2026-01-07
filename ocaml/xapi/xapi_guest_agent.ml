@@ -501,8 +501,7 @@ let all (lookup : string -> string option) (list : string -> string list)
     || guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
     || guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
     (* Nb. we're ignoring the memory updates as far as the VM_guest_metrics API object is concerned. We are putting them into an RRD instead *)
-    (* ||
-           guest_metrics_cached.memory <> memory)*)
+    (* || guest_metrics_cached.memory <> memory) *)
   then (
     let gm =
       let existing = Db.VM.get_guest_metrics ~__context ~self in

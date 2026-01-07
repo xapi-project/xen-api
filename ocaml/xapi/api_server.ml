@@ -7,7 +7,7 @@ module Helper = struct
   include Tracing.Propagator.Make (struct
     include Tracing_propagator.Propagator.Http
 
-    let name_span req = req.Http.Request.uri
+    let name_span req = req.Http.Request.path
   end)
 end
 

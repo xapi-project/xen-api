@@ -45,6 +45,8 @@ let internal_error fmt =
     )
     fmt
 
+let ( // ) = Filename.concat
+
 (** Definition of available qemu profiles, used by the qemu backend
     implementations *)
 module Profile = struct
@@ -166,7 +168,7 @@ module Generic = struct
     let private_data_path =
       Device_common.get_private_data_path_of_device device
     in
-    let key = private_data_path ^ "/" ^ x in
+    let key = private_data_path // x in
     try xs.Xs.read key with e -> error "read %s: Noent" key ; raise e
 
   let safe_rm ~xs path =
@@ -194,7 +196,7 @@ module Generic = struct
   let can_surprise_remove ~xs (x : device) =
     (* "(info key in xenstore) && 2" tells us whether a vbd can be surprised
        removed *)
-    let key = backend_path_of_device ~xs x ^ "/info" in
+    let key = backend_path_of_device ~xs x // "info" in
     try
       let info = Int64.of_string (xs.Xs.read key) in
       Int64.logand info 2L <> 0L
@@ -211,9 +213,9 @@ module Generic = struct
   (** When hot-unplugging a device we ask nicely *)
   let clean_shutdown_async ~xs (x : device) =
     let backend_path = backend_path_of_device ~xs x in
-    let state_path = backend_path ^ "/state" in
+    let state_path = backend_path // "state" in
     Xs.transaction xs (fun t ->
-        let online_path = backend_path ^ "/online" in
+        let online_path = backend_path // "online" in
         debug "xenstore-write %s = 0" online_path ;
         t.Xst.write online_path "0" ;
         let state =
@@ -236,13 +238,13 @@ module Generic = struct
     Watch.map
       (fun () -> "")
       (Watch.value_to_become
-         (frontend_rw_path_of_device ~xs x ^ "/state")
+         (frontend_rw_path_of_device ~xs x // "state")
          (Xenbus_utils.string_of Xenbus_utils.Closed)
       )
 
   let backend_closed ~xs (x : device) =
     Watch.value_to_become
-      (backend_path_of_device ~xs x ^ "/state")
+      (backend_path_of_device ~xs x // "state")
       (Xenbus_utils.string_of Xenbus_utils.Closed)
 
   let is_backend backend_type path =
@@ -287,7 +289,7 @@ module Generic = struct
       in
       let frontend_gone =
         ( ()
-        , frontend_rw_path_of_device ~xs x ^ "/state" |> Watch.key_to_disappear
+        , frontend_rw_path_of_device ~xs x // "state" |> Watch.key_to_disappear
         )
       in
       let unplugged_watch = ((), unplug_watch ~xs x) in
@@ -322,7 +324,7 @@ module Generic = struct
   let hard_shutdown_request ~xs (x : device) =
     debug "Device.Generic.hard_shutdown_request %s" (string_of_device x) ;
     let backend_path = backend_path_of_device ~xs x in
-    let online_path = backend_path ^ "/online" in
+    let online_path = backend_path // "online" in
     debug "xenstore-write %s = 0" online_path ;
     xs.Xs.write online_path "0" ;
     debug "Device.Generic.hard_shutdown about to blow away frontend" ;
@@ -460,7 +462,7 @@ module Vbd_Common = struct
     debug "Device.Vbd.request_shutdown %s %s" (string_of_device x) request ;
     let backend_path = backend_path_of_device ~xs x in
     let request_path = backend_shutdown_request_path_of_device ~xs x in
-    let online_path = backend_path ^ "/online" in
+    let online_path = backend_path // "online" in
     (* Prevent spurious errors appearing by not writing online=0 if force *)
     if not force then (
       debug "xenstore-write %s = 0" online_path ;
@@ -759,7 +761,7 @@ module Vbd_Common = struct
 
   let qemu_media_change ~xs device _type params =
     let backend_path = backend_path_of_device ~xs device in
-    let params_path = backend_path ^ "/params" in
+    let params_path = backend_path // "params" in
     (* unfortunately qemu filter the request if on the same string it has, so we
        trick it by having a different string, but the same path, adding a
        spurious '/' character at the beggining of the string. *)
@@ -775,7 +777,7 @@ module Vbd_Common = struct
     debug "Media changed: params = %s" pathtowrite
 
   let media_is_ejected ~xs device =
-    let path = backend_path_of_device ~xs device ^ "/params" in
+    let path = backend_path_of_device ~xs device // "params" in
     try xs.Xs.read path = "" with _ -> raise Device_not_found
 end
 
@@ -872,7 +874,7 @@ module Vif = struct
       @ front_mtu
     in
     let extra_private_keys =
-      List.map (fun (k, v) -> ("other-config/" ^ k, v)) other_config
+      List.map (fun (k, v) -> ("other-config" // k, v)) other_config
       @ extra_private_keys
     in
     (* Add the rest of the important configuration to the private bit of
@@ -941,7 +943,7 @@ module Vif = struct
 
   let move ~xs (x : device) bridge =
     let xs_bridge_path =
-      Device_common.get_private_data_path_of_device x ^ "/bridge"
+      Device_common.get_private_data_path_of_device x // "bridge"
     in
     xs.Xs.write xs_bridge_path bridge ;
     Hotplug.run_hotplug_script x ["move"; "type_if=vif"] ;
@@ -1104,12 +1106,24 @@ module PCI = struct
   (* same as libxl_internal: PROC_PCI_NUM_RESOURCES *)
   let _proc_pci_num_resources = 7
 
+  let _proc_pci_rom_resource = 6
+
   (* same as libxl_internal: PCI_BAR_IO *)
   let _pci_bar_io = 0x01n
 
   let _page_size = 4096n
 
   let _xen_domctl_dev_rdm_relaxed = 1
+
+  let sysfs_devices = "/sys/bus/pci/devices"
+
+  let sysfs_drivers = "/sys/bus/pci/drivers"
+
+  let sysfs_i915 = sysfs_drivers // "i915"
+
+  let sysfs_nvidia = sysfs_drivers // "nvidia"
+
+  let sysfs_pciback = sysfs_drivers // "pciback"
 
   (* XXX: we don't want to use the 'xl' command here because the "interface"
       isn't considered as stable as the C API *)
@@ -1162,7 +1176,7 @@ module PCI = struct
       List.map
         (fun x ->
           ( device_number_of_string x
-          , Xenops_interface.Pci.address_of_string (xs.Xs.read (path ^ "/" ^ x))
+          , Xenops_interface.Pci.address_of_string (xs.Xs.read (path // x))
           )
         )
         all
@@ -1170,7 +1184,7 @@ module PCI = struct
     (* Sort into the order the devices were plugged *)
     List.sort (fun a b -> compare (fst a) (fst b)) pairs
 
-  let encode_bdf pci =
+  let encode_sbdf pci =
     (pci.Xenops_interface.Pci.domain lsl 16)
     lor ((pci.bus land 0xff) lsl 8)
     lor ((pci.dev land 0x1f) lsl 3)
@@ -1178,16 +1192,16 @@ module PCI = struct
 
   let _quarantine pci quarantine =
     if !Xenopsd.pci_quarantine then
-      let pci_bdf = encode_bdf pci in
+      let pci_sbdf = encode_sbdf pci in
       let domid = Xenctrlext.domid_quarantine () in
       let xcext = Xenctrlext.get_handle () in
       try
         match quarantine with
         | true ->
-            Xenctrlext.assign_device xcext domid pci_bdf 0 ;
+            Xenctrlext.assign_device xcext domid pci_sbdf 0 ;
             true
         | false ->
-            Xenctrlext.deassign_device xcext domid pci_bdf ;
+            Xenctrlext.deassign_device xcext domid pci_sbdf ;
             true
       with
       | Xenctrlext.Unix_error (Unix.ESRCH, _) ->
@@ -1205,18 +1219,18 @@ module PCI = struct
 
   let _pci_add ~xc ~xs ~hvm domid {host; guest= _, guest_addr; qmp_add} =
     let open Xenops_interface.Pci in
-    let sysfs_pci_dev = "/sys/bus/pci/devices/" in
+    let sysfs_pci_dev = sysfs_devices // string_of_address host in
     let devfn =
       match guest_addr with None -> None | Some g -> Some (g.dev, g.fn)
     in
     let irq =
-      sysfs_pci_dev ^ Pci.string_of_address host ^ "/irq"
+      sysfs_pci_dev // "irq"
       |> Unixext.string_of_file
       |> String.trim
       |> int_of_string
     in
     let addresses =
-      sysfs_pci_dev ^ string_of_address host ^ "/resource"
+      sysfs_pci_dev // "resource"
       |> Unixext.string_of_file
       |> String.split_on_char '\n'
     in
@@ -1224,7 +1238,7 @@ module PCI = struct
       if i < _proc_pci_num_resources then
         Scanf.sscanf addr "0x%nx 0x%nx 0x%nx"
         @@ fun scan_start scan_end scan_flags ->
-        if scan_start <> 0n then
+        if scan_start <> 0n then (
           let scan_size = Nativeint.(sub scan_end scan_start |> succ) in
           if Nativeint.(logand scan_flags _pci_bar_io > 0n) then
             Xenctrl.domain_ioport_permission xc domid
@@ -1238,11 +1252,49 @@ module PCI = struct
                 shift_right_logical (add _page_size scan_size |> pred) 12
               )
             in
+            (* Linux disables the ROM BARs if not used and by default does
+               not set the start address.
+               Force it to set the address using "rom" file.
+               This method works also with lockdown mode enabled. *)
+            let enable_rom start =
+              (* read current configured ROM address to check if enabled *)
+              let config_fn = sysfs_pci_dev // "config" in
+              let out = Bytes.make 4 '\x00' in
+              let current_addr =
+                Unixext.with_file config_fn [Unix.O_RDONLY; Unix.O_CLOEXEC] 0
+                  (fun fd ->
+                    Unix.(lseek fd 0x30 SEEK_SET) |> ignore ;
+                    (* this is a virtual file that control PCI configuration,
+                       it will either fail or return 4 *)
+                    Unix.(read fd out 0 4) |> ignore ;
+                    Nativeint.(
+                      logand (of_int32 (Bytes.get_int32_le out 0)) 0xfffff800n
+                    )
+                )
+              in
+              if current_addr <> start then (
+                (* to enable output "1" on "rom" file and try to read it *)
+                let rom_fn = sysfs_pci_dev // "rom" in
+                Unixext.with_file rom_fn [Unix.O_WRONLY; Unix.O_CLOEXEC] 0
+                  (fun fd ->
+                    Unix.(single_write fd (Bytes.of_string "1\n") 0 2) |> ignore
+                ) ;
+                Unixext.with_file rom_fn [Unix.O_RDONLY; Unix.O_CLOEXEC] 0
+                  (fun fd ->
+                    (* ignore any error, the ROM could be not correct,
+                       just trying to read does the trick *)
+                    try Unix.(read fd out 0 4) |> ignore with _ -> ()
+                )
+              )
+            in
+            if i = _proc_pci_rom_resource then
+              enable_rom scan_start ;
             Xenctrl.domain_iomem_permission xc domid scan_start scan_size true
+        )
     in
     let xcext = Xenctrlext.get_handle () in
     ignore (quarantine host) ;
-    Xenctrlext.assign_device xcext domid (encode_bdf host)
+    Xenctrlext.assign_device xcext domid (encode_sbdf host)
       _xen_domctl_dev_rdm_relaxed ;
     List.iteri apply_io_permission addresses ;
     ( if irq > 0 then
@@ -1351,23 +1403,11 @@ module PCI = struct
     | driver ->
         Unsupported driver
 
-  let sysfs_devices = "/sys/bus/pci/devices"
-
-  let sysfs_drivers = "/sys/bus/pci/drivers"
-
-  let sysfs_i915 = Filename.concat sysfs_drivers "i915"
-
-  let sysfs_nvidia = Filename.concat sysfs_drivers "nvidia"
-
-  let sysfs_pciback = Filename.concat sysfs_drivers "pciback"
-
-  let ( // ) = Filename.concat
-
   let get_driver devstr =
     try
-      let sysfs_device = Filename.concat sysfs_devices devstr in
+      let sysfs_device = sysfs_devices // devstr in
       Some
-        (Filename.concat sysfs_device "driver"
+        (sysfs_device // "driver"
         |> Unix.readlink
         |> Filename.basename
         |> driver_of_string
@@ -1376,8 +1416,8 @@ module PCI = struct
 
   let bind_to_pciback devstr =
     debug "pci: binding device %s to pciback" devstr ;
-    let new_slot = Filename.concat sysfs_pciback "new_slot" in
-    let bind = Filename.concat sysfs_pciback "bind" in
+    let new_slot = sysfs_pciback // "new_slot" in
+    let bind = sysfs_pciback // "bind" in
     write_string_to_file new_slot devstr ;
     write_string_to_file bind devstr
 
@@ -1408,7 +1448,7 @@ module PCI = struct
         (Forkhelpers.execute_command_get_output !Resources.modprobe ["i915"]) ;
     match get_driver devstr with
     | None ->
-        write_string_to_file (Filename.concat sysfs_i915 "bind") devstr
+        write_string_to_file (sysfs_i915 // "bind") devstr
     | Some (Supported I915) ->
         ()
     | Some drv ->
@@ -1418,8 +1458,8 @@ module PCI = struct
   let unbind devstr driver =
     let driverstr = string_of_driver driver in
     debug "pci: unbinding device %s from %s" devstr driverstr ;
-    let sysfs_driver = Filename.concat sysfs_drivers driverstr in
-    let unbind = Filename.concat sysfs_driver "unbind" in
+    let sysfs_driver = sysfs_drivers // driverstr in
+    let unbind = sysfs_driver // "unbind" in
     write_string_to_file unbind devstr
 
   let unbind_from_i915 devstr =
@@ -1486,7 +1526,7 @@ module PCI = struct
 
   let bind_to_nvidia devstr =
     debug "pci: binding device %s to nvidia" devstr ;
-    let bind = Filename.concat sysfs_nvidia "bind" in
+    let bind = sysfs_nvidia // "bind" in
     write_string_to_file bind devstr
 
   let unbind_from_nvidia devstr =
@@ -1498,8 +1538,8 @@ module PCI = struct
       | [] ->
           failwith (Printf.sprintf "Couldn't find GPU with device ID %s" devstr)
       | gpu :: rest ->
-          let gpu_path = Filename.concat procfs_nvidia gpu in
-          let gpu_info_file = Filename.concat gpu_path "information" in
+          let gpu_path = procfs_nvidia // gpu in
+          let gpu_info_file = gpu_path // "information" in
           let gpu_info = Unixext.string_of_file gpu_info_file in
           (* Work around due to PCI ID formatting inconsistency. *)
           let devstr2 =
@@ -1522,9 +1562,7 @@ module PCI = struct
       Forkhelpers.execute_command_get_output nvidia_smi
         ["--id=" ^ devstr; "--persistence-mode=0"]
     in
-    let unbind_lock_path =
-      Filename.concat (find_gpu (Array.to_list gpus)) "unbindLock"
-    in
+    let unbind_lock_path = find_gpu (Array.to_list gpus) // "unbindLock" in
     (* Grab the unbind lock. *)
     write_string_to_file unbind_lock_path "1\n" ;
     (* Unbind if we grabbed the lock; fail otherwise. *)
@@ -1586,12 +1624,12 @@ module PCI = struct
   let enumerate_devs ~xs (x : device) =
     let backend_path = backend_path_of_device ~xs x in
     let num =
-      try int_of_string (xs.Xs.read (backend_path ^ "/num_devs")) with _ -> 0
+      try int_of_string (xs.Xs.read (backend_path // "num_devs")) with _ -> 0
     in
     let devs = Array.make num None in
     for i = 0 to num do
       try
-        let devstr = xs.Xs.read (backend_path ^ "/dev-" ^ string_of_int i) in
+        let devstr = xs.Xs.read (backend_path // ("dev-" ^ string_of_int i)) in
         let dev = Xenops_interface.Pci.address_of_string devstr in
         devs.(i) <- Some dev
       with _ -> ()
@@ -1655,7 +1693,7 @@ module Vfs = struct
         let perms = Xs_protocol.ACL.{owner= domid; other= NONE; acl= []} in
         let request_path = Printf.sprintf "%s/%d" request_path 0 in
         t.Xst.mkdirperms request_path perms ;
-        t.Xst.write (request_path ^ "/frontend") frontend_path
+        t.Xst.write (request_path // "frontend") frontend_path
     ) ;
     ()
 
@@ -2054,16 +2092,16 @@ module Dm_Common = struct
       ?param cmd =
     let cmdpath = device_model_path ~qemu_domid domid in
     Xs.transaction xs (fun t ->
-        t.Xst.write (cmdpath ^ "/command") cmd ;
+        t.Xst.write (cmdpath // "command") cmd ;
         match param with
         | None ->
             ()
         | Some param ->
-            t.Xst.write (cmdpath ^ "/parameter") param
+            t.Xst.write (cmdpath // "parameter") param
     ) ;
     match wait_for with
     | Some state ->
-        let pw = cmdpath ^ "/state" in
+        let pw = cmdpath // "state" in
         (* MTC: The default timeout for this operation was 20mins, which is way
            too long for our software to recover successfully. Talk to Citrix
            about this *)
@@ -2196,7 +2234,7 @@ module Dm_Common = struct
       xs.Xs.directory root
       |> List.concat_map (fun domid ->
              let path = Printf.sprintf "%s/%s/device/vgpu" root domid in
-             try List.map (fun x -> path ^ "/" ^ x) (xs.Xs.directory path)
+             try List.map (fun x -> path // x) (xs.Xs.directory path)
              with Xs_protocol.Enoent _ -> []
          )
       |> List.exists (fun vgpu ->
@@ -2736,7 +2774,7 @@ module Backend = struct
         ]
 
       (* 4 and 5 are NICs, and we can only have two, 6 is platform *)
-      let extra_args = ["-device"; "nvme,serial=nvme0,id=nvme0,addr=7"]
+      let extra_args = ["-device"; "nvme,serial=nvme0,mdts=9,id=nvme0,addr=7"]
     end
 
     module XenPV = struct let addr ~xs:_ ~domid:_ _ ~nics:_ = 6 end

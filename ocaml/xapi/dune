@@ -260,6 +260,7 @@
     Storage_mux
     Storage_smapiv1_wrapper
     Stream_vdi
+    Xapi_vdi_helpers
     System_domains
     Xapi_psr
     Xapi_services

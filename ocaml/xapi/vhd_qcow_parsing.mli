@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2025 Vates.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,12 +11,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-type t
 
-val mime_of_file : string -> t
+val run_tool :
+     string
+  -> ?replace_fds:(string * Unix.file_descr) list
+  -> ?input_fd:Unix.file_descr
+  -> ?output_fd:Unix.file_descr
+  -> (int -> unit)
+  -> string list
+  -> unit
 
-val string_of_mime : t -> string
-
-val mime_of_ext : t -> string -> string
-
-val mime_of_file_name : t -> string -> string
+val parse_header : Unix.file_descr -> int * int list

@@ -47,6 +47,9 @@ val resume :
   -> string option
   -> [> `Error of bool * string | `Ok of unit]
 
+val fast_resume :
+  'a -> string option -> [> `Error of bool * string | `Ok of unit]
+
 val console_connect :
   'a -> string option -> [> `Error of bool * string | `Ok of unit]
 

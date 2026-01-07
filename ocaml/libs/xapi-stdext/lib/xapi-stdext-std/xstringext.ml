@@ -42,21 +42,6 @@ module String = struct
   (** Returns true for whitespace characters, false otherwise *)
   let isspace = function ' ' | '\n' | '\r' | '\t' -> true | _ -> false
 
-  let escaped ?rules string =
-    match rules with
-    | None ->
-        String.escaped string
-    | Some rules ->
-        let aux h t =
-          ( if List.mem_assoc h rules then
-              List.assoc h rules
-            else
-              of_char h
-          )
-          :: t
-        in
-        concat "" (fold_right aux string [])
-
   let split_f p str =
     let split_one seq =
       let not_p c = not (p c) in
@@ -192,6 +177,13 @@ module String = struct
       Buffer.contents buf
     ) else
       s
+
+  let escaped ?rules s =
+    match rules with
+    | None ->
+        String.escaped s
+    | Some rules ->
+        map_unlikely s (fun c -> List.assoc_opt c rules)
 
   let sub_to_end s start =
     let length = String.length s in

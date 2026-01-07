@@ -32,8 +32,7 @@ let xml_element_has_name name element =
 (** Returns the first element with the specified name from
     the given element list. *)
 let first_xml_element_with_name elements name =
-  try Some (List.find (xml_element_has_name name) elements)
-  with Not_found -> None
+  List.find_opt (xml_element_has_name name) elements
 
 (** Parses an XML element of the form "<name>value</value>".
     Returns a (name, value) string pair, where the arguments

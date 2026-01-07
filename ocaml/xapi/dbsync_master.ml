@@ -25,8 +25,7 @@ open Recommendations
 
 (* create pool record (if master and not one already there) *)
 let create_pool_record ~__context =
-  let pools = Db.Pool.get_all ~__context in
-  if pools = [] then
+  if Db.Pool.get_all ~__context = [] then
     Db.Pool.create ~__context ~ref:(Ref.make ())
       ~uuid:(Uuidx.to_string (Uuidx.make ()))
       ~name_label:"" ~name_description:""
@@ -355,6 +354,7 @@ let update_pool_recommendations_noexn ~__context =
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
 let update_env __context =
+  Db_gc.detect_rolling_upgrade ~__context ;
   debug "creating root user" ;
   Create_misc.create_root_user ~__context ;
   debug "creating pool record" ;

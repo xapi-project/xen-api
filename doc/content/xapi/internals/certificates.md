@@ -53,7 +53,7 @@ pool or host to be used as an API.
   certificate.
 * See below for xapi-stunnel-ca-bundle for additional certificates that
   can be added to a pool in support of a user-supplied host certificate.
-* `xe reset-server-certificate` creates a new self-signed certificate.
+* `xe host-reset-server-certificate` creates a new self-signed certificate.
 
 
 ### `xapi-pool-tls.pem`

@@ -106,18 +106,16 @@ let tapdisk_of_attach_info (backend : Storage_interface.backend) =
   match (blockdevices, nbds) with
   | blockdevice :: _, _ -> (
       let path = blockdevice.Storage_interface.path in
-      try
-        match Tapctl.of_device (Tapctl.create ()) path with
-        | tapdev, _, _ ->
-            Some tapdev
-      with
-      | Tapctl.Not_blktap ->
+      match Tapctl.of_device (Tapctl.create ()) path with
+      | Some (tapdev, _, _) ->
+          Some tapdev
+      | exception Tapctl.Not_blktap ->
           D.debug "Device %s is not controlled by blktap" path ;
           None
-      | Tapctl.Not_a_device ->
+      | exception Tapctl.Not_a_device ->
           D.debug "%s is not a device" path ;
           None
-      | _ ->
+      | (exception _) | None ->
           D.debug "Device %s has an unknown driver" path ;
           None
     )
@@ -202,9 +200,9 @@ module Copy = struct
       let leaf_dp = Uuidx.(to_string (make ())) in
       let dest_vdi_url =
         let url' = Http.Url.of_string url in
-        Http.Url.set_uri url'
+        Http.Url.set_path url'
           (Printf.sprintf "%s/nbdproxy/import/%s/%s/%s/%s"
-             (Http.Url.get_uri url')
+             (Http.Url.get_path url')
              (Storage_interface.Vm.string_of vm)
              (Storage_interface.Sr.string_of dest)
              (Storage_interface.Vdi.string_of dest_vdi)
@@ -295,8 +293,8 @@ module Copy = struct
       perform_cleanup_actions !on_fail ;
       raise e
 
-  (** [copy_into_sr] does not requires a dest vdi to be provided, instead, it will 
-  find the nearest vdi on the [dest] sr, and if there is no such vdi, it will 
+  (** [copy_into_sr] does not requires a dest vdi to be provided, instead, it will
+  find the nearest vdi on the [dest] sr, and if there is no such vdi, it will
   create one. *)
   let copy_into_sr ~task ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest =
     D.debug "copy sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
@@ -412,7 +410,7 @@ let mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~live_vm ~mirror_id ~url
       mirror_dp
   in
   D.debug "%s: uri of http request for mirroring is %s" __FUNCTION__ uri ;
-  let dest_url = Http.Url.set_uri (Http.Url.of_string url) uri in
+  let dest_url = Http.Url.set_path (Http.Url.of_string url) uri in
   D.debug "%s url of http request for mirroring is %s" __FUNCTION__
     (Http.Url.to_string dest_url) ;
   let request =
@@ -818,9 +816,10 @@ module MIRROR : SMAPIv2_MIRROR = struct
     let start = Mtime_clock.counter () in
     State.find_active_local_mirror id
     |> Option.iter (fun s ->
-           (* We used to pause here and then check the nbd_mirror_failed key. Now, we poll
-              					   until the number of outstanding requests has gone to zero, then check the
-              					   status. This avoids confusing the backend (CA-128460) *)
+           (* We used to pause here and then check the nbd_mirror_failed key.
+              Now, we poll until the number of outstanding requests has gone to
+              zero, then check the status. This avoids confusing the backend
+              (CA-128460) *)
            try
              match s.tapdev with
              | None ->

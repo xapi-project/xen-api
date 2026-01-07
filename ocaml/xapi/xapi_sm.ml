@@ -78,17 +78,18 @@ let addto_pending_hosts_features ~__context self new_features =
     curr_pending_features
 
 let valid_hosts_pending_features ~__context pending_features =
-  if List.length pending_features <> List.length (Db.Host.get_all ~__context)
-  then (
-    debug "%s: Not enough hosts have registered their sm features" __FUNCTION__ ;
-    []
-  ) else
-    List.map snd pending_features |> fun l ->
-    List.fold_left Smint.Feature.compat_features
-      (* The list in theory cannot be empty due to the if condition check, but do
-         this just in case *)
-      (List.nth_opt l 0 |> Option.fold ~none:[] ~some:Fun.id)
-      (List.tl l)
+  let __FUN = __FUNCTION__ in
+  let not_enough_msg () =
+    debug "%s: Not enough hosts have registered their sm features" __FUN
+  in
+  match List.map snd pending_features with
+  | [] ->
+      not_enough_msg () ; []
+  | features
+    when List.compare_lengths features (Db.Host.get_all ~__context) <> 0 ->
+      not_enough_msg () ; []
+  | x :: xs ->
+      List.fold_left Smint.Feature.compat_features x xs
 
 let remove_valid_features_from_pending ~__context ~self valid_features =
   let valid_features = List.map Smint.Feature.unparse valid_features in

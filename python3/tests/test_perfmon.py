@@ -427,6 +427,14 @@ class TestSRMonitor(unittest.TestCase):
         # get_percent_sr_usage([500, 6000])
         self.assertAlmostEqual(monitor.variables[0].value, 0.08333333333333333)
 
+    def test_alarm_trigger_level_physical_utilisation(self, _mock_xapisession):
+        uuid = 'e1ae3f5d-4c8b-4575-bbb8-2af7e8a2c31e'
+        monitor = perfmon.SRMonitor(uuid)
+        result = monitor.get_default_variable_config(
+            variable_name = "physical_utilisation",
+            config_tag = "alarm_trigger_level",
+        )
+        self.assertEqual(result, '0.8')
 
 class TestRRDUpdates(unittest.TestCase):
     '''Test Class RRDUpdates and RRDContentHandler'''

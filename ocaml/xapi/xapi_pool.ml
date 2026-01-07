@@ -1033,6 +1033,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           create_or_get_sr_on_master __context rpc session_id
             (my_local_cache_sr, my_local_cache_sr_rec)
       in
+
       debug "Creating host object on master" ;
       let ref =
         Client.Host.create ~rpc ~session_id ~uuid:my_uuid
@@ -1060,6 +1061,16 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~ssh_auto_mode:host.API.host_ssh_auto_mode
           ~secure_boot:host.API.host_secure_boot
           ~software_version:host.API.host_software_version
+          ~https_only:host.API.host_https_only
+          ~max_cstate:host.API.host_max_cstate ~ntp_mode:host.API.host_ntp_mode
+          ~ntp_custom_servers:host.API.host_ntp_custom_servers
+          ~timezone:host.API.host_timezone
+          ~numa_affinity_policy:host.API.host_numa_affinity_policy
+          ~latest_synced_updates_applied:
+            host.API.host_latest_synced_updates_applied
+          ~pending_guidances_full:host.API.host_pending_guidances_full
+          ~pending_guidances_recommended:
+            host.API.host_pending_guidances_recommended
       in
       (* Copy other-config into newly created host record: *)
       no_exn
@@ -1880,15 +1891,14 @@ let exchange_ca_certificates_on_join ~__context ~import ~export :
   in
   Cert_distrib.exchange_ca_certificates_with_joiner ~__context ~import ~export
 
-(* Assume that db backed up from master will be there and ready to go... *)
 let emergency_transition_to_master ~__context =
-  if Localdb.get Constants.ha_armed = "true" then
-    raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
+  if Localdb.get_bool Constants.ha_armed |> Option.value ~default:false then
+    raise Api_errors.(Server_error (ha_is_enabled, [])) ;
   Xapi_pool_transition.become_master ()
 
 let emergency_reset_master ~__context ~master_address =
-  if Localdb.get Constants.ha_armed = "true" then
-    raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
+  if Localdb.get_bool Constants.ha_armed |> Option.value ~default:false then
+    raise Api_errors.(Server_error (ha_is_enabled, [])) ;
   let master_address = Helpers.gethostbyname master_address in
   Xapi_pool_transition.become_another_masters_slave master_address
 
