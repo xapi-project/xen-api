@@ -439,10 +439,14 @@ let host_install kind ~name ~cert =
 
 let host_uninstall kind ~name ~force =
   validate_name kind name ;
-  let filename = library_filename kind name in
-  if Sys.file_exists filename then (
-    debug "Uninstalling %s %s" (to_string kind) name ;
-    try Sys.remove filename ; update_ca_bundle ()
+  with_cert_store kind @@ fun ~cert_dir ~bundle ->
+  let cert_path = cert_dir // name in
+  debug "Uninstalling %s %s" (to_string kind) cert_path ;
+  if Sys.file_exists cert_path then (
+    try
+      Sys.remove cert_path ;
+      rehash cert_dir ;
+      () (* TODO: implementation in the following commit *)
     with e ->
       warn "Exception uninstalling %s %s: %s" (to_string kind) name
         (ExnHelper.string_of_exn e) ;
