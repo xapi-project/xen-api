@@ -140,7 +140,23 @@ let rehash () =
   mkdir_cert_path kind purpose ;
   rehash' cert_dir
 
-let update_ca_bundle () = Helpers.update_ca_bundle ()
+let update_pool_bundle () = Helpers.update_pool_bundle ()
+
+let update_trusted_bundle cert_dir bundle_path =
+  (* it is not safe for multiple instances of this bash script to be
+   * running at the same time, so we must lock it.
+   *
+   * NB: we choose not to implement the lock inside the bash script
+   * itself *)
+  let m = Mutex.create () in
+  fun () ->
+    Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
+        let (_ : string), (_ : string) =
+          Forkhelpers.execute_command_get_output
+            "/opt/xensource/bin/update-ca-bundle.sh" [cert_dir; bundle_path]
+        in
+        ()
+    )
 
 let to_string = function
   | CA_Certificate ->
@@ -430,13 +446,6 @@ let local_sync () =
     warn "Exception rehashing certificates: %s" (ExnHelper.string_of_exn e) ;
     raise_library_corrupt ()
 
-let update_bundle kind cert_dir bundle_path =
-  match kind with
-  | CA_Certificate | CRL ->
-      update_ca_bundle ()
-  | Root_CA | Leaf_Pinned ->
-      () (* TODO: update_trusted_bundle cert_dir bundle_path *)
-
 let host_install kind ~name ~cert ~purpose =
   validate_name kind name ;
   with_cert_paths kind name purpose @@ fun purpose cert_path bundle_path ->
@@ -449,7 +458,7 @@ let host_install kind ~name ~cert ~purpose =
     mkdir_cert_path kind purpose ;
     Unixext.write_string_to_file cert_path cert ;
     Unix.chmod cert_path 0o644 ;
-    update_bundle kind cert_dir bundle_path ;
+    update_trusted_bundle cert_dir bundle_path () ;
     Unix.chmod bundle_path 0o644 ;
     rehash' cert_dir
   with e ->
@@ -467,7 +476,7 @@ let host_uninstall kind ~name ~purpose ~force =
   if Sys.file_exists cert_path then (
     try
       Sys.remove cert_path ;
-      () (* TODO: update_trusted_bundle cert_dir bundle_path *)
+      update_trusted_bundle cert_dir bundle_path ()
     with e ->
       warn "Exception uninstalling %s %s: %s" (to_string kind) name
         (ExnHelper.string_of_exn e) ;

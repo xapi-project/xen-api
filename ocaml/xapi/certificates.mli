@@ -40,7 +40,7 @@ val get_internal_server_certificate : unit -> string
 
 (* Keeping CA roots updated in the filesystem *)
 
-val update_ca_bundle : unit -> unit
+val update_pool_bundle : unit -> unit
 
 val local_sync : unit -> unit
 

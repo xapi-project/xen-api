@@ -233,7 +233,7 @@ end = struct
         pool_certs_bk (Printexc.to_string e)
 
   let regen_bundle ~__context =
-    Helpers.update_ca_bundle () ;
+    Helpers.update_pool_bundle () ;
     let host = Helpers.get_localhost ~__context in
     match Xapi_clustering.find_cluster_host ~__context ~host with
     | None ->
