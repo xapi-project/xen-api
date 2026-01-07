@@ -3618,3 +3618,20 @@ let set_servertime ~__context ~self ~value =
         raise (Invalid_argument "Missing timezone offset in value")
   with e ->
     Helpers.internal_error "%s: %s" __FUNCTION__ (ExnHelper.string_of_exn e)
+
+let list_trusted_certificates ~__context ~host:_ ~ca =
+  Certificates.local_list (if ca then Root_CA else Leaf_Pinned)
+
+let install_trusted_certificate ~__context ~host:_ ~ca ~name ~cert ~purpose =
+  Certificates.host_install ~purpose
+    (if ca then Root_CA else Leaf_Pinned)
+    ~name ~cert
+
+let uninstall_trusted_certificate ~__context ~host:_ ~ca ~name ~force =
+  List.iter
+    (fun purpose ->
+      Certificates.host_uninstall ~purpose
+        (if ca then Root_CA else Leaf_Pinned)
+        ~name ~force
+    )
+    ([] :: List.map (fun x -> [x]) API.certificate_purpose__all)

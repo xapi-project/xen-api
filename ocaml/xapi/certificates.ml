@@ -569,16 +569,15 @@ let sync_certs kind ~__context host =
       let ca = if kind = Root_CA then true else false in
       sync_certs_crls kind
         (fun rpc session_id host ->
-          []
-          (* TODO: Client.Host.list_trusted_certificates ~rpc ~session_id ~host ~ca *)
+          Client.Host.list_trusted_certificates ~rpc ~session_id ~host ~ca
         )
         (fun rpc session_id host name purpose cert ->
-          ()
-          (* TODO: Client.Host.install_trusted_certificate ~rpc ~session_id ~host ~ca ~name ~cert ~purpose *)
+          Client.Host.install_trusted_certificate ~rpc ~session_id ~host ~ca
+            ~name ~cert ~purpose
         )
         (fun rpc session_id host name ->
-          ()
-          (* TODO: Client.Host.uninstall_trusted_certificate ~rpc ~session_id ~host ~ca ~name ~force:false *)
+          Client.Host.uninstall_trusted_certificate ~rpc ~session_id ~host ~ca
+            ~name ~force:false
         )
         ~__context main_certs host
 

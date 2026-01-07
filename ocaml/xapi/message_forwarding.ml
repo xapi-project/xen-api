@@ -4223,6 +4223,46 @@ functor
           let local_fn = Local.Host.set_servertime ~self ~value in
           let remote_fn = Client.Host.set_servertime ~self ~value in
           do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let list_trusted_certificates ~__context ~host ~ca =
+        info "Host.list_trusted_certificates: host = '%s'; ca = '%b'"
+          (host_uuid ~__context host)
+          ca ;
+        let local_fn = Local.Host.list_trusted_certificates ~host ~ca in
+        let remote_fn = Client.Host.list_trusted_certificates ~host ~ca in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
+
+      let install_trusted_certificate ~__context ~host ~ca ~name ~cert ~purpose
+          =
+        info
+          "Host.install_trusted_certificate: host = '%s'; ca = '%b'; name = \
+           '%s'; purpose = [%s]"
+          (host_uuid ~__context host)
+          ca name
+          (List.map Record_util.certificate_purpose_to_string purpose
+          |> String.concat "; "
+          ) ;
+        let local_fn =
+          Local.Host.install_trusted_certificate ~host ~ca ~name ~cert ~purpose
+        in
+        let remote_fn =
+          Client.Host.install_trusted_certificate ~host ~ca ~name ~cert ~purpose
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
+
+      let uninstall_trusted_certificate ~__context ~host ~ca ~name ~force =
+        info
+          "Host.uninstall_trusted_certificate: host = '%s'; ca = '%b'; name = \
+           '%s'; force = '%b'"
+          (host_uuid ~__context host)
+          ca name force ;
+        let local_fn =
+          Local.Host.uninstall_trusted_certificate ~host ~ca ~name ~force
+        in
+        let remote_fn =
+          Client.Host.uninstall_trusted_certificate ~host ~ca ~name ~force
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
     end
 
     module Host_crashdump = struct
