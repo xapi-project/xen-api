@@ -19,9 +19,11 @@ open D
 let run_tool tool ?(replace_fds = []) ?input_fd ?output_fd
     (_progress_cb : int -> unit) (args : string list) =
   info "Executing %s %s" tool (String.concat " " args) ;
+  (* with_logfile_fd takes a name without slashes *)
+  let log_name = Filename.basename tool in
   let open Forkhelpers in
   match
-    with_logfile_fd tool (fun log_fd ->
+    with_logfile_fd log_name (fun log_fd ->
         let pid =
           safe_close_and_exec input_fd output_fd (Some log_fd) replace_fds tool
             args
