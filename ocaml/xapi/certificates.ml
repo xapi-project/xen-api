@@ -113,6 +113,13 @@ let mkdir_cert_path kind (purpose : API.certificate_purpose option) =
   Unixext.mkdir_rec bundle_dir 0o700 ;
   ()
 
+let mkdir_cert_paths kind purposes =
+  match (kind, purposes) with
+  | CA_Certificate, _ | CRL, _ | _, [] ->
+      mkdir_cert_path kind None
+  | Root_CA, purposes | Leaf_Pinned, purposes ->
+      List.iter (fun p -> mkdir_cert_path kind (Some p)) purposes
+
 let rehash' path =
   match Sys.file_exists !Xapi_globs.c_rehash with
   | true ->
@@ -263,6 +270,11 @@ module Db_util : sig
     * of type [type'] belonging to [host] (the term 'host' is overloaded here) *)
 
   val get_ca_certs : __context:Context.t -> API.ref_Certificate list
+
+  val get_trusted_certs :
+       __context:Context.t
+    -> [`ca | `pinned]
+    -> (API.ref_Certificate * API.certificate_t) list
 end = struct
   module Date = Clock.Date
 
@@ -348,16 +360,69 @@ end = struct
       Eq (Field "type", Literal "ca")
     in
     Db.Certificate.get_refs_where ~__context ~expr
+
+  let get_trusted_certs ~__context cert_type =
+    let cert_type = Record_util.certificate_type_to_string cert_type in
+    let expr =
+      let open Xapi_database.Db_filter_types in
+      let type' = Eq (Field "type", Literal cert_type) in
+      let name' = Eq (Field "name", Literal "") in
+      And (type', name')
+    in
+    Db.Certificate.get_records_where ~__context ~expr
 end
 
-let local_list kind =
-  mkdir_cert_path kind None ;
+let name_of_uuid uuid = Printf.sprintf "%s.pem" uuid
+
+let local_list' dir =
   List.filter
     (fun n ->
-      let stat = Unix.lstat (library_filename kind n) in
+      let stat = Unix.lstat (dir // n) in
       stat.Unix.st_kind = Unix.S_REG
     )
-    (Array.to_list (Sys.readdir (library_path kind)))
+    (Array.to_list (Sys.readdir dir))
+
+let map_cert_store kind purposes f =
+  match (kind, purposes) with
+  | CA_Certificate, _ | CRL, _ | _, [] ->
+      [f kind None]
+  | Root_CA, purposes | Leaf_Pinned, purposes ->
+      List.map (fun p -> f kind (Some p)) purposes
+
+let local_list kind =
+  all_purposes
+  |> List.map (fun purposes ->
+         map_cert_store kind purposes @@ fun kind purpose ->
+         mkdir_cert_path kind purpose ;
+         trusted_cert_dirs kind purpose
+         |> List.map (fun cert_dir -> local_list' cert_dir)
+         |> List.flatten
+     )
+  |> List.flatten
+  |> List.flatten
+
+let list_names ~__context kind =
+  match kind with
+  | CA_Certificate | CRL ->
+      (* Retrieve from filesystem *)
+      mkdir_cert_path kind None ;
+      List.filter
+        (fun n ->
+          let stat = Unix.lstat (library_filename kind n) in
+          stat.Unix.st_kind = Unix.S_REG
+        )
+        (Array.to_list (Sys.readdir (library_path kind)))
+      |> List.map (fun name -> (name, []))
+  | Root_CA | Leaf_Pinned ->
+      (* Retrieve from XAPI database *)
+      let cert_type = if kind = Root_CA then `ca else `pinned in
+      Db_util.get_trusted_certs ~__context cert_type
+      |> List.map (fun (_, cert_rec) ->
+             mkdir_cert_paths kind cert_rec.API.certificate_purpose ;
+             ( name_of_uuid cert_rec.API.certificate_uuid
+             , cert_rec.API.certificate_purpose
+             )
+         )
 
 let local_sync () =
   try rehash ()
@@ -408,14 +473,25 @@ let host_uninstall kind ~name ~purpose ~force =
   else
     raise_does_not_exist kind name
 
-let get_cert kind name =
+let get_cert kind purposes name =
   validate_name kind name ;
-  let filename = library_filename kind name in
-  try Unixext.string_of_file filename
-  with e ->
-    warn "Exception reading %s %s: %s" (to_string kind) name
-      (ExnHelper.string_of_exn e) ;
-    raise_corrupt kind name
+  let purpose =
+    match purposes with [] -> None | purpose :: _ -> Some purpose
+  in
+  match trusted_cert_dirs kind purpose with
+  | [] ->
+      Helpers.internal_error
+        "BUG: can't generate directory for %s with kind = %s and purpose = %s"
+        name (to_string kind)
+        (string_of_purpose purpose)
+  | cert_dir :: _ -> (
+      let filename = cert_dir // name in
+      try Unixext.string_of_file filename
+      with e ->
+        warn "Exception reading %s %s: %s" (to_string kind) name
+          (ExnHelper.string_of_exn e) ;
+        raise_corrupt kind name
+    )
 
 let sync_all_hosts ~__context hosts =
   let exn = ref None in
@@ -433,70 +509,87 @@ let sync_certs_crls kind list_func install_func uninstall_func ~__context
     master_certs host =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       let host_certs = list_func rpc session_id host in
+      let names = List.map fst master_certs in
       List.iter
         (fun c ->
-          if not (List.mem c master_certs) then
+          if not (List.mem c names) then
             uninstall_func rpc session_id host c
         )
         host_certs ;
       List.iter
-        (fun c ->
+        (fun (c, purposes) ->
           if not (List.mem c host_certs) then
-            install_func rpc session_id host c (get_cert kind c)
+            install_func rpc session_id host c purposes
+              (get_cert kind purposes c)
         )
         master_certs
   )
 
-let sync_certs kind ~__context master_certs host =
+let sync_certs kind ~__context host =
+  let main_certs = list_names ~__context kind in
   match kind with
   | CA_Certificate ->
       sync_certs_crls CA_Certificate
         (fun rpc session_id host ->
           Client.Host.certificate_list ~rpc ~session_id ~host
         )
-        (fun rpc session_id host name cert ->
+        (fun rpc session_id host name _purpose cert ->
           Client.Host.install_ca_certificate ~rpc ~session_id ~host ~name ~cert
         )
         (fun rpc session_id host name ->
           Client.Host.uninstall_ca_certificate ~rpc ~session_id ~host ~name
             ~force:false
         )
-        ~__context master_certs host
+        ~__context main_certs host
   | CRL ->
       sync_certs_crls CRL
         (fun rpc session_id host -> Client.Host.crl_list ~rpc ~session_id ~host)
-        (fun rpc session_id host name crl ->
+        (fun rpc session_id host name _purpose crl ->
           Client.Host.crl_install ~rpc ~session_id ~host ~name ~crl
         )
         (fun rpc session_id host name ->
           Client.Host.crl_uninstall ~rpc ~session_id ~host ~name
         )
-        ~__context master_certs host
+        ~__context main_certs host
   | Root_CA | Leaf_Pinned ->
-      ()
+      let ca = if kind = Root_CA then true else false in
+      sync_certs_crls kind
+        (fun rpc session_id host ->
+          []
+          (* TODO: Client.Host.list_trusted_certificates ~rpc ~session_id ~host ~ca *)
+        )
+        (fun rpc session_id host name purpose cert ->
+          ()
+          (* TODO: Client.Host.install_trusted_certificate ~rpc ~session_id ~host ~ca ~name ~cert ~purpose *)
+        )
+        (fun rpc session_id host name ->
+          ()
+          (* TODO: Client.Host.uninstall_trusted_certificate ~rpc ~session_id ~host ~ca ~name ~force:false *)
+        )
+        ~__context main_certs host
 
-let sync_certs_all_hosts kind ~__context master_certs hosts_but_master =
+let sync_certs_all_hosts kind ~__context hosts_but_master =
   let exn = ref None in
   List.iter
-    (fun host ->
-      try sync_certs kind ~__context master_certs host with e -> exn := Some e
-    )
+    (fun host -> try sync_certs kind ~__context host with e -> exn := Some e)
     hosts_but_master ;
   match !exn with Some e -> raise e | None -> ()
 
-let pool_sync ~__context =
+let pool_sync ~__context kinds =
   let hosts = Db.Host.get_all ~__context in
   let master = Helpers.get_localhost ~__context in
   let hosts_but_master = List.filter (fun h -> h <> master) hosts in
   sync_all_hosts ~__context hosts ;
-  let master_certs = local_list CA_Certificate in
-  let master_crls = local_list CRL in
-  sync_certs_all_hosts CA_Certificate ~__context master_certs hosts_but_master ;
-  sync_certs_all_hosts CRL ~__context master_crls hosts_but_master
+  let kinds = if kinds = [] then all_trusted_kinds else kinds in
+  debug "Sync '%s' across the pool"
+    (List.map to_string kinds |> String.concat "; ") ;
+  List.iter
+    (fun kind -> sync_certs_all_hosts kind ~__context hosts_but_master)
+    kinds
 
 let pool_install kind ~__context ~name ~cert ~purpose =
   host_install kind ~name ~cert ~purpose ;
-  try pool_sync ~__context
+  try pool_sync ~__context [kind]
   with exn ->
     ( try host_uninstall kind ~name ~purpose ~force:false
       with e ->
@@ -507,7 +600,7 @@ let pool_install kind ~__context ~name ~cert ~purpose =
 
 let pool_uninstall kind ~__context ~name ~purpose ~force =
   host_uninstall kind ~name ~purpose ~force ;
-  pool_sync ~__context
+  pool_sync ~__context []
 
 (* Extracts the server certificate from the server certificate pem file.
    It strips the private key as well as the rest of the certificate chain. *)
@@ -544,5 +637,3 @@ let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key ~path =
       cert
   | Error (`Msg (err, msg)) ->
       raise_server_error msg err
-
-let name_of_uuid uuid = Printf.sprintf "%s.pem" uuid

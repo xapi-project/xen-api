@@ -1595,16 +1595,21 @@ let certificate_uninstall = uninstall_ca_certificate ~force:false
 
 let certificate_list ~__context =
   let open Certificates in
-  Db_util.get_ca_certs ~__context
-  |> List.map @@ fun self -> Db.Certificate.get_name ~__context ~self
+  List.concat
+    [
+      list_names ~__context CA_Certificate |> List.map fst
+    ; list_names ~__context Root_CA |> List.map fst
+    ; list_names ~__context Leaf_Pinned |> List.map fst
+    ]
 
 let crl_install = Certificates.(pool_install CRL ~purpose:[])
 
 let crl_uninstall = Certificates.(pool_uninstall CRL ~purpose:[] ~force:false)
 
-let crl_list ~__context = Certificates.(local_list CRL)
+let crl_list ~__context =
+  Certificates.(list_names ~__context CRL) |> List.map fst
 
-let certificate_sync = Certificates.pool_sync
+let certificate_sync ~__context = Certificates.pool_sync ~__context []
 
 let join_common ~__context ~master_address ~master_username ~master_password
     ~force =

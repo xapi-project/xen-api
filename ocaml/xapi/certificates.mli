@@ -29,6 +29,11 @@ val hostnames_of_pem_cert :
 
 val local_list : t_trusted -> string list
 
+val list_names :
+     __context:Context.t
+  -> t_trusted
+  -> (string * API.certificate_purpose list) list
+
 val get_server_certificate : unit -> string
 
 val get_internal_server_certificate : unit -> string
@@ -39,7 +44,7 @@ val update_ca_bundle : unit -> unit
 
 val local_sync : unit -> unit
 
-val pool_sync : __context:Context.t -> unit
+val pool_sync : __context:Context.t -> t_trusted list -> unit
 
 (* Certificate installation to filesystem *)
 
@@ -107,4 +112,9 @@ module Db_util : sig
     -> API.ref_Certificate list
 
   val get_ca_certs : __context:Context.t -> API.ref_Certificate list
+
+  val get_trusted_certs :
+       __context:Context.t
+    -> [`ca | `pinned]
+    -> (API.ref_Certificate * API.certificate_t) list
 end

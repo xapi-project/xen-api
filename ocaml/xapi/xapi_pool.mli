@@ -257,7 +257,7 @@ val crl_install : __context:Context.t -> name:string -> cert:string -> unit
 
 val crl_uninstall : __context:Context.t -> name:string -> unit
 
-val crl_list : __context:'a -> string list
+val crl_list : __context:Context.t -> string list
 
 val certificate_sync : __context:Context.t -> unit
 
