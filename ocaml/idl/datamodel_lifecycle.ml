@@ -148,9 +148,9 @@ let prototyped_of_field = function
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "vm_console_idle_timeout" ->
-      Some "25.35.0-next"
+      Some "25.39.0-next"
   | "pool", "limit_console_sessions" ->
-      Some "25.35.0-next"
+      Some "25.39.0-next"
   | "pool", "ha_reboot_vm_on_internal_shutdown" ->
       Some "25.16.0"
   | "pool", "license_server" ->
