@@ -1003,7 +1003,7 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
               __FUNCTION__ domid ;
             None
       in
-      let nr_pages = (Int64.div memory 4096L |> Int64.to_int) - 32 in
+      let nr_pages = Memory.pages_of_bytes_used memory |> Int64.to_int in
       try
         D.debug "NUMAClaim domid %d: local claim on node %d: %d pages" domid
           node nr_pages ;
@@ -1029,11 +1029,13 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
 let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
   let open Memory in
   let uuid = get_uuid ~xc domid in
-  debug "VM = %s, build_max_mib = %Ld, build_start_mib = %Ld, xen_max_mib =
-    %Ld, shadow_mib = %Ld, required_host_free_mib = %Ld, overhead_mib = %Ld"
-    (Uuidx.to_string uuid)
-    memory.build_max_mib memory.build_start_mib memory.xen_max_mib
-    memory.shadow_mib memory.required_host_free_mib memory.overhead_mib;
+  debug
+    "VM = %s, build_max_mib = %Ld, build_start_mib = %Ld, xen_max_mib =\n\
+    \    %Ld, shadow_mib = %Ld, required_host_free_mib = %Ld, overhead_mib = \
+     %Ld"
+    (Uuidx.to_string uuid) memory.build_max_mib memory.build_start_mib
+    memory.xen_max_mib memory.shadow_mib memory.required_host_free_mib
+    memory.overhead_mib ;
   debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory"
     (Uuidx.to_string uuid) domid memory.required_host_free_mib ;
   (* CA-39743: Wait, if necessary, for the Xen scrubber to catch up. *)
@@ -1138,7 +1140,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
                      memory later anyway
                   *)
                   let nr_pages =
-                    (Int64.div memory 4096L |> Int64.to_int) - 32
+                    Memory.pages_of_bytes_used memory |> Int64.to_int
                   in
                   let xcext = Xenctrlext.get_handle () in
                   D.debug "NUMAClaim domid %d: global claim: %d pages" domid
