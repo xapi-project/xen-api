@@ -58,6 +58,14 @@ module WireProtocol = struct
     | GenBundleResult
   [@@deriving sexp]
 
+  let type_of_category category purposes =
+    let purposes = List.map API.certificate_purpose_to_string purposes in
+    match category with
+    | `Root ->
+        RootCert purposes
+    | `Pinned ->
+        PinnedCert purposes
+
   let string_of_conflict_resolution x =
     x |> sexp_of_conflict_resolution |> Sexp.to_string
 
@@ -482,15 +490,19 @@ let exchange_certificates_in_pool ~__context =
   in
   operations |> maybe_insert_fist |> List.iter @@ fun (_, f) -> f ()
 
-let list_certs path =
-  (* collects all certs in [path] ending in "pem". this is equivalent to the
-   * certs that would be put in a bundle, if update-ca-bundle.sh were to be
-   * executed on [path] *)
+let list_cert_names path =
+  Unixext.mkdir_rec path 0o700 ;
   Sys.readdir path
   |> Array.to_list
   |> List.filter (fun x ->
       Filename.check_suffix x "pem" && not (Filename.check_suffix x "new.pem")
   )
+
+let list_certs path =
+  (* collects all certs in [path] ending in "pem". this is equivalent to the
+   * certs that would be put in a bundle, if update-ca-bundle.sh were to be
+   * executed on [path] *)
+  list_cert_names path
   |> List.map (fun filename ->
       let path = Filename.concat path filename in
       let content = string_of_file path in
@@ -504,6 +516,65 @@ let get_local_ca_certs () : WireProtocol.certificate_file list =
 let get_local_pool_certs () : WireProtocol.certificate_file list =
   let@ store_path = HostPoolProvider.store_paths in
   list_certs store_path
+
+let list_all_trusted_cert_names category =
+  let open Certificates in
+  all_purposes
+  |> List.concat_map (fun purposes ->
+      let typ = WireProtocol.type_of_category category purposes in
+      let module P = (val provider_of_certificate typ : CertificateProvider) in
+      P.store_paths
+      |> List.map (fun cert_dir -> (cert_dir, list_cert_names cert_dir))
+  )
+
+let of_db_rec category db_rec =
+  let fname = Certificates.name_of_uuid db_rec.API.certificate_uuid in
+  let typ =
+    db_rec.API.certificate_purpose |> WireProtocol.type_of_category category
+  in
+  let module P = (val provider_of_certificate typ : CertificateProvider) in
+  (fname, typ, (module P : CertificateProvider))
+
+let trusted_certs_are_missing ~__context =
+  let open Certificates in
+  [`Root; `Pinned]
+  |> List.concat_map (fun category ->
+      let db_type = db_type_of_category category in
+      let local = list_all_trusted_cert_names category in
+      Db_util.get_trusted_certs ~__context db_type
+      |> List.concat_map (fun (_, db_rec) ->
+          let fname = Certificates.name_of_uuid db_rec.API.certificate_uuid in
+          let typ =
+            db_rec.API.certificate_purpose
+            |> WireProtocol.type_of_category category
+          in
+          let module P = (val provider_of_certificate typ : CertificateProvider)
+          in
+          P.store_paths
+          |> List.map (fun cert_dir ->
+              match List.assoc_opt cert_dir local with
+              | None ->
+                  true
+              | Some names ->
+                  not (List.mem fname names)
+          )
+      )
+  )
+  |> List.exists Fun.id
+
+let copy_trusted_certs_to_host ~__context host rpc session_id =
+  let open Certificates in
+  let* purposes = all_purposes in
+  let* category = [`Root; `Pinned] in
+  let typ = WireProtocol.type_of_category category purposes in
+  let module P = (val provider_of_certificate typ : CertificateProvider) in
+  P.store_paths
+  |> List.iter (fun cert_dir ->
+      let certs =
+        list_cert_names cert_dir |> Worker.local_collect_certs typ ~__context
+      in
+      Worker.remote_write_certs_fs typ Erase_old certs host rpc session_id
+  )
 
 let am_i_missing_certs ~__context : bool =
   (* compare what's in the database with what's on my filesystem *)
@@ -546,7 +617,9 @@ let am_i_missing_certs ~__context : bool =
       )
       store_path ()
   in
-  pool_certs_are_missing () || ca_certs_are_missing ()
+  pool_certs_are_missing ()
+  || ca_certs_are_missing ()
+  || trusted_certs_are_missing ~__context
 
 let copy_certs_to_host ~__context ~host =
   D.debug "%s: sending my certs to host %s" __FUNCTION__
@@ -561,6 +634,7 @@ let copy_certs_to_host ~__context ~host =
     host rpc session_id ;
   Worker.remote_write_certs_fs LegacyRootCert Erase_old (get_local_ca_certs ())
     host rpc session_id ;
+  copy_trusted_certs_to_host ~__context host rpc session_id ;
   Worker.remote_regen_bundle host rpc session_id
 
 (* This function is called on the pool that is incorporating a new host *)
