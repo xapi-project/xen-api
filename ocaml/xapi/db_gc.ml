@@ -152,8 +152,7 @@ let detect_rolling_upgrade ~__context =
       Helpers.Checks.RPU.pool_has_different_host_platform_versions ~__context
     in
     (* Check the current state of the Pool as indicated by the Pool.other_config:rolling_upgrade_in_progress *)
-    let pools = Db.Pool.get_all ~__context in
-    match pools with
+    match Db.Pool.get_all ~__context with
     | [] ->
         debug
           "Ignoring absence of pool record in detect_rolling_upgrade: this is \

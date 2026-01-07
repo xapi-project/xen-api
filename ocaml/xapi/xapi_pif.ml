@@ -1044,9 +1044,6 @@ let rec unplug ~__context ~self =
   assert_no_protection_enabled ~__context ~self ;
   assert_not_management_pif ~__context ~self ;
   let pif_rec = Db.PIF.get_record ~__context ~self in
-  let host = pif_rec.API.pIF_host in
-  if Db.Host.get_enabled ~__context ~self:host then
-    abort_if_network_attached_to_protected_vms ~__context ~self ;
   let network = Db.PIF.get_network ~__context ~self in
   Xapi_network_attach_helpers.assert_network_has_no_vifs_in_use_on_me ~__context
     ~host:(Helpers.get_localhost ~__context)

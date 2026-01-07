@@ -288,12 +288,9 @@ let synchronize_certificates_with_coordinator ~__context =
 
 (* Make sure the local database can be read *)
 let init_local_database () =
-  ( try
-      let (_ : string) = Localdb.get Constants.ha_armed in
-      ()
-    with Localdb.Missing_key _ ->
-      Localdb.put Constants.ha_armed "false" ;
-      debug "%s = 'false' (by default)" Constants.ha_armed
+  if Option.is_none (Localdb.get_bool Constants.ha_armed) then (
+    Localdb.put Constants.ha_armed "false" ;
+    debug "%s = 'false' (by default)" Constants.ha_armed
   ) ;
   (* Add the local session check hook *)
   Session_check.check_local_session_hook :=
@@ -519,13 +516,14 @@ let start_ha () =
 (** Enable and load the redo log if we are the master, the local-DB flag is set
  * and HA is disabled *)
 let start_redo_log () =
+  let redo_log_enabled () =
+    Localdb.get_bool Constants.redo_log_enabled |> Option.value ~default:false
+  in
+  let ha_armed () =
+    Localdb.get_bool Constants.ha_armed |> Option.value ~default:false
+  in
   try
-    if
-      Pool_role.is_master ()
-      && bool_of_string
-           (Localdb.get_with_default Constants.redo_log_enabled "false")
-      && not (bool_of_string (Localdb.get Constants.ha_armed))
-    then (
+    if Pool_role.is_master () && redo_log_enabled () && not (ha_armed ()) then (
       debug "Redo log was enabled when shutting down, so restarting it" ;
       Static_vdis.reattempt_on_boot_attach () ;
       (* enable the use of the redo log *)
@@ -610,7 +608,7 @@ let resynchronise_ha_state () =
         let pool = Helpers.get_pool ~__context in
         let pool_ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
         let local_ha_enabled =
-          bool_of_string (Localdb.get Constants.ha_armed)
+          Localdb.get_bool Constants.ha_armed |> Option.value ~default:false
         in
         match (local_ha_enabled, pool_ha_enabled) with
         | true, true ->
@@ -849,7 +847,11 @@ let common_http_handlers () =
     ; ("get_config_sync", Config_file_sync.config_file_sync_handler)
     ; ("get_system_status", System_status.handler)
     ; (Constants.get_vm_rrd, Rrdd_proxy.get_vm_rrd_forwarder)
+      (* For compatibility with XC < 8460, remove when out of support *)
+    ; ("get_vm_rrds", Rrdd_proxy.get_vm_rrd_forwarder)
     ; (Constants.get_host_rrd, Rrdd_proxy.get_host_rrd_forwarder)
+      (* For compatibility with XC < 8460, remove when out of support *)
+    ; ("get_host_rrds", Rrdd_proxy.get_host_rrd_forwarder)
     ; (Constants.get_sr_rrd, Rrdd_proxy.get_sr_rrd_forwarder)
     ; (Constants.get_rrd_updates, Rrdd_proxy.get_rrd_updates_forwarder)
     ; (Constants.put_rrd, Rrdd_proxy.put_rrd_forwarder)
@@ -861,6 +863,7 @@ let common_http_handlers () =
     ; ("get_wlb_diagnostics", Wlb_reports.diagnostics_handler)
     ; ("get_audit_log", Audit_log.handler)
     ; ("post_root", Api_server.callback false)
+    ; ("post_RPC2", Api_server.callback false)
     ; ("post_json", Api_server.callback true)
     ; ("post_jsonrpc", Api_server.jsoncallback)
     ; ("post_root_options", Api_server.options_callback)

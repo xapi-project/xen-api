@@ -17,7 +17,7 @@ module D = Debug.Make (struct let name = "xapi_ha" end)
 open D
 
 let ha_dir () =
-  let stack = Localdb.get Constants.ha_cluster_stack in
+  let stack = Localdb.get_exn Constants.ha_cluster_stack in
   Filename.concat !Xapi_globs.cluster_stack_root stack
 
 let ha_set_pool_state = "ha_set_pool_state"

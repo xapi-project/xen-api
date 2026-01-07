@@ -25,6 +25,7 @@ module D = Debug.Make (struct let name = service_name end)
 open D
 module RRDD = Rrd_client.Client
 module StringSet = Set.Make (String)
+module IntMap = Map.Make (Int)
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -1166,6 +1167,343 @@ let dm_of ~vm =
 
 let vtpm_of ~vm = match vm.Vm.ty with Vm.HVM h -> h.tpm | _ -> None
 
+module Actions = struct
+  (* CA-76600: the rtc/timeoffset needs to be maintained over a migrate. *)
+  let store_rtc_timeoffset vm timeoffset =
+    let _ =
+      DB.update vm
+        (Option.map (function {VmExtra.persistent} as extra ->
+             ( match persistent with
+             | {VmExtra.ty= Some (Vm.HVM hvm_info); _} ->
+                 let platformdata =
+                   ("timeoffset", timeoffset)
+                   :: List.remove_assoc "timeoffset" persistent.platformdata
+                 in
+                 let persistent =
+                   {
+                     persistent with
+                     VmExtra.ty= Some (Vm.HVM {hvm_info with Vm.timeoffset})
+                   ; platformdata
+                   }
+                 in
+                 debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset ;
+                 VmExtra.{persistent}
+             | _ ->
+                 extra
+             )
+             )
+          )
+    in
+    ()
+
+  let xenbus_connected = Xenbus_utils.(int_of Connected) |> string_of_int
+
+  let maybe_update_pv_drivers_detected ~xc ~xs domid path =
+    let vm = get_uuid ~xc domid |> Uuidx.to_string in
+    Option.iter
+      (function
+        | {VmExtra.persistent} -> (
+          try
+            let value = xs.Xs.read path in
+            let pv_drivers_detected =
+              match
+                ( value = xenbus_connected
+                , persistent.VmExtra.pv_drivers_detected
+                )
+              with
+              | true, false ->
+                  (* State "connected" (4) means that PV drivers are present for
+                     this device *)
+                  debug "VM = %s; found PV driver evidence on %s (value = %s)"
+                    vm path value ;
+                  true
+              | false, true ->
+                  (* This device is not connected, while earlier we detected PV
+                     drivers. We conclude that drivers are still present if any
+                     other device is connected. *)
+                  let devices = Device_common.list_frontends ~xs domid in
+                  let found =
+                    (* Return `true` as soon as a device in state 4 is found. *)
+                    List.exists
+                      (fun device ->
+                        try
+                          xs.Xs.read
+                            (Device_common.backend_state_path_of_device ~xs
+                               device
+                            )
+                          = xenbus_connected
+                        with Xs_protocol.Enoent _ -> false
+                      )
+                      devices
+                  in
+                  if not found then (* No devices in state "connected" (4) *)
+                    debug "VM = %s; lost PV driver evidence" vm ;
+                  found
+              | _ ->
+                  (* No change *)
+                  persistent.VmExtra.pv_drivers_detected
+            in
+            let updated =
+              DB.update vm
+                (Option.map (function {VmExtra.persistent} ->
+                     let persistent =
+                       {persistent with VmExtra.pv_drivers_detected}
+                     in
+                     VmExtra.{persistent}
+                     )
+                  )
+            in
+            if updated then
+              Updates.add (Dynamic.Vm vm) internal_updates
+          with Xs_protocol.Enoent _ ->
+            warn "Watch event on %s fired but couldn't read from it" path ;
+            ()
+            (* the path must have disappeared immediately after the watch fired.
+               Let's treat this as if we never saw it. *)
+        )
+        )
+      (DB.read vm)
+
+  let interesting_paths_for_domain domid uuid =
+    let open Printf in
+    [
+      sprintf "/local/domain/%d/attr" domid
+    ; sprintf "/local/domain/%d/data/ts" domid
+    ; sprintf "/local/domain/%d/data/service" domid
+    ; sprintf "/local/domain/%d/data/pvs_target" domid
+    ; sprintf "/local/domain/%d/memory/target" domid
+    ; sprintf "/local/domain/%d/memory/uncooperative" domid
+    ; sprintf "/local/domain/%d/console/vnc-port" domid
+    ; sprintf "/local/domain/%d/console/tc-port" domid
+    ; Service.Qemu.pidxenstore_path_signal domid
+    ; sprintf "/local/domain/%d/control" domid
+    ; sprintf "/local/domain/%d/device" domid
+    ; sprintf "/local/domain/%d/rrd" domid
+    ; sprintf "/local/domain/%d/vm-data" domid
+    ; sprintf "/local/domain/%d/feature" domid
+    ; sprintf "/vm/%s/rtc/timeoffset" uuid
+    ; sprintf "/local/domain/%d/xenserver/attr" domid
+    ]
+
+  let watch_token domid = Printf.sprintf "xenopsd-xc:domain-%d" domid
+
+  let watches_of_device dev =
+    let interesting_backend_keys =
+      [
+        "kthread-pid"
+      ; "tapdisk-pid"
+      ; "shutdown-done"
+      ; "hotplug-status"
+      ; "params"
+      ; "state"
+      ]
+    in
+    let open Device_common in
+    let be = dev.backend.domid in
+    let fe = dev.frontend.domid in
+    let kind = string_of_kind dev.backend.kind in
+    let devid = dev.frontend.devid in
+    List.map
+      (fun k ->
+        Printf.sprintf "/local/domain/%d/backend/%s/%d/%d/%s" be kind fe devid k
+      )
+      interesting_backend_keys
+
+  let unmanaged_domain domid id = domid > 0 && not (DB.exists id)
+
+  let found_running_domain _domid id =
+    Updates.add (Dynamic.Vm id) internal_updates
+
+  let device_watches = ref IntMap.empty
+
+  let domain_appeared _xc _xs domid =
+    device_watches := IntMap.add domid [] !device_watches
+
+  let domain_disappeared _xc xs domid =
+    let token = watch_token domid in
+    List.iter
+      (fun d ->
+        List.iter (Xenstore_watch.unwatch ~xs token) (watches_of_device d)
+      )
+      (try IntMap.find domid !device_watches with Not_found -> []) ;
+    device_watches := IntMap.remove domid !device_watches ;
+    (* Anyone blocked on a domain/device operation which won't happen because
+       the domain just shutdown should be cancelled here. *)
+    debug "Cancelling watches for: domid %d" domid ;
+    Cancel_utils.on_shutdown ~xs domid ;
+    (* Finally, discard any device caching for the domid destroyed *)
+    DeviceCache.discard device_cache domid
+
+  let qemu_disappeared di xc xs =
+    match !Xenopsd.action_after_qemu_crash with
+    | None ->
+        ()
+    | Some action -> (
+        debug "action-after-qemu-crash=%s" action ;
+        match action with
+        | "poweroff" ->
+            (* we do not expect a HVM guest to survive qemu disappearing, so
+               kill the VM *)
+            Domain.set_action_request ~xs di.Xenctrl.domid (Some "poweroff")
+        | "pause" ->
+            (* useful for debugging qemu *)
+            Domain.pause ~xc di.Xenctrl.domid
+        | _ ->
+            ()
+      )
+
+  let add_device_watch xs dev =
+    let open Device_common in
+    debug "Adding watches for: %s" (string_of_device dev) ;
+    let domid = dev.frontend.domid in
+    let token = watch_token domid in
+    List.iter (Xenstore_watch.watch ~xs token) (watches_of_device dev) ;
+    device_watches :=
+      IntMap.add domid
+        (dev :: IntMap.find domid !device_watches)
+        !device_watches
+
+  let remove_device_watch xs dev =
+    let open Device_common in
+    debug "Removing watches for: %s" (string_of_device dev) ;
+    let domid = dev.frontend.domid in
+    let current = IntMap.find domid !device_watches in
+    let token = watch_token domid in
+    List.iter (Xenstore_watch.unwatch ~xs token) (watches_of_device dev) ;
+    device_watches :=
+      IntMap.add domid (List.filter (fun x -> x <> dev) current) !device_watches
+
+  let watch_fired xc xs path domains watches =
+    let look_for_different_devices domid =
+      if not (Xenstore_watch.IntSet.mem domid watches) then
+        debug "Ignoring frontend device watch on unmanaged domain: %d" domid
+      else if not (IntMap.mem domid !device_watches) then
+        warn
+          "Xenstore watch fired, but no entry for domid %d in device watches \
+           list"
+          domid
+      else
+        let devices = IntMap.find domid !device_watches in
+        let devices' = Device_common.list_frontends ~xs domid in
+        let old_devices =
+          Xapi_stdext_std.Listext.List.set_difference devices devices'
+        in
+        let new_devices =
+          Xapi_stdext_std.Listext.List.set_difference devices' devices
+        in
+        List.iter (add_device_watch xs) new_devices ;
+        List.iter (remove_device_watch xs) old_devices
+    in
+    let uuid_of_domain di =
+      let string_of_domain_handle handle =
+        Array.to_list handle |> List.map string_of_int |> String.concat "; "
+      in
+      match Uuidx.of_int_array di.Xenctrl.handle with
+      | Some x ->
+          x
+      | None ->
+          failwith
+            (Printf.sprintf "VM handle for domain %i is an invalid uuid: %a"
+               di.Xenctrl.domid
+               (fun () -> string_of_domain_handle)
+               di.Xenctrl.handle
+            )
+    in
+    let fire_event_on_vm domid =
+      let d = int_of_string domid in
+      let open Xenstore_watch in
+      if not (IntMap.mem d domains) then
+        debug "Ignoring watch on shutdown domain %d" d
+      else
+        let di = IntMap.find d domains in
+        let id = Uuidx.to_string (uuid_of_domain di) in
+        Updates.add (Dynamic.Vm id) internal_updates
+    in
+    let fire_event_on_device domid kind devid =
+      let d = int_of_string domid in
+      let open Xenstore_watch in
+      if not (IntMap.mem d domains) then
+        debug "Ignoring watch on shutdown domain %d" d
+      else
+        let di = IntMap.find d domains in
+        let id = Uuidx.to_string (uuid_of_domain di) in
+        let update =
+          match kind with
+          | "vbd" | "vbd3" | "qdisk" | "9pfs" ->
+              let devid' =
+                devid
+                |> int_of_string
+                |> Device_number.of_xenstore_key
+                |> Device_number.to_linux_device
+              in
+              Some (Dynamic.Vbd (id, devid'))
+          | "vif" ->
+              Some (Dynamic.Vif (id, devid))
+          | x ->
+              debug "Unknown device kind: '%s'" x ;
+              None
+        in
+        Option.iter (fun x -> Updates.add x internal_updates) update
+    in
+    let fire_event_on_qemu domid =
+      let d = int_of_string domid in
+      let open Xenstore_watch in
+      if not (IntMap.mem d domains) then
+        debug "Ignoring qemu-pid-signal watch on shutdown domain %d" d
+      else
+        let signal =
+          try Some (xs.Xs.read (Service.Qemu.pidxenstore_path_signal d))
+          with _ -> None
+        in
+        match signal with
+        | None ->
+            ()
+        | Some signal ->
+            debug "Received unexpected qemu-pid-signal %s for domid %d" signal d ;
+            let di = IntMap.find d domains in
+            let id = Uuidx.to_string (uuid_of_domain di) in
+            qemu_disappeared di xc xs ;
+            Updates.add (Dynamic.Vm id) internal_updates
+    in
+    match Astring.String.cuts ~empty:false ~sep:"/" path with
+    | "local"
+      :: "domain"
+      :: domid
+      :: "backend"
+      :: kind
+      :: frontend
+      :: devid
+      :: key ->
+        debug
+          "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s"
+          domid kind frontend devid ;
+        fire_event_on_device frontend kind devid ;
+        (* If this event was a state change then this might be the first time we
+           see evidence of PV drivers *)
+        if key = ["state"] then
+          maybe_update_pv_drivers_detected ~xc ~xs (int_of_string frontend) path
+    | "local" :: "domain" :: frontend :: "device" :: _ ->
+        look_for_different_devices (int_of_string frontend)
+    | ["local"; "domain"; domid; "qemu-pid-signal"] ->
+        fire_event_on_qemu domid
+    | "local" :: "domain" :: domid :: _ ->
+        fire_event_on_vm domid
+    | ["vm"; uuid; "rtc"; "timeoffset"] ->
+        let timeoffset = try Some (xs.Xs.read path) with _ -> None in
+        Option.iter
+          (fun timeoffset ->
+            (* Store the rtc/timeoffset for migrate *)
+            store_rtc_timeoffset uuid timeoffset ;
+            (* Tell the higher-level toolstack about this too *)
+            Updates.add (Dynamic.Vm uuid) internal_updates
+          )
+          timeoffset
+    | _ ->
+        debug "Ignoring unexpected watch: %s" path
+end
+
+module Watcher = Xenstore_watch.WatchXenstore (Actions)
+
 module VM = struct
   open Vm
 
@@ -1652,7 +1990,8 @@ module VM = struct
       ) ;
       debug "Moving xenstore tree" ;
       Domain.move_xstree ~xs di.Xenctrl.domid old_name new_name ;
-      DB.rename old_name new_name
+      DB.rename old_name new_name ;
+      Watcher.mark_refresh_domains ()
     in
     Option.iter rename_domain (di_of_uuid ~xc (uuid_of_string old_name))
 
@@ -2680,6 +3019,26 @@ module VM = struct
     (* XXX: TODO: monitor the guest's response; track the s3 state *)
     on_domain t vm (fun xc xs _task _vm di ->
         Domain.shutdown ~xc ~xs di.Xenctrl.domid Domain.S3Suspend
+    )
+
+  let resume t vm =
+    on_domain t vm (fun xc xs task _vm di ->
+        let domid = di.Xenctrl.domid in
+        let qemu_domid = this_domid ~xs in
+        let domain_type =
+          match get_domain_type ~xs di with
+          | Vm.Domain_HVM ->
+              `hvm
+          | Vm.Domain_PV ->
+              `pv
+          | Vm.Domain_PVinPVH ->
+              `pvh
+          | Vm.Domain_PVH ->
+              `pvh
+          | Vm.Domain_undefined ->
+              failwith "undefined domain type: cannot resume"
+        in
+        Domain.resume task ~xc ~xs ~qemu_domid ~domain_type domid
     )
 
   let s3resume t vm =
@@ -4957,349 +5316,6 @@ module UPDATES = struct
   let get last timeout = Updates.get "UPDATES.get" last timeout internal_updates
 end
 
-module IntMap = Map.Make (struct
-  type t = int
-
-  let compare = compare
-end)
-
-module Actions = struct
-  (* CA-76600: the rtc/timeoffset needs to be maintained over a migrate. *)
-  let store_rtc_timeoffset vm timeoffset =
-    let _ =
-      DB.update vm
-        (Option.map (function {VmExtra.persistent} as extra ->
-             ( match persistent with
-             | {VmExtra.ty= Some (Vm.HVM hvm_info); _} ->
-                 let platformdata =
-                   ("timeoffset", timeoffset)
-                   :: List.remove_assoc "timeoffset" persistent.platformdata
-                 in
-                 let persistent =
-                   {
-                     persistent with
-                     VmExtra.ty= Some (Vm.HVM {hvm_info with Vm.timeoffset})
-                   ; platformdata
-                   }
-                 in
-                 debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset ;
-                 VmExtra.{persistent}
-             | _ ->
-                 extra
-             )
-             )
-          )
-    in
-    ()
-
-  let xenbus_connected = Xenbus_utils.(int_of Connected) |> string_of_int
-
-  let maybe_update_pv_drivers_detected ~xc ~xs domid path =
-    let vm = get_uuid ~xc domid |> Uuidx.to_string in
-    Option.iter
-      (function
-        | {VmExtra.persistent} -> (
-          try
-            let value = xs.Xs.read path in
-            let pv_drivers_detected =
-              match
-                ( value = xenbus_connected
-                , persistent.VmExtra.pv_drivers_detected
-                )
-              with
-              | true, false ->
-                  (* State "connected" (4) means that PV drivers are present for
-                     this device *)
-                  debug "VM = %s; found PV driver evidence on %s (value = %s)"
-                    vm path value ;
-                  true
-              | false, true ->
-                  (* This device is not connected, while earlier we detected PV
-                     drivers. We conclude that drivers are still present if any
-                     other device is connected. *)
-                  let devices = Device_common.list_frontends ~xs domid in
-                  let found =
-                    (* Return `true` as soon as a device in state 4 is found. *)
-                    List.exists
-                      (fun device ->
-                        try
-                          xs.Xs.read
-                            (Device_common.backend_state_path_of_device ~xs
-                               device
-                            )
-                          = xenbus_connected
-                        with Xs_protocol.Enoent _ -> false
-                      )
-                      devices
-                  in
-                  if not found then (* No devices in state "connected" (4) *)
-                    debug "VM = %s; lost PV driver evidence" vm ;
-                  found
-              | _ ->
-                  (* No change *)
-                  persistent.VmExtra.pv_drivers_detected
-            in
-            let updated =
-              DB.update vm
-                (Option.map (function {VmExtra.persistent} ->
-                     let persistent =
-                       {persistent with VmExtra.pv_drivers_detected}
-                     in
-                     VmExtra.{persistent}
-                     )
-                  )
-            in
-            if updated then
-              Updates.add (Dynamic.Vm vm) internal_updates
-          with Xs_protocol.Enoent _ ->
-            warn "Watch event on %s fired but couldn't read from it" path ;
-            ()
-            (* the path must have disappeared immediately after the watch fired.
-               Let's treat this as if we never saw it. *)
-        )
-        )
-      (DB.read vm)
-
-  let interesting_paths_for_domain domid uuid =
-    let open Printf in
-    [
-      sprintf "/local/domain/%d/attr" domid
-    ; sprintf "/local/domain/%d/data/ts" domid
-    ; sprintf "/local/domain/%d/data/service" domid
-    ; sprintf "/local/domain/%d/data/pvs_target" domid
-    ; sprintf "/local/domain/%d/memory/target" domid
-    ; sprintf "/local/domain/%d/memory/uncooperative" domid
-    ; sprintf "/local/domain/%d/console/vnc-port" domid
-    ; sprintf "/local/domain/%d/console/tc-port" domid
-    ; Service.Qemu.pidxenstore_path_signal domid
-    ; sprintf "/local/domain/%d/control" domid
-    ; sprintf "/local/domain/%d/device" domid
-    ; sprintf "/local/domain/%d/rrd" domid
-    ; sprintf "/local/domain/%d/vm-data" domid
-    ; sprintf "/local/domain/%d/feature" domid
-    ; sprintf "/vm/%s/rtc/timeoffset" uuid
-    ; sprintf "/local/domain/%d/xenserver/attr" domid
-    ]
-
-  let watch_token domid = Printf.sprintf "xenopsd-xc:domain-%d" domid
-
-  let watches_of_device dev =
-    let interesting_backend_keys =
-      [
-        "kthread-pid"
-      ; "tapdisk-pid"
-      ; "shutdown-done"
-      ; "hotplug-status"
-      ; "params"
-      ; "state"
-      ]
-    in
-    let open Device_common in
-    let be = dev.backend.domid in
-    let fe = dev.frontend.domid in
-    let kind = string_of_kind dev.backend.kind in
-    let devid = dev.frontend.devid in
-    List.map
-      (fun k ->
-        Printf.sprintf "/local/domain/%d/backend/%s/%d/%d/%s" be kind fe devid k
-      )
-      interesting_backend_keys
-
-  let unmanaged_domain domid id = domid > 0 && not (DB.exists id)
-
-  let found_running_domain _domid id =
-    Updates.add (Dynamic.Vm id) internal_updates
-
-  let device_watches = ref IntMap.empty
-
-  let domain_appeared _xc _xs domid =
-    device_watches := IntMap.add domid [] !device_watches
-
-  let domain_disappeared _xc xs domid =
-    let token = watch_token domid in
-    List.iter
-      (fun d ->
-        List.iter (Xenstore_watch.unwatch ~xs token) (watches_of_device d)
-      )
-      (try IntMap.find domid !device_watches with Not_found -> []) ;
-    device_watches := IntMap.remove domid !device_watches ;
-    (* Anyone blocked on a domain/device operation which won't happen because
-       the domain just shutdown should be cancelled here. *)
-    debug "Cancelling watches for: domid %d" domid ;
-    Cancel_utils.on_shutdown ~xs domid ;
-    (* Finally, discard any device caching for the domid destroyed *)
-    DeviceCache.discard device_cache domid
-
-  let qemu_disappeared di xc xs =
-    match !Xenopsd.action_after_qemu_crash with
-    | None ->
-        ()
-    | Some action -> (
-        debug "action-after-qemu-crash=%s" action ;
-        match action with
-        | "poweroff" ->
-            (* we do not expect a HVM guest to survive qemu disappearing, so
-               kill the VM *)
-            Domain.set_action_request ~xs di.Xenctrl.domid (Some "poweroff")
-        | "pause" ->
-            (* useful for debugging qemu *)
-            Domain.pause ~xc di.Xenctrl.domid
-        | _ ->
-            ()
-      )
-
-  let add_device_watch xs dev =
-    let open Device_common in
-    debug "Adding watches for: %s" (string_of_device dev) ;
-    let domid = dev.frontend.domid in
-    let token = watch_token domid in
-    List.iter (Xenstore_watch.watch ~xs token) (watches_of_device dev) ;
-    device_watches :=
-      IntMap.add domid
-        (dev :: IntMap.find domid !device_watches)
-        !device_watches
-
-  let remove_device_watch xs dev =
-    let open Device_common in
-    debug "Removing watches for: %s" (string_of_device dev) ;
-    let domid = dev.frontend.domid in
-    let current = IntMap.find domid !device_watches in
-    let token = watch_token domid in
-    List.iter (Xenstore_watch.unwatch ~xs token) (watches_of_device dev) ;
-    device_watches :=
-      IntMap.add domid (List.filter (fun x -> x <> dev) current) !device_watches
-
-  let watch_fired xc xs path domains watches =
-    let look_for_different_devices domid =
-      if not (Xenstore_watch.IntSet.mem domid watches) then
-        debug "Ignoring frontend device watch on unmanaged domain: %d" domid
-      else if not (IntMap.mem domid !device_watches) then
-        warn
-          "Xenstore watch fired, but no entry for domid %d in device watches \
-           list"
-          domid
-      else
-        let devices = IntMap.find domid !device_watches in
-        let devices' = Device_common.list_frontends ~xs domid in
-        let old_devices =
-          Xapi_stdext_std.Listext.List.set_difference devices devices'
-        in
-        let new_devices =
-          Xapi_stdext_std.Listext.List.set_difference devices' devices
-        in
-        List.iter (add_device_watch xs) new_devices ;
-        List.iter (remove_device_watch xs) old_devices
-    in
-    let uuid_of_domain di =
-      let string_of_domain_handle handle =
-        Array.to_list handle |> List.map string_of_int |> String.concat "; "
-      in
-      match Uuidx.of_int_array di.Xenctrl.handle with
-      | Some x ->
-          x
-      | None ->
-          failwith
-            (Printf.sprintf "VM handle for domain %i is an invalid uuid: %a"
-               di.Xenctrl.domid
-               (fun () -> string_of_domain_handle)
-               di.Xenctrl.handle
-            )
-    in
-    let fire_event_on_vm domid =
-      let d = int_of_string domid in
-      let open Xenstore_watch in
-      if not (IntMap.mem d domains) then
-        debug "Ignoring watch on shutdown domain %d" d
-      else
-        let di = IntMap.find d domains in
-        let id = Uuidx.to_string (uuid_of_domain di) in
-        Updates.add (Dynamic.Vm id) internal_updates
-    in
-    let fire_event_on_device domid kind devid =
-      let d = int_of_string domid in
-      let open Xenstore_watch in
-      if not (IntMap.mem d domains) then
-        debug "Ignoring watch on shutdown domain %d" d
-      else
-        let di = IntMap.find d domains in
-        let id = Uuidx.to_string (uuid_of_domain di) in
-        let update =
-          match kind with
-          | "vbd" | "vbd3" | "qdisk" | "9pfs" ->
-              let devid' =
-                devid
-                |> int_of_string
-                |> Device_number.of_xenstore_key
-                |> Device_number.to_linux_device
-              in
-              Some (Dynamic.Vbd (id, devid'))
-          | "vif" ->
-              Some (Dynamic.Vif (id, devid))
-          | x ->
-              debug "Unknown device kind: '%s'" x ;
-              None
-        in
-        Option.iter (fun x -> Updates.add x internal_updates) update
-    in
-    let fire_event_on_qemu domid =
-      let d = int_of_string domid in
-      let open Xenstore_watch in
-      if not (IntMap.mem d domains) then
-        debug "Ignoring qemu-pid-signal watch on shutdown domain %d" d
-      else
-        let signal =
-          try Some (xs.Xs.read (Service.Qemu.pidxenstore_path_signal d))
-          with _ -> None
-        in
-        match signal with
-        | None ->
-            ()
-        | Some signal ->
-            debug "Received unexpected qemu-pid-signal %s for domid %d" signal d ;
-            let di = IntMap.find d domains in
-            let id = Uuidx.to_string (uuid_of_domain di) in
-            qemu_disappeared di xc xs ;
-            Updates.add (Dynamic.Vm id) internal_updates
-    in
-    match Astring.String.cuts ~empty:false ~sep:"/" path with
-    | "local"
-      :: "domain"
-      :: domid
-      :: "backend"
-      :: kind
-      :: frontend
-      :: devid
-      :: key ->
-        debug
-          "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s"
-          domid kind frontend devid ;
-        fire_event_on_device frontend kind devid ;
-        (* If this event was a state change then this might be the first time we
-           see evidence of PV drivers *)
-        if key = ["state"] then
-          maybe_update_pv_drivers_detected ~xc ~xs (int_of_string frontend) path
-    | "local" :: "domain" :: frontend :: "device" :: _ ->
-        look_for_different_devices (int_of_string frontend)
-    | ["local"; "domain"; domid; "qemu-pid-signal"] ->
-        fire_event_on_qemu domid
-    | "local" :: "domain" :: domid :: _ ->
-        fire_event_on_vm domid
-    | ["vm"; uuid; "rtc"; "timeoffset"] ->
-        let timeoffset = try Some (xs.Xs.read path) with _ -> None in
-        Option.iter
-          (fun timeoffset ->
-            (* Store the rtc/timeoffset for migrate *)
-            store_rtc_timeoffset uuid timeoffset ;
-            (* Tell the higher-level toolstack about this too *)
-            Updates.add (Dynamic.Vm uuid) internal_updates
-          )
-          timeoffset
-    | _ ->
-        debug "Ignoring unexpected watch: %s" path
-end
-
-module Watcher = Xenstore_watch.WatchXenstore (Actions)
-
 (* Here we analyse common startup errors in more detail and suggest the most
    likely fixes (e.g. switch to root, start missing service) *)
 
@@ -5389,7 +5405,13 @@ let init () =
   ) ;
   Device.Backend.init () ;
   Xenops_server.default_numa_affinity_policy :=
-    if !Xenopsd.numa_placement_compat then Best_effort else Any ;
+    if !Xenopsd.numa_placement_compat then
+      if !Xenopsd.numa_best_effort_prio_mem_only then
+        Prio_mem_only
+      else
+        Best_effort
+    else
+      Any ;
   info "Default NUMA affinity policy is '%s'"
     Xenops_server.(string_of_numa_affinity_policy !default_numa_affinity_policy) ;
   Xenops_server.numa_placement := !Xenops_server.default_numa_affinity_policy ;

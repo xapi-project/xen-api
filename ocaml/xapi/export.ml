@@ -906,7 +906,7 @@ let handler (req : Request.t) s _ =
           let address = Db.Host.get_address ~__context ~self:host in
           let url =
             Uri.(
-              make ~scheme:"https" ~host:address ~path:req.Request.uri
+              make ~scheme:"https" ~host:address ~path:req.Request.path
                 ~query:(List.map (fun (a, b) -> (a, [b])) req.Request.query)
                 ()
               |> to_string

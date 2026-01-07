@@ -1,5 +1,9 @@
 module A = Quicktest_args
 
+let ( let@ ) f x = f x
+
+let tags = ["quick"; "test"]
+
 (** If VDI_CREATE and VDI_DELETE are present then make sure VDIs appear and disappear correctly
     VDI_CREATE should make a fresh disk; VDI_DELETE should remove it *)
 let vdi_create_destroy rpc session_id sr_info () =
@@ -67,109 +71,99 @@ let choose_active_pbd rpc session_id sr =
 
 (** If VDI_GENERATE_CONFIG is present then try it out *)
 let vdi_generate_config_test rpc session_id sr_info () =
-  Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
-      let sr = sr_info.Qt.sr in
-      let pbd = choose_active_pbd rpc session_id sr in
-      let host = Client.Client.PBD.get_host ~rpc ~session_id ~self:pbd in
-      Alcotest.(check unit)
-        "VDI_GENERATE_CONFIG should not fail" ()
-        ((Client.Client.VDI.generate_config ~rpc ~session_id ~host ~vdi : string)
-        |> ignore
-        )
-  )
+  let@ vdi = Qt.VDI.with_any rpc session_id sr_info in
+  let sr = sr_info.Qt.sr in
+  let pbd = choose_active_pbd rpc session_id sr in
+  let host = Client.Client.PBD.get_host ~rpc ~session_id ~self:pbd in
+  Alcotest.(check unit)
+    "VDI_GENERATE_CONFIG should not fail" ()
+    ((Client.Client.VDI.generate_config ~rpc ~session_id ~host ~vdi : string)
+    |> ignore
+    )
 
 (** If VDI_UPDATE is present then try it out *)
 let vdi_update_test rpc session_id sr_info () =
-  Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
-      Alcotest.(check unit)
-        "VDI_UPDATE should not fail" ()
-        (Client.Client.VDI.update ~rpc ~session_id ~vdi)
-  )
+  let@ vdi = Qt.VDI.with_any rpc session_id sr_info in
+  Alcotest.(check unit)
+    "VDI_UPDATE should not fail" ()
+    (Client.Client.VDI.update ~rpc ~session_id ~vdi)
 
 (** If VDI_RESIZE is present then try it out *)
 let vdi_resize_test rpc session_id sr_info () =
-  Qt.VDI.with_new rpc session_id sr_info.Qt.sr (fun vdi ->
-      let current =
-        Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
-      in
-      print_endline (Printf.sprintf "current size = %Ld" current) ;
-      (* Make it 1 MiB bigger *)
-      let new_size = Int64.add current 1048576L in
-      print_endline (Printf.sprintf "requested size = %Ld" new_size) ;
-      Client.Client.VDI.resize ~rpc ~session_id ~vdi ~size:new_size ;
-      let actual_size =
-        Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
-      in
-      print_endline (Printf.sprintf "final size = %Ld" actual_size) ;
-      if actual_size < new_size then
-        Alcotest.fail "The final size should be >= the requested size"
-  )
+  let@ vdi = Qt.VDI.with_new rpc session_id sr_info.Qt.sr in
+  let current = Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi in
+  print_endline (Printf.sprintf "current size = %Ld" current) ;
+  (* Make it 1 MiB bigger *)
+  let new_size = Int64.add current 1048576L in
+  print_endline (Printf.sprintf "requested size = %Ld" new_size) ;
+  Client.Client.VDI.resize ~rpc ~session_id ~vdi ~size:new_size ;
+  let actual_size =
+    Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
+  in
+  print_endline (Printf.sprintf "final size = %Ld" actual_size) ;
+  if actual_size < new_size then
+    Alcotest.fail "The final size should be >= the requested size"
 
 (** Make sure that I can't call VDI.db_forget
     VDI.db_forget should always fail without authorisation *)
 let vdi_db_forget rpc session_id sr_info () =
-  Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
-      try
-        Client.Client.VDI.db_forget ~rpc ~session_id ~vdi ;
-        Alcotest.fail "Call succeeded but it shouldn't have"
-      with
-      | Api_errors.Server_error (code, _)
-        when code = Api_errors.permission_denied ->
-          print_endline "Caught PERMISSION_DENIED"
-      | e ->
-          Alcotest.fail
-            (Printf.sprintf "Caught wrong error: %s" (Printexc.to_string e))
-  )
+  let@ vdi = Qt.VDI.with_any rpc session_id sr_info in
+  try
+    Client.Client.VDI.db_forget ~rpc ~session_id ~vdi ;
+    Alcotest.fail "Call succeeded but it shouldn't have"
+  with
+  | Api_errors.Server_error (code, _) when code = Api_errors.permission_denied
+    ->
+      print_endline "Caught PERMISSION_DENIED"
+  | e ->
+      Alcotest.fail
+        (Printf.sprintf "Caught wrong error: %s" (Printexc.to_string e))
 
 (** If VDI_INTRODUCE is present then attempt to introduce a VDI with a duplicate location
     and another with a bad UUID to make sure that is reported as an error *)
 let vdi_bad_introduce rpc session_id sr_info () =
-  Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
-      let vdir = Client.Client.VDI.get_record ~rpc ~session_id ~self:vdi in
-      ( try
-          print_endline
-            (Printf.sprintf "Introducing a VDI with a duplicate UUID (%s)"
-               vdir.API.vDI_uuid
-            ) ;
-          let (_ : API.ref_VDI) =
-            Client.Client.VDI.introduce ~rpc ~session_id ~uuid:vdir.API.vDI_uuid
-              ~name_label:"bad uuid" ~name_description:"" ~sR:vdir.API.vDI_SR
-              ~_type:vdir.API.vDI_type ~sharable:false ~read_only:false
-              ~other_config:[]
-              ~location:(Ref.string_of (Ref.make ()))
-              ~xenstore_data:[] ~sm_config:[] ~managed:true ~virtual_size:0L
-              ~physical_utilisation:0L ~metadata_of_pool:Ref.null
-              ~is_a_snapshot:false ~snapshot_time:Clock.Date.epoch
-              ~snapshot_of:Ref.null
-          in
-          Alcotest.fail
-            "vdi_bad_introduce: A bad VDI with a duplicate UUID was introduced"
-        with Api_errors.Server_error (_, _) as e ->
-          Printf.printf "API error caught as expected: %s\n"
-            (Printexc.to_string e)
+  let@ vdi = Qt.VDI.with_any rpc session_id sr_info in
+  let vdir = Client.Client.VDI.get_record ~rpc ~session_id ~self:vdi in
+  ( try
+      print_endline
+        (Printf.sprintf "Introducing a VDI with a duplicate UUID (%s)"
+           vdir.API.vDI_uuid
+        ) ;
+      let (_ : API.ref_VDI) =
+        Client.Client.VDI.introduce ~rpc ~session_id ~uuid:vdir.API.vDI_uuid
+          ~name_label:"bad uuid" ~name_description:"" ~sR:vdir.API.vDI_SR
+          ~_type:vdir.API.vDI_type ~sharable:false ~read_only:false
+          ~other_config:[]
+          ~location:(Ref.string_of (Ref.make ()))
+          ~xenstore_data:[] ~sm_config:[] ~managed:true ~virtual_size:0L
+          ~physical_utilisation:0L ~metadata_of_pool:Ref.null
+          ~is_a_snapshot:false ~snapshot_time:Clock.Date.epoch
+          ~snapshot_of:Ref.null
+      in
+      Alcotest.fail
+        "vdi_bad_introduce: A bad VDI with a duplicate UUID was introduced"
+    with Api_errors.Server_error (_, _) as e ->
+      Printf.printf "API error caught as expected: %s\n" (Printexc.to_string e)
+  ) ;
+  try
+    print_endline
+      (Printf.sprintf "Introducing a VDI with a duplicate location (%s)"
+         vdir.API.vDI_location
       ) ;
-      try
-        print_endline
-          (Printf.sprintf "Introducing a VDI with a duplicate location (%s)"
-             vdir.API.vDI_location
-          ) ;
-        let (_ : API.ref_VDI) =
-          Client.Client.VDI.introduce ~rpc ~session_id
-            ~uuid:(Uuidx.to_string (Uuidx.make ()))
-            ~name_label:"bad location" ~name_description:"" ~sR:vdir.API.vDI_SR
-            ~_type:vdir.API.vDI_type ~sharable:false ~read_only:false
-            ~other_config:[] ~location:vdir.API.vDI_location ~xenstore_data:[]
-            ~sm_config:[] ~managed:true ~virtual_size:0L
-            ~physical_utilisation:0L ~metadata_of_pool:Ref.null
-            ~is_a_snapshot:false ~snapshot_time:Clock.Date.epoch
-            ~snapshot_of:Ref.null
-        in
-        Alcotest.fail
-          "vdi_bad_introduce: A bad VDI with a duplicate location was \
-           introduced"
-      with Api_errors.Server_error (_, _) as e ->
-        Printf.printf "API error caught as expected: %s\n" (Printexc.to_string e)
-  )
+    let (_ : API.ref_VDI) =
+      Client.Client.VDI.introduce ~rpc ~session_id
+        ~uuid:(Uuidx.to_string (Uuidx.make ()))
+        ~name_label:"bad location" ~name_description:"" ~sR:vdir.API.vDI_SR
+        ~_type:vdir.API.vDI_type ~sharable:false ~read_only:false
+        ~other_config:[] ~location:vdir.API.vDI_location ~xenstore_data:[]
+        ~sm_config:[] ~managed:true ~virtual_size:0L ~physical_utilisation:0L
+        ~metadata_of_pool:Ref.null ~is_a_snapshot:false
+        ~snapshot_time:Clock.Date.epoch ~snapshot_of:Ref.null
+    in
+    Alcotest.fail
+      "vdi_bad_introduce: A bad VDI with a duplicate location was introduced"
+  with Api_errors.Server_error (_, _) as e ->
+    Printf.printf "API error caught as expected: %s\n" (Printexc.to_string e)
 
 (** When cloning/snapshotting perform field by field comparisons to look for
     problems *)
@@ -183,6 +177,7 @@ let check_clone_snapshot_fields rpc session_id original_vdi new_vdi =
       , fun vdi -> vdi.API.vDI_virtual_size |> Int64.to_string
       )
     ; (`Different, "location", fun vdi -> vdi.API.vDI_location)
+    ; (`Same, "tags", fun vdi -> String.concat ", " vdi.API.vDI_tags)
     ]
   in
   let a = Client.Client.VDI.get_record ~rpc ~session_id ~self:original_vdi in
@@ -194,35 +189,31 @@ let check_vdi_snapshot rpc session_id vdi =
   let snapshot_vdi =
     Client.Client.VDI.snapshot ~rpc ~session_id ~vdi ~driver_params:[]
   in
-  Qt.VDI.with_destroyed rpc session_id snapshot_vdi (fun () ->
-      let snapshot_finish = Qt.Time.now () in
-      let r =
-        Client.Client.VDI.get_record ~rpc ~session_id ~self:snapshot_vdi
-      in
-      Qt.Time.(check (of_field r.API.vDI_snapshot_time))
-        ~after:snapshot_start ~before:snapshot_finish ;
-      Alcotest.(check bool)
-        "VDI.is_a_snapshot of must be true for snapshot VDI" true
-        r.API.vDI_is_a_snapshot ;
-      Alcotest.(check bool)
-        "VDI.snapshot_of must not be null for snapshot VDI" true
-        (r.API.vDI_snapshot_of <> API.Ref.null) ;
-      check_clone_snapshot_fields rpc session_id vdi snapshot_vdi ;
-      Qt.VDI.test_update rpc session_id snapshot_vdi
-  )
+  let@ () = Qt.VDI.with_destroyed rpc session_id snapshot_vdi in
+  let snapshot_finish = Qt.Time.now () in
+  let r = Client.Client.VDI.get_record ~rpc ~session_id ~self:snapshot_vdi in
+  Qt.Time.(check (of_field r.API.vDI_snapshot_time))
+    ~after:snapshot_start ~before:snapshot_finish ;
+  Alcotest.(check bool)
+    "VDI.is_a_snapshot of must be true for snapshot VDI" true
+    r.API.vDI_is_a_snapshot ;
+  Alcotest.(check bool)
+    "VDI.snapshot_of must not be null for snapshot VDI" true
+    (r.API.vDI_snapshot_of <> API.Ref.null) ;
+  check_clone_snapshot_fields rpc session_id vdi snapshot_vdi ;
+  Qt.VDI.test_update rpc session_id snapshot_vdi
 
 let test_vdi_snapshot rpc session_id sr_info () =
-  Qt.VDI.with_any rpc session_id sr_info (check_vdi_snapshot rpc session_id)
+  let@ vdi = Qt.VDI.with_any rpc session_id sr_info in
+  Client.Client.VDI.set_tags ~rpc ~session_id ~self:vdi ~value:tags ;
+  check_vdi_snapshot rpc session_id vdi
 
 let test_vdi_clone rpc session_id sr_info () =
-  Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
-      let vdi' =
-        Client.Client.VDI.clone ~rpc ~session_id ~vdi ~driver_params:[]
-      in
-      Qt.VDI.with_destroyed rpc session_id vdi' (fun () ->
-          check_clone_snapshot_fields rpc session_id vdi vdi'
-      )
-  )
+  let@ vdi = Qt.VDI.with_any rpc session_id sr_info in
+  Client.Client.VDI.set_tags ~rpc ~session_id ~self:vdi ~value:tags ;
+  let vdi' = Client.Client.VDI.clone ~rpc ~session_id ~vdi ~driver_params:[] in
+  let@ () = Qt.VDI.with_destroyed rpc session_id vdi' in
+  check_clone_snapshot_fields rpc session_id vdi vdi'
 
 (* Helper function to make a VBD *)
 let vbd_create_helper ~rpc ~session_id ~vM ~vDI ?(userdevice = "autodetect") ()
@@ -234,28 +225,25 @@ let vbd_create_helper ~rpc ~session_id ~vM ~vDI ?(userdevice = "autodetect") ()
 
 (** Check that snapshot works regardless which host has the VDI activated *)
 let vdi_snapshot_in_pool rpc session_id sr_info () =
-  Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
-      let localhost =
-        Client.Client.Host.get_by_uuid ~rpc ~session_id ~uuid:Qt.localhost_uuid
-      in
-      let do_test () = check_vdi_snapshot rpc session_id vdi in
-      let test_snapshot_on host =
-        let name =
-          Client.Client.Host.get_name_label ~rpc ~session_id ~self:host
-        in
-        let dom0 = Qt.VM.dom0_of_host rpc session_id host in
-        let vbd = vbd_create_helper ~rpc ~session_id ~vM:dom0 ~vDI:vdi () in
-        print_endline (Printf.sprintf "Plugging in to host %s" name) ;
-        Client.Client.VBD.plug ~rpc ~session_id ~self:vbd ;
-        Xapi_stdext_pervasives.Pervasiveext.finally do_test (fun () ->
-            print_endline (Printf.sprintf "Unplugging from host %s" name) ;
-            Client.Client.VBD.unplug ~rpc ~session_id ~self:vbd ;
-            print_endline "Destroying VBD" ;
-            Client.Client.VBD.destroy ~rpc ~session_id ~self:vbd
-        )
-      in
-      test_snapshot_on localhost ; do_test ()
-  )
+  let@ vdi = Qt.VDI.with_any rpc session_id sr_info in
+  Client.Client.VDI.set_tags ~rpc ~session_id ~self:vdi ~value:tags ;
+  let localhost =
+    Client.Client.Host.get_by_uuid ~rpc ~session_id ~uuid:Qt.localhost_uuid
+  in
+  let do_test () = check_vdi_snapshot rpc session_id vdi in
+  let test_snapshot_on host =
+    let name = Client.Client.Host.get_name_label ~rpc ~session_id ~self:host in
+    let dom0 = Qt.VM.dom0_of_host rpc session_id host in
+    let vbd = vbd_create_helper ~rpc ~session_id ~vM:dom0 ~vDI:vdi () in
+    print_endline (Printf.sprintf "Plugging in to host %s" name) ;
+    Client.Client.VBD.plug ~rpc ~session_id ~self:vbd ;
+    let@ () = Xapi_stdext_pervasives.Pervasiveext.finally do_test in
+    print_endline (Printf.sprintf "Unplugging from host %s" name) ;
+    Client.Client.VBD.unplug ~rpc ~session_id ~self:vbd ;
+    print_endline "Destroying VBD" ;
+    Client.Client.VBD.destroy ~rpc ~session_id ~self:vbd
+  in
+  test_snapshot_on localhost ; do_test ()
 
 (** Make sure that VDI_CREATE; plug; VDI_DESTROY; VDI_CREATE; plug results in a device of
     the correct size in dom0.
@@ -321,15 +309,12 @@ let vdi_create_destroy_plug_checksize rpc session_id sr_info () =
   Client.Client.PBD.plug ~rpc ~session_id ~self:pbd ;
   print_endline
     (Printf.sprintf "Creating VDI with requested size: %Ld" small_size) ;
-  Qt.VDI.with_new rpc session_id ~virtual_size:small_size sr (fun small_vdi ->
-      print_endline
-        (Printf.sprintf "Creating VDI with requested size: %Ld" large_size) ;
-      Qt.VDI.with_new rpc session_id ~virtual_size:large_size sr
-        (fun large_vdi ->
-          plug_in_check_size rpc session_id host small_vdi |> ignore ;
-          plug_in_check_size rpc session_id host large_vdi |> ignore
-      )
-  )
+  let@ small_vdi = Qt.VDI.with_new rpc session_id ~virtual_size:small_size sr in
+  print_endline
+    (Printf.sprintf "Creating VDI with requested size: %Ld" large_size) ;
+  let@ large_vdi = Qt.VDI.with_new rpc session_id ~virtual_size:large_size sr in
+  plug_in_check_size rpc session_id host small_vdi |> ignore ;
+  plug_in_check_size rpc session_id host large_vdi |> ignore
 
 (** Make a VDI, find a host to put it on, create a VBD to dom0 on that host,
     Attach, Unattach, destroy VBD, destroy VDI *)
@@ -337,40 +322,37 @@ let vdi_general_test rpc session_id sr_info () =
   print_endline "VDI.create/copy/destroy test" ;
   let sr = sr_info.Qt.sr in
   let t = Unix.gettimeofday () in
-  Qt.VDI.with_new rpc session_id sr (fun newvdi ->
-      let createtime = Unix.gettimeofday () -. t in
-      print_endline (Printf.sprintf "Time to create: %f%!" createtime) ;
-      let pbd = List.hd (Client.Client.SR.get_PBDs ~rpc ~session_id ~self:sr) in
-      let host = Client.Client.PBD.get_host ~rpc ~session_id ~self:pbd in
-      let dom0 = Qt.VM.dom0_of_host rpc session_id host in
-      let device =
-        List.hd
-          (Client.Client.VM.get_allowed_VBD_devices ~rpc ~session_id ~vm:dom0)
+  let@ newvdi = Qt.VDI.with_new rpc session_id sr in
+  let createtime = Unix.gettimeofday () -. t in
+  print_endline (Printf.sprintf "Time to create: %f%!" createtime) ;
+  let pbd = List.hd (Client.Client.SR.get_PBDs ~rpc ~session_id ~self:sr) in
+  let host = Client.Client.PBD.get_host ~rpc ~session_id ~self:pbd in
+  let dom0 = Qt.VM.dom0_of_host rpc session_id host in
+  let device =
+    List.hd (Client.Client.VM.get_allowed_VBD_devices ~rpc ~session_id ~vm:dom0)
+  in
+  print_endline
+    (Printf.sprintf "Creating a VBD connecting the VDI to localhost%!") ;
+  let vbd =
+    Client.Client.VBD.create ~rpc ~session_id ~vM:dom0 ~vDI:newvdi
+      ~userdevice:device ~bootable:false ~mode:`RW ~_type:`Disk
+      ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:""
+      ~qos_algorithm_params:[] ~device:"" ~currently_attached:false
+  in
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () ->
+      let t = Unix.gettimeofday () in
+      print_endline (Printf.sprintf "Attempting to copy the VDI%!") ;
+      let newvdi2 =
+        Client.Client.VDI.copy ~rpc ~session_id ~vdi:newvdi ~sr
+          ~base_vdi:Ref.null ~into_vdi:Ref.null
       in
-      print_endline
-        (Printf.sprintf "Creating a VBD connecting the VDI to localhost%!") ;
-      let vbd =
-        Client.Client.VBD.create ~rpc ~session_id ~vM:dom0 ~vDI:newvdi
-          ~userdevice:device ~bootable:false ~mode:`RW ~_type:`Disk
-          ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:""
-          ~qos_algorithm_params:[] ~device:"" ~currently_attached:false
-      in
-      Xapi_stdext_pervasives.Pervasiveext.finally
-        (fun () ->
-          let t = Unix.gettimeofday () in
-          print_endline (Printf.sprintf "Attempting to copy the VDI%!") ;
-          let newvdi2 =
-            Client.Client.VDI.copy ~rpc ~session_id ~vdi:newvdi ~sr
-              ~base_vdi:Ref.null ~into_vdi:Ref.null
-          in
-          Qt.VDI.with_destroyed rpc session_id newvdi2 (fun () ->
-              let copytime = Unix.gettimeofday () -. t in
-              print_endline (Printf.sprintf "Time to copy: %f%!" copytime) ;
-              print_endline (Printf.sprintf "Destroying copied VDI%!")
-          )
-        )
-        (fun () -> Client.Client.VBD.destroy ~rpc ~session_id ~self:vbd)
-  )
+      let@ () = Qt.VDI.with_destroyed rpc session_id newvdi2 in
+      let copytime = Unix.gettimeofday () -. t in
+      print_endline (Printf.sprintf "Time to copy: %f%!" copytime) ;
+      print_endline (Printf.sprintf "Destroying copied VDI%!")
+    )
+    (fun () -> Client.Client.VBD.destroy ~rpc ~session_id ~self:vbd)
 
 let multiple_dom0_attach rpc session_id sr_info () =
   let rec loop vdi = function

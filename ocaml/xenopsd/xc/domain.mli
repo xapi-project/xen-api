@@ -242,6 +242,16 @@ val build :
   -> unit
 (** Restore a domain using the info provided *)
 
+val resume :
+     Xenops_task.Xenops_task.task_handle
+  -> xc:Xenctrl.handle
+  -> xs:Ezxenstore_core.Xenstore.Xs.xsh
+  -> qemu_domid:int
+  -> domain_type:[`hvm | `pv | `pvh]
+  -> domid
+  -> unit
+(** Fast resume *)
+
 val restore :
      Xenops_task.Xenops_task.task_handle
   -> xc:Xenctrl.handle

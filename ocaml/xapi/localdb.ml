@@ -64,17 +64,27 @@ exception Missing_key of string
 let m = Mutex.create ()
 
 let get (key : string) =
+  let __FUN = __FUNCTION__ in
+  let ( let* ) = Option.bind in
   with_lock m (fun () ->
-      assert_loaded () ;
-      match Hashtbl.find_opt db key with
-      | Some x ->
-          x
-      | None ->
-          raise (Missing_key key)
+      let* () =
+        try assert_loaded () ; Some ()
+        with e ->
+          warn "%s: unexpected error, ignoring it: %s" __FUN
+            (Printexc.to_string e) ;
+          None
+      in
+      Hashtbl.find_opt db key
   )
 
-let get_with_default (key : string) (default : string) =
-  try get key with Missing_key _ -> default
+let get_exn key =
+  match get key with Some x -> x | None -> raise (Missing_key key)
+
+let get_of_string of_string key = Option.bind (get key) of_string
+
+let get_bool key = get_of_string bool_of_string_opt key
+
+let get_int key = get_of_string int_of_string_opt key
 
 (* Returns true if a change was made and should be flushed *)
 let put_one (key : string) (v : string) =

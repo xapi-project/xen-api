@@ -250,7 +250,7 @@ let setup ~__context {master; slaves; ha_host_failures_to_tolerate; cluster} =
     let host = List.nth (Db.Host.get_all ~__context) i in
     Test_common.make_cluster_host ~__context ~host () |> ignore
   done ;
-  let pool = Db.Pool.get_all ~__context |> List.hd in
+  let pool = Helpers.get_pool ~__context in
   Db.Pool.set_master ~__context ~self:pool ~value:master_ref ;
   Db.Pool.set_ha_enabled ~__context ~self:pool ~value:true ;
   Db.Pool.set_ha_host_failures_to_tolerate ~__context ~self:pool

@@ -21,11 +21,6 @@ build:
 check:
 	dune build @check -j $(JOBS)
 
-coverage:
-	dune runtest --instrument-with bisect_ppx --force --profile=$(RELEASE) -j $(JOBS)
-	bisect-ppx-report html
-	bisect-ppx-report summary --per-file
-
 clean:
 	dune clean
 

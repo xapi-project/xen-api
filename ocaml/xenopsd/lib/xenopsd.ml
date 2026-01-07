@@ -70,6 +70,8 @@ let pvinpvh_xen_cmdline = ref "pv-shim console=xen"
 
 let numa_placement_compat = ref true
 
+let numa_best_effort_prio_mem_only = ref false
+
 (* O(N^2) operations, until we get a xenstore cache, so use a small number here *)
 let vm_guest_agent_xenstore_quota = ref 128
 
@@ -263,6 +265,13 @@ let options =
     , (fun () -> string_of_bool !numa_placement_compat)
     , "NUMA-aware placement of VMs (deprecated, use XAPI setting)"
     )
+  ; ( "numa-best-effort-prio-mem-only"
+    , Arg.Bool (fun x -> numa_best_effort_prio_mem_only := x)
+    , (fun () -> string_of_bool !numa_best_effort_prio_mem_only)
+    , "Revert to the previous 'best effort' NUMA policy, where we only \
+       filtered NUMA nodes based on available memory. Only use if there are \
+       issues with the new best effort policy"
+    )
   ; ( "pci-quarantine"
     , Arg.Bool (fun b -> pci_quarantine := b)
     , (fun () -> string_of_bool !pci_quarantine)
@@ -421,7 +430,9 @@ let handle_received_fd this_connection =
       in
       let do_receive fn =
         let context = {Xenops_server.transferred_fd= Some received_fd} in
-        let uri = Uri.of_string req.Xenops_migrate.Forwarded_http_request.uri in
+        let uri =
+          Uri.of_string req.Xenops_migrate.Forwarded_http_request.path
+        in
         let traceparent =
           List.assoc_opt "traceparent"
             req.Xenops_migrate.Forwarded_http_request.additional_headers
@@ -429,7 +440,7 @@ let handle_received_fd this_connection =
         fn uri req.Xenops_migrate.Forwarded_http_request.cookie traceparent
           this_connection context
       in
-      let uri = req.Xenops_migrate.Forwarded_http_request.uri in
+      let uri = req.Xenops_migrate.Forwarded_http_request.path in
       if has_prefix uri memory_prefix then
         do_receive Xenops_server.VM.receive_memory
       else if has_prefix uri migrate_vgpu_prefix then

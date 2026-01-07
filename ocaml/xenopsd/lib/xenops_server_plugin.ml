@@ -159,6 +159,8 @@ module type S = sig
       -> string list
       -> unit
 
+    val resume : Xenops_task.task_handle -> Vm.t -> unit
+
     val s3suspend : Xenops_task.task_handle -> Vm.t -> unit
 
     val s3resume : Xenops_task.task_handle -> Vm.t -> unit
