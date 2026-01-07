@@ -18,6 +18,8 @@ type t_trusted =
   | Root of API.certificate_purpose list
   | Pinned of API.certificate_purpose list
 
+type category = [`Root_legacy | `CRL | `Root | `Pinned]
+
 (* Information extraction *)
 
 val pem_of_string : string -> X509.Certificate.t
@@ -97,4 +99,9 @@ module Db_util : sig
     -> API.ref_Certificate list
 
   val get_ca_certs : __context:Context.t -> API.ref_Certificate list
+
+  val get_trusted_certs :
+       __context:Context.t
+    -> [`ca | `pinned]
+    -> (API.ref_Certificate * API.certificate_t) list
 end

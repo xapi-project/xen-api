@@ -35,6 +35,8 @@ type t_trusted =
   | Root of API.certificate_purpose list
   | Pinned of API.certificate_purpose list
 
+type category = [`Root_legacy | `CRL | `Root | `Pinned]
+
 let all_purposes = [] :: List.map (fun x -> [x]) API.certificate_purpose__all
 
 let all_trusted_kinds =
@@ -279,6 +281,11 @@ module Db_util : sig
     * of type [type'] belonging to [host] (the term 'host' is overloaded here) *)
 
   val get_ca_certs : __context:Context.t -> API.ref_Certificate list
+
+  val get_trusted_certs :
+       __context:Context.t
+    -> [`ca | `pinned]
+    -> (API.ref_Certificate * API.certificate_t) list
 end = struct
   module Date = Clock.Date
 
@@ -398,6 +405,17 @@ end = struct
       Eq (Field "type", Literal "ca")
     in
     Db.Certificate.get_refs_where ~__context ~expr
+
+  let get_trusted_certs ~__context cert_type =
+    let cert_type = Record_util.certificate_type_to_string cert_type in
+    let expr =
+      let open Xapi_database.Db_filter_types in
+      let type' = Eq (Field "type", Literal cert_type) in
+      (* Unlike Root_legacy, the Root and Pinned certificates are of empty names always *)
+      let name' = Eq (Field "name", Literal "") in
+      And (type', name')
+    in
+    Db.Certificate.get_records_where ~__context ~expr
 end
 
 let local_list kind =
