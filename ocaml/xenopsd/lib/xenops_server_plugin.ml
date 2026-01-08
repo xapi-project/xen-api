@@ -81,6 +81,7 @@ module type S = sig
     val create :
          Xenops_task.task_handle
       -> int64 option
+      -> int64 option
       -> Vm.t
       -> Vm.id option
       -> bool (* no_sharept*)

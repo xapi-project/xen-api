@@ -1730,8 +1730,8 @@ module VM = struct
         in
         (device_id, revision)
 
-  let create_exn task memory_upper_bound vm final_id no_sharept num_of_vbds
-      num_of_vifs =
+  let create_exn task memory_upper_bound memory_total_source vm final_id
+      no_sharept num_of_vbds num_of_vifs =
     let k = vm.Vm.id in
     with_xc_and_xs (fun xc xs ->
         (* Ensure the DB contains something for this VM - this is to avoid a
@@ -1808,7 +1808,7 @@ module VM = struct
                 match memory_upper_bound with
                 | Some x ->
                     debug "VM = %s; using memory_upper_bound = %Ld" vm.Vm.id x ;
-                    (x, x, Some x)
+                    (x, x, memory_total_source)
                 | None ->
                     if resuming then (
                       debug "VM = %s; using stored suspend_memory_bytes = %Ld"
