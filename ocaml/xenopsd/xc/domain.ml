@@ -1841,10 +1841,11 @@ let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~timeoffset ~extras
     match info.memory_total_source with
     | None ->
         memory
-    | Some bytes ->
-        let build_claim_pages = Memory.pages_of_bytes_used bytes in
-        debug "Domid %d: memory_total_source = %Ld bytes = %Ld pages" domid
-          bytes build_claim_pages ;
+    | Some kib ->
+        let build_claim_pages = Memory.pages_of_kib_used kib in
+        let bytes = Memory.bytes_of_kib kib in
+        debug "Domid %d: memory_total_source = %Ld bytes = %Ld KiB = %Ld pages"
+          domid bytes kib build_claim_pages ;
         Memory.{memory with build_claim_pages}
   in
   let store_port, console_port, numa_placements =
