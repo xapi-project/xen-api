@@ -131,6 +131,7 @@ let parse_header vhd_path =
 
 let send progress_cb ?relative_to (protocol : string) (dest_format : string)
     (s : Unix.file_descr) (path : string) (size : Int64.t) (prefix : string) =
+  let __FUN = __FUNCTION__ in
   let vhd_of_device =
     Xapi_vdi_helpers.backing_file_of_device_with_driver ~driver:"vhd"
   in
@@ -143,26 +144,29 @@ let send progress_cb ?relative_to (protocol : string) (dest_format : string)
         ( "nbdhybrid"
         , Printf.sprintf "%s:%s:%s:%Ld" path nbd_server exportname size
         )
-    | Some _, Some vhd, Some _ | None, Some vhd, _ ->
+    | Some _, Ok vhd, Some _ | None, Ok vhd, _ ->
         ("hybrid", path ^ ":" ^ vhd)
-    | None, None, None ->
+    | None, Error _, None ->
         ("raw", path)
-    | _, None, Some _ ->
+    | _, Error _, Some _ ->
         let msg = "Cannot compute differences on non-VHD images" in
         error "%s" msg ; failwith msg
   in
   let relative_to =
-    match relative_to with
-    | Some path -> (
+    let maybe_device path =
       match vhd_of_device path with
-      | Some vhd ->
+      | Ok vhd ->
           Some vhd
-      | None ->
-          error "base VDI is not a vhd; cannot compute differences" ;
-          failwith "base VDI is not a vhd; cannot compute differences"
-    )
-    | None ->
-        None
+      | Error e ->
+          let explanation = Xapi_vdi_helpers.backing_file_error_to_string e in
+          let msg =
+            Printf.sprintf
+              "%s: base VDI is not a vhd; cannot compute differences: %s" __FUN
+              explanation
+          in
+          error "%s" msg ; failwith msg
+    in
+    Option.bind relative_to maybe_device
   in
   let args =
     [

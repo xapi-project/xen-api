@@ -304,7 +304,8 @@ let send_one ofd (__context : Context.t) rpc session_id progress refresh_session
             Xapi_vdi_helpers.backing_info_of_device dom0_path
           in
           match backing_info with
-          | Some (driver, path) when driver = "vhd" || driver = "qcow2" -> (
+          | Ok (Some (driver, path)) when driver = "vhd" || driver = "qcow2"
+            -> (
             try
               (* Read backing file headers, then only read and write
                  allocated clusters from the bitmap *)

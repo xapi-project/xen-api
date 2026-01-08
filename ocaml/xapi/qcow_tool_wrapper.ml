@@ -48,10 +48,16 @@ let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
 
   (* If VDI is backed by QCOW, parse the header to determine nonzero clusters
      to avoid reading all of the raw disk *)
-  let input_fd = Option.map read_header qcow_path in
+  let input_fd = Result.map read_header qcow_path |> Result.to_option in
 
   (* Parse the header of the VDI we are diffing against as well *)
-  let relative_to_qcow_path = Option.bind relative_to qcow_of_device in
+  let relative_to_qcow_path =
+    match relative_to with
+    | Some x ->
+        Result.to_option (qcow_of_device x)
+    | None ->
+        None
+  in
   let diff_fd = Option.map read_header relative_to_qcow_path in
 
   let unique_string = Uuidx.(to_string (make ())) in
@@ -64,7 +70,7 @@ let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
       | Some _ ->
           ["--json-header-diff"; unique_string]
       )
-    @ match qcow_path with None -> [] | Some _ -> ["--json-header"]
+    @ match qcow_path with Error _ -> [] | Ok _ -> ["--json-header"]
   in
   let qcow_tool = !Xapi_globs.qcow_to_stdout in
   let replace_fds = Option.map (fun fd -> [(unique_string, fd)]) diff_fd in

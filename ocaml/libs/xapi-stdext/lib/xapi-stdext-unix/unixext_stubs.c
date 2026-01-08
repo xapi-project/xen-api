@@ -22,6 +22,7 @@
 #include <stdio.h> /* snprintf */
 #include <sys/ioctl.h>
 #include <sys/statvfs.h>
+#include <sys/sysmacros.h> /* needed for minor and major macros */
 #if defined(__linux__)
 # include <linux/fs.h> 
 #endif
@@ -169,4 +170,34 @@ CAMLprim value stub_statvfs(value filename)
   Store_field(v,10, caml_copy_int64(buf.f_namemax));
 
   CAMLreturn(v);
+}
+
+CAMLprim value stub_makedev(value majo, value mino)
+{
+  CAMLparam2(majo, mino);
+  long ret;
+
+  ret = makedev(Long_val(majo), Long_val(mino));
+          
+  CAMLreturn(Val_long(ret));
+}
+
+CAMLprim value stub_major(value dev)
+{
+  CAMLparam1(dev);
+  long ret;
+
+  ret = major(Long_val(dev));
+          
+  CAMLreturn(Val_long(ret));
+}
+
+CAMLprim value stub_minor(value dev)
+{
+  CAMLparam1(dev);
+  long ret;
+
+  ret = minor(Long_val(dev));
+          
+  CAMLreturn(Val_long(ret));
 }

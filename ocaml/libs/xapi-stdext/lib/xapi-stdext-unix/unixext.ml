@@ -1002,3 +1002,19 @@ let with_socket_timeout fd timeout_opt f =
       set_socket_timeout fd t ; Fun.protect ~finally f
   | None ->
       f ()
+
+module Stat = struct
+  type device = {major: int; minor: int}
+
+  let device ~major ~minor = Some {major; minor}
+
+  external makedev : int -> int -> int = "stub_makedev" [@@noalloc]
+
+  let encode_st_dev {major; minor} = makedev major minor
+
+  external get_major : int -> int = "stub_major" [@@noalloc]
+
+  external get_minor : int -> int = "stub_minor" [@@noalloc]
+
+  let decode_st_dev dev = {major= get_major dev; minor= get_minor dev}
+end
