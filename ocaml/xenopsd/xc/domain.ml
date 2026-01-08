@@ -150,6 +150,8 @@ type builder_spec_info =
 type build_info = {
     memory_max: int64  (** memory max in kilobytes *)
   ; memory_target: int64  (** memory target in kilobytes *)
+  ; memory_total_source: int64 option
+        (** amount of memory to claim (during migration) *)
   ; kernel: string  (** in hvm case, point to hvmloader *)
   ; vcpus: int  (** vcpus max *)
   ; priv: builder_spec_info
@@ -1123,9 +1125,14 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
               and cores =
                 Xenops_server.cores_of_numa_affinity_policy pin ~vcpus
               in
-              let memory =
-                Int64.(mul memory.build_start_mib (shift_left 1L 20))
+
+              let build_claim_bytes =
+                Memory.bytes_of_pages memory.build_claim_pages
               in
+              D.debug "VM = %s; domid = %d; will claim %Ld bytes = %Ld pages"
+                (Uuidx.to_string uuid) domid build_claim_bytes
+                memory.build_claim_pages ;
+              let memory = build_claim_bytes in
               match numa_placement domid ~vcpus ~cores ~memory affinity with
               | None ->
                   (* Always perform a global claim when NUMA placement is
@@ -1829,6 +1836,16 @@ let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~timeoffset ~extras
         let vm_stuff = [("rtc/timeoffset", timeoffset)] in
         maybe_ca_140252_workaround ~xc ~vcpus domid ;
         (memory, vm_stuff, `pvh)
+  in
+  let memory =
+    match info.memory_total_source with
+    | None ->
+        memory
+    | Some bytes ->
+        let build_claim_pages = Memory.pages_of_bytes_used bytes in
+        debug "Domid %d: memory_total_source = %Ld bytes = %Ld pages" domid
+          bytes build_claim_pages ;
+        Memory.{memory with build_claim_pages}
   in
   let store_port, console_port, numa_placements =
     build_pre ~xc ~xs ~memory ~vcpus ~hard_affinity:info.hard_affinity domid
