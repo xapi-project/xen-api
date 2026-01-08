@@ -2891,7 +2891,10 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
             Request.write (fun _ -> ()) request fd
           in
           do_request vm_fd
-            [("memory_limit", Int64.to_string state.Vm.memory_limit)]
+            [
+              ("memory_limit", Int64.to_string state.Vm.memory_limit)
+            ; ("memory_total_source", Int64.to_string state.Vm.memory_actual)
+            ]
             url ;
           let first_handshake () =
             ( match Handshake.recv vm_fd with
