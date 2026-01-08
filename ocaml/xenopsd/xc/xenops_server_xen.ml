@@ -1637,6 +1637,7 @@ module VM = struct
       {
         Domain.memory_max= vm.memory_static_max /// 1024L
       ; memory_target= vm.memory_dynamic_min /// 1024L
+      ; memory_total_source= None
       ; kernel= ""
       ; vcpus= vm.vcpu_max
       ; priv= builder_spec_info
@@ -1747,8 +1748,8 @@ module VM = struct
         in
         (device_id, revision)
 
-  let create_exn task memory_upper_bound vm final_id no_sharept num_of_vbds
-      num_of_vifs =
+  let create_exn task memory_upper_bound memory_total_source vm final_id
+      no_sharept num_of_vbds num_of_vifs =
     let k = vm.Vm.id in
     with_xc_and_xs (fun xc xs ->
         (* Ensure the DB contains something for this VM - this is to avoid a
@@ -1821,27 +1822,30 @@ module VM = struct
                  needed. If we are live migrating then we will only know an
                  upper bound. If we are starting from scratch then we have a
                  free choice. *)
-              let min_bytes, max_bytes =
+              let min_bytes, max_bytes, memory_total_source_bytes =
                 match memory_upper_bound with
                 | Some x ->
                     debug "VM = %s; using memory_upper_bound = %Ld" vm.Vm.id x ;
-                    (x, x)
+                    (x, x, memory_total_source)
                 | None ->
                     if resuming then (
                       debug "VM = %s; using stored suspend_memory_bytes = %Ld"
                         vm.Vm.id persistent.VmExtra.suspend_memory_bytes ;
                       ( persistent.VmExtra.suspend_memory_bytes
                       , persistent.VmExtra.suspend_memory_bytes
+                      , Some persistent.VmExtra.suspend_memory_bytes
                       )
                     ) else (
                       debug
                         "VM = %s; using memory_dynamic_min = %Ld and \
                          memory_dynamic_max = %Ld"
                         vm.Vm.id vm.memory_dynamic_min vm.memory_dynamic_max ;
-                      (vm.memory_dynamic_min, vm.memory_dynamic_max)
+                      (vm.memory_dynamic_min, vm.memory_dynamic_max, None)
                     )
               in
               let min_kib = kib_of_bytes_used (min_bytes +++ overhead_bytes)
+              and memory_total_source_kib =
+                Option.map kib_of_bytes_used memory_total_source_bytes
               and max_kib = kib_of_bytes_used (max_bytes +++ overhead_bytes) in
               (* XXX: we would like to be able to cancel an in-progress
                  with_reservation *)
@@ -1896,6 +1900,21 @@ module VM = struct
                       "VM = %s, memory target_bytes = %Ld, dynamic max = %Ld"
                       vm.Vm.id target_bytes vm.memory_dynamic_max ;
                     min vm.memory_dynamic_max target_bytes
+                  in
+                  let persistent =
+                    match persistent with
+                    | {VmExtra.build_info= Some x; _} as t ->
+                        {
+                          t with
+                          build_info=
+                            Some
+                              {
+                                x with
+                                memory_total_source= memory_total_source_kib
+                              }
+                        }
+                    | _ ->
+                        persistent
                   in
                   set_initial_target ~xs domid (Int64.div initial_target 1024L) ;
                   (* Log uses of obsolete option *)
@@ -2374,6 +2393,7 @@ module VM = struct
       {
         Domain.memory_max= static_max_kib
       ; memory_target= initial_target
+      ; memory_total_source= None
       ; kernel
       ; vcpus= vm.vcpu_max
       ; priv
