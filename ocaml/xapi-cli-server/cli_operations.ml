@@ -550,20 +550,18 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
             )
             all
         in
-        (* Filter on everything on the cmd line except params=... *)
         let filter_params =
-          List.filter
-            (fun (p, _) -> not (List.mem p ("params" :: stdparams)))
-            params
+          (* Add in the default filters *)
+          def_filters
+          @ List.filter
+              (fun (p, _) ->
+                (* Filter on everything on the cmd line except params=... *)
+                (not (List.mem p ("params" :: stdparams)))
+                (* Filter out all params beginning with "database:" *)
+                && not (Astring.String.is_prefix ~affix:"database:" p)
+              )
+              params
         in
-        (* Filter out all params beginning with "database:" *)
-        let filter_params =
-          List.filter
-            (fun (p, _) -> not (Astring.String.is_prefix ~affix:"database:" p))
-            filter_params
-        in
-        (* Add in the default filters *)
-        let filter_params = def_filters @ filter_params in
         (* Filter all the records *)
         let records =
           List.fold_left filter_records_on_fields all_recs filter_params
@@ -573,22 +571,20 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
           select_fields params
             (if print_all then all_recs else records)
             def_list_params
-        in
-        let print_params =
-          List.map
-            (fun fields -> List.filter (fun field -> not field.hidden) fields)
-            print_params
-        in
-        let print_params =
-          List.map
-            (fun fields ->
-              List.map
-                (fun field ->
-                  if field.expensive then makeexpensivefield field else field
+          (* Hide hidden fields, redact expensive fields *)
+          |> List.map
+               (List.filter_map (fun field ->
+                    if field.hidden then
+                      None
+                    else
+                      Some
+                        ( if field.expensive then
+                            makeexpensivefield field
+                          else
+                            field
+                        )
                 )
-                fields
-            )
-            print_params
+               )
         in
         printer
           (Cli_printer.PTable (List.map (List.map print_field) print_params))
@@ -1427,6 +1423,28 @@ let message_destroy (_ : printer) rpc session_id params =
     |> List.map (fun uuid -> Client.Message.get_by_uuid ~rpc ~session_id ~uuid)
   in
   Client.Message.destroy_many ~rpc ~session_id ~messages
+
+let message_destroy_all (_ : printer) rpc session_id params =
+  let fail msg = raise (Cli_util.Cli_failure msg) in
+  let before_str = List.assoc_opt "before" params in
+  let after_str = List.assoc_opt "after" params in
+  let priority_str = List.assoc_opt "priority" params in
+  let before =
+    try
+      Option.map Date.of_iso8601 before_str
+      |> Option.value ~default:(Date.of_ptime Ptime.max)
+      (* Default value is Ptime.max - everything is before it *)
+    with _ -> fail "invalid timestamp format for 'before' (expected RFC3339)"
+  in
+  let after =
+    try Option.map Date.of_iso8601 after_str |> Option.value ~default:Date.epoch
+    with _ -> fail "Invalid timestamp format for 'after' (expected RFC3339)"
+  in
+  let priority =
+    try Option.map Int64.of_string priority_str |> Option.value ~default:(-1L)
+    with _ -> fail "Invalid priority format (expected integer)"
+  in
+  Client.Message.destroy_all ~rpc ~session_id ~before ~after ~priority
 
 (* Pool operations *)
 
