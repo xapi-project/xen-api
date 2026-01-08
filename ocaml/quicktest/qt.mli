@@ -53,6 +53,7 @@ module VM : sig
        rpc
     -> API.ref_session
     -> template:API.ref_VM
+    -> ?iso:API.vDI_t
     -> ?sr:API.ref_SR
     -> (API.ref_VM -> 'a)
     -> 'a

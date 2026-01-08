@@ -118,22 +118,20 @@ module VM = struct
     let other = "Other install media"
 
     let find rpc session_id startswith =
-      let vms = Client.Client.VM.get_all ~rpc ~session_id in
+      let vms = Client.Client.VM.get_all_records ~rpc ~session_id in
       match
         List.filter
-          (fun self ->
-            String.starts_with ~prefix:startswith
-              (Client.Client.VM.get_name_label ~rpc ~session_id ~self)
-            && Client.Client.VM.get_is_a_template ~rpc ~session_id ~self
+          (fun (_, self) ->
+            String.starts_with ~prefix:startswith self.API.vM_name_label
+            && self.API.vM_is_a_template
           )
           vms
       with
       | [] ->
           None
-      | x :: _ ->
-          Printf.printf "Choosing template with name: %s\n"
-            (Client.Client.VM.get_name_label ~rpc ~session_id ~self:x) ;
-          Some x
+      | (r, vm) :: _ ->
+          Printf.printf "Choosing template with name: %s\n" vm.API.vM_name_label ;
+          Some r
   end
 
   let install rpc session_id ~template ~name ?sr () =
@@ -152,16 +150,29 @@ module VM = struct
       cmd @ Option.fold ~none:[] ~some:(fun x -> ["sr-uuid=" ^ x]) sr_uuid
     in
     let newvm_uuid = cli_cmd cmd in
-    Client.Client.VM.get_by_uuid ~rpc ~session_id ~uuid:newvm_uuid
+    (newvm_uuid, Client.Client.VM.get_by_uuid ~rpc ~session_id ~uuid:newvm_uuid)
 
   let uninstall rpc session_id vm =
     let uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:vm in
     cli_cmd ["vm-uninstall"; "uuid=" ^ uuid; "--force"] |> ignore
 
-  let with_new rpc session_id ~template ?sr f =
-    let vm =
+  let with_new rpc session_id ~template ?iso ?sr f =
+    let uuid, vm =
       install rpc session_id ~template ~name:"temp_quicktest_vm" ?sr ()
     in
+    iso
+    |> Option.iter (fun iso ->
+           let (_ : string) =
+             cli_cmd
+               [
+                 "vm-cd-add"
+               ; "uuid=" ^ uuid
+               ; "cd-name=" ^ iso.API.vDI_name_label
+               ; "device=0"
+               ]
+           in
+           ()
+       ) ;
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () -> f vm)
       (fun () -> uninstall rpc session_id vm)

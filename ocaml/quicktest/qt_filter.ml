@@ -17,11 +17,12 @@ let vdi_count = Hashtbl.create 4
 let count_vdis rpc session_id sr =
   Client.Client.SR.scan ~rpc ~session_id ~sr ;
   let managed_vdis =
-    Client.Client.SR.get_VDIs ~rpc ~session_id ~self:sr
+    let expr =
+      Printf.sprintf {|field "SR"="%s" and field "managed" = "true"|}
+        (Ref.string_of sr)
+    in
+    Client.Client.VDI.get_all_records_where ~rpc ~session_id ~expr
     (* NB vhd backends may delete records beneath us *)
-    |> Valid_ref_list.filter (fun vdi ->
-           Client.Client.VDI.get_managed ~rpc ~session_id ~self:vdi
-       )
   in
   List.length managed_vdis
 
@@ -47,7 +48,14 @@ let init () =
   Client.Client.SR.get_all_records ~rpc:!A.rpc ~session_id:!session_id
   |> List.iter (fun (ref, sr) ->
          if test_sr_uuid = "" || sr.API.sR_uuid = test_sr_uuid then
-           if List.mem `scan sr.API.sR_allowed_operations then
+           if
+             List.(
+               mem `scan sr.API.sR_allowed_operations
+               && (mem `vdi_create sr.API.sR_allowed_operations
+                  || mem `vdi_destroy sr.API.sR_allowed_operations
+                  )
+             )
+           then
              let before = count_vdis !A.rpc !session_id ref in
              Hashtbl.add vdi_count sr.API.sR_uuid before
      )
@@ -61,7 +69,14 @@ let finish () =
          match Hashtbl.find_opt vdi_count sr.API.sR_uuid with
          | Some before ->
              if test_sr_uuid = "" || sr.API.sR_uuid = test_sr_uuid then
-               if List.mem `scan sr.API.sR_allowed_operations then
+               if
+                 List.(
+                   mem `scan sr.API.sR_allowed_operations
+                   && (mem `vdi_create sr.API.sR_allowed_operations
+                      || mem `vdi_destroy sr.API.sR_allowed_operations
+                      )
+                 )
+               then
                  let after = count_vdis !A.rpc !session_id ref in
                  if after <> before then
                    failwith
@@ -241,6 +256,13 @@ module SR = struct
         <> "iso"
     )
 
+  let is_iso =
+    sr_filter (fun sr_info ->
+        Client.Client.SR.get_content_type ~rpc:!A.rpc ~session_id:!session_id
+          ~self:sr_info.Qt.sr
+        = "iso"
+    )
+
   let is_empty = function [] -> true | _ :: _ -> false
 
   let with_any_vdi =
@@ -248,10 +270,11 @@ module SR = struct
         List.mem `vdi_create sr_info.Qt.allowed_operations
         && List.mem `vdi_destroy sr_info.Qt.allowed_operations
         || not
-             (is_empty
+             (Seq.is_empty
                 (Client.Client.SR.get_VDIs ~rpc:!A.rpc ~session_id:!session_id
                    ~self:sr_info.Qt.sr
-                |> List.filter (fun vdi ->
+                |> List.to_seq
+                |> Seq.filter (fun vdi ->
                        not
                          (Client.Client.VDI.get_missing ~rpc:!A.rpc
                             ~session_id:!session_id ~self:vdi
@@ -330,9 +353,10 @@ module SR = struct
   let list_srs srs = with_xapi_query srs
 
   let f srs tcs =
-    for_each
-      (fun test_case -> List.map (specialise test_case) (list_srs srs))
-      tcs
+    let srs = list_srs srs in
+    if srs = [] then
+      Printf.eprintf "No SRs found that match condition\n" ;
+    for_each (fun test_case -> List.map (specialise test_case) srs) tcs
 end
 
 let sr = SR.f
@@ -342,6 +366,7 @@ let vm_template template_name =
       with_xapi_query @@ fun () ->
       match Qt.VM.Template.find !A.rpc !session_id template_name with
       | None ->
+          Printf.eprintf "Template not found: %S\n" template_name ;
           []
       | Some vm_template ->
           [(name, speed, test vm_template)]
