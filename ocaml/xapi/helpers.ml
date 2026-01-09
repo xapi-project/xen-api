@@ -2637,3 +2637,10 @@ let set_map_with_rbac ~__context ~self ~value ~get_fn ~set_fn ~match_protected
         (Rbac.disallowed_permission_exn ~extra_dmsg ~extra_msg ~__context
            ~permission:disallowed ~action
         )
+let ldaps_enabled_in_config ~config =
+  match List.assoc_opt "ldaps" config with
+  (* Default to false, true iff v = true (case-insensitive) *)
+  | Some v when bool_of_string_opt (String.lowercase_ascii v) = Some true ->
+      true
+  | _ ->
+      false
