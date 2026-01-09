@@ -650,6 +650,14 @@ functor
           Ref.string_of observer
       with _ -> "invalid"
 
+    let certificate_uuid ~__context certificate =
+      try
+        if Pool_role.is_master () then
+          Db.Certificate.get_uuid ~__context ~self:certificate
+        else
+          Ref.string_of certificate
+      with _ -> "invalid"
+
     module Session = struct
       include Local.Session
 
@@ -1201,6 +1209,22 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_ssh_auto_mode ~__context ~self ~value
+
+      let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose =
+        info "Pool.install_trusted_certificate: pool='%s' ca='%b' purpose=[%s]"
+          (pool_uuid ~__context self)
+          ca
+          (List.map Record_util.certificate_purpose_to_string purpose
+          |> String.concat "; "
+          ) ;
+        Local.Pool.install_trusted_certificate ~__context ~self ~ca ~cert
+          ~purpose
+
+      let uninstall_trusted_certificate ~__context ~self ~certificate =
+        info "Pool.uninstall_trusted_certificate: pool='%s' certificate='%s'"
+          (pool_uuid ~__context self)
+          (certificate_uuid ~__context certificate) ;
+        Local.Pool.uninstall_trusted_certificate ~__context ~self ~certificate
     end
 
     module VM = struct
@@ -4199,6 +4223,46 @@ functor
           let local_fn = Local.Host.set_servertime ~self ~value in
           let remote_fn = Client.Host.set_servertime ~self ~value in
           do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let list_trusted_certificates ~__context ~host ~ca =
+        info "Host.list_trusted_certificates: host = '%s'; ca = '%b'"
+          (host_uuid ~__context host)
+          ca ;
+        let local_fn = Local.Host.list_trusted_certificates ~host ~ca in
+        let remote_fn = Client.Host.list_trusted_certificates ~host ~ca in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
+
+      let install_trusted_certificate ~__context ~host ~ca ~name ~cert ~purpose
+          =
+        info
+          "Host.install_trusted_certificate: host = '%s'; ca = '%b'; name = \
+           '%s'; purpose = [%s]"
+          (host_uuid ~__context host)
+          ca name
+          (List.map Record_util.certificate_purpose_to_string purpose
+          |> String.concat "; "
+          ) ;
+        let local_fn =
+          Local.Host.install_trusted_certificate ~host ~ca ~name ~cert ~purpose
+        in
+        let remote_fn =
+          Client.Host.install_trusted_certificate ~host ~ca ~name ~cert ~purpose
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
+
+      let uninstall_trusted_certificate ~__context ~host ~ca ~name ~force =
+        info
+          "Host.uninstall_trusted_certificate: host = '%s'; ca = '%b'; name = \
+           '%s'; force = '%b'"
+          (host_uuid ~__context host)
+          ca name force ;
+        let local_fn =
+          Local.Host.uninstall_trusted_certificate ~host ~ca ~name ~force
+        in
+        let remote_fn =
+          Client.Host.uninstall_trusted_certificate ~host ~ca ~name ~force
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
     end
 
     module Host_crashdump = struct

@@ -1938,6 +1938,72 @@ let refresh_server_certificate =
     ~params:[(Ref _host, "host", "The host")]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let list_trusted_certificates =
+  call ~flags:[`Session] ~pool_internal:true ~hide_from_docs:true
+    ~name:"list_trusted_certificates"
+    ~doc:
+      "List the file names of all installed TLS trusted certificates on the \
+       host."
+    ~params:
+      [
+        (Ref _host, "host", "The host.")
+      ; ( Bool
+        , "ca"
+        , "The trusted certificates are root CA certificates used to verify \
+           chains (true), or leaf certificates used for certificate pinning \
+           (false)."
+        )
+      ]
+    ~result:
+      ( Set String
+      , "All root CA certificates used to verify chains when ca = true, or all \
+         leaf certificates used for certificate pinning when ca = false."
+      )
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY ~lifecycle:[] ()
+
+let install_trusted_certificate =
+  call ~flags:[`Session] ~pool_internal:true ~hide_from_docs:true
+    ~name:"install_trusted_certificate"
+    ~doc:"Install a TLS trusted certificate on this host."
+    ~params:
+      [
+        (Ref _host, "host", "The host.")
+      ; ( Bool
+        , "ca"
+        , "The trusted certificate is a root CA certificate used to verify a \
+           chain (true), or a leaf certificate used for certificate pinning \
+           (false)."
+        )
+      ; (String, "name", "The file name of the certificate.")
+      ; (String, "cert", "The certificate in PEM format.")
+      ; ( Set Datamodel_certificate.certificate_purpose
+        , "purpose"
+        , "The purpose of the certificate."
+        )
+      ]
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY ~lifecycle:[] ()
+
+let uninstall_trusted_certificate =
+  call ~flags:[`Session] ~pool_internal:true ~hide_from_docs:true
+    ~name:"uninstall_trusted_certificate"
+    ~doc:"Remove a TLS trusted certificate from this host."
+    ~params:
+      [
+        (Ref _host, "host", "The host.")
+      ; ( Bool
+        , "ca"
+        , "The trusted certificate is a root CA certificate used to verify a \
+           chain (true), or a leaf certificate used for certificate pinning \
+           (false)"
+        )
+      ; (String, "name", "The file name of the certificate.")
+      ; ( Bool
+        , "force"
+        , "If true, return success even if the file doesn't exist."
+        )
+      ]
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY ~lifecycle:[] ()
+
 let display =
   Enum
     ( "host_display"
@@ -2897,6 +2963,9 @@ let t =
       ; list_timezones
       ; get_ntp_synchronized
       ; set_servertime
+      ; list_trusted_certificates
+      ; install_trusted_certificate
+      ; uninstall_trusted_certificate
       ]
     ~contents:
       ([

@@ -2152,7 +2152,7 @@ end = struct
       raise e
 end
 
-let update_ca_bundle =
+let update_pool_bundle =
   (* it is not safe for multiple instances of this bash script to be
    * running at the same time, so we must lock it.
    *
@@ -2161,10 +2161,12 @@ let update_ca_bundle =
   let m = Mutex.create () in
   fun () ->
     with_lock m (fun () ->
-        ignore
-          (Forkhelpers.execute_command_get_output
-             "/opt/xensource/bin/update-ca-bundle.sh" []
-          )
+        let (_ : string), (_ : string) =
+          Forkhelpers.execute_command_get_output
+            "/opt/xensource/bin/update-ca-bundle.sh"
+            ["/etc/stunnel/certs-pool"; "/etc/stunnel/xapi-pool-ca-bundle.pem"]
+        in
+        ()
     )
 
 let external_certificate_thumbprint_of_master ~hash_type =

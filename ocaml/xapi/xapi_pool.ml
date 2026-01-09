@@ -1578,9 +1578,9 @@ let certificate_install ~__context ~name ~cert =
     | Ok x ->
         x
   in
-  pool_install CA_Certificate ~__context ~name ~cert ;
-  let (_ : API.ref_Certificate) =
-    Db_util.add_cert ~__context ~type':(`ca name) certificate
+  pool_install CA_Certificate ~__context ~name ~cert ~purpose:[] ;
+  let (_ : API.ref_Certificate), _ =
+    Db_util.add_cert ~__context ~type':(`ca name) ~purpose:[] certificate
   in
   ()
 
@@ -1588,23 +1588,28 @@ let install_ca_certificate = certificate_install
 
 let uninstall_ca_certificate ~__context ~name ~force =
   let open Certificates in
-  pool_uninstall CA_Certificate ~__context ~name ~force ;
+  pool_uninstall CA_Certificate ~__context ~name ~purpose:[] ~force ;
   Db_util.remove_ca_cert_by_name ~__context name
 
 let certificate_uninstall = uninstall_ca_certificate ~force:false
 
 let certificate_list ~__context =
   let open Certificates in
-  Db_util.get_ca_certs ~__context
-  |> List.map @@ fun self -> Db.Certificate.get_name ~__context ~self
+  List.concat
+    [
+      list_names ~__context CA_Certificate |> List.map fst
+    ; list_names ~__context Root_CA |> List.map fst
+    ; list_names ~__context Leaf_Pinned |> List.map fst
+    ]
 
-let crl_install = Certificates.(pool_install CRL)
+let crl_install = Certificates.(pool_install CRL ~purpose:[])
 
-let crl_uninstall = Certificates.(pool_uninstall CRL ~force:false)
+let crl_uninstall = Certificates.(pool_uninstall CRL ~purpose:[] ~force:false)
 
-let crl_list ~__context = Certificates.(local_list CRL)
+let crl_list ~__context =
+  Certificates.(list_names ~__context CRL) |> List.map fst
 
-let certificate_sync = Certificates.pool_sync
+let certificate_sync ~__context = Certificates.pool_sync ~__context []
 
 let join_common ~__context ~master_address ~master_username ~master_password
     ~force =
@@ -4197,3 +4202,52 @@ let set_ssh_enabled_timeout = Ssh.set_enabled_timeout
 let set_console_idle_timeout = Ssh.set_console_timeout
 
 let set_ssh_auto_mode = Ssh.set_ssh_auto_mode
+
+let install_trusted_certificate ~__context ~self:_ ~ca ~cert ~purpose =
+  let open Certificates in
+  let certificate =
+    let open Api_errors in
+    match
+      Gencertlib.Lib.validate_not_expired cert
+        ~error_not_yet:trusted_certificate_not_valid_yet
+        ~error_expired:trusted_certificate_expired
+        ~error_invalid:trusted_certificate_invalid
+    with
+    | Error e ->
+        raise e
+    | Ok x ->
+        x
+  in
+  let cert_type, kind =
+    match (ca, purpose = []) with
+    | true, _ ->
+        (`ca "", Root_CA)
+    | false, false ->
+        (`pinned, Leaf_Pinned)
+    | false, true ->
+        raise Api_errors.(Server_error (certificate_lacks_purpose, []))
+  in
+  let (_ : API.ref_Certificate), uuid =
+    Db_util.add_cert ~__context ~type':cert_type ~purpose certificate
+  in
+  let name = Certificates.name_of_uuid uuid in
+  pool_install kind ~__context ~name ~cert ~purpose ;
+  ()
+
+let uninstall_trusted_certificate ~__context ~self:_ ~certificate =
+  let open Certificates in
+  let cert_rec = Db.Certificate.get_record ~__context ~self:certificate in
+  let kind =
+    match cert_rec.API.certificate_type with
+    | `ca ->
+        Root_CA
+    | `pinned ->
+        Leaf_Pinned
+    | _ ->
+        raise Api_errors.(Server_error (not_trusted_certificate, []))
+  in
+  let name = Certificates.name_of_uuid cert_rec.API.certificate_uuid in
+  let purpose = cert_rec.API.certificate_purpose in
+  Db_util.remove_cert_by_ref ~__context certificate ;
+  pool_uninstall kind ~__context ~name ~purpose ~force:true ;
+  ()

@@ -12,7 +12,7 @@
    GNU Lesser General Public License for more details.
  *)
 
-type t_trusted = CA_Certificate | CRL
+type t_trusted = CA_Certificate | CRL | Root_CA | Leaf_Pinned
 
 (* Information extraction *)
 
@@ -29,17 +29,22 @@ val hostnames_of_pem_cert :
 
 val local_list : t_trusted -> string list
 
+val list_names :
+     __context:Context.t
+  -> t_trusted
+  -> (string * API.certificate_purpose list) list
+
 val get_server_certificate : unit -> string
 
 val get_internal_server_certificate : unit -> string
 
 (* Keeping CA roots updated in the filesystem *)
 
-val update_ca_bundle : unit -> unit
+val update_pool_bundle : unit -> unit
 
 val local_sync : unit -> unit
 
-val pool_sync : __context:Context.t -> unit
+val pool_sync : __context:Context.t -> t_trusted list -> unit
 
 (* Certificate installation to filesystem *)
 
@@ -50,15 +55,37 @@ val install_server_certificate :
   -> path:string
   -> X509.Certificate.t
 
-val host_install : t_trusted -> name:string -> cert:string -> unit
+val host_install :
+     t_trusted
+  -> name:string
+  -> cert:string
+  -> purpose:API.certificate_purpose list
+  -> unit
 
-val host_uninstall : t_trusted -> name:string -> force:bool -> unit
+val host_uninstall :
+     t_trusted
+  -> name:string
+  -> purpose:API.certificate_purpose list
+  -> force:bool
+  -> unit
 
 val pool_install :
-  t_trusted -> __context:Context.t -> name:string -> cert:string -> unit
+     t_trusted
+  -> __context:Context.t
+  -> name:string
+  -> cert:string
+  -> purpose:API.certificate_purpose list
+  -> unit
 
 val pool_uninstall :
-  t_trusted -> __context:Context.t -> name:string -> force:bool -> unit
+     t_trusted
+  -> __context:Context.t
+  -> name:string
+  -> purpose:API.certificate_purpose list
+  -> force:bool
+  -> unit
+
+val name_of_uuid : string -> string
 
 (* Database manipulation *)
 
@@ -68,9 +95,11 @@ module Db_util : sig
     -> type':
          [< `ca of string
          | `host of API.ref_host
-         | `host_internal of API.ref_host ]
+         | `host_internal of API.ref_host
+         | `pinned ]
+    -> purpose:API.certificate_purpose list
     -> X509.Certificate.t
-    -> API.ref_Certificate
+    -> API.ref_Certificate * string
 
   val remove_cert_by_ref : __context:Context.t -> API.ref_Certificate -> unit
 
@@ -83,4 +112,9 @@ module Db_util : sig
     -> API.ref_Certificate list
 
   val get_ca_certs : __context:Context.t -> API.ref_Certificate list
+
+  val get_trusted_certs :
+       __context:Context.t
+    -> [`ca | `pinned]
+    -> (API.ref_Certificate * API.certificate_t) list
 end

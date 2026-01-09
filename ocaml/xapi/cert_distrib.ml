@@ -233,7 +233,7 @@ end = struct
         pool_certs_bk (Printexc.to_string e)
 
   let regen_bundle ~__context =
-    Helpers.update_ca_bundle () ;
+    Helpers.update_pool_bundle () ;
     let host = Helpers.get_localhost ~__context in
     match Xapi_clustering.find_cluster_host ~__context ~host with
     | None ->
@@ -585,8 +585,8 @@ let exchange_ca_certificates_with_joiner ~__context ~import ~export =
   Worker.local_regen_bundle ~__context ;
   List.iter
     (fun (name, cert) ->
-      let (_ : API.ref_Certificate) =
-        C.Db_util.add_cert ~__context ~type':(`ca name) cert
+      let (_ : API.ref_Certificate), _ =
+        C.Db_util.add_cert ~__context ~type':(`ca name) ~purpose:[] cert
       in
       ()
     )

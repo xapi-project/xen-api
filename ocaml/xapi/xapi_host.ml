@@ -1572,20 +1572,20 @@ let get_uncooperative_domains ~__context ~self:_ = []
 
 let install_ca_certificate ~__context ~host:_ ~name ~cert =
   (* don't modify db - Pool.install_ca_certificate will handle that *)
-  Certificates.(host_install CA_Certificate ~name ~cert)
+  Certificates.(host_install CA_Certificate ~name ~cert ~purpose:[])
 
 let uninstall_ca_certificate ~__context ~host:_ ~name ~force =
   (* don't modify db - Pool.uninstall_ca_certificate will handle that *)
-  Certificates.(host_uninstall CA_Certificate ~name ~force)
+  Certificates.(host_uninstall CA_Certificate ~name ~purpose:[] ~force)
 
 let certificate_list ~__context ~host:_ =
   Certificates.(local_list CA_Certificate)
 
 let crl_install ~__context ~host:_ ~name ~crl =
-  Certificates.(host_install CRL ~name ~cert:crl)
+  Certificates.(host_install CRL ~name ~cert:crl ~purpose:[])
 
 let crl_uninstall ~__context ~host:_ ~name =
-  Certificates.(host_uninstall CRL ~name ~force:false)
+  Certificates.(host_uninstall CRL ~name ~purpose:[] ~force:false)
 
 let crl_list ~__context ~host:_ = Certificates.(local_list CRL)
 
@@ -1610,12 +1610,13 @@ let replace_host_certificate ~__context ~type' ~host
   with_cert_lock @@ fun () ->
   let old_certs = Db_util.get_host_certs ~__context ~type' ~host in
   let new_cert = write_cert_fs () in
-  let (_ : API.ref_Certificate) =
+  let (_ : API.ref_Certificate), _ =
     match type' with
     | `host ->
-        Db_util.add_cert ~__context ~type':(`host host) new_cert
+        Db_util.add_cert ~__context ~type':(`host host) ~purpose:[] new_cert
     | `host_internal ->
-        Db_util.add_cert ~__context ~type':(`host_internal host) new_cert
+        Db_util.add_cert ~__context ~type':(`host_internal host) ~purpose:[]
+          new_cert
   in
   List.iter (Db_util.remove_cert_by_ref ~__context) old_certs ;
   let task = Context.get_task_id __context in
@@ -3617,3 +3618,20 @@ let set_servertime ~__context ~self ~value =
         raise (Invalid_argument "Missing timezone offset in value")
   with e ->
     Helpers.internal_error "%s: %s" __FUNCTION__ (ExnHelper.string_of_exn e)
+
+let list_trusted_certificates ~__context ~host:_ ~ca =
+  Certificates.local_list (if ca then Root_CA else Leaf_Pinned)
+
+let install_trusted_certificate ~__context ~host:_ ~ca ~name ~cert ~purpose =
+  Certificates.host_install ~purpose
+    (if ca then Root_CA else Leaf_Pinned)
+    ~name ~cert
+
+let uninstall_trusted_certificate ~__context ~host:_ ~ca ~name ~force =
+  List.iter
+    (fun purpose ->
+      Certificates.host_uninstall ~purpose
+        (if ca then Root_CA else Leaf_Pinned)
+        ~name ~force
+    )
+    ([] :: List.map (fun x -> [x]) API.certificate_purpose__all)

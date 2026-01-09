@@ -257,7 +257,7 @@ val crl_install : __context:Context.t -> name:string -> cert:string -> unit
 
 val crl_uninstall : __context:Context.t -> name:string -> unit
 
-val crl_list : __context:'a -> string list
+val crl_list : __context:Context.t -> string list
 
 val certificate_sync : __context:Context.t -> unit
 
@@ -446,3 +446,17 @@ val set_console_idle_timeout :
 
 val set_ssh_auto_mode :
   __context:Context.t -> self:API.ref_pool -> value:bool -> unit
+
+val install_trusted_certificate :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> ca:bool
+  -> cert:string
+  -> purpose:API.certificate_purpose list
+  -> unit
+
+val uninstall_trusted_certificate :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> certificate:API.ref_Certificate
+  -> unit

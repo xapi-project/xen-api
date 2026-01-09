@@ -642,3 +642,23 @@ val get_ntp_synchronized : __context:Context.t -> self:API.ref_host -> bool
 
 val set_servertime :
   __context:Context.t -> self:API.ref_host -> value:Clock.Date.t -> unit
+
+val list_trusted_certificates :
+  __context:Context.t -> host:API.ref_host -> ca:bool -> string list
+
+val install_trusted_certificate :
+     __context:Context.t
+  -> host:API.ref_host
+  -> ca:bool
+  -> name:string
+  -> cert:string
+  -> purpose:API.certificate_purpose list
+  -> unit
+
+val uninstall_trusted_certificate :
+     __context:Context.t
+  -> host:API.ref_host
+  -> ca:bool
+  -> name:string
+  -> force:bool
+  -> unit
