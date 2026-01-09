@@ -341,6 +341,15 @@ end = struct
     in
     let fingerprint_sha256 = pp_fingerprint ~hash_type:`SHA256 certificate in
     let fingerprint_sha1 = pp_fingerprint ~hash_type:`SHA1 certificate in
+    let expr =
+      let open Xapi_database.Db_filter_types in
+      let type' = Record_util.certificate_type_to_string _type in
+      let type' = Eq (Field "type", Literal type') in
+      let fingerprint_sha256 = Eq (Field "type", Literal fingerprint_sha256) in
+      And (type', fingerprint_sha256)
+    in
+    if Db.Certificate.get_refs_where ~__context ~expr <> [] then
+      raise_server_error [name] certificate_already_exists ;
     let uuid = Uuidx.(to_string (make ())) in
     let ref' = Ref.make () in
     Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
