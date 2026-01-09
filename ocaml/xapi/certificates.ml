@@ -235,6 +235,12 @@ end = struct
     debug "deleting cert ref=%s from the database" (Ref.string_of self) ;
     Db.Certificate.destroy ~__context ~self
 
+  module PurposeSet = Set.Make (struct
+    type t = API.certificate_purpose
+
+    let compare = Stdlib.compare
+  end)
+
   let add_cert ~__context ~type' ~purpose certificate =
     let name, host, _type, post_action =
       match type' with
@@ -260,6 +266,27 @@ end = struct
     in
     let fingerprint_sha256 = pp_fingerprint ~hash_type:`SHA256 certificate in
     let fingerprint_sha1 = pp_fingerprint ~hash_type:`SHA1 certificate in
+    let expr =
+      let open Xapi_database.Db_filter_types in
+      let type' = Record_util.certificate_type_to_string _type in
+      let type' = Eq (Field "type", Literal type') in
+      let fingerprint_sha256 =
+        Eq (Field "fingerprint_sha256", Literal fingerprint_sha256)
+      in
+      And (type', fingerprint_sha256)
+    in
+    Db.Certificate.get_records_where ~__context ~expr
+    |> List.filter (fun (_, cert_rec) -> cert_rec.API.certificate_name = "")
+    |> List.filter (fun (_, cert_rec) ->
+        let open PurposeSet in
+        let s1 = of_list purpose in
+        let s2 = of_list cert_rec.API.certificate_purpose in
+        equal s1 s2 || not (is_empty (inter s1 s2))
+    )
+    |> List.iter (fun _ ->
+        raise_server_error [fingerprint_sha256]
+          trusted_certificate_already_exists
+    ) ;
     let uuid = Uuidx.(to_string (make ())) in
     let ref' = Ref.make () in
     Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
