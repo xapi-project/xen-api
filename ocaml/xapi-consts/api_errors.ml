@@ -1116,6 +1116,9 @@ let certificate_does_not_exist = add_error "CERTIFICATE_DOES_NOT_EXIST"
 
 let certificate_already_exists = add_error "CERTIFICATE_ALREADY_EXISTS"
 
+let trusted_certificate_already_exists =
+  add_error "TRUSTED_CERTIFICATE_ALREADY_EXISTS"
+
 let certificate_name_invalid = add_error "CERTIFICATE_NAME_INVALID"
 
 let certificate_corrupt = add_error "CERTIFICATE_CORRUPT"

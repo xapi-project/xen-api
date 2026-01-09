@@ -1659,6 +1659,8 @@ let _ =
     ~doc:"The specified certificate does not exist." () ;
   error Api_errors.certificate_already_exists ["name"]
     ~doc:"A certificate already exists with the specified name." () ;
+  error Api_errors.trusted_certificate_already_exists ["fingerprint"]
+    ~doc:"A trusted certificate already exists with the same purpose." () ;
   error Api_errors.certificate_name_invalid ["name"]
     ~doc:"The specified certificate name is invalid." () ;
   error Api_errors.certificate_corrupt ["name"]
