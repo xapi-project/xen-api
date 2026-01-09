@@ -2466,3 +2466,11 @@ module AuthenticationCache = struct
           None
   end
 end
+
+let ldaps_enabled_in_config ~config =
+  match List.assoc_opt "ldaps" config with
+  (* Default to false, true iff v = true (case-insensitive) *)
+  | Some v when bool_of_string_opt (String.lowercase_ascii v) = Some true ->
+      true
+  | _ ->
+      false
