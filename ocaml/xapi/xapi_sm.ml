@@ -148,51 +148,43 @@ let update_from_query_result ~__context (self, r) q_result =
 
 let is_v1 x = version_of_string x < [2; 0]
 
-let _serialize_reg =
+let with_lock =
   let lock = Mutex.create () in
-  let holder = ref None in
-  fun f ->
-    match !holder with
-    | Some t when t = Thread.self () ->
-        (* inside a nested layer where the lock is held by myself *)
-        f ()
-    | _ ->
-        Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-            holder := Some (Thread.self ()) ;
-            finally f (fun () -> holder := None)
-        )
+  Xapi_stdext_threads.Threadext.Mutex.execute lock
 
-let unregister_plugin ~__context q_result =
-  _serialize_reg (fun () ->
-      let open Storage_interface in
-      let driver = String.lowercase_ascii q_result.driver in
-      if is_v1 q_result.required_api_version then
-        info "Not unregistering SM plugin %s (required_api_version %s < 2.0)"
-          driver q_result.required_api_version
-      else
-        List.iter
-          (fun (rf, rc) ->
-            if rc.API.sM_type = driver then
-              try
-                info "Unregistering SM plugin %s (version %s)" driver
-                  q_result.version ;
-                Db.SM.destroy ~__context ~self:rf
-              with e ->
-                warn "Ignore unregistering SM plugin failure: %s"
-                  (Printexc.to_string e)
-          )
-          (Db.SM.get_all_records ~__context)
+let _unregister_plugin ~__context q_result () =
+  let open Storage_interface in
+  let driver = String.lowercase_ascii q_result.driver in
+  if is_v1 q_result.required_api_version then
+    info "Not unregistering SM plugin %s (required_api_version %s < 2.0)" driver
+      q_result.required_api_version
+  else
+    List.iter
+      (fun (rf, rc) ->
+        if rc.API.sM_type = driver then
+          try
+            info "Unregistering SM plugin %s (version %s)" driver
+              q_result.version ;
+            Db.SM.destroy ~__context ~self:rf
+          with e ->
+            warn "Ignore unregistering SM plugin failure: %s"
+              (Printexc.to_string e)
+      )
+      (Db.SM.get_all_records ~__context)
+
+let _register_plugin ~__context q_result () =
+  let open Storage_interface in
+  let driver = String.lowercase_ascii q_result.driver in
+  if is_v1 q_result.required_api_version then
+    info "Not registering SM plugin %s (required_api_version %s < 2.0)" driver
+      q_result.required_api_version
+  else (
+    _unregister_plugin ~__context q_result () ;
+    create_from_query_result ~__context q_result
   )
+
+let unregister_plugin ~__context q_result () =
+  with_lock (_unregister_plugin ~__context q_result)
 
 let register_plugin ~__context q_result =
-  _serialize_reg (fun () ->
-      let open Storage_interface in
-      let driver = String.lowercase_ascii q_result.driver in
-      if is_v1 q_result.required_api_version then
-        info "Not registering SM plugin %s (required_api_version %s < 2.0)"
-          driver q_result.required_api_version
-      else (
-        unregister_plugin ~__context q_result ;
-        create_from_query_result ~__context q_result
-      )
-  )
+  with_lock (_register_plugin ~__context q_result)
