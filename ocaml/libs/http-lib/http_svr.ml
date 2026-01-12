@@ -149,6 +149,10 @@ let response_error_html ?(version = "1.1") s code message hdrs body =
   D.debug "Response %s" (Http.Response.to_string res) ;
   Unixext.really_write_string s (Http.Response.to_wire_string res)
 
+let response_custom_error ?req s error_code reason body =
+  let version = Option.map get_return_version req in
+  response_error_html ?version s error_code reason [] body
+
 let response_unauthorised ?req label s =
   let version = Option.map get_return_version req in
   let body =
@@ -331,7 +335,7 @@ module Server = struct
       x.handlers []
 end
 
-let escape uri =
+let escape str =
   (* from xapi-stdext-std xstringext *)
   let escaped ~rules string =
     let aux h t =
@@ -353,7 +357,7 @@ let escape uri =
       ; ('"', "&quot;")
       ; ('&', "&amp;")
       ]
-    uri
+    str
 
 exception Generic_error of string
 

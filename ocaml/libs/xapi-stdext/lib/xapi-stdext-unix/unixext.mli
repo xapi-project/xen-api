@@ -126,7 +126,12 @@ exception Process_still_alive
 
 val kill_and_wait : ?signal:int -> ?timeout:float -> int -> unit
 
-val proxy : Unix.file_descr -> Unix.file_descr -> unit
+val proxy :
+     ?should_close:(bytes * int * int -> bool)
+  -> ?poll_timeout:int
+  -> Unix.file_descr
+  -> Unix.file_descr
+  -> unit
 
 val really_read : Unix.file_descr -> bytes -> int -> int -> unit
 
