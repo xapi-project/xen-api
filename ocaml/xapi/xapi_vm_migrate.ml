@@ -160,19 +160,25 @@ end))
 
 open Storage_interface
 
+let supported_on ~ops sr sr_features =
+  let open Smint.Feature in
+  let missing =
+    List.filter (fun op -> not (has_capability op sr_features)) ops
+  in
+  if missing <> [] then
+    let missing = List.map capability_to_string missing |> String.concat ";" in
+    let msg = [Ref.string_of sr; missing] in
+    raise Api_errors.(Server_error (sr_does_not_support_migration, msg))
+
 let assert_sr_support_operations ~__context ~vdi_map ~remote ~local_ops
     ~remote_ops =
   let op_supported_on_source_sr vdi ops =
-    let open Smint.Feature in
-    (* Check VDIs must not be present on SR which doesn't have required capability *)
+    (* Check VDIs must not be present on SR which doesn't have required
+       capability *)
     let source_sr = Db.VDI.get_SR ~__context ~self:vdi in
     let sr_record = Db.SR.get_record_internal ~__context ~self:source_sr in
     let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
-    if not (List.for_all (fun op -> has_capability op sr_features) ops) then
-      raise
-        (Api_errors.Server_error
-           (Api_errors.sr_does_not_support_migration, [Ref.string_of source_sr])
-        )
+    supported_on ~ops source_sr sr_features
   in
   let op_supported_on_dest_sr sr ops sm_record remote =
     let open Smint.Feature in
@@ -187,11 +193,7 @@ let assert_sr_support_operations ~__context ~vdi_map ~remote ~local_ops
       | _ ->
           []
     in
-    if not (List.for_all (fun op -> has_capability op sm_features) ops) then
-      raise
-        (Api_errors.Server_error
-           (Api_errors.sr_does_not_support_migration, [Ref.string_of sr])
-        )
+    supported_on ~ops sr sm_features
   in
   let is_sr_matching local_vdi_ref remote_sr_ref =
     let source_sr_ref = Db.VDI.get_SR ~__context ~self:local_vdi_ref in
