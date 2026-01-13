@@ -50,7 +50,12 @@ let test_as_rw_opt f expected_set =
   |> List.map @@ fun rw ->
      let test () =
        let prop = make rw `reg in
-       let expected = if List.mem rw expected_set then Some prop else None in
+       let expected =
+         if List.mem rw expected_set then
+           Some prop
+         else
+           None
+       in
        let msg = Fmt.str "as_%a_opt" pp_rw rw in
        Alcotest.(check' @@ option t) ~msg ~expected ~actual:(f prop)
      in
@@ -78,7 +83,12 @@ let test_as_kind =
           let test () =
             let prop = make `rdonly k2 in
             let actual = as_kind_opt k1 prop in
-            let expected = if k1 = k2 then Some prop else None in
+            let expected =
+              if k1 = k2 then
+                Some prop
+              else
+                None
+            in
             Alcotest.(check' @@ option t) ~msg:"as_kind_opt" ~expected ~actual
           in
           Alcotest.test_case (Fmt.to_to_string pp_kind k2) `Quick test

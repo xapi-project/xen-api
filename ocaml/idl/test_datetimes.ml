@@ -4,8 +4,8 @@ let calls_with_datetime_params =
   let get_messages DT.{name; messages; _} =
     List.to_seq messages
     |> Seq.map (fun msg ->
-           DT.{msg with msg_name= Printf.sprintf "%s.%s" name msg.msg_name}
-       )
+        DT.{msg with msg_name= Printf.sprintf "%s.%s" name msg.msg_name}
+    )
   in
   let with_datetimes DT.{msg_name; msg_params; _} =
     let cursed_params =
@@ -21,7 +21,10 @@ let calls_with_datetime_params =
         )
         msg_params
     in
-    if cursed_params <> [] then Some (List.to_seq cursed_params) else None
+    if cursed_params <> [] then
+      Some (List.to_seq cursed_params)
+    else
+      None
   in
 
   Datamodel.all_system
@@ -38,8 +41,8 @@ let () =
        have UTC when they do not contain a timezone. Parameters found:\n" ;
     calls_with_datetime_params
     |> Seq.iter (fun (call_name, param_name, param_doc) ->
-           Printf.printf "%s (%s): %s\n" call_name param_name param_doc
-       ) ;
+        Printf.printf "%s (%s): %s\n" call_name param_name param_doc
+    ) ;
     exit 1
   ) else
     Printf.printf

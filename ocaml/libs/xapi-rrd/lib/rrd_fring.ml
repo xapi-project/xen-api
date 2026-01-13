@@ -48,8 +48,7 @@ let length ring = ring.size
 
 let push ring (e : float) =
   ring.current <- ring.current + 1 ;
-  if ring.current = ring.size then
-    ring.current <- 0 ;
+  if ring.current = ring.size then ring.current <- 0 ;
   let bound =
     BoundedFloat.of_float ~minimum:ring.min ~maximum:ring.max
       ~f:BoundedFloat.To_Nan e
@@ -57,19 +56,20 @@ let push ring (e : float) =
   Bigarray.Array1.set ring.data ring.current @@ BoundedFloat.to_float bound
 
 let peek ring i =
-  if i >= ring.size then
-    raise (Invalid_argument "peek: index") ;
+  if i >= ring.size then raise (Invalid_argument "peek: index") ;
   let index =
     let offset = ring.current - i in
-    if offset >= 0 then offset else ring.size + offset
+    if offset >= 0 then
+      offset
+    else
+      ring.size + offset
   in
   ring.data.{index}
 
 let top ring = ring.data.{ring.current}
 
 let iter_nb ring f nb =
-  if nb > ring.size then
-    raise (Invalid_argument "iter_nb: nb") ;
+  if nb > ring.size then raise (Invalid_argument "iter_nb: nb") ;
   (* FIXME: OPTIMIZE ME with 2 Array.iter ? *)
   for i = 0 to nb - 1 do
     f (peek ring i)
@@ -86,8 +86,7 @@ let raw_iter ring f = iter f ring.data
 let iter ring f = iter_nb ring f ring.size
 
 let get_nb ring nb =
-  if nb > ring.size then
-    raise (Invalid_argument "get_nb: nb") ;
+  if nb > ring.size then raise (Invalid_argument "get_nb: nb") ;
   let a = Array.make nb (top ring) in
   for i = 1 to nb - 1 do
     (* FIXME: OPTIMIZE ME with 2 Array.blit *)

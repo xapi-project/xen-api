@@ -209,7 +209,14 @@ let with_logfile_fd ?(delete = true) prefix f =
   try
     let result = f log_fd in
     Unix.close log_fd ;
-    Success ((if delete then read_logfile () else logfile), result)
+    Success
+      ( ( if delete then
+            read_logfile ()
+          else
+            logfile
+        )
+      , result
+      )
   with e ->
     Unix.close log_fd ;
     Failure (read_logfile (), e)
@@ -357,7 +364,12 @@ let safe_close_and_exec_vfork ?tracing env stdin stdout stderr
     ?(redirect_stderr_to_stdout = false) cmd args =
   let string_of_fd (fd : Unix.file_descr) = string_of_int (Obj.magic fd) in
   let args = "--" :: args in
-  let args = if redirect_stderr_to_stdout then "-S" :: args else args in
+  let args =
+    if redirect_stderr_to_stdout then
+      "-S" :: args
+    else
+      args
+  in
   let args =
     match syslog_stdout with
     | NoSyslogging ->

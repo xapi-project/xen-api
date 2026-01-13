@@ -27,7 +27,11 @@ module Database = struct
       (Db_cache_types.Database.make Schema.empty) ;
     let db = Db_backend.make () in
     Db_cache_impl.make db
-      (if reuse then conn else [])
+      ( if reuse then
+          conn
+        else
+          []
+      )
       (Datamodel_schema.of_datamodel ()) ;
     Db_cache_impl.sync conn (Db_ref.get_database db) ;
     Db_ref.update_database db

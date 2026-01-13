@@ -62,8 +62,7 @@ let maximum h =
 
 let remove h s =
   if h.size <= 0 then raise EmptyHeap ;
-  if s < 0 || s >= h.size then
-    raise (OutOfBounds s) ;
+  if s < 0 || s >= h.size then raise (OutOfBounds s) ;
   let n = h.size - 1 in
   let d = h.data in
   let x = d.(n) in
@@ -83,7 +82,10 @@ let remove h s =
     if j < n then
       let j =
         let j' = j + 1 in
-        if j' < n && d.(j').time < d.(j).time then j' else j
+        if j' < n && d.(j').time < d.(j).time then
+          j'
+        else
+          j
       in
       if Mtime.Span.is_shorter d.(j).time ~than:x.time then (
         d.(i) <- d.(j) ;

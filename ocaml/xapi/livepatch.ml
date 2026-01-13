@@ -118,20 +118,20 @@ module KernelLivePatch = struct
          ([], false)
     |> (fun (x, _) -> x)
     |> List.filter_map (fun line ->
-           let replace s =
-             Astring.String.cuts ~sep:"_" s |> Astring.String.concat ~sep:"."
-           in
-           match Re.exec_opt r line with
-           | Some groups ->
-               Some
-                 ( Re.Group.get groups 1 |> replace
-                 , Re.Group.get groups 2 |> replace
-                 , Re.Group.get groups 3 |> replace
-                 , Re.Group.get groups 4 |> replace
-                 )
-           | None ->
-               None
-       )
+        let replace s =
+          Astring.String.cuts ~sep:"_" s |> Astring.String.concat ~sep:"."
+        in
+        match Re.exec_opt r line with
+        | Some groups ->
+            Some
+              ( Re.Group.get groups 1 |> replace
+              , Re.Group.get groups 2 |> replace
+              , Re.Group.get groups 3 |> replace
+              , Re.Group.get groups 4 |> replace
+              )
+        | None ->
+            None
+    )
     |> get_latest_livepatch
 
   let get_running_livepatch () =
@@ -195,23 +195,22 @@ module XenLivePatch = struct
     in
     Astring.String.cuts ~sep:"\n" s
     |> List.filter_map (fun line ->
-           Astring.String.cuts ~sep:"|" line
-           |> List.map (Astring.String.trim ~drop)
-           |> function
-           | name :: state' :: _ when state' = state -> (
-             match Re.exec_opt pattern name with
-             | Some groups ->
-                 let base_version = Re.Group.get groups 1 in
-                 let base_release = Re.Group.get groups 2 in
-                 let to_version = Re.Group.get groups 3 in
-                 let to_release = Re.Group.get groups 4 in
-                 Some (base_version, base_release, to_version, to_release)
-             | None ->
-                 None
-           )
-           | _ ->
-               None
-       )
+        Astring.String.cuts ~sep:"|" line |> List.map (Astring.String.trim ~drop)
+        |> function
+        | name :: state' :: _ when state' = state -> (
+          match Re.exec_opt pattern name with
+          | Some groups ->
+              let base_version = Re.Group.get groups 1 in
+              let base_release = Re.Group.get groups 2 in
+              let to_version = Re.Group.get groups 3 in
+              let to_release = Re.Group.get groups 4 in
+              Some (base_version, base_release, to_version, to_release)
+          | None ->
+              None
+        )
+        | _ ->
+            None
+    )
 
   let get_running_livepatch' s =
     get_livepatches "APPLIED" s |> get_latest_livepatch
@@ -260,32 +259,32 @@ module XenLivePatch = struct
      *)
     get_checked_livepatches ()
     |> List.iter (fun (base_version, base_release, to_version, to_release) ->
-           let name =
-             Printf.sprintf "lp_%s-%s-%s-%s" base_version base_release
-               to_version to_release
-           in
-           Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["unload"; name]
-           |> ignore
-       )
+        let name =
+          Printf.sprintf "lp_%s-%s-%s-%s" base_version base_release to_version
+            to_release
+        in
+        Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["unload"; name]
+        |> ignore
+    )
 end
 
 let get_applied_livepatch ~component ~base_build_id ~running_livepatch =
   ( match (base_build_id, running_livepatch) with
-  | Some base_build_id, Some (_, _, to_ver, to_rel) ->
-      (* livepatch listing reports a livepatch. *)
-      Some
-        {
-          component
-        ; base_build_id
-        ; to_version= Some to_ver
-        ; to_release= Some to_rel
-        }
-  | Some base_build_id, None ->
-      Some {component; base_build_id; to_version= None; to_release= None}
-  | None, _ ->
-      (* Can do nothing without base build id *)
-      None
-  )
+    | Some base_build_id, Some (_, _, to_ver, to_rel) ->
+        (* livepatch listing reports a livepatch. *)
+        Some
+          {
+            component
+          ; base_build_id
+          ; to_version= Some to_ver
+          ; to_release= Some to_rel
+          }
+    | Some base_build_id, None ->
+        Some {component; base_build_id; to_version= None; to_release= None}
+    | None, _ ->
+        (* Can do nothing without base build id *)
+        None
+    )
   |> function
   | Some lp ->
       debug "Got %s livepatch: %s"

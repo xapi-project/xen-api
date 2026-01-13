@@ -68,8 +68,7 @@ let init_stunnel_path () =
       )
 
 let stunnel_path () =
-  if Option.is_none !cached_stunnel_path then
-    init_stunnel_path () ;
+  if Option.is_none !cached_stunnel_path then init_stunnel_path () ;
   Option.get !cached_stunnel_path
 
 module Unsafe = struct
@@ -154,7 +153,10 @@ let external_host ext_host_cert_file =
   {sni= None; verify= VerifyPeer; cert_bundle_path= ext_host_cert_file}
 
 let debug_conf_of_bool verbose : string =
-  if verbose then "debug=authpriv.7" else "debug=authpriv.5"
+  if verbose then
+    "debug=authpriv.7"
+  else
+    "debug=authpriv.5"
 
 let debug_conf_of_env () : string =
   Option.value (Sys.getenv_opt "debug_stunnel") ~default:""
@@ -193,7 +195,11 @@ let config_file ?(accept = None) config host port =
                Printf.sprintf "TIMEOUTidle = %d" x
            )
          ]
-       ; (if is_fips then ["fips=yes"] else ["fips=no"])
+       ; ( if is_fips then
+             ["fips=yes"]
+           else
+             ["fips=no"]
+         )
        ; [debug_conf_of_env ()]
        ; ( match accept with
          | Some (h, p) ->
@@ -308,7 +314,14 @@ let attempt_one_connect ?(use_fork_exec_helper = true)
   in
   let configs = [(config_out_uuid, Unixfd.(!config_out))] in
   let args =
-    ["-fd"; (if use_fork_exec_helper then config_out_uuid else config_out_fd)]
+    [
+      "-fd"
+    ; ( if use_fork_exec_helper then
+          config_out_uuid
+        else
+          config_out_fd
+      )
+    ]
   in
   let start sock_of_stunnel config =
     Forkhelpers.with_logfile_fd "stunnel" ~delete:(not extended_diagnosis)
@@ -500,8 +513,7 @@ let check_verify_error line =
     ()
 
 let check_error s line =
-  if Astring.String.is_infix ~affix:s line then
-    raise (Stunnel_error s)
+  if Astring.String.is_infix ~affix:s line then raise (Stunnel_error s)
 
 let diagnose_failure st_proc =
   let check_line line =

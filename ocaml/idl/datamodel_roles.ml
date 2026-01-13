@@ -88,7 +88,10 @@ let roles_gte role =
     | [] ->
         failwith "invalid role"
     | x :: xs ->
-        if x = role then [x] else x :: gte xs
+        if x = role then
+          [x]
+        else
+          x :: gte xs
   in
   gte roles_all
 

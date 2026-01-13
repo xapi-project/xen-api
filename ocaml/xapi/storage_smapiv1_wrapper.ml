@@ -185,8 +185,17 @@ module Vdi = struct
     {
       t with
       dps=
-        (if state = Vdi_automaton.Detached then rests else (dp, state) :: rests)
-    ; dpv= (if state = Vdi_automaton.Detached then restv else (dp, vm) :: restv)
+        ( if state = Vdi_automaton.Detached then
+            rests
+          else
+            (dp, state) :: rests
+        )
+    ; dpv=
+        ( if state = Vdi_automaton.Detached then
+            restv
+          else
+            (dp, vm) :: restv
+        )
     }
 
   let get_leaked t = t.leaked
@@ -229,7 +238,11 @@ module Vdi = struct
     let of_dp (dp, state) =
       Printf.sprintf "DP: %s: %s%s" dp
         (Vdi_automaton.string_of_state state)
-        (if List.mem dp x.leaked then "  ** LEAKED" else "")
+        ( if List.mem dp x.leaked then
+            "  ** LEAKED"
+          else
+            ""
+        )
     in
     title :: List.map indent (List.map of_dp x.dps)
 end
@@ -956,7 +969,8 @@ functor
           vdis_with_dp ;
         let locker vdi =
           if vdi_already_locked then
-            fun f -> f ()
+            fun f ->
+          f ()
           else
             VDI.with_vdi sr vdi
         in
@@ -1049,8 +1063,8 @@ functor
         let failures =
           Host.list !Host.host
           |> List.filter_map (fun (sr, sr_t) ->
-                 destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak false
-             )
+              destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak false
+          )
         in
         match (failures, allow_leak) with
         | [], _ ->

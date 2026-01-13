@@ -115,8 +115,7 @@ let check_n_run ?(on_error = default_error_handler) ?(log = true) run_func
         ~some:(fun p -> [|"PATH=" ^ p|])
         (Sys.getenv_opt "PATH")
     in
-    if log then
-      info "%s %s" script (String.concat " " args) ;
+    if log then info "%s %s" script (String.concat " " args) ;
     run_func env script args
   with
   | Unix.Unix_error (e, a, b) ->
@@ -275,10 +274,19 @@ module Sysfs = struct
   let set_multicast_snooping bridge value =
     try
       let path = getpath bridge "bridge/multicast_snooping" in
-      write_one_line path (if value then "1" else "0")
+      write_one_line path
+        ( if value then
+            "1"
+          else
+            "0"
+        )
     with _ ->
       warn "Could not %s IGMP-snooping on bridge %s"
-        (if value then "enable" else "disable")
+        ( if value then
+            "enable"
+          else
+            "disable"
+        )
         bridge
 
   let bridge_to_interfaces bridge =
@@ -479,9 +487,7 @@ module Ip = struct
 
   let link_set_up dev = link_set dev ["up"]
 
-  let link_set_down dev =
-    if is_up dev then
-      link_set dev ["down"]
+  let link_set_down dev = if is_up dev then link_set dev ["down"]
 
   let with_links_down devs f =
     let up_links = List.filter (fun dev -> is_up dev) devs in
@@ -599,7 +605,12 @@ module Ip = struct
   let flush_ip_addr ?(ipv6 = false) dev =
     try
       Sysfs.assert_exists dev ;
-      let mode = if ipv6 then "-6" else "-4" in
+      let mode =
+        if ipv6 then
+          "-6"
+        else
+          "-4"
+      in
       ignore (call [mode; "addr"; "flush"; "dev"; dev])
     with _ -> ()
 
@@ -672,8 +683,7 @@ module Ip = struct
         )
 
   let destroy_vlan name =
-    if Sysfs.exists name then
-      ignore (call ["link"; "delete"; name])
+    if Sysfs.exists name then ignore (call ["link"; "delete"; name])
 
   let set_vf_mac dev index mac =
     try
@@ -732,8 +742,7 @@ module Linux_bonding = struct
 
   (** Ensures that a bond master device exists in the kernel. *)
   let add_bond_master name =
-    if not (bonding_driver_loaded ()) then
-      load_bonding_driver () ;
+    if not (bonding_driver_loaded ()) then load_bonding_driver () ;
     if is_bond_device name then
       debug "Bond master %s already exists, not creating" name
     else (
@@ -919,16 +928,31 @@ end = struct
   type interface = string
 
   let pid_file ?(ipv6 = false) interface =
-    let ipv6' = if ipv6 then "6" else "" in
+    let ipv6' =
+      if ipv6 then
+        "6"
+      else
+        ""
+    in
     Printf.sprintf "/var/run/dhclient%s-%s.pid" ipv6' interface
 
   let lease_file ?(ipv6 = false) interface =
-    let ipv6' = if ipv6 then "6" else "" in
+    let ipv6' =
+      if ipv6 then
+        "6"
+      else
+        ""
+    in
     Filename.concat "/var/lib/xcp"
       (Printf.sprintf "dhclient%s-%s.leases" ipv6' interface)
 
   let conf_file ?(ipv6 = false) interface =
-    let ipv6' = if ipv6 then "6" else "" in
+    let ipv6' =
+      if ipv6 then
+        "6"
+      else
+        ""
+    in
     Filename.concat "/var/lib/xcp"
       (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
 
@@ -998,10 +1022,18 @@ end = struct
         [] options
     in
     let dns_opt =
-      if List.mem (`dns interface) options then [] else ["-e"; "PEERDNS=no"]
+      if List.mem (`dns interface) options then
+        []
+      else
+        ["-e"; "PEERDNS=no"]
     in
     write_conf_file ~ipv6 interface options ;
-    let ipv6' = if ipv6 then ["-6"] else [] in
+    let ipv6' =
+      if ipv6 then
+        ["-6"]
+      else
+        []
+    in
     call_script ~timeout:None dhclient
       (ipv6'
       @ gw_opt
@@ -1067,7 +1099,10 @@ module Fcoe = struct
     | true -> (
       try
         let output = call ~log:false ["--xapi"; name; "capable"] in
-        if Astring.String.is_infix ~affix:"True" output then ["fcoe"] else []
+        if Astring.String.is_infix ~affix:"True" output then
+          ["fcoe"]
+        else
+          []
       with _ ->
         debug "%s: Failed to get fcoe support status on device %s" __FUNCTION__
           name ;
@@ -1087,7 +1122,12 @@ module Sysctl = struct
         ; "net.ipv6.conf." ^ interface ^ ".accept_ra"
         ]
       in
-      let value' = if value then "1" else "0" in
+      let value' =
+        if value then
+          "1"
+        else
+          "0"
+      in
       List.iter (write value') variables
     with
     | e when value = true ->
@@ -1315,7 +1355,10 @@ module Ovs = struct
         let output =
           String.trim (vsctl ~log:false ["get"; "port"; name; "bond_mode"])
         in
-        if output <> "[]" then Some output else None
+        if output <> "[]" then
+          Some output
+        else
+          None
       with _ -> None
 
     let set_max_idle t =
@@ -1522,7 +1565,10 @@ module Ovs = struct
             match Astring.String.cut ~sep:" " l with
             | Some (k, v) ->
                 let k' = String.trim k and v' = String.trim v in
-                if k' = "" || v' = "" then None else Some (k', v')
+                if k' = "" || v' = "" then
+                  None
+                else
+                  Some (k', v')
             | None ->
                 None
           in
@@ -1629,7 +1675,12 @@ module Ovs = struct
         []
 
     let create_port ?(internal = false) name bridge =
-      let ty = if internal then Some "internal" else None in
+      let ty =
+        if internal then
+          Some "internal"
+        else
+          None
+      in
       vsctl (create_port_arg ?ty name bridge)
 
     let destroy_port name =
@@ -1690,7 +1741,16 @@ module Ovs = struct
             debug "bond %s has invalid %s '%s'\n" name prop value ;
             []
           ) else if prop = "use_carrier" then
-            [(ovs_key ^ "=" ^ if value' > 0 then "carrier" else "miimon")]
+            [
+              (ovs_key
+              ^ "="
+              ^
+              if value' > 0 then
+                "carrier"
+              else
+                "miimon"
+              )
+            ]
           else
             [ovs_key ^ "=" ^ string_of_int value']
         else
@@ -1826,12 +1886,10 @@ module Brctl = struct
   let call args = call_script !brctl args
 
   let create_bridge name =
-    if not (List.mem name (Sysfs.list ())) then
-      ignore (call ["addbr"; name])
+    if not (List.mem name (Sysfs.list ())) then ignore (call ["addbr"; name])
 
   let destroy_bridge name =
-    if List.mem name (Sysfs.list ()) then
-      ignore (call ["delbr"; name])
+    if List.mem name (Sysfs.list ()) then ignore (call ["delbr"; name])
 
   let create_port bridge name =
     if not (List.mem name (Sysfs.bridge_to_interfaces bridge)) then
@@ -1939,21 +1997,21 @@ module Modprobe = struct
     try
       Unixext.read_lines ~path:(getpath driver)
       |> List.filter_map (fun x ->
-             let line = String.trim x in
-             if not (Astring.String.is_prefix ~affix:"# " line) then
-               None
-             else
-               match
-                 Astring.String.cut ~sep:":"
-                   (Astring.String.with_range ~first:2 line)
-               with
-               | None ->
-                   None
-               | Some (k, v) when String.trim k = "" || String.trim v = "" ->
-                   None
-               | Some (k, v) ->
-                   Some (String.trim k, String.trim v)
-         )
+          let line = String.trim x in
+          if not (Astring.String.is_prefix ~affix:"# " line) then
+            None
+          else
+            match
+              Astring.String.cut ~sep:":"
+                (Astring.String.with_range ~first:2 line)
+            with
+            | None ->
+                None
+            | Some (k, v) when String.trim k = "" || String.trim v = "" ->
+                None
+            | Some (k, v) ->
+                Some (String.trim k, String.trim v)
+      )
     with _ -> []
 
   (* this function not returning None means that the driver doesn't suppport
@@ -1992,7 +2050,10 @@ module Modprobe = struct
        array is required, this repeat times equals to the number of devices with
        the same driver. *)
     let repeat =
-      if is_array then Sysfs.get_dev_nums_with_same_driver driver else 1
+      if is_array then
+        Sysfs.get_dev_nums_with_same_driver driver
+      else
+        1
     in
     ( if repeat > 0 then
         Result.Ok

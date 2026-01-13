@@ -86,6 +86,5 @@ module HA : sig
   val disable : unit -> unit
 end
 
-module Deprecated : sig
-  val load_rrd : string -> int -> string option -> unit
+module Deprecated : sig val load_rrd : string -> int -> string option -> unit
 end

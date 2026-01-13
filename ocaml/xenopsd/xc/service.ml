@@ -64,8 +64,8 @@ let fold_events ~init f events =
   events
   |> List.to_seq
   |> Seq.flat_map (fun (_, events, _, fnameopt) ->
-         List.to_seq events |> Seq.map (fun event -> (event, fnameopt))
-     )
+      List.to_seq events |> Seq.map (fun event -> (event, fnameopt))
+  )
   |> Seq.fold_left f init
 
 exception ECancelled of Xenops_task.task_handle
@@ -136,10 +136,10 @@ let start_and_wait_for_readyness ~task ~service =
         try
           ignore
           @@ Polly.wait pollfd 1 poll_period_ms (fun _ fd events ->
-                 if Polly.Events.(test events inp) then
-                   event :=
-                     fold_events ~init:!event collect_watches (Inotify.read fd)
-             ) ;
+              if Polly.Events.(test events inp) then
+                event :=
+                  fold_events ~init:!event collect_watches (Inotify.read fd)
+          ) ;
 
           let elapsed = Mtime_clock.count from_time in
 
@@ -333,8 +333,10 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
     | None ->
         false
     | Some p -> (
-      try Unix.kill p 0 ; (* This checks the existence of pid p *)
-                          true
+      try
+        Unix.kill p 0 ;
+        (* This checks the existence of pid p *)
+        true
       with _ -> false
     )
 
@@ -495,67 +497,67 @@ module Vgpu = struct
       vgpus
       |> List.sort virtual_pci_address_compare
       |> List.map (fun vgpu ->
-             let addr =
-               match vgpu.virtual_pci_address with
-               | Some pci ->
-                   pci (* pass VF in case of SRIOV *)
-               | None ->
-                   vgpu.physical_pci_address
-             in
-             (* pass PF otherwise *)
-             match vgpu.implementation with
-             (* 1. Upgrade case, migrate from a old host with old vGPU having
+          let addr =
+            match vgpu.virtual_pci_address with
+            | Some pci ->
+                pci (* pass VF in case of SRIOV *)
+            | None ->
+                vgpu.physical_pci_address
+          in
+          (* pass PF otherwise *)
+          match vgpu.implementation with
+          (* 1. Upgrade case, migrate from a old host with old vGPU having
                    config_path 2. Legency case, run with old Nvidia host driver
              *)
-             | Nvidia
-                 {
-                   virtual_pci_address
-                 ; config_file= Some config_file
-                 ; extra_args
-                 ; _
-                 } ->
-                 (* The VGPU UUID is not available. Create a fresh one; xapi
+          | Nvidia
+              {
+                virtual_pci_address
+              ; config_file= Some config_file
+              ; extra_args
+              ; _
+              } ->
+              (* The VGPU UUID is not available. Create a fresh one; xapi
                     will deal with it. *)
-                 let uuid = Uuidx.(to_string (make ())) in
-                 debug "NVidia vGPU config: using config file %s and uuid %s"
-                   config_file uuid ;
-                 make addr
-                   [
-                     config_file
-                   ; Xcp_pci.string_of_address virtual_pci_address
-                   ; uuid
-                   ; extra_args
-                   ]
-             | Nvidia
-                 {
-                   virtual_pci_address
-                 ; type_id= Some type_id
-                 ; uuid= Some uuid
-                 ; extra_args
-                 ; _
-                 } ->
-                 debug "NVidia vGPU config: using type id %s and uuid: %s"
-                   type_id uuid ;
-                 make addr
-                   [
-                     type_id
-                   ; Xcp_pci.string_of_address virtual_pci_address
-                   ; uuid
-                   ; extra_args
-                   ]
-             | Nvidia {type_id= None; config_file= None; _} ->
-                 (* No type_id _and_ no config_file: something is wrong *)
-                 raise
-                   (Xenops_interface.Xenopsd_error
-                      (Internal_error
-                         (Printf.sprintf "NVidia vGPU metadata incomplete (%s)"
-                            __LOC__
-                         )
+              let uuid = Uuidx.(to_string (make ())) in
+              debug "NVidia vGPU config: using config file %s and uuid %s"
+                config_file uuid ;
+              make addr
+                [
+                  config_file
+                ; Xcp_pci.string_of_address virtual_pci_address
+                ; uuid
+                ; extra_args
+                ]
+          | Nvidia
+              {
+                virtual_pci_address
+              ; type_id= Some type_id
+              ; uuid= Some uuid
+              ; extra_args
+              ; _
+              } ->
+              debug "NVidia vGPU config: using type id %s and uuid: %s" type_id
+                uuid ;
+              make addr
+                [
+                  type_id
+                ; Xcp_pci.string_of_address virtual_pci_address
+                ; uuid
+                ; extra_args
+                ]
+          | Nvidia {type_id= None; config_file= None; _} ->
+              (* No type_id _and_ no config_file: something is wrong *)
+              raise
+                (Xenops_interface.Xenopsd_error
+                   (Internal_error
+                      (Printf.sprintf "NVidia vGPU metadata incomplete (%s)"
+                         __LOC__
                       )
                    )
-             | _ ->
-                 ""
-         )
+                )
+          | _ ->
+              ""
+      )
     in
     let suspend_file = Printf.sprintf Device_common.demu_save_path domid in
     let base_args =
@@ -566,7 +568,12 @@ module Vgpu = struct
       ]
       @ device_args
     in
-    let fd_arg = if restore then ["--resume"] else [] in
+    let fd_arg =
+      if restore then
+        ["--resume"]
+      else
+        []
+    in
     (* support for NVidia VCS (compute) vGPUs *)
     let no_console =
       match List.for_all is_compute_vgpu vgpus with
@@ -680,7 +687,12 @@ module Varstored = struct
     in
     let open Fe_argv in
     let argf fmt = Printf.ksprintf (fun s -> ["--arg"; s]) fmt in
-    let on cond value = if cond then value else return () in
+    let on cond value =
+      if cond then
+        value
+      else
+        return ()
+    in
     let args =
       Add.many
         [
@@ -781,7 +793,8 @@ module Swtpm = struct
     let args needs_init =
       let state_uri =
         if needs_init then
-          "dir://." (* exactly 2 //, we can't create this with Uri *)
+          "dir://."
+        (* exactly 2 //, we can't create this with Uri *)
         else
           (* drop leading / so that the URI works both inside and outside a
              chroot *)

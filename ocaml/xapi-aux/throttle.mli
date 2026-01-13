@@ -12,10 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module type SIZE = sig
-  val n : unit -> int
-  (** evaluated on first [execute] *)
-end
+module type SIZE = sig val n : unit -> int
+                       (** evaluated on first [execute] *) end
 
 module Make (_ : SIZE) : sig
   (** [execute f] up to [Size.n ()] in parallel. *)

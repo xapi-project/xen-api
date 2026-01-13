@@ -40,7 +40,10 @@ let options =
     , Arg.String
         (fun x ->
           Squeeze.domain_zero_dynamic_max :=
-            if x = "auto" then None else Some (Int64.of_string x)
+            if x = "auto" then
+              None
+            else
+              Some (Int64.of_string x)
         )
     , (fun () ->
         match !Squeeze.domain_zero_dynamic_max with

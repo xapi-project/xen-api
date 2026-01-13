@@ -104,11 +104,11 @@ let benchmark ~instances cfg tests =
   tests
   |> List.to_seq
   |> Seq.mapi (fun i test ->
-         let name = Test.Elt.name test in
-         Format.eprintf "Running benchmark %u/%u %s ...@?" (i + 1) n name ;
-         let results = Benchmark.run cfg instances test in
-         Format.eprintf "@." ; (name, results)
-     )
+      let name = Test.Elt.name test in
+      Format.eprintf "Running benchmark %u/%u %s ...@?" (i + 1) n name ;
+      let results = Benchmark.run cfg instances test in
+      Format.eprintf "@." ; (name, results)
+  )
   |> Hashtbl.of_seq
 
 let analyze ~instances raw_results =
@@ -149,12 +149,12 @@ let run_and_print cfg instances tests =
   img (window, results) |> eol |> output_image ;
   results
   |> Hashtbl.iter (fun label results ->
-         if label = Measure.label Instance.monotonic_clock then
-           let units = Bechamel_notty.Unit.unit_of_label label in
-           results
-           |> Hashtbl.iter @@ fun name ols ->
-              Format.printf "%s (%s):@, %a@." name units Analyze.OLS.pp ols
-     ) ;
+      if label = Measure.label Instance.monotonic_clock then
+        let units = Bechamel_notty.Unit.unit_of_label label in
+        results
+        |> Hashtbl.iter @@ fun name ols ->
+           Format.printf "%s (%s):@, %a@." name units Analyze.OLS.pp ols
+  ) ;
   (results, raw_results)
 
 let cli ~always ~workloads cfg tests store =

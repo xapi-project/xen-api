@@ -15,16 +15,13 @@ let test_get_client_ip () =
   ; ("2001:0dc5:72a3:0000:0000:802e:3370:73e4", "2001:dc5:72a3::802e:3370:73e4")
   ]
   |> List.iter (fun (ip, exp) ->
-         let client_ip =
-           proxy_string ip
-           |> make_rq
-           |> Http_svr.https_client_of_req
-           |> Option.get
-         in
-         Alcotest.(check string)
-           "original ip string preserved" exp
-           (Ipaddr.to_string client_ip)
-     )
+      let client_ip =
+        proxy_string ip |> make_rq |> Http_svr.https_client_of_req |> Option.get
+      in
+      Alcotest.(check string)
+        "original ip string preserved" exp
+        (Ipaddr.to_string client_ip)
+  )
 
 let tests =
   [("Test_context", [("test_get_client_ip", `Quick, test_get_client_ip)])]

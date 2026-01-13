@@ -28,8 +28,7 @@ let rec _really_input fd buf off = function
       ()
   | len ->
       let m = Unix.read fd buf off len in
-      if m = 0 then
-        raise End_of_file ;
+      if m = 0 then raise End_of_file ;
       _really_input fd buf (off + m) (len - m)
 
 let really_input = with_restart _really_input
@@ -61,8 +60,7 @@ let copy_n ifd ofd n =
         Int64.(to_int (min (of_int (Bytes.length buffer)) remaining))
       in
       let n = Unix.read ifd buffer 0 this in
-      if n = 0 then
-        raise End_of_file ;
+      if n = 0 then raise End_of_file ;
       ignore (Unix.write ofd buffer 0 n) ;
       loop Int64.(sub remaining (of_int n))
   in

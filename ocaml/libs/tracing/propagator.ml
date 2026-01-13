@@ -46,7 +46,12 @@ module Http = struct
 
   let alloc_assoc k kvs =
     List.filter_map
-      (fun (key, value) -> if key = k then Some value else None)
+      (fun (key, value) ->
+        if key = k then
+          Some value
+        else
+          None
+      )
       kvs
     |> function
     | [] ->

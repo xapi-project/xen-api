@@ -142,8 +142,18 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
   *)
   let power_state = Db.VM.get_power_state ~__context ~self:vM in
   let suspended = power_state = `Suspended in
-  let _device = if suspended then device else "" in
-  let _currently_attached = if suspended then currently_attached else false in
+  let _device =
+    if suspended then
+      device
+    else
+      ""
+  in
+  let _currently_attached =
+    if suspended then
+      currently_attached
+    else
+      false
+  in
   ( if not empty then
       let vdi_type = Db.VDI.get_type ~__context ~self:vDI in
       if
@@ -225,8 +235,7 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
           let raise_invalid_device () =
             raise Api_errors.(Server_error (invalid_device, [userdevice]))
           in
-          if not (valid_device userdevice ~_type) then
-            raise_invalid_device () ;
+          if not (valid_device userdevice ~_type) then raise_invalid_device () ;
           (* Resolve the "autodetect" into a fixed device name now *)
           let userdevice =
             if userdevice <> "autodetect" then

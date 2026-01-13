@@ -21,7 +21,10 @@ type filter = Nothing | OpenSource | Closed | Debug
 module Field = struct
   let filter_of filter filter_internal field =
     let filter_internal =
-      if filter_internal then not field.internal_only else true
+      if filter_internal then
+        not field.internal_only
+      else
+        true
     in
     filter_internal
     &&

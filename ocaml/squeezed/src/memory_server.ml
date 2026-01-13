@@ -99,8 +99,7 @@ let login dbg service_name =
 
 let reserve_memory dbg session_id kib =
   let reservation_id = Uuidx.(to_string (make ())) in
-  if kib < 0L then
-    raise (MemoryError (Invalid_memory_value kib)) ;
+  if kib < 0L then raise (MemoryError (Invalid_memory_value kib)) ;
   wrap dbg (fun () ->
       Xenctrl.with_intf (fun xc ->
           Squeeze_xen.free_memory ~xc kib ;
@@ -113,10 +112,8 @@ let reserve_memory dbg session_id kib =
 
 let reserve_memory_range dbg session_id min max =
   let reservation_id = Uuidx.(to_string (make ())) in
-  if min < 0L then
-    raise (MemoryError (Invalid_memory_value min)) ;
-  if max < 0L then
-    raise (MemoryError (Invalid_memory_value max)) ;
+  if min < 0L then raise (MemoryError (Invalid_memory_value min)) ;
+  if max < 0L then raise (MemoryError (Invalid_memory_value max)) ;
   wrap dbg (fun () ->
       Xenctrl.with_intf (fun xc ->
           let amount = Squeeze_xen.free_memory_range ~xc min max in

@@ -65,7 +65,7 @@ let sr_probe_test rpc session_id sr_info () =
               ~sm_config:srr.API.sR_sm_config ~_type:srr.API.sR_type
           )
           (* Restore the original state even if the above code fails *)
-            (fun () -> Client.Client.PBD.plug ~rpc ~session_id ~self:pbd
+          (fun () -> Client.Client.PBD.plug ~rpc ~session_id ~self:pbd
           )
       in
       let srs = parse_sr_probe_xml xml in

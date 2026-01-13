@@ -136,7 +136,11 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type
       let scheduled = get_scheduled_VGPUs ~__context ~self <> [] in
       let attached = Db.PCI.get_attached_VMs ~__context ~self:pci <> [] in
       convert_capacity
-        (if scheduled || attached || pre_allocated then 0L else 1L)
+        ( if scheduled || attached || pre_allocated then
+            0L
+          else
+            1L
+        )
     else
       (* For virtual VGPUs, we calculate the number of times the VGPU_type's
        * size fits into the PGPU's (size - utilisation). *)

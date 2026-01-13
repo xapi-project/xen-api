@@ -137,7 +137,10 @@ let field_lookup recs name =
 let safe_get_field x =
   try x.get () with
   | Api_errors.Server_error (s, _) as e ->
-      if s = Api_errors.handle_invalid then "<invalid reference>" else raise e
+      if s = Api_errors.handle_invalid then
+        "<invalid reference>"
+      else
+        raise e
   | e ->
       raise e
 
@@ -224,7 +227,10 @@ let get_consistent_field_or_default ~rpc ~session_id ~getter ~transform ~default
                 `Value (getter ~rpc ~session_id ~self:host |> transform)
             | `Value v ->
                 let current = getter ~rpc ~session_id ~self:host |> transform in
-                if v = current then `Value v else `Inconsistent
+                if v = current then
+                  `Value v
+                else
+                  `Inconsistent
           )
           `NotSet hosts
       in
@@ -1340,7 +1346,10 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"vswitch-controller" ~hidden:true
           ~get:(fun () ->
             let r = (x ()).API.pool_vswitch_controller in
-            if r = "" then "<not set>" else r
+            if r = "" then
+              "<not set>"
+            else
+              r
           )
           ()
       ; make_field ~name:"restrictions"
@@ -1455,8 +1464,8 @@ let pool_record rpc session_id pool =
           ~get:(fun () ->
             Client.Host.get_all ~rpc ~session_id
             |> List.map (fun h ->
-                   Client.Host.get_https_only ~rpc ~session_id ~self:h
-               )
+                Client.Host.get_https_only ~rpc ~session_id ~self:h
+            )
             |> List.fold_left ( && ) true
             |> string_of_bool
           )
@@ -2627,8 +2636,8 @@ let vm_record rpc session_id vm =
               let value =
                 get_words ',' x
                 |> List.map (fun uuid ->
-                       Client.VM_group.get_by_uuid ~rpc ~session_id ~uuid
-                   )
+                    Client.VM_group.get_by_uuid ~rpc ~session_id ~uuid
+                )
               in
               Client.VM.set_groups ~rpc ~session_id ~self:vm ~value
           )
@@ -5588,10 +5597,10 @@ let host_driver_record rpc session_id host_driver =
           )
           (Client.Host_driver.get_variants ~rpc ~session_id ~self:host_driver)
         |> List.stable_sort (fun (_, x) (_, y) ->
-               Float.compare x.API.driver_variant_priority
-                 y.API.driver_variant_priority
-               |> Int.neg
-           )
+            Float.compare x.API.driver_variant_priority
+              y.API.driver_variant_priority
+            |> Int.neg
+        )
       )
   in
 
@@ -5659,14 +5668,14 @@ let host_driver_record rpc session_id host_driver =
           ~get:(fun () ->
             xv ()
             |> List.map (fun (_, v) ->
-                   ( v.API.driver_variant_name
-                   , v.API.driver_variant_version
-                   , v.API.driver_variant_status
-                   )
-               )
+                ( v.API.driver_variant_name
+                , v.API.driver_variant_version
+                , v.API.driver_variant_status
+                )
+            )
             |> List.map (fun (name, _version, status) ->
-                   Printf.sprintf "%s=%s" name status
-               )
+                Printf.sprintf "%s=%s" name status
+            )
             |> String.concat "; "
           )
           ()
@@ -5684,11 +5693,11 @@ let host_driver_record rpc session_id host_driver =
           ~get:(fun () ->
             xv ()
             |> List.map (fun (_, v) ->
-                   ( v.API.driver_variant_name
-                   , v.API.driver_variant_version
-                   , v.API.driver_variant_hardware_present
-                   )
-               )
+                ( v.API.driver_variant_name
+                , v.API.driver_variant_version
+                , v.API.driver_variant_hardware_present
+                )
+            )
             |> List.filter (fun (_, _, status) -> status = true)
             |> map_and_concat (fun (name, _, _) -> name)
           )
@@ -5782,8 +5791,8 @@ let observer_record rpc session_id observer =
             let value =
               get_words ',' s
               |> List.map (fun uuid ->
-                     Client.Host.get_by_uuid ~rpc ~session_id ~uuid
-                 )
+                  Client.Host.get_by_uuid ~rpc ~session_id ~uuid
+              )
             in
             Client.Observer.set_hosts ~rpc ~session_id ~self:observer ~value
           )
@@ -5803,7 +5812,12 @@ let observer_record rpc session_id observer =
             let hosts =
               Client.Observer.get_hosts ~rpc ~session_id ~self:observer
             in
-            let value = if List.mem host hosts then hosts else host :: hosts in
+            let value =
+              if List.mem host hosts then
+                hosts
+              else
+                host :: hosts
+            in
             Client.Observer.set_hosts ~rpc ~session_id ~self:observer ~value
           )
           ()

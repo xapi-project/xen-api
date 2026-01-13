@@ -53,7 +53,10 @@ let get_field_by_name api ~objname ~fieldname:name =
         Some field
     | Namespace (_, sub) :: rest ->
         let result = contents sub in
-        if result = None then contents rest else result
+        if result = None then
+          contents rest
+        else
+          result
     | _ :: rest ->
         contents rest
     | [] ->
@@ -81,7 +84,10 @@ let filter_field (pred : field -> bool) (system : obj list) =
   (* NB using lists rather than options - maybe change later? *)
   let rec content = function
     | Field field as x ->
-        if pred field then [x] else []
+        if pred field then
+          [x]
+        else
+          []
     | Namespace (name, contents) ->
         [Namespace (name, List.concat_map content contents)]
   in
@@ -96,7 +102,10 @@ let filter_field (pred : field -> bool) (system : obj list) =
   in
   let rec fixpoint f x =
     let result = f x in
-    if result = x then x else fixpoint f result
+    if result = x then
+      x
+    else
+      fixpoint f result
   in
   let obj x =
     {
@@ -377,7 +386,10 @@ let check api emergency_calls =
           | "closed" ->
               sofar (* closed is not a real release, so skip it *)
           | r ->
-              if release_lt r sofar then r else sofar
+              if release_lt r sofar then
+                r
+              else
+                sofar
         )
         last releases
     in

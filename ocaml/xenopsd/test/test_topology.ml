@@ -66,7 +66,8 @@ let make_numa_common ~logical_per_physical ~cores_per_numa
     Array.init (cores_per_numa * numa) (fun cpu -> cpu / cores_per_numa)
   and node_cores =
     (* core here refers to physical *)
-    Array.init numa (fun _ -> cores_per_numa / logical_per_physical)
+    Array.init numa (fun _ -> cores_per_numa / logical_per_physical
+    )
   in
   Option.map
     (fun d -> (cores_per_numa * numa, d))
@@ -127,16 +128,16 @@ let vm_access_costs host all_vms (vcpus, nodes, cpuset) =
     cpuset
     |> CPUSet.elements
     |> List.map (fun c ->
-           let distances =
-             List.map
-               (fun node -> NUMA.distance host (NUMA.node_of_cpu host c) node)
-               nodes
-           in
-           let worst = List.fold_left max 0 distances in
-           let best = List.fold_left min max_int distances in
-           let average = float (List.fold_left ( + ) 0 distances) /. float n in
-           {worst; best; nodes= []; average}
-       )
+        let distances =
+          List.map
+            (fun node -> NUMA.distance host (NUMA.node_of_cpu host c) node)
+            nodes
+        in
+        let worst = List.fold_left max 0 distances in
+        let best = List.fold_left min max_int distances in
+        let average = float (List.fold_left ( + ) 0 distances) /. float n in
+        {worst; best; nodes= []; average}
+    )
     |> sum_costs
   in
   D.debug "Costs: %s" (Fmt.to_to_string pp costs) ;
@@ -308,8 +309,8 @@ let distances_tests =
   let to_actual spec =
     spec
     |> Seq.map (fun (d, nodes) ->
-           (d, Seq.map (function NUMA.Node n -> n) nodes |> List.of_seq)
-       )
+        (d, Seq.map (function NUMA.Node n -> n) nodes |> List.of_seq)
+    )
     |> List.of_seq
   in
   let test_of_spec (name, distances, expected) =

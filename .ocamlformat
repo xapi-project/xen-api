@@ -1,6 +1,6 @@
 profile=ocamlformat
 indicate-multiline-delimiters=closing-on-separate-line
-if-then-else=fit-or-vertical
+if-then-else=k-r
 dock-collection-brackets=true
 break-struct=natural
 break-separators=before

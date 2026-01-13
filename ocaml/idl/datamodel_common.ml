@@ -756,7 +756,12 @@ let namespace ?(get_field_writer_roles = fun x -> x)
         Field
           {
             x with
-            full_name= (if idempotent then x.full_name else name :: x.full_name)
+            full_name=
+              ( if idempotent then
+                  x.full_name
+                else
+                  name :: x.full_name
+              )
           ; field_setter_roles= get_field_writer_roles x.field_setter_roles
           ; field_getter_roles= get_field_reader_roles x.field_getter_roles
           }

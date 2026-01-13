@@ -84,7 +84,12 @@ let wait_until_next_reading (module D : Debug.DEBUG) ~neg_shift ~uid ~protocol
     ~overdue_count ~reporter =
   let next_reading = RRDD.Plugin.Local.register uid Rrd.Five_Seconds protocol in
   let wait_time = next_reading -. neg_shift in
-  let wait_time = if wait_time < 0.1 then wait_time +. 5. else wait_time in
+  let wait_time =
+    if wait_time < 0.1 then
+      wait_time +. 5.
+    else
+      wait_time
+  in
   (* overdue count - 0 if there is no overdue; +1 if there is overdue *)
   if wait_time > 0. then (
     ( match reporter with
@@ -102,7 +107,8 @@ let wait_until_next_reading (module D : Debug.DEBUG) ~neg_shift ~uid ~protocol
       let backoff_time = 2. ** (float_of_int overdue_count -. 1.) in
       D.debug
         "rrdd says next reading is overdue, seems like rrdd is busy;\n\
-         \t\t\t\tBacking off for %.1f seconds" backoff_time ;
+         \t\t\t\tBacking off for %.1f seconds"
+        backoff_time ;
       match reporter with
       | Some reporter ->
           let (_ : bool) = Delay.wait reporter.delay backoff_time in

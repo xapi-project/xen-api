@@ -125,7 +125,8 @@ let get_link_stats dbg () =
       List.mem name managed_host_net_devs && String.contains name '.'
     in
     List.map (fun link -> standardise_name (Link.get_name link)) links
-    |> (* Only keep interfaces with prefixes on the whitelist, and exclude VLAN
+    |>
+    (* Only keep interfaces with prefixes on the whitelist, and exclude VLAN
           devices (ethx.y). *)
     List.filter (fun name -> is_whitelisted name && not (is_vlan name))
   in
@@ -158,7 +159,12 @@ let rec monitor dbg () =
                   let pci_bus_path = Sysfs.get_pcibuspath dev in
                   let vendor_id, device_id = Sysfs.get_pci_ids dev in
                   let nb_links = 1 in
-                  let links_up = if carrier then 1 else 0 in
+                  let links_up =
+                    if carrier then
+                      1
+                    else
+                      0
+                  in
                   let interfaces = [dev] in
                   {
                     carrier
@@ -231,7 +237,12 @@ let rec monitor dbg () =
       ( if List.length bonds <> Hashtbl.length bonds_status then
           let dead_bonds =
             Hashtbl.fold
-              (fun k _ acc -> if List.mem_assoc k bonds then acc else k :: acc)
+              (fun k _ acc ->
+                if List.mem_assoc k bonds then
+                  acc
+                else
+                  k :: acc
+              )
               bonds_status []
           in
           List.iter

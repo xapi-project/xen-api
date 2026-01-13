@@ -186,7 +186,11 @@ let dss_pcpus xc =
     if len = 0 then (
       let physinfo = Xenctrl.physinfo xc in
       let pcpus = physinfo.Xenctrl.nr_cpus in
-      physcpus := if pcpus > 0 then Array.make pcpus 0L else [||] ;
+      physcpus :=
+        if pcpus > 0 then
+          Array.make pcpus 0L
+        else
+          [||] ;
       Xenctrl.pcpu_info xc pcpus
     ) else
       Xenctrl.pcpu_info xc len
@@ -232,7 +236,10 @@ let dss_loadavg () =
 let count_power_state_running_domains domains =
   List.fold_left
     (fun count (dom, _, _) ->
-      if not dom.Xenctrl.paused then count + 1 else count
+      if not dom.Xenctrl.paused then
+        count + 1
+      else
+        count
     )
     0 domains
 
@@ -254,7 +261,7 @@ let dss_hostload xc domains =
                   0
             )
           with _ -> 0
-        )
+          )
         + acc
       )
       0 domains

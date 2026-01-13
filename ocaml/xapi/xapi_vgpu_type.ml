@@ -144,10 +144,16 @@ let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
    * once Nvidia enable multiple Types, probably by two rounds to get
    * valid Ref *)
   let compatible_types_in_vm =
-    if compatible_model_names_in_vm = [] then [] else [ref]
+    if compatible_model_names_in_vm = [] then
+      []
+    else
+      [ref]
   in
   let compatible_types_on_pgpu =
-    if compatible_model_names_on_pgpu = [] then [] else [ref]
+    if compatible_model_names_on_pgpu = [] then
+      []
+    else
+      [ref]
   in
   Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
     ~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y ~size
@@ -555,7 +561,12 @@ module Vendor_nvidia = struct
         let deviceId = int_of_string (get_attr "deviceId" devId) in
         let subsystemId = int_of_string (get_attr "subsystemId" devId) in
         (* subsystemId=0 is a wildcard and the value ignored in a match *)
-        let psubdev_id = if subsystemId = 0 then None else Some subsystemId in
+        let psubdev_id =
+          if subsystemId = 0 then
+            None
+          else
+            Some subsystemId
+        in
         (* check that we have a matching GPU *)
         if
           (deviceId = id.device_id && subsystemId = 0)
@@ -1054,25 +1065,22 @@ module Nvidia_compat = struct
         read_config_dir conf_dir
         (* Nvidia host driver does not support multiple vGPU, create compat config file *)
         |> List.iter (fun (conf_file, identifier) ->
-               let identifier_string = Identifier.to_string identifier in
-               let expr = Eq (Field "identifier", Literal identifier_string) in
-               match
-                 Db.VGPU_type.get_internal_records_where ~__context ~expr
-               with
-               | [(vgpu_type_ref, rc)] ->
-                   let updated_config =
-                     rc.Db_actions.vGPU_type_internal_config
-                     |> List.remove_assoc
-                          Xapi_globs.nvidia_compat_config_file_key
-                     |> fun x ->
-                     (Xapi_globs.nvidia_compat_config_file_key, conf_file) :: x
-                   in
-                   Db.VGPU_type.set_internal_config ~__context
-                     ~self:vgpu_type_ref ~value:updated_config
-               | _ ->
-                   ()
-               (* Type is not relevant: ignore *)
-           )
+            let identifier_string = Identifier.to_string identifier in
+            let expr = Eq (Field "identifier", Literal identifier_string) in
+            match Db.VGPU_type.get_internal_records_where ~__context ~expr with
+            | [(vgpu_type_ref, rc)] ->
+                let updated_config =
+                  rc.Db_actions.vGPU_type_internal_config
+                  |> List.remove_assoc Xapi_globs.nvidia_compat_config_file_key
+                  |> fun x ->
+                  (Xapi_globs.nvidia_compat_config_file_key, conf_file) :: x
+                in
+                Db.VGPU_type.set_internal_config ~__context ~self:vgpu_type_ref
+                  ~value:updated_config
+            | _ ->
+                ()
+            (* Type is not relevant: ignore *)
+        )
     with e ->
       error "Failed to create NVidia compat config_file: %s\n%s\n"
         (Printexc.to_string e)

@@ -25,13 +25,13 @@ open D
 let check_breach_on_vm_anti_affinity_rules ~__context ~group =
   Db.VM_group.get_VMs ~__context ~self:group
   |> List.filter_map (fun vm ->
-         let vm_rec = Db.VM.get_record ~__context ~self:vm in
-         match (vm_rec.API.vM_power_state, vm_rec.API.vM_resident_on) with
-         | `Running, h when h <> Ref.null ->
-             Some h
-         | _ ->
-             None
-     )
+      let vm_rec = Db.VM.get_record ~__context ~self:vm in
+      match (vm_rec.API.vM_power_state, vm_rec.API.vM_resident_on) with
+      | `Running, h when h <> Ref.null ->
+          Some h
+      | _ ->
+          None
+  )
   |> function
   | [] | [_] ->
       None
@@ -66,9 +66,9 @@ let get_anti_affinity_alerts ~__context =
       Client.Client.Message.get_all_records ~rpc ~session_id
   )
   |> List.filter (fun (_, record) ->
-         record.API.message_name
-         = fst Api_messages.all_running_vms_in_anti_affinity_grp_on_single_host
-     )
+      record.API.message_name
+      = fst Api_messages.all_running_vms_in_anti_affinity_grp_on_single_host
+  )
 
 let alert_matched ~__context ~label_name ~id alert =
   let alert_rec = snd alert in
@@ -140,8 +140,8 @@ let maybe_update_vm_anti_affinity_alert_for_vm ~__context ~vm =
     try
       Db.VM.get_groups ~__context ~self:vm
       |> List.filter (fun g ->
-             Db.VM_group.get_placement ~__context ~self:g = `anti_affinity
-         )
+          Db.VM_group.get_placement ~__context ~self:g = `anti_affinity
+      )
       |> function
       | [] ->
           ()
@@ -172,14 +172,14 @@ let update_alert ~__context ~groups ~action =
     let alerts = get_anti_affinity_alerts ~__context in
     groups
     |> List.filter (fun g ->
-           Db.VM_group.get_placement ~__context ~self:g = `anti_affinity
-       )
+        Db.VM_group.get_placement ~__context ~self:g = `anti_affinity
+    )
     |> List.iter (fun group ->
-           let alerts_of_group =
-             filter_alerts_with_group ~__context ~group ~alerts
-           in
-           action ~__context ~group ~alerts:alerts_of_group
-       )
+        let alerts_of_group =
+          filter_alerts_with_group ~__context ~group ~alerts
+        in
+        action ~__context ~group ~alerts:alerts_of_group
+    )
   with e -> error "%s" (Printexc.to_string e)
 
 let update_vm_anti_affinity_alert ~__context ~groups =

@@ -42,7 +42,7 @@ let test_valid_ref_filter =
         assert_equal [vm1; vm4] (Valid_ref_list.filter f l)
     | _ ->
         Alcotest.fail "The test list should contain 4 VMs"
-  )
+    )
 
 let test_for_all =
   with_vm_list (fun __context l ->
@@ -80,22 +80,31 @@ let test_filter_map =
     | [_; _; _; _] as l ->
         let f vm =
           let n = Db.VM.get_name_label ~__context ~self:vm in
-          if n = "c" then Some n else None
+          if n = "c" then
+            Some n
+          else
+            None
         in
         assert_equal [] (Valid_ref_list.filter_map f l) ;
         let f vm =
           let n = Db.VM.get_name_label ~__context ~self:vm in
-          if n = "d" then Some n else None
+          if n = "d" then
+            Some n
+          else
+            None
         in
         assert_equal ["d"] (Valid_ref_list.filter_map f l) ;
         let f vm =
           let n = Db.VM.get_name_label ~__context ~self:vm in
-          if n = "a" || n = "d" then Some n else None
+          if n = "a" || n = "d" then
+            Some n
+          else
+            None
         in
         assert_equal ["a"; "d"] (Valid_ref_list.filter_map f l)
     | _ ->
         Alcotest.fail "The test list should contain 4 VMs"
-  )
+    )
 
 let test_iter =
   with_vm_list (fun __context l ->

@@ -109,8 +109,7 @@ let trim_and_send method_name tag recv_sock send_sock =
   let fill () =
     let s = Bytes.create bufsize in
     let n = Unix.read recv_sock s 0 bufsize in
-    if n > 0 then
-      Buffer.add_bytes recv_buf (Bytes.sub s 0 n) ;
+    if n > 0 then Buffer.add_bytes recv_buf (Bytes.sub s 0 n) ;
     n
   in
   (* Since we use xml parser to parse the reponse message, we don't need to escape the xml content in `send` *)

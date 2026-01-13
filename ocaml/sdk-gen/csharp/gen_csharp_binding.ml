@@ -200,8 +200,7 @@ and gen_http_actions () =
 (* ------------------- category: classes *)
 and gen_class_file cls =
   let m = exposed_class_name cls.name in
-  if not (List.mem m !api_members) then
-    api_members := m :: !api_members ;
+  if not (List.mem m !api_members) then api_members := m :: !api_members ;
   let out_chan =
     open_out (Filename.concat destdir (exposed_class_name cls.name) ^ ".cs")
   in
@@ -235,9 +234,14 @@ and gen_class out_chan cls =
     \    /// %s%s\n\
     \    /// </summary>\n\
     \    public partial class %s : XenObject<%s>\n\
-    \    {" Licence.bsd_two_clause
+    \    {"
+    Licence.bsd_two_clause
     (escape_xml cls.description)
-    (if publishedInfo = "" then "" else "\n    /// " ^ publishedInfo)
+    ( if publishedInfo = "" then
+        ""
+      else
+        "\n    /// " ^ publishedInfo
+    )
     exposed_class_name exposed_class_name ;
 
   print
@@ -328,7 +332,8 @@ and gen_class out_chan cls =
         "        public bool DeepEquals(%s other)\n\
         \        {\n\
         \            %s\n\n\
-        \            return " exposed_class_name check_refs
+        \            return "
+        exposed_class_name check_refs
   | _ ->
       print
         "        public bool DeepEquals(%s other, bool ignoreCurrentOperations)\n\
@@ -337,7 +342,8 @@ and gen_class out_chan cls =
         \            if (!ignoreCurrentOperations && \
          !Helper.AreEqual2(current_operations, other.current_operations))\n\
         \                return false;\n\n\
-        \            return " exposed_class_name check_refs
+        \            return "
+        exposed_class_name check_refs
   ) ;
 
   ( match other_contents with
@@ -359,7 +365,8 @@ and gen_class out_chan cls =
      opaqueRef, %s server)\n\
     \        {\n\
     \            if (opaqueRef == null)\n\
-    \            {" exposed_class_name ;
+    \            {"
+    exposed_class_name ;
 
   if cls.gen_constructor_destructor then
     print
@@ -462,10 +469,16 @@ and gen_exposed_method cls msg curParams =
   let deprecatedInfo = get_deprecated_info_message msg in
   let deprecatedAttribute = get_deprecated_attribute msg in
   let deprecatedInfoString =
-    if deprecatedInfo = "" then "" else "\n        /// " ^ deprecatedInfo
+    if deprecatedInfo = "" then
+      ""
+    else
+      "\n        /// " ^ deprecatedInfo
   in
   let deprecatedAttributeString =
-    if deprecatedAttribute = "" then "" else "\n        " ^ deprecatedAttribute
+    if deprecatedAttribute = "" then
+      ""
+    else
+      "\n        " ^ deprecatedAttribute
   in
   let sync =
     sprintf
@@ -481,7 +494,11 @@ and gen_exposed_method cls msg curParams =
       \            %s;\n\
       \        }\n"
       msg.msg_doc
-      (if publishInfo = "" then "" else "\n        /// " ^ publishInfo)
+      ( if publishInfo = "" then
+          ""
+        else
+          "\n        /// " ^ publishInfo
+      )
       deprecatedInfoString paramsDoc deprecatedAttributeString
       minimum_allowed_role exposed_ret_type msg.msg_name paramSignature
       (json_return_opt
@@ -504,7 +521,11 @@ and gen_exposed_method cls msg curParams =
         \          return session.JsonRpcClient.async_%s(%s);\n\
         \        }\n"
         msg.msg_doc
-        (if publishInfo = "" then "" else "\n        /// " ^ publishInfo)
+        ( if publishInfo = "" then
+            ""
+          else
+            "\n        /// " ^ publishInfo
+        )
         deprecatedInfoString paramsDoc deprecatedAttributeString
         minimum_allowed_role msg.msg_name paramSignature proxyMsgName
         jsonCallParams
@@ -547,7 +568,11 @@ and get_param_doc msg x =
   sprintf "\n        /// <param name=\"_%s\">%s%s</param>"
     (String.lowercase_ascii x.param_name)
     (escape_xml x.param_doc)
-    (if publishInfo = "" then "" else " " ^ publishInfo)
+    ( if publishInfo = "" then
+        ""
+      else
+        " " ^ publishInfo
+    )
 
 and exposed_params message classname params =
   let exposedParams = List.map exposed_param params in
@@ -655,7 +680,11 @@ and gen_exposed_field out_chan cls content =
         \        {\n\
         \            get { return _%s; }"
         (escape_xml fr.field_description)
-        (if publishInfo = "" then "" else "\n        /// " ^ publishInfo)
+        ( if publishInfo = "" then
+            ""
+          else
+            "\n        /// " ^ publishInfo
+        )
         (json_serialization_attr fr)
         (exposed_type fr.ty) full_name_fr full_name_fr ;
 
@@ -669,7 +698,8 @@ and gen_exposed_field out_chan cls content =
         \                    NotifyPropertyChanged(\"%s\");\n\
         \                }\n\
         \            }\n\
-        \        }" comp full_name_fr full_name_fr ;
+        \        }"
+        comp full_name_fr full_name_fr ;
 
       print "\n        private %s _%s%s;\n" (exposed_type fr.ty) full_name_fr
         (get_default_value_opt fr)
@@ -740,7 +770,8 @@ and gen_proxy_method classname message params =
         \            var serializer = CreateSerializer(converters);\n\
         \            return Rpc<XenRef<Task>>(\"Async.%s.%s\", new JArray(%s), \
          serializer);\n\
-        \        }" proxy_msg_name paramsJsonWithTypes
+        \        }"
+        proxy_msg_name paramsJsonWithTypes
         (String.concat ", " async_converters)
         classname message.msg_name paramsJsonNoTypes
     else
@@ -751,14 +782,28 @@ and gen_proxy_method classname message params =
 and proxy_params ~with_types message classname params =
   let refParam =
     sprintf
-      (if with_types then "string _%s" else "_%s ?? \"\"")
+      ( if with_types then
+          "string _%s"
+        else
+          "_%s ?? \"\""
+      )
       (String.lowercase_ascii classname)
   in
   let args = List.map (proxy_param ~with_types) params in
-  let args = if is_method_static message then args else refParam :: args in
+  let args =
+    if is_method_static message then
+      args
+    else
+      refParam :: args
+  in
   let args =
     if message.msg_session then
-      (if with_types then "string session" else "session") :: args
+      ( if with_types then
+          "string session"
+        else
+          "session"
+      )
+      :: args
     else
       args
   in
@@ -1225,7 +1270,10 @@ and get_default_value_opt field =
     | VSet y ->
         List.map (fun x -> String.concat ", " (get_default_value x)) y
     | VRef y ->
-        if y = "" then ["Helper.NullOpaqueRef"] else [sprintf "\"%s\"" y]
+        if y = "" then
+          ["Helper.NullOpaqueRef"]
+        else
+          [sprintf "\"%s\"" y]
   in
   match field.default_value with
   | Some y ->
@@ -1236,12 +1284,24 @@ and get_default_value_opt field =
 and get_default_value_per_type ty thing =
   match ty with
   | DateTime | Int | Bool | Float ->
-      if thing = [] then "" else sprintf " = %s" (String.concat ", " thing)
+      if thing = [] then
+        ""
+      else
+        sprintf " = %s" (String.concat ", " thing)
   | Ref _ ->
       sprintf " = new %s(%s)" (exposed_type ty)
-        (if thing = [] then "Helper.NullOpaqueRef" else String.concat ", " thing)
+        ( if thing = [] then
+            "Helper.NullOpaqueRef"
+          else
+            String.concat ", " thing
+        )
   | SecretString | String ->
-      sprintf " = %s" (if thing = [] then "\"\"" else String.concat ", " thing)
+      sprintf " = %s"
+        ( if thing = [] then
+            "\"\""
+          else
+            String.concat ", " thing
+        )
   | Enum (name, _) ->
       if thing = [] then
         ""
@@ -1270,6 +1330,9 @@ and get_default_value_per_type ty thing =
   | Record _ ->
       sprintf " = new %s()" (exposed_type ty)
   | Option x ->
-      if thing = [] then "" else get_default_value_per_type x thing
+      if thing = [] then
+        ""
+      else
+        get_default_value_per_type x thing
 
 let _ = main ()

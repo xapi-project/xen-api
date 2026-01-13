@@ -67,11 +67,11 @@ let test_operation_checks_allowed () =
   with_test_vm (fun __context vm_ref ->
       [`assert_operation_valid; `update_allowed_operations]
       |> List.iter (fun op ->
-             compare_errors None
-               (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref
-                  ~op ~strict:true
-               )
-         )
+          compare_errors None
+            (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op
+               ~strict:true
+            )
+      )
   )
 
 (* The check_operation_error function, which is called from the message

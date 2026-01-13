@@ -32,7 +32,12 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2
   in
   let all_refs = get_all ~__context in
   let do_gc ref =
-    let print_valid b = if b then "valid" else "INVALID" in
+    let print_valid b =
+      if b then
+        "valid"
+      else
+        "INVALID"
+    in
     let record = get_record ~__context ~self:ref in
     let ref_1_valid = valid_ref1 record in
     let ref_2_valid = valid_ref2 record in
@@ -270,26 +275,24 @@ let gc_certificates ~__context =
      related to any single host *)
   all_certificates
   |> List.filter (fun (cert, record) ->
-         record.API.certificate_type <> `ca
-         && not (List.mem cert host_certificates)
-     )
+      record.API.certificate_type <> `ca && not (List.mem cert host_certificates)
+  )
   |> List.iter (fun (cert, _) -> Db.Certificate.destroy ~__context ~self:cert)
 
 let gc_vtpms ~__context =
   Db.VTPM.get_all ~__context
   |> List.iter (fun vtpm ->
-         let is_valid =
-           valid_ref __context vtpm
-           && valid_ref __context (Db.VTPM.get_VM ~__context ~self:vtpm)
-         in
+      let is_valid =
+        valid_ref __context vtpm
+        && valid_ref __context (Db.VTPM.get_VM ~__context ~self:vtpm)
+      in
 
-         if not is_valid then (
-           let contents = Db.VTPM.get_contents ~__context ~self:vtpm in
-           if contents <> Ref.null then
-             Db.Secret.destroy ~__context ~self:contents ;
-           Db.VTPM.destroy ~__context ~self:vtpm
-         )
-     )
+      if not is_valid then (
+        let contents = Db.VTPM.get_contents ~__context ~self:vtpm in
+        if contents <> Ref.null then Db.Secret.destroy ~__context ~self:contents ;
+        Db.VTPM.destroy ~__context ~self:vtpm
+      )
+  )
 
 let probation_pending_tasks = Hashtbl.create 53
 
@@ -373,7 +376,8 @@ let timeout_tasks ~__context =
   (* If there are still too many young tasks then we'll try to delete some completed ones *)
   let lucky, unlucky =
     if List.length young <= Xapi_globs.max_tasks then
-      (young, []) (* keep them all *)
+      (young, [])
+    (* keep them all *)
     else (* We only consider deleting completed tasks *)
       let completed, pending =
         List.partition
@@ -410,7 +414,8 @@ let timeout_sessions_common ~__context sessions limit session_group =
       (fun (x, _) ->
         let rec is_session_unused s =
           if s = Ref.null then
-            true (* top of session tree *)
+            true
+          (* top of session tree *)
           else
             try
               (* if no session s, assume default value true=unused *)

@@ -105,5 +105,10 @@ let parse () =
 (** Translate from legacy quicktest command line args to Alcotest's args *)
 let get_alcotest_args () =
   let name = [|Sys.argv.(0)|] in
-  let colour = if not !use_colour then [|"--color=never"|] else [||] in
+  let colour =
+    if not !use_colour then
+      [|"--color=never"|]
+    else
+      [||]
+  in
   Array.concat [name; colour; !alcotest_args]

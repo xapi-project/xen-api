@@ -105,7 +105,11 @@ let () =
           Printf.printf "  Optimized: %.3f μs\n" opt_time ;
           Printf.printf "  Reference: %.3f μs\n" ref_time ;
           Printf.printf "  Improvement: %.1f%% %s\n\n" improvement
-            (if improvement > 0.0 then "faster" else "slower")
+            ( if improvement > 0.0 then
+                "faster"
+              else
+                "slower"
+            )
       | None, _ ->
           Printf.printf "  Optimized implementation data missing\n\n"
       | _, None ->

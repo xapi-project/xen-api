@@ -74,8 +74,8 @@ let store_args sockets =
   sockets
   |> Hashtbl.to_seq
   |> Seq.map (fun (path, (_, (vm_uuid, gid, typ))) ->
-         Persistent.{vm_uuid; path; gid; typ}
-     )
+      Persistent.{vm_uuid; path; gid; typ}
+  )
   |> List.of_seq
   |> Persistent.saveto recover_path
 

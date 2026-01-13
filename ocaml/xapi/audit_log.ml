@@ -82,8 +82,18 @@ let transfer_audit_file _path compression fd_out ?filter since : unit =
 
 let transfer_all_audit_files fd_out ?filter since =
   let atransfer _infix _suffix =
-    let infix = if _infix = "" then "" else "." ^ _infix in
-    let suffix = if _suffix = "" then "" else "." ^ _suffix in
+    let infix =
+      if _infix = "" then
+        ""
+      else
+        "." ^ _infix
+    in
+    let suffix =
+      if _suffix = "" then
+        ""
+      else
+        "." ^ _suffix
+    in
     transfer_audit_file
       (audit_log_whitelist_prefix ^ infix ^ suffix)
       _suffix fd_out ?filter since
@@ -91,7 +101,8 @@ let transfer_all_audit_files fd_out ?filter since =
   let atransfer_try_gz infix =
     ignore_exn (fun () -> atransfer infix "gz") ;
     (* try the compressed file *)
-    ignore_exn (fun () -> atransfer infix "")
+    ignore_exn (fun () -> atransfer infix ""
+    )
     (* then the uncompressed one *)
   in
   (* go through audit.log.n->0 first, ascending order of time *)
@@ -128,7 +139,10 @@ let handler (req : Request.t) (s : Unix.file_descr) _ =
     (Printf.sprintf "audit_log_get request") req s (fun __context ->
       let all = req.Request.cookie @ req.Request.query in
       let since_iso8601 =
-        if List.mem_assoc "since" all then List.assoc "since" all else ""
+        if List.mem_assoc "since" all then
+          List.assoc "since" all
+        else
+          ""
       in
       let since = log_timestamp_of_iso8601 since_iso8601 in
       (*debug "since=[%s]" since;*)

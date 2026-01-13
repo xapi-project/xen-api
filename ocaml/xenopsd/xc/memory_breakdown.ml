@@ -265,7 +265,10 @@ let sections_of_line line =
 let guest_ids_of_string guest_ids_string =
   try
     let guest_ids = Astring.String.cuts ~sep:" " guest_ids_string in
-    if List.for_all Uuidx.is_uuid guest_ids then guest_ids else []
+    if List.for_all Uuidx.is_uuid guest_ids then
+      guest_ids
+    else
+      []
   with _ -> []
 
 let guest_ids_of_line line =
@@ -355,7 +358,10 @@ let print_padded_data_line guest_ids_all line =
 
 let range min max =
   let rec range min max list =
-    if min > max then list else range min (max - 1) (max :: list)
+    if min > max then
+      list
+    else
+      range min (max - 1) (max :: list)
   in
   range min max []
 

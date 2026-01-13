@@ -191,8 +191,7 @@ module Ds_selector = struct
               Some "\"\""
           | _ ->
               None
-          )
-          )
+          ))
     else if String.contains s ',' || String.contains s '\n' then
       quote s
     else
@@ -215,7 +214,10 @@ module Ds_selector = struct
         )
         ds_s.uuid ds_s.metric
     in
-    if escaped then escape_metric string_repr else string_repr
+    if escaped then
+      escape_metric string_repr
+    else
+      string_repr
 
   let to_string_uuid ?(escaped = false) ds_s = to_string ~escaped ds_s
 
@@ -247,7 +249,10 @@ module Ds_selector = struct
         )
         ds_s.metric
     in
-    if escaped then escape_metric string_repr else string_repr
+    if escaped then
+      escape_metric string_repr
+    else
+      string_repr
 
   let to_string_name_label ?(escaped = false) ds_s =
     let open Rrd in
@@ -276,7 +281,10 @@ module Ds_selector = struct
         )
         ds_s.metric
     in
-    if escaped then escape_metric string_repr else string_repr
+    if escaped then
+      escape_metric string_repr
+    else
+      string_repr
 
   (* Returns true if d "passes" the filter f, i.e. if fields of d
      match the non-null fields of f *)
@@ -285,17 +293,17 @@ module Ds_selector = struct
     && (String.starts_with ~prefix:f.metric d.metric || f.metric = "")
     && (f.cf = d.cf || f.cf = None)
     && ( match (f.owner, d.owner) with
-       | None, _ ->
-           true
-       | Some (VM _), Some (VM _) ->
-           f.uuid = d.uuid || f.uuid = ""
-       | Some (SR _), Some (SR _) ->
-           f.uuid = d.uuid || f.uuid = ""
-       | Some Host, Some Host ->
-           true
-       | _ ->
-           false
-       )
+      | None, _ ->
+          true
+      | Some (VM _), Some (VM _) ->
+          f.uuid = d.uuid || f.uuid = ""
+      | Some (SR _), Some (SR _) ->
+          f.uuid = d.uuid || f.uuid = ""
+      | Some Host, Some Host ->
+          true
+      | _ ->
+          false
+      )
     && (f.uuid = d.uuid || f.uuid = "")
 
   (* Returns true if d "passes" at least one of the filters fs, with
@@ -310,7 +318,12 @@ module Ds_selector = struct
      fs *)
   let filterNN_OR fs ds =
     List.fold_left
-      (fun acc d -> if filterN1_OR fs d then d :: acc else acc)
+      (fun acc d ->
+        if filterN1_OR fs d then
+          d :: acc
+        else
+          acc
+      )
       [] ds
 
   let filter = filterNN_OR
@@ -503,7 +516,14 @@ module Xport = struct
       in
       (* Display "N/A" instead of "nan" when DS not available *)
       let filtered_values =
-        List.map (fun str -> if str = "nan" then "N/A" else str) filtered_values
+        List.map
+          (fun str ->
+            if str = "nan" then
+              "N/A"
+            else
+              str
+          )
+          filtered_values
       in
       String.concat ", " filtered_values
 
@@ -532,7 +552,12 @@ module Xport = struct
       let qstring =
         Option.fold ~none:qstring ~some:(fun cf -> qstring ^ "&cf=" ^ cf) cf
       in
-      let qstring = if host then qstring ^ "&host=true" else qstring in
+      let qstring =
+        if host then
+          qstring ^ "&host=true"
+        else
+          qstring
+      in
       Stdout.debug "HTTP Query: %s" qstring ;
       qstring
     in
@@ -706,7 +731,14 @@ let _ =
     in
     let ano d = ds := Ds_selector.of_string d :: !ds in
     Arg.parse specs ano usage ;
-    (!ds, !s, !n, if !n then !u else true)
+    ( !ds
+    , !s
+    , !n
+    , if !n then
+        !u
+      else
+        true
+    )
   in
   (* show UUIDs by default;
      disable them if name labels are shown, unless explicitly requested *)

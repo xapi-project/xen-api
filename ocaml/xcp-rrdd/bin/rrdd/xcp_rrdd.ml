@@ -242,8 +242,8 @@ let do_monitor_write domains_before xc =
         tagged_dom0_stats
         |> List.to_seq
         |> Seq.map (fun (name, (timestamp, dss)) ->
-               (name, timestamp, List.to_seq dss)
-           )
+            (name, timestamp, List.to_seq dss)
+        )
       in
       let plugins_stats = Rrdd_server.Plugin.read_stats () in
       let _, domains_after, _ = Xenctrl_lib.domain_snapshot xc in
@@ -312,9 +312,7 @@ let monitor_write_loop () =
 
 (* Monitoring code --- END. *)
 
-module type GCLOG = sig
-  val start : unit -> Thread.t
-end
+module type GCLOG = sig val start : unit -> Thread.t end
 
 module GCLog : GCLOG = struct
   let start () =
@@ -349,9 +347,7 @@ end
    To help plugins with this, we ignore RRD files with a *.tmp suffix. This
    gives a plugin the possibility to use an atomic rename(2) call. *)
 
-module type DISCOVER = sig
-  val start : string list -> Thread.t
-end
+module type DISCOVER = sig val start : string list -> Thread.t end
 
 module Discover : DISCOVER = struct
   let directory = Rrdd_server.Plugin.base_path

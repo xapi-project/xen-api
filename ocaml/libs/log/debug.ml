@@ -103,7 +103,11 @@ let format include_time brand priority message =
         (desc, Printf.sprintf "%s->%s" client name)
   in
   Printf.sprintf "[%s%5s||%d %s|%s|%s] %s"
-    (if include_time then gettimestring () else "")
+    ( if include_time then
+        gettimestring ()
+      else
+        ""
+    )
     priority id name task brand message
 
 let print_debug = ref false
@@ -141,8 +145,7 @@ let get_facility () = !facility
 let output_log brand level priority s =
   if not (is_disabled brand level) then (
     let msg = format false brand priority s in
-    if !print_debug then
-      Printf.printf "%s\n%!" (format true brand priority s) ;
+    if !print_debug then Printf.printf "%s\n%!" (format true brand priority s) ;
     Syslog.log (get_facility ()) level (escape msg)
   )
 
@@ -230,7 +233,12 @@ let log_backtrace_exn ?(level = Syslog.Err) ?(msg = "error") exn bt =
   *)
   let bt' = Backtrace.remove exn in
   (* bt could be empty, but bt' would contain a non-empty warning, so compare 'bt' here *)
-  let bt = if bt = Backtrace.empty then bt' else bt in
+  let bt =
+    if bt = Backtrace.empty then
+      bt'
+    else
+      bt
+  in
   let all = split_c '\n' Backtrace.(to_string_hum bt) in
   (* Write to the log line at a time *)
   output_log "backtrace" level msg
@@ -281,9 +289,7 @@ let with_thread_named name f x =
     ThreadLocalTable.remove names ;
     raise e
 
-module type BRAND = sig
-  val name : string
-end
+module type BRAND = sig val name : string end
 
 let all_levels =
   [Syslog.Debug; Syslog.Info; Syslog.Warning; Syslog.Err; Syslog.Crit]
@@ -342,7 +348,12 @@ functor
     let audit ?(raw = false) (fmt : ('a, unit, string, 'b) format4) =
       Printf.ksprintf
         (fun s ->
-          let msg = if raw then s else format true Brand.name "audit" s in
+          let msg =
+            if raw then
+              s
+            else
+              format true Brand.name "audit" s
+          in
           Syslog.log Syslog.Local6 Syslog.Info (escape msg) ;
           msg
         )

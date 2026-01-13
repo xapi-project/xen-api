@@ -548,7 +548,11 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
               let gateway_if, dns_if =
                 Helpers.determine_gateway_and_dns_ifs ~__context
                   ?management_interface:
-                    (if management_interface then Some pif else None)
+                    ( if management_interface then
+                        Some pif
+                      else
+                        None
+                    )
                   ()
               in
               Option.iter
@@ -771,7 +775,10 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                   ~self:(Helpers.get_pool ~__context)
               in
               let igmp_snooping' =
-                if igmp_snooping then `enabled else `disabled
+                if igmp_snooping then
+                  `enabled
+                else
+                  `disabled
               in
               if igmp_snooping' <> rc.API.pIF_igmp_snooping_status then
                 Db.PIF.set_igmp_snooping_status ~__context ~self:pif

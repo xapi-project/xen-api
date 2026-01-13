@@ -25,8 +25,7 @@ module Connection (IO : Cohttp.S.IO) : sig
            | `Communication of exn ] ]
        )
        result
-       IO.t
-end
+       IO.t end
 
 module Server (M : S.BACKEND) : S.SERVER with type 'a io = 'a M.IO.t
 

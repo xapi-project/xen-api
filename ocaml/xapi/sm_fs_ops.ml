@@ -125,9 +125,17 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
         can_local_copy && not (Xapi_fist.force_remote_vdi_copy ())
       in
       debug "Sm_fs_ops.copy_vdi: %s-copying %Ld%s preserving sparseness %s"
-        (if local_copy then "locally" else "remotely")
+        ( if local_copy then
+            "locally"
+          else
+            "remotely"
+        )
         size
-        (if sparse then "" else " NOT")
+        ( if sparse then
+            ""
+          else
+            " NOT"
+        )
         ( match base with
         | None ->
             ""

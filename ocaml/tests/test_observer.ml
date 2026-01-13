@@ -107,12 +107,8 @@ module TracerProvider = struct
     let provider_endpoints =
       TracerProvider.get_endpoints provider
       |> List.map (fun endpoint ->
-             match endpoint with
-             | Bugtool ->
-                 "bugtool"
-             | Url x ->
-                 Uri.to_string x
-         )
+          match endpoint with Bugtool -> "bugtool" | Url x -> Uri.to_string x
+      )
     in
     List.iter2
       (fun x y -> Alcotest.(check string) "Observer contains endpoint" x y)

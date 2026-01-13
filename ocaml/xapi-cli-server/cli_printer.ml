@@ -29,11 +29,25 @@ type print_fn = printval -> unit
 
 let pad_string s len =
   let n = len - String.length s in
-  String.make (if n > 0 then n else 0) ' ' ^ s
+  String.make
+    ( if n > 0 then
+        n
+      else
+        0
+    )
+    ' '
+  ^ s
 
 let pad_rhs s len =
   let n = len - String.length s in
-  s ^ String.make (if n > 0 then n else 0) ' '
+  s
+  ^ String.make
+      ( if n > 0 then
+          n
+        else
+          0
+      )
+      ' '
 
 let rec multi_line_record r =
   let maxlen =

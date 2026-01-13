@@ -258,9 +258,9 @@ let observe_ro write ~f kind expected =
   let g fd_opt =
     fd_opt
     |> Option.fold ~none:None ~some:(fun fd ->
-           let r = do_write write written expected off (as_writable_opt fd) in
-           close fd ; r
-       )
+        let r = do_write write written expected off (as_writable_opt fd) in
+        close fd ; r
+    )
   in
   let res, thread_result = concurrently (wrap_measure f, g) (ro, wo_opt) in
   let elapsed, res = unwrap_exn res in
@@ -278,8 +278,8 @@ let observe_wo read ~f ~size kind =
   let g fd_opt =
     fd_opt
     |> Option.fold ~none:None ~some:(fun fd ->
-           do_read ~size read rd_buf (as_readable_opt fd)
-       )
+        do_read ~size read rd_buf (as_readable_opt fd)
+    )
   in
   let res, thread_result = concurrently (wrap_measure f, g) (wo, ro_opt) in
   let elapsed, res = unwrap_exn res in
@@ -420,9 +420,7 @@ let run_simulation (stop, actions) =
     (fun (prev, fds) (curr, fd, action) ->
       let delta = curr -. prev in
       assert (delta >= 0.) ;
-      if not (Atomic.get stop) then
-        if delta > 0. then
-          Unix.sleepf delta ;
+      if not (Atomic.get stop) then if delta > 0. then Unix.sleepf delta ;
       (* check again, might've been set meanwhile *)
       ( curr
       , if (not (Atomic.get stop)) || curr < Float.epsilon then (

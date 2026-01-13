@@ -287,7 +287,14 @@ let diagnostics common_opts =
 
 let list common_opts prefix all =
   Client.connect ~switch:common_opts.Common.path () >>|= fun t ->
-  Client.list ~t ~prefix ~filter:(if all then `All else `Alive) ()
+  Client.list ~t ~prefix
+    ~filter:
+      ( if all then
+          `All
+        else
+          `Alive
+      )
+    ()
   >>|= fun all ->
   List.iter print_endline all ;
   `Ok ()

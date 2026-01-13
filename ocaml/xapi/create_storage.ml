@@ -27,8 +27,8 @@ let check_for_unplugged_pbds ~__context ~alert =
   let unplugged =
     my_pbds
     |> List.filter (fun (_, pbd_record) ->
-           not pbd_record.API.pBD_currently_attached
-       )
+        not pbd_record.API.pBD_currently_attached
+    )
     |> List.map fst
   in
   if unplugged = [] then

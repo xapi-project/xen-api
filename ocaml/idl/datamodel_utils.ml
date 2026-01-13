@@ -94,14 +94,20 @@ module Relations = struct
   let rec of_types a inb =
     match inb with
     | Set x ->
-        if of_types a x = `None then `None else `Many
+        if of_types a x = `None then
+          `None
+        else
+          `Many
     | Map (x, y) ->
         if of_types a x = `None && of_types a y = `None then
           `None
         else
           `Many
     | x ->
-        if a = x then `One else `None
+        if a = x then
+          `One
+        else
+          `None
 
   let classify api ((a, a_field_name), (b, b_field_name)) =
     let a_field = get_field_by_name api ~objname:a ~fieldname:a_field_name
@@ -253,7 +259,12 @@ let doccomment (x : obj) (meth : string) : string =
 let named_self = ref false
 
 let self_of_obj x =
-  let self_name = if !named_self then x.name else _self in
+  let self_name =
+    if !named_self then
+      x.name
+    else
+      _self
+  in
   {
     param_type= Ref x.name
   ; param_name= self_name
@@ -317,7 +328,12 @@ let new_messages_of_field x order fld =
           self
         ; {
             param_type= fld.ty
-          ; param_name= (if !named_self then fld.field_name else "value")
+          ; param_name=
+              ( if !named_self then
+                  fld.field_name
+                else
+                  "value"
+              )
           ; param_doc= "New value to set"
           ; param_release= fld.release
           ; param_default= None
@@ -344,7 +360,10 @@ let new_messages_of_field x order fld =
 
   match (fld.ty, fld.field_ignore_foreign_key, is_many_to_many) with
   | Set (Ref _), false, false ->
-      if order = 0 then [getter] else []
+      if order = 0 then
+        [getter]
+      else
+        []
   | Set t, _, _ ->
       if order = 0 then
         [getter]
@@ -469,7 +488,13 @@ let new_messages_of_field x order fld =
           }
         ]
   | _, _, _ ->
-      [(if order = 0 then getter else setter)]
+      [
+        ( if order = 0 then
+            getter
+          else
+            setter
+        )
+      ]
 
 let all_new_messages_of_field obj fld =
   new_messages_of_field obj 0 fld @ new_messages_of_field obj 1 fld
@@ -523,7 +548,12 @@ let messages_of_obj (x : obj) document_order : message list =
         [
           {
             param_type= Record x.name
-          ; param_name= (if !named_self then "record" else "args")
+          ; param_name=
+              ( if !named_self then
+                  "record"
+                else
+                  "args"
+              )
           ; param_doc= "All constructor arguments"
           ; param_release= x.obj_release
           ; param_default= None
@@ -761,7 +791,10 @@ let messages_of_obj (x : obj) document_order : message list =
   in
 
   let name_label =
-    if obj_has_get_by_name_label x then [get_by_name_label] else []
+    if obj_has_get_by_name_label x then
+      [get_by_name_label]
+    else
+      []
   in
   let get_all_public =
     if List.mem x.name expose_get_all_messages_for then
@@ -776,7 +809,8 @@ let messages_of_obj (x : obj) document_order : message list =
   let messages = List.map (fun y -> {y with msg_obj_name= x.name}) x.messages in
 
   if not x.in_database then
-    messages (* @ [ get_all; get_record; get_record_internal ]*)
+    messages
+  (* @ [ get_all; get_record; get_record_internal ]*)
   else if document_order then
     messages
     @ get_all_public

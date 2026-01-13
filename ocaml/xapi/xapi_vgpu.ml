@@ -30,7 +30,12 @@ let min_valid_vgpu_device = 0
 let max_valid_vgpu_device = 20
 
 let range low high =
-  let rec aux low high = if low > high then [] else low :: aux (low + 1) high in
+  let rec aux low high =
+    if low > high then
+      []
+    else
+      low :: aux (low + 1) high
+  in
   aux low high
 
 let all_valid_devices = range min_valid_vgpu_device max_valid_vgpu_device

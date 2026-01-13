@@ -72,11 +72,11 @@ module Unix = struct
           | r ->
               Error
                 (`Msg
-                  (Printf.sprintf
-                     "typ_of_inet_addr: expectd rpc string but got %s"
-                     (Rpc.to_string r)
-                  )
-                  )
+                   (Printf.sprintf
+                      "typ_of_inet_addr: expectd rpc string but got %s"
+                      (Rpc.to_string r)
+                   )
+                )
           )
       }
 end
@@ -95,16 +95,16 @@ module Macaddr = struct
           | Rpc.String s ->
               Macaddr.of_octets s
               |> Result.map_error (fun (`Msg e) ->
-                     `Msg (Printf.sprintf "typ_of_macaddr: %s" e)
-                 )
+                  `Msg (Printf.sprintf "typ_of_macaddr: %s" e)
+              )
           | r ->
               Error
                 (`Msg
-                  (Printf.sprintf
-                     "typ_of_macaddr: expectd rpc string but got %s"
-                     (Rpc.to_string r)
-                  )
-                  )
+                   (Printf.sprintf
+                      "typ_of_macaddr: expectd rpc string but got %s"
+                      (Rpc.to_string r)
+                   )
+                )
           )
       }
 end

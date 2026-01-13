@@ -102,7 +102,10 @@ module SimpleMetrics = struct
   let to_float ds =
     match ds.Ds.ds_value with
     | Rrd.VT_Int64 i ->
-        if i >= 0L then Int64.to_float i else nan
+        if i >= 0L then
+          Int64.to_float i
+        else
+          nan
     | Rrd.VT_Float f ->
         f
     | Rrd.VT_Unknown ->
@@ -318,8 +321,7 @@ let generate_stats_exn () =
   let stats =
     derived :: List.concat [gcstat; Proc.to_list status; slow_stats]
   in
-  if is_slow then
-    observe_stats stats ;
+  if is_slow then observe_stats stats ;
   stats |> List.rev_map (fun x -> (Rrd.Host, x))
 
 let generate_stats () =

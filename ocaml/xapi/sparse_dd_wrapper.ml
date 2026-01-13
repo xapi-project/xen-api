@@ -124,7 +124,11 @@ let dd_internal progress_cb base prezeroed verify_cert ?(proto = None) infile
                     ; "-good-ciphersuites"
                     ; Constants.good_ciphersuites
                     ]
-                  ; (if prezeroed then ["-prezeroed"] else [])
+                  ; ( if prezeroed then
+                        ["-prezeroed"]
+                      else
+                        []
+                    )
                   ; (match base with None -> [] | Some x -> ["-base"; x])
                   ; verify_args
                   ; proto_args

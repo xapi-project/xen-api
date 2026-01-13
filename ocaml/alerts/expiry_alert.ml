@@ -77,14 +77,14 @@ let filter_messages msg_name_list msg_obj_uuid alert all_msgs =
   let msg_body, (msg_name, msg_prio) = alert in
   all_msgs
   |> List.filter (fun (_ref, record) ->
-         record.API.message_obj_uuid = msg_obj_uuid
-         && List.mem record.API.message_name msg_name_list
-     )
+      record.API.message_obj_uuid = msg_obj_uuid
+      && List.mem record.API.message_name msg_name_list
+  )
   |> List.partition (fun (_ref, record) ->
-         record.API.message_body <> msg_body
-         || record.API.message_name <> msg_name
-         || record.API.message_priority <> msg_prio
-     )
+      record.API.message_body <> msg_body
+      || record.API.message_name <> msg_name
+      || record.API.message_priority <> msg_prio
+  )
 
 let alert ~rpc ~session_id raw_alerts =
   let now = Clock.Date.now () in
@@ -93,20 +93,20 @@ let alert ~rpc ~session_id raw_alerts =
     (fun {cls; obj_uuid; obj_description; alert_conditions; expiry} ->
       maybe_generate_alert now obj_description alert_conditions expiry
       |> Option.map (fun alert ->
-             let msg_name_list =
-               List.map (fun (_, (msg_name, _)) -> msg_name) alert_conditions
-             in
-             all_msgs |> filter_messages msg_name_list obj_uuid alert
-             |> fun (outdated, current) ->
-             List.iter
-               (fun (self, _) -> XenAPI.Message.destroy ~rpc ~session_id ~self)
-               outdated ;
-             if current = [] then
-               let body, (name, priority) = alert in
-               XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls
-                 ~obj_uuid ~body
-               |> ignore
-         )
+          let msg_name_list =
+            List.map (fun (_, (msg_name, _)) -> msg_name) alert_conditions
+          in
+          all_msgs |> filter_messages msg_name_list obj_uuid alert
+          |> fun (outdated, current) ->
+          List.iter
+            (fun (self, _) -> XenAPI.Message.destroy ~rpc ~session_id ~self)
+            outdated ;
+          if current = [] then
+            let body, (name, priority) = alert in
+            XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls
+              ~obj_uuid ~body
+            |> ignore
+      )
       |> ignore
     )
     raw_alerts

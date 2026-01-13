@@ -42,14 +42,22 @@ let check_pending_guidances ~__context ~vm ~expect_restart_vm
   let remaining = Db.VM.get_pending_guidances ~__context ~self:vm in
   Alcotest.(check bool)
     (Printf.sprintf "restart_vm guidance %s - %s"
-       (if expect_restart_vm then "present" else "cleared")
+       ( if expect_restart_vm then
+           "present"
+         else
+           "cleared"
+       )
        test_description
     )
     expect_restart_vm
     (List.mem `restart_vm remaining) ;
   Alcotest.(check bool)
     (Printf.sprintf "restart_device_model guidance %s - %s"
-       (if expect_restart_device_model then "present" else "cleared")
+       ( if expect_restart_device_model then
+           "present"
+         else
+           "cleared"
+       )
        test_description
     )
     expect_restart_device_model
@@ -109,8 +117,7 @@ let setup_simulator () =
     ()
 
 let unsetup_simulator () =
-  if !simulator_setup then
-    Xcp_client.use_switch := false
+  if !simulator_setup then Xcp_client.use_switch := false
 
 let test_xapi_restart_inner () =
   let __context = make_test_database () in

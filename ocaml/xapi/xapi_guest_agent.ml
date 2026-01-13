@@ -194,8 +194,8 @@ let networks path vif_type (list : string -> string list) =
   | vif_pair_list ->
       vif_pair_list
       |> List.concat_map (fun (vif_path, vif_id) ->
-             find_all_vif_ips vif_path vif_id
-         )
+          find_all_vif_ips vif_path vif_id
+      )
 
 (* One key is placed in the other map per control/* key in xenstore. This
    catches keys like "feature-shutdown" "feature-hibernate" "feature-reboot"
@@ -243,15 +243,15 @@ let get_guest_services (lookup : string -> string option)
   let services = list base_path in
   services
   |> List.concat_map (fun service ->
-         let sub_path = base_path // service in
-         list sub_path
-         |> List.map (fun key ->
-                let full_path_key = sub_path // key in
-                let db_key = service // key in
-                let value = lookup full_path_key in
-                (db_key, Option.value ~default:"" value)
-            )
-     )
+      let sub_path = base_path // service in
+      list sub_path
+      |> List.map (fun key ->
+          let full_path_key = sub_path // key in
+          let db_key = service // key in
+          let value = lookup full_path_key in
+          (db_key, Option.value ~default:"" value)
+      )
+  )
 
 (* In the following functions, 'lookup' reads a key from xenstore and 'list' reads
    a directory from xenstore. Both are relative to the guest's domainpath. *)
@@ -369,7 +369,8 @@ let get_initial_guest_metrics (lookup : string -> string option)
      to -1 if it's not present in xenstore *)
   let pv_drivers_version =
     if pv_drivers_version = [] || List.mem_assoc "micro" pv_drivers_version then
-      pv_drivers_version (* already there; do nothing *)
+      pv_drivers_version
+    (* already there; do nothing *)
     else
       ("micro", "-1") :: pv_drivers_version
   in
@@ -406,9 +407,11 @@ let create_and_set_guest_metrics (lookup : string -> string option)
     ~can_use_hotplug_vif:initial_gm.can_use_hotplug_vif ;
   Db.VM.set_guest_metrics ~__context ~self ~value:new_gm_ref ;
   (* Update the cache with the new values *)
-  with_lock mutex (fun () -> Hashtbl.replace cache domid initial_gm) ;
+  with_lock mutex (fun () -> Hashtbl.replace cache domid initial_gm
+  ) ;
   (* We've just set the thing to live, let's make sure it's not in the dead list *)
-  with_lock mutex (fun () -> dead_domains := IntSet.remove domid !dead_domains) ;
+  with_lock mutex (fun () -> dead_domains := IntSet.remove domid !dead_domains
+  ) ;
   let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
   info
     "Received initial update from guest agent in VM %s; os_version = [ %s ]; \
@@ -500,8 +503,8 @@ let all (lookup : string -> string option) (list : string -> string list)
     )
     || guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
     || guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
-    (* Nb. we're ignoring the memory updates as far as the VM_guest_metrics API object is concerned. We are putting them into an RRD instead *)
-    (* || guest_metrics_cached.memory <> memory) *)
+  (* Nb. we're ignoring the memory updates as far as the VM_guest_metrics API object is concerned. We are putting them into an RRD instead *)
+  (* || guest_metrics_cached.memory <> memory) *)
   then (
     let gm =
       let existing = Db.VM.get_guest_metrics ~__context ~self in

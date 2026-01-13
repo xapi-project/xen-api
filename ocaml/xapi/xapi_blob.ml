@@ -21,7 +21,10 @@ let create ~__context ~mime_type ~public =
   let uuid = Uuidx.make () in
   let ref = Ref.make () in
   let mime_type' =
-    if mime_type = "" then "application/octet-stream" else mime_type
+    if mime_type = "" then
+      "application/octet-stream"
+    else
+      mime_type
   in
   Db.Blob.create ~__context ~ref ~uuid:(Uuidx.to_string uuid) ~public
     ~mime_type:mime_type' ~size:0L ~last_updated:Clock.Date.epoch ~name_label:""

@@ -55,7 +55,10 @@ module Uds = struct
 
   let http_command ?(file_socket = true) filename cmd =
     let with_channel =
-      if file_socket then with_unix_channels else with_socket
+      if file_socket then
+        with_unix_channels
+      else
+        with_socket
     in
     with_channel filename (fun ic oc ->
         Printf.fprintf oc "%s" cmd ;

@@ -85,11 +85,11 @@ let scan_start ~__context usbs =
     )
     known_pusbs_in_db
   |> List.iter (fun (self, _) ->
-         try Xapi_pusb_helpers.destroy_pusb ~__context self
-         with e ->
-           error "Caught exception while removing PUSB %s: %s"
-             (Ref.string_of self) (Printexc.to_string e)
-     )
+      try Xapi_pusb_helpers.destroy_pusb ~__context self
+      with e ->
+        error "Caught exception while removing PUSB %s: %s" (Ref.string_of self)
+          (Printexc.to_string e)
+  )
 
 let cond = Condition.create ()
 
@@ -156,22 +156,22 @@ let set_passthrough_enabled ~__context ~self ~value =
               Db.VDI.get_refs_where ~__context
                 ~expr:(Eq (Field "SR", Literal (Ref.string_of sr)))
               |> List.iter (fun rf ->
-                     try
-                       if get_sm_usb_path ~__context rf = pusb_path then (
-                         let vbds = Db.VDI.get_VBDs ~__context ~self:rf in
-                         if vbds <> [] then
-                           raise
-                             (Api_errors.Server_error
-                                ( Api_errors.pusb_vdi_conflict
-                                , [Ref.string_of self; Ref.string_of rf]
-                                )
-                             ) ;
-                         Xapi_vdi.forget ~__context ~vdi:rf
-                       )
-                     with e ->
-                       debug "Caught failure during remove vdi records." ;
-                       raise e
-                 )
+                  try
+                    if get_sm_usb_path ~__context rf = pusb_path then (
+                      let vbds = Db.VDI.get_VBDs ~__context ~self:rf in
+                      if vbds <> [] then
+                        raise
+                          (Api_errors.Server_error
+                             ( Api_errors.pusb_vdi_conflict
+                             , [Ref.string_of self; Ref.string_of rf]
+                             )
+                          ) ;
+                      Xapi_vdi.forget ~__context ~vdi:rf
+                    )
+                  with e ->
+                    debug "Caught failure during remove vdi records." ;
+                    raise e
+              )
             )
             udev_srs ;
           debug "set passthrough_enabled %b" value ;
@@ -214,10 +214,10 @@ let set_passthrough_enabled ~__context ~self ~value =
           Db.SR.get_refs_where ~__context
             ~expr:(Eq (Field "type", Literal "udev"))
           |> List.iter (fun sr ->
-                 Helpers.call_api_functions ~__context (fun rpc session_id ->
-                     Client.Client.SR.scan ~rpc ~session_id ~sr
-                 )
-             )
+              Helpers.call_api_functions ~__context (fun rpc session_id ->
+                  Client.Client.SR.scan ~rpc ~session_id ~sr
+              )
+          )
         with e ->
           debug "Caught failure during set passthrough_enabled %b." value ;
           raise e

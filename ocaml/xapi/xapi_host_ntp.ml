@@ -45,10 +45,10 @@ let get_dhcp_ntp_server interface =
   Xapi_stdext_unix.Unixext.read_lines ~path:fname
   |> List.rev (* search from the last lease entry *)
   |> List.find_map (fun line ->
-         let line = String.trim line in
-         try Scanf.sscanf line "option ntp-servers %[^;];" (fun x -> Some x)
-         with _ -> None
-     )
+      let line = String.trim line in
+      try Scanf.sscanf line "option ntp-servers %[^;];" (fun x -> Some x)
+      with _ -> None
+  )
 
 let add_dhcp_ntp_servers () =
   let ntp_dhcp_dir = !Xapi_globs.ntp_dhcp_dir in
@@ -56,24 +56,24 @@ let add_dhcp_ntp_servers () =
     Xapi_stdext_unix.Unixext.mkdir_rec ntp_dhcp_dir 0o755 ;
   get_dhclient_interfaces ()
   |> List.iter (fun interface ->
-         match get_dhcp_ntp_server interface with
-         | Some server ->
-             let line = Printf.sprintf "server %s iburst prefer\n" server in
-             Xapi_stdext_unix.Unixext.write_string_to_file
-               (ntp_dhcp_server_path interface)
-               line
-         | None ->
-             ()
-     ) ;
+      match get_dhcp_ntp_server interface with
+      | Some server ->
+          let line = Printf.sprintf "server %s iburst prefer\n" server in
+          Xapi_stdext_unix.Unixext.write_string_to_file
+            (ntp_dhcp_server_path interface)
+            line
+      | None ->
+          ()
+  ) ;
   add_exec_permission !Xapi_globs.ntp_dhcp_script
 
 let remove_dhcp_ntp_servers () =
   remove_exec_permission !Xapi_globs.ntp_dhcp_script ;
   Sys.readdir !Xapi_globs.ntp_dhcp_dir
   |> Array.iter (fun fname ->
-         if String.ends_with ~suffix:".sources" fname then
-           Sys.remove (!Xapi_globs.ntp_dhcp_dir // fname)
-     )
+      if String.ends_with ~suffix:".sources" fname then
+        Sys.remove (!Xapi_globs.ntp_dhcp_dir // fname)
+  )
 
 let enable_ntp_service () =
   Helpers.call_script !Xapi_globs.timedatectl ["set-ntp"; "true"] |> ignore

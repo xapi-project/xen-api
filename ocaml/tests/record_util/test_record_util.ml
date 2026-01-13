@@ -56,36 +56,36 @@ let test_of_string ~name all_enum old_to_string of_string_opt =
   in
   of_string_opt
   |> Option.map (fun (old_of_string, new_of_string) ->
-         let make input =
-           V1.test_case input `Quick @@ fun () ->
-           let expected = wrap old_of_string input in
-           let actual = wrap new_of_string input in
-           let pp_enum_result =
-             Fmt.of_to_string (function
-               | Ok a ->
-                   old_to_string a
-               | Error b ->
-                   exn_to_string_strip b
-               )
-           in
-           V1.(
-             check' ~msg:"compatible" ~expected ~actual
-             @@ testable pp_enum_result custom_eq
+      let make input =
+        V1.test_case input `Quick @@ fun () ->
+        let expected = wrap old_of_string input in
+        let actual = wrap new_of_string input in
+        let pp_enum_result =
+          Fmt.of_to_string (function
+            | Ok a ->
+                old_to_string a
+            | Error b ->
+                exn_to_string_strip b
+            )
+        in
+        V1.(
+          check' ~msg:"compatible" ~expected ~actual
+          @@ testable pp_enum_result custom_eq
+        )
+      in
+      ( name ^ "of_string"
+      , make "bad-BaD-BAD"
+        :: (all_enum
+           |> List.concat_map @@ fun enum ->
+              let input = old_to_string enum in
+              [
+                make input
+              ; make (String.capitalize_ascii input)
+              ; make (String.uppercase_ascii input)
+              ]
            )
-         in
-         ( name ^ "of_string"
-         , make "bad-BaD-BAD"
-           :: (all_enum
-              |> List.concat_map @@ fun enum ->
-                 let input = old_to_string enum in
-                 [
-                   make input
-                 ; make (String.capitalize_ascii input)
-                 ; make (String.uppercase_ascii input)
-                 ]
-              )
-         )
-     )
+      )
+  )
   |> Option.to_list
 
 let mk line of_string_opt all_enum (old_to_string, new_to_string) =

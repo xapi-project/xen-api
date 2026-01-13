@@ -79,7 +79,12 @@ module Subscription = struct
 
   (** [table_matches subs tbl]: true if at least one subscription from [subs] would select some events from [tbl] *)
   let table_matches subs tbl =
-    let tbl = if is_lowercase tbl then tbl else String.lowercase_ascii tbl in
+    let tbl =
+      if is_lowercase tbl then
+        tbl
+      else
+        String.lowercase_ascii tbl
+    in
     let matches = function
       | All ->
           true
@@ -92,7 +97,12 @@ module Subscription = struct
 
   (** [event_matches subs ev]: true if at least one subscription from [subs] selects for specified class and object *)
   let object_matches subs ty _ref =
-    let tbl = if is_lowercase ty then ty else String.lowercase_ascii ty in
+    let tbl =
+      if is_lowercase ty then
+        ty
+      else
+        String.lowercase_ascii ty
+    in
     let matches = function
       | All ->
           true
@@ -799,8 +809,7 @@ let generate_events_for =
   let table = Hashtbl.create 64 in
   let add_object ({name; gen_events; _} : Datamodel_types.obj) =
     (* Record only the names of objects that should generate events. *)
-    if gen_events then
-      Hashtbl.replace table name ()
+    if gen_events then Hashtbl.replace table name ()
   in
   Dm_api.objects_of_api Datamodel.all_api |> List.iter add_object ;
   Hashtbl.mem table
@@ -814,8 +823,7 @@ let event_add ?snapshot ty op reference =
     let ev = {id; ts; ty; op; reference; snapshot} in
     From.add ev ; Next.add ev
   in
-  if generate_events_for ty then
-    add ()
+  if generate_events_for ty then add ()
 
 let register_hooks () = Xapi_database.Db_action_helper.events_register event_add
 

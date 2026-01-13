@@ -48,7 +48,10 @@ let list_index_of x list =
     | [] ->
         raise Not_found
     | hd :: tl ->
-        if hd = x then i else index_rec (i + 1) tl
+        if hd = x then
+          i
+        else
+          index_rec (i + 1) tl
   in
   try index_rec 0 list with Not_found -> -1
 
@@ -190,7 +193,11 @@ let gen_param_groups message params =
   List.filter valid
     (List.map
        (filter_self_param message)
-       (if expRelease = "" then overloadGroups else [params])
+       ( if expRelease = "" then
+           overloadGroups
+         else
+           [params]
+       )
     )
 
 and get_minimum_allowed_role msg =

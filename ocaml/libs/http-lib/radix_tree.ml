@@ -14,7 +14,10 @@ let common_prefix a b =
   let skip = ref false in
   for i = 0 to min (String.length a) (String.length b) - 1 do
     if not !skip then
-      if a.[i] = b.[i] then incr j else skip := true
+      if a.[i] = b.[i] then
+        incr j
+      else
+        skip := true
   done ;
   String.sub a 0 !j
 
