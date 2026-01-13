@@ -20,12 +20,8 @@
 
 module Listext = Xapi_stdext_std.Listext
 
-let finally = Xapi_stdext_pervasives.Pervasiveext.finally
-
 (* We treat versions as '.'-separated integer lists under the usual
    lexicographic ordering. *)
-type version = int list
-
 let version_of_string s = List.map int_of_string (String.split_on_char '.' s)
 
 module D = Debug.Make (struct let name = "xapi_sm" end)
