@@ -255,15 +255,12 @@ let trigger ~rpc ~session_id ~domid ~uuid ~timeout ~vbd ~iso =
 (* This function is executed on the host where [vm] is running *)
 let sysprep ~__context ~vm ~unattend ~timeout =
   debug "%s (timeout %f)" __FUNCTION__ timeout ;
-  if not !Xapi_globs.vm_sysprep_enabled then
-    fail API_not_enabled ;
+  if not !Xapi_globs.vm_sysprep_enabled then fail API_not_enabled ;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
   let domid = Db.VM.get_domid ~__context ~self:vm in
   let control = Printf.sprintf "/local/domain/%Ld/control" domid in
-  if domid <= 0L then
-    fail VM_not_running ;
-  if SecretString.length unattend > 32 * 1024 then
-    fail XML_too_large ;
+  if domid <= 0L then fail VM_not_running ;
+  if SecretString.length unattend > 32 * 1024 then fail XML_too_large ;
   Ezxenstore_core.Xenstore.with_xs (fun xs ->
       let open Ezxenstore_core.Xenstore in
       match xs.Xs.read (control // "feature-sysprep") with

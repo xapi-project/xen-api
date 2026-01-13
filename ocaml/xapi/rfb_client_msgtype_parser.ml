@@ -218,6 +218,6 @@ let create () =
     let new_parser = Angstrom.Buffered.feed !state (`String data_chunk) in
     check_parsing_result (Ok (new_parser, []))
     |> Result.map (fun (final_parser, messages) ->
-           state := final_parser ;
-           List.rev messages
-       )
+        state := final_parser ;
+        List.rev messages
+    )

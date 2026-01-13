@@ -11,12 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module Mutex : sig
-  val execute : Mutex.t -> (unit -> 'a) -> 'a
-end
+module Mutex : sig val execute : Mutex.t -> (unit -> 'a) -> 'a end
 
-module Semaphore : sig
-  val execute : Semaphore.Counting.t -> (unit -> 'a) -> 'a
+module Semaphore : sig val execute : Semaphore.Counting.t -> (unit -> 'a) -> 'a
 end
 
 val thread_iter_all_exns : ('a -> unit) -> 'a list -> ('a * exn) list

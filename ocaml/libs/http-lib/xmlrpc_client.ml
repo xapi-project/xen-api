@@ -332,7 +332,11 @@ let with_transport ?(stunnel_wait_disconnect = true) transport f =
       let s = st_proc.Stunnel.fd in
       let s_pid = Stunnel.getpid st_proc.Stunnel.pid in
       debug "stunnel pid: %d (%scached) connected to %s:%d" s_pid
-        (if use_stunnel_cache then "" else "not ")
+        ( if use_stunnel_cache then
+            ""
+          else
+            "not "
+        )
         host port ;
       (* Call the {,un}set_stunnelpid_callback hooks around the remote call *)
       let with_recorded_stunnelpid f =

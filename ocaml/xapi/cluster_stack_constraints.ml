@@ -119,7 +119,8 @@ let assert_cluster_stack_compatible ~__context sr =
             () (* No constraints *)
         | alternatives ->
             if List.exists (fun x -> x = current_stack) alternatives then
-              () (* Constraints satisfied *)
+              ()
+            (* Constraints satisfied *)
             else
               raise
                 Api_errors.(

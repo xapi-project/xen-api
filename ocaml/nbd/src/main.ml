@@ -29,7 +29,13 @@ let require name arg =
   | Some x ->
       x
 
-let require_str name arg = require name (if arg = "" then None else Some arg)
+let require_str name arg =
+  require name
+    ( if arg = "" then
+        None
+      else
+        Some arg
+    )
 
 let with_attached_vdi vDI rpc session_id f =
   Lwt_log.notice "Looking up control domain UUID in xensource inventory"
@@ -48,21 +54,24 @@ let with_attached_vdi vDI rpc session_id f =
 let handle_connection fd tls_role =
   let with_session rpc uri f =
     ( match Uri.get_query_param uri "session_id" with
-    | Some session_str ->
-        (* Validate the session *)
-        let session_id = API.Ref.of_secret_string session_str in
-        Xen_api.Session.get_uuid ~rpc ~session_id ~self:session_id >>= fun _ ->
-        Lwt.return session_id
-    | None ->
-        Lwt.fail_with "No session_id parameter provided"
-    )
+      | Some session_str ->
+          (* Validate the session *)
+          let session_id = API.Ref.of_secret_string session_str in
+          Xen_api.Session.get_uuid ~rpc ~session_id ~self:session_id
+          >>= fun _ -> Lwt.return session_id
+      | None ->
+          Lwt.fail_with "No session_id parameter provided"
+      )
     >>= fun session_id -> f uri rpc session_id
   in
   let serve t uri rpc session_id =
     let path = Uri.path_unencoded uri in
     (* note preceeding / *)
     let vdi_uuid =
-      if path <> "" then String.sub path 1 (String.length path - 1) else path
+      if path <> "" then
+        String.sub path 1 (String.length path - 1)
+      else
+        path
     in
     Xen_api.VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid >>= fun vdi_ref ->
     with_attached_vdi vdi_ref rpc session_id (fun filename ->
@@ -158,11 +167,16 @@ let main port certfile _ =
                 Lwt.finalize
                   (fun () ->
                     inc_conn () >>= xapi_says_use_tls >>= fun tls ->
-                    let tls_role = if tls then tls_server_role else None in
+                    let tls_role =
+                      if tls then
+                        tls_server_role
+                      else
+                        None
+                    in
                     handle_connection fd tls_role
                   )
                   (* ignore the exception resulting from double-closing the socket *)
-                    (fun () ->
+                  (fun () ->
                     ignore_exn_delayed (fun () -> Lwt_unix.close fd) ()
                     >>= dec_conn
                   )

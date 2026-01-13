@@ -131,9 +131,9 @@ let vdi_clone_copy_test rpc session_id sr_info () =
           ; (false, vdi_clone, "VDI.clone failed to set cbt_enabled to false")
           ]
           |> List.iter (fun (boolean, vDI, msg) ->
-                 assert_cbt_status boolean ~rpc ~session_id ~vDI ~msg ;
-                 Qt.VDI.test_update rpc session_id vDI
-             )
+              assert_cbt_status boolean ~rpc ~session_id ~vDI ~msg ;
+              Qt.VDI.test_update rpc session_id vDI
+          )
       )
   )
 

@@ -32,7 +32,11 @@ let client_prefers_json req =
     ~default:(List.mem_assoc "json" req.Http.Request.query)
     prefers_json
 
-let content_type json = if json then content_json else content_xml
+let content_type json =
+  if json then
+    content_json
+  else
+    content_xml
 
 let rrd_handler (req : Http.Request.t) (s : Unix.file_descr) = function
   | None ->
@@ -222,7 +226,11 @@ let put_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   (* By now, we know that the data represents a valid RRD. *)
   if List.mem_assoc "archive" query then (
     debug "Receiving RRD on the master for archiving, type=%s."
-      (if is_host then "Host" else "VM uuid=" ^ uuid) ;
+      ( if is_host then
+          "Host"
+        else
+          "VM uuid=" ^ uuid
+      ) ;
     archive_rrd_internal ~uuid ~rrd:(Rrd.copy_rrd rrd) ()
   ) else (
     debug "Receiving RRD for resident VM uuid=%s. Replacing in hashtable." uuid ;

@@ -36,7 +36,13 @@ let allowed_power_states ~__context ~vmr ~(op : API.vm_operations) =
   | `import ->
       []
   | `changing_VCPUs | `changing_static_range | `changing_memory_limits ->
-      `Halted :: (if vmr.Db_actions.vM_is_control_domain then [`Running] else [])
+      `Halted
+      ::
+      ( if vmr.Db_actions.vM_is_control_domain then
+          [`Running]
+        else
+          []
+      )
   | `changing_shadow_memory
   | `changing_NVRAM
   | `make_into_template
@@ -416,14 +422,14 @@ let maybe_get_guest_metrics ~__context ~ref =
 let nvidia_sriov_pcis ~__context vgpus =
   vgpus
   |> List.filter_map (fun vgpu ->
-         Db.VGPU.get_type ~__context ~self:vgpu |> fun typ ->
-         Db.VGPU_type.get_implementation ~__context ~self:typ |> function
-         | `nvidia_sriov ->
-             let pci = Db.VGPU.get_PCI ~__context ~self:vgpu in
-             Some pci
-         | _ ->
-             None
-     )
+      Db.VGPU.get_type ~__context ~self:vgpu |> fun typ ->
+      Db.VGPU_type.get_implementation ~__context ~self:typ |> function
+      | `nvidia_sriov ->
+          let pci = Db.VGPU.get_PCI ~__context ~self:vgpu in
+          Some pci
+      | _ ->
+          None
+  )
 
 (** Take an internal VM record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
@@ -926,19 +932,19 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
     (* release vGPUs associated with VM *)
     Db.VM.get_VGPUs ~__context ~self
     |> List.iter (fun vgpu ->
-           Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null ;
-           Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
-             ~value:Ref.null ;
-           Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null
-       ) ;
+        Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null ;
+        Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
+          ~value:Ref.null ;
+        Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null
+    ) ;
     Db.VM.get_attached_PCIs ~__context ~self
     |> List.iter (fun pci ->
-           if Db.is_valid_ref __context pci then
-             Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self
-           else
-             (* XSI-995 pci does not exist, so remove it from the vm record *)
-             Db.VM.remove_attached_PCIs ~__context ~self ~value:pci
-       ) ;
+        if Db.is_valid_ref __context pci then
+          Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self
+        else
+          (* XSI-995 pci does not exist, so remove it from the vm record *)
+          Db.VM.remove_attached_PCIs ~__context ~self ~value:pci
+    ) ;
     List.iter
       (fun pci ->
         (* The following should not be necessary if many-to-many relations in the DB

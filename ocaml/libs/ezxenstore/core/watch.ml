@@ -96,9 +96,7 @@ let value_to_become (path : path) (v : string) : unit t =
   {
     evaluate=
       (fun xs ->
-        try
-          if xs.Xs.read path <> v then
-            raise Xs_protocol.Eagain
+        try if xs.Xs.read path <> v then raise Xs_protocol.Eagain
         with Xs_protocol.Enoent _ -> raise Xs_protocol.Eagain
       )
   }

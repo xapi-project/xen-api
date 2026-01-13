@@ -424,10 +424,10 @@ let test_group_hosts_netsriov () =
           )
           (Db.Network.get_all ~__context)
         |> List.sort (fun a b ->
-               compare
-                 (List.length (Db.Network.get_PIFs ~__context ~self:a))
-                 (List.length (Db.Network.get_PIFs ~__context ~self:b))
-           )
+            compare
+              (List.length (Db.Network.get_PIFs ~__context ~self:a))
+              (List.length (Db.Network.get_PIFs ~__context ~self:b))
+        )
       in
       match sriov_networks with
       (* we create 2 sriov networks,one include h and h'' and the other only has h'' *)
@@ -452,10 +452,10 @@ let test_group_hosts_netsriov_unattached () =
           )
           (Db.Network.get_all ~__context)
         |> List.sort (fun a b ->
-               compare
-                 (List.length (Db.Network.get_PIFs ~__context ~self:a))
-                 (List.length (Db.Network.get_PIFs ~__context ~self:b))
-           )
+            compare
+              (List.length (Db.Network.get_PIFs ~__context ~self:a))
+              (List.length (Db.Network.get_PIFs ~__context ~self:b))
+        )
       in
       match sriov_networks with
       | n1 :: n2 :: _ ->
@@ -486,10 +486,10 @@ let test_group_hosts_netsriov_with_allocated () =
           )
           (Db.Network.get_all ~__context)
         |> List.sort (fun a b ->
-               compare
-                 (List.length (Db.Network.get_PIFs ~__context ~self:a))
-                 (List.length (Db.Network.get_PIFs ~__context ~self:b))
-           )
+            compare
+              (List.length (Db.Network.get_PIFs ~__context ~self:a))
+              (List.length (Db.Network.get_PIFs ~__context ~self:b))
+        )
       in
       match sriov_networks with
       (* we create 2 sriov networks,one include h and h'' and the other only has h'' *)
@@ -994,8 +994,8 @@ module VMAntiAffinityRankedGrpTest = struct
             let other_hosts =
               Db.Host.get_all ~__context
               |> List.filter (fun h ->
-                     Db.Host.get_name_label ~__context ~self:h <> host_name
-                 )
+                  Db.Host.get_name_label ~__context ~self:h <> host_name
+              )
             in
             let other = match other_hosts with h :: _ -> h | [] -> Ref.null in
             Db.VM.set_resident_on ~__context ~self:vm ~value:other

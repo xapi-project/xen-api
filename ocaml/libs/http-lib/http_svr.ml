@@ -91,7 +91,12 @@ let get_return_version req =
 
 let response_of_request req hdrs =
   let connection =
-    (Http.Hdr.connection, if req.Request.close then "close" else "keep-alive")
+    ( Http.Hdr.connection
+    , if req.Request.close then
+        "close"
+      else
+        "keep-alive"
+    )
   in
   let cache = (Http.Hdr.cache_control, "no-cache, no-store") in
   Http.Response.make ~version:(get_return_version req)
@@ -444,7 +449,8 @@ let read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd =
                  )
                )
              | None ->
-                 (true, req) (* end of headers *)
+                 (true, req)
+           (* end of headers *)
          )
          (false, {empty with Http.Request.frame; additional_headers})
     |> snd
@@ -596,8 +602,7 @@ let handle_connection ~header_read_timeout ~header_total_timeout
         req
     in
     (* 3. do it again if the connection is kept open, but without timeouts *)
-    if not finished then
-      loop ~read_timeout:None ~total_timeout:None proxy
+    if not finished then loop ~read_timeout:None ~total_timeout:None proxy
   in
   loop ~read_timeout:header_read_timeout ~total_timeout:header_total_timeout
     None ;

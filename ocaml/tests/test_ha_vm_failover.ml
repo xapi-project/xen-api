@@ -149,9 +149,9 @@ let load_group ~__context ~group =
   match
     Db.VM_group.get_all ~__context
     |> List.find_opt (fun g ->
-           Db.VM_group.get_name_label ~__context ~self:g = group.name_label
-           && Db.VM_group.get_placement ~__context ~self:g = placement
-       )
+        Db.VM_group.get_name_label ~__context ~self:g = group.name_label
+        && Db.VM_group.get_placement ~__context ~self:g = placement
+    )
   with
   | None ->
       make_vm_group ~__context ~name_label:group.name_label ~placement ()
@@ -169,7 +169,12 @@ let load_vm ~__context ~(vm : vm) ~local_sr ~shared_sr ~local_net ~shared_net =
     List.mapi
       (fun index (vif : vif) ->
         make_vif ~__context ~device:(string_of_int index) ~vM:vm_ref
-          ~network:(if vif.agile then shared_net else local_net)
+          ~network:
+            ( if vif.agile then
+                shared_net
+              else
+                local_net
+            )
           ()
       )
       vm.vifs
@@ -178,7 +183,14 @@ let load_vm ~__context ~(vm : vm) ~local_sr ~shared_sr ~local_net ~shared_net =
     List.mapi
       (fun index (vbd : vbd) ->
         let vdi_ref =
-          make_vdi ~__context ~sR:(if vbd.agile then shared_sr else local_sr) ()
+          make_vdi ~__context
+            ~sR:
+              ( if vbd.agile then
+                  shared_sr
+                else
+                  local_sr
+              )
+            ()
         in
         make_vbd ~__context ~device:(string_of_int index) ~vM:vm_ref
           ~vDI:vdi_ref ()
@@ -670,10 +682,10 @@ end)
 let extract_output_for_anti_aff_plan ~__context plan =
   plan
   |> List.map (fun (vm, host) ->
-         ( Db.VM.get_name_label ~__context ~self:vm
-         , Db.Host.get_name_label ~__context ~self:host
-         )
-     )
+      ( Db.VM.get_name_label ~__context ~self:vm
+      , Db.Host.get_name_label ~__context ~self:host
+      )
+  )
 
 let anti_aff_grp1 = {name_label= grp1; placement= AntiAffinity}
 
@@ -1097,8 +1109,8 @@ Generic.MakeStateful (struct
       |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
       |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
       |> List.map (fun (self, record) ->
-             (self, Xapi_ha_vm_failover.vm_memory ~__context record)
-         )
+          (self, Xapi_ha_vm_failover.vm_memory ~__context record)
+      )
       |> Xapi_ha_vm_failover.vms_partition ~__context
       |> fst
     in
@@ -1106,8 +1118,8 @@ Generic.MakeStateful (struct
       Db.Host.get_all ~__context
       |> List.filter (( <> ) slv1)
       |> List.map (fun host ->
-             (host, Xapi_ha_vm_failover.host_free_memory ~__context ~host)
-         )
+          (host, Xapi_ha_vm_failover.host_free_memory ~__context ~host)
+      )
     in
     let pool_state =
       Xapi_ha_vm_failover.init_spread_evenly_plan_pool_state ~__context
@@ -1124,8 +1136,8 @@ Generic.MakeStateful (struct
     `QuickAndAutoDocumented
       (anti_aff_plan_test_cases
       |> List.map (fun (pool, spread_evenly_plan, _no_breach_plan) ->
-             (pool, spread_evenly_plan)
-         )
+          (pool, spread_evenly_plan)
+      )
       )
 end)
 
@@ -1154,8 +1166,8 @@ module Slave1EvacuationVMAntiAffinityNoBreachPlan = Generic.MakeStateful (struct
       |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
       |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
       |> List.map (fun (self, record) ->
-             (self, Xapi_ha_vm_failover.vm_memory ~__context record)
-         )
+          (self, Xapi_ha_vm_failover.vm_memory ~__context record)
+      )
       |> Xapi_ha_vm_failover.vms_partition ~__context
       |> fst
     in
@@ -1163,8 +1175,8 @@ module Slave1EvacuationVMAntiAffinityNoBreachPlan = Generic.MakeStateful (struct
       Db.Host.get_all ~__context
       |> List.filter (( <> ) slv1)
       |> List.map (fun host ->
-             (host, Xapi_ha_vm_failover.host_free_memory ~__context ~host)
-         )
+          (host, Xapi_ha_vm_failover.host_free_memory ~__context ~host)
+      )
     in
     let pool_state =
       Xapi_ha_vm_failover.init_spread_evenly_plan_pool_state ~__context
@@ -1183,8 +1195,8 @@ module Slave1EvacuationVMAntiAffinityNoBreachPlan = Generic.MakeStateful (struct
     `QuickAndAutoDocumented
       (anti_aff_plan_test_cases
       |> List.map (fun (pool, _spread_evenly_plan, no_breach_plan) ->
-             (pool, no_breach_plan)
-         )
+          (pool, no_breach_plan)
+      )
       )
 end)
 
@@ -1214,23 +1226,23 @@ module Slave1EvacuationPlan = Generic.MakeStateful (struct
       |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
       |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
       |> List.map (fun (self, record) ->
-             (self, Xapi_ha_vm_failover.vm_memory ~__context record)
-         )
+          (self, Xapi_ha_vm_failover.vm_memory ~__context record)
+      )
     in
     let hosts =
       all_hosts
       |> List.filter (( <> ) slv1)
       |> List.map (fun host ->
-             (host, Xapi_ha_vm_failover.host_free_memory ~__context ~host)
-         )
+          (host, Xapi_ha_vm_failover.host_free_memory ~__context ~host)
+      )
     in
     Xapi_ha_vm_failover.compute_anti_aff_evac_plan ~__context
       (List.length all_hosts) hosts slave1_vms
     |> List.map (fun (vm, host) ->
-           ( Db.VM.get_name_label ~__context ~self:vm
-           , Db.Host.get_name_label ~__context ~self:host
-           )
-       )
+        ( Db.VM.get_name_label ~__context ~self:vm
+        , Db.Host.get_name_label ~__context ~self:host
+        )
+    )
 
   let tests =
     `QuickAndAutoDocumented

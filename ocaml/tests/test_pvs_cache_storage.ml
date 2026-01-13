@@ -133,8 +133,8 @@ module Assert_not_in_use = Generic.MakeStateful (struct
     let pcs =
       Db.PVS_site.get_cache_storage ~__context ~self:site'
       |> List.filter (fun pcs ->
-             Db.PVS_cache_storage.get_host ~__context ~self:pcs = host'
-         )
+          Db.PVS_cache_storage.get_host ~__context ~self:pcs = host'
+      )
       |> List.hd
     in
     try Ok (Xapi_pvs_cache_storage.assert_not_in_use ~__context pcs)

@@ -94,8 +94,8 @@ let create_thumbprint_header req response =
         None
   )
   |> Option.fold ~none:[] ~some:(fun x ->
-         [(!Xapi_globs.cert_thumbprint_header_response, x)]
-     )
+      [(!Xapi_globs.cert_thumbprint_header_response, x)]
+  )
 
 (** HTML callback that dispatches an RPC and returns the response. *)
 let callback is_json req fd _ =

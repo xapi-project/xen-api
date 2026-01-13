@@ -335,7 +335,10 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
           cloned_suspend_VDI
           :: List.fold_left
                (fun acc (_, vdi, on_error_delete) ->
-                 if on_error_delete then vdi :: acc else acc
+                 if on_error_delete then
+                   vdi :: acc
+                 else
+                   acc
                )
                [] cloned_disks
         in
@@ -424,18 +427,23 @@ let ensure_domain_type_is_consistent ~__context ~snap_metadata =
   let hvm_boot_policy () =
     (* XSI-828 the HVM boot policy is actually stored in the database as HVM__boot_policy
      * we keep the check for HVM_boot_policy 'just in case' *)
-    let if_none f x = if Option.is_none x then f () else x in
+    let if_none f x =
+      if Option.is_none x then
+        f ()
+      else
+        x
+    in
     let module List = Stdlib.List in
     List.assoc_opt "HVM__boot_policy" snap_metadata
     |> if_none (fun () -> List.assoc_opt "HVM_boot_policy" snap_metadata)
     |> if_none (fun () ->
-           D.error "couldn't find HVM boot policy in snapshot metadata" ;
-           raise
-             Api_errors.(
-               Server_error
-                 (invalid_value, ["snapshot_metadata:HVM__boot_policy"; "null"])
-             )
-       )
+        D.error "couldn't find HVM boot policy in snapshot metadata" ;
+        raise
+          Api_errors.(
+            Server_error
+              (invalid_value, ["snapshot_metadata:HVM__boot_policy"; "null"])
+          )
+    )
     |> Option.get
   in
   match Stdlib.List.assoc_opt "domain_type" snap_metadata with
@@ -455,7 +463,11 @@ let revert_vm_fields ~__context ~snapshot ~vm =
   let post_MNR = snap_metadata <> "" in
   debug "Reverting the fields of %s to the ones of %s (%s)" (Ref.string_of vm)
     (Ref.string_of snapshot)
-    (if post_MNR then "post-MNR" else "pre-MNR") ;
+    ( if post_MNR then
+        "post-MNR"
+      else
+        "pre-MNR"
+    ) ;
   let snap_metadata =
     if post_MNR then
       Helpers.vm_string_to_assoc snap_metadata

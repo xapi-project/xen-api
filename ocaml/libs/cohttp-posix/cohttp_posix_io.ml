@@ -52,7 +52,11 @@ module Unbuffered_IO = struct
 
       let make x = {marker= x; i= 0}
 
-      let input x c = if c = x.marker.[x.i] then x.i <- x.i + 1 else x.i <- 0
+      let input x c =
+        if c = x.marker.[x.i] then
+          x.i <- x.i + 1
+        else
+          x.i <- 0
 
       let remaining x = String.length x.marker - x.i
 
@@ -77,7 +81,10 @@ module Unbuffered_IO = struct
   let rec find_crlf str from =
     let cr = String.index_from str from '\r' in
     let lf = String.index_from str cr '\n' in
-    if lf = cr + 1 then cr else find_crlf str cr
+    if lf = cr + 1 then
+      cr
+    else
+      find_crlf str cr
 
   (* We assume read_line is only used to read the HTTP header *)
   let rec read_line ic =

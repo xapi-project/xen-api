@@ -25,7 +25,10 @@ let compute_memory_actual_delta domain rate time =
   let max_change = Int64.of_float (time *. Int64.to_float rate) in
   (* compute the direction of travel of the balloon *)
   let vector =
-    if domain.memory_actual_kib > domain.target_kib then -1L else 1L
+    if domain.memory_actual_kib > domain.target_kib then
+      -1L
+    else
+      1L
   in
   let distance = (domain.target_kib -* domain.memory_actual_kib) ** vector in
   (* We stop when we get to 'inaccuracy_kib' *)

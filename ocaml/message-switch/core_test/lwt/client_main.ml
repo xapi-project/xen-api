@@ -50,18 +50,18 @@ let main () =
   let start = Unix.gettimeofday () in
   let rec ints = function 0 -> [] | n -> n :: ints (n - 1) in
   ( match !timeout with
-  | None ->
-      one ()
-  | Some timeout ->
-      let rec thread n =
-        if Unix.gettimeofday () -. start < timeout then
-          one () >>= fun () -> thread n
-        else
-          return ()
-      in
-      let threads = List.map thread (ints !nthreads) in
-      Lwt.join threads
-  )
+    | None ->
+        one ()
+    | Some timeout ->
+        let rec thread n =
+          if Unix.gettimeofday () -. start < timeout then
+            one () >>= fun () -> thread n
+          else
+            return ()
+        in
+        let threads = List.map thread (ints !nthreads) in
+        Lwt.join threads
+    )
   >>= fun () ->
   let time = Unix.gettimeofday () -. start in
   Printf.printf "Finished %d RPCs in %.02f\n" !counter time ;

@@ -1441,7 +1441,12 @@ let other_options =
   [
     gen_list_option "sm-plugins"
       "space-separated list of storage plugins to allow."
-      (fun x -> if x = "*" then `All else `Sm x)
+      (fun x ->
+        if x = "*" then
+          `All
+        else
+          `Sm x
+      )
       (fun x -> match x with `All -> "*" | `Sm x -> x)
       sm_plugins
   ; ( "hotfix-fingerprint"

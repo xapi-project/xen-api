@@ -117,7 +117,12 @@ let string_of_direction = function
 
 let direction_of_actual inaccuracy_kib memory_actual_kib target_kib =
   let delta_kib = memory_actual_kib -* target_kib in
-  let abs x = if x < 0L then 0L -* x else x in
+  let abs x =
+    if x < 0L then
+      0L -* x
+    else
+      x
+  in
   if abs delta_kib <= inaccuracy_kib then
     None
   else if target_kib > memory_actual_kib then
@@ -126,7 +131,12 @@ let direction_of_actual inaccuracy_kib memory_actual_kib target_kib =
     Some Up
 
 let direction_of_int64 a b =
-  if a = b then None else if a > b then Some Down else Some Up
+  if a = b then
+    None
+  else if a > b then
+    Some Down
+  else
+    Some Up
 
 (** Work around the fact that the target may not be hit precisely *)
 let has_hit_target inaccuracy_kib memory_actual_kib target_kib =
@@ -135,7 +145,11 @@ let has_hit_target inaccuracy_kib memory_actual_kib target_kib =
 let short_string_of_domain domain =
   Printf.sprintf "%d T%Ld A%Ld M%Ld %s%s" domain.domid domain.target_kib
     domain.memory_actual_kib domain.memory_max_kib
-    (if domain.can_balloon then "B" else "?")
+    ( if domain.can_balloon then
+        "B"
+      else
+        "?"
+    )
     (string_of_direction
        (direction_of_actual domain.inaccuracy_kib domain.memory_actual_kib
           domain.target_kib
@@ -226,7 +240,10 @@ module Stuckness_monitor = struct
     let to_delete =
       Hashtbl.fold
         (fun domid _ acc ->
-          if IntSet.mem domid live_domids then acc else domid :: acc
+          if IntSet.mem domid live_domids then
+            acc
+          else
+            domid :: acc
         )
         x.per_domain []
     in
@@ -447,14 +464,31 @@ module Squeezer = struct
           else
             ""
         )
-        (if all_targets_reached then "" else " not")
-        (if no_target_changes then "" else "; however about to adjust targets")
-        (if allocation_phase then "allocation phase" else "freeing phase") ;
+        ( if all_targets_reached then
+            ""
+          else
+            " not"
+        )
+        ( if no_target_changes then
+            ""
+          else
+            "; however about to adjust targets"
+        )
+        ( if allocation_phase then
+            "allocation phase"
+          else
+            "freeing phase"
+        ) ;
     (* If we have to blame a domain for being stuck, we don't blame it if it
        can't balloon. *)
     let non_active_can_balloon_domids =
       DomainSet.fold
-        (fun d acc -> if d.can_balloon then d.domid :: acc else acc)
+        (fun d acc ->
+          if d.can_balloon then
+            d.domid :: acc
+          else
+            acc
+        )
         non_active_domains []
     in
     (* 1. In all cases we wait for all targets to be reached and to be stable.
@@ -482,10 +516,26 @@ module Gnuplot = struct
     let all =
       List.concat
         [
-          (if List.mem Dynamic_min cols then ["dynamic_min"] else [])
-        ; (if List.mem Dynamic_max cols then ["dynamic_max"] else [])
-        ; (if List.mem Memory_actual cols then ["memory_actual"] else [])
-        ; (if List.mem Target cols then ["target"] else [])
+          ( if List.mem Dynamic_min cols then
+              ["dynamic_min"]
+            else
+              []
+          )
+        ; ( if List.mem Dynamic_max cols then
+              ["dynamic_max"]
+            else
+              []
+          )
+        ; ( if List.mem Memory_actual cols then
+              ["memory_actual"]
+            else
+              []
+          )
+        ; ( if List.mem Target cols then
+              ["target"]
+            else
+              []
+          )
         ]
     in
     Printf.fprintf oc "# for each domain: %s\n" (String.concat " " all)
@@ -500,8 +550,7 @@ module Gnuplot = struct
           Printf.fprintf oc " %Ld " domain.dynamic_max_kib ;
         if List.mem Memory_actual cols then
           Printf.fprintf oc " %Ld " domain.memory_actual_kib ;
-        if List.mem Target cols then
-          Printf.fprintf oc " %Ld " domain.target_kib
+        if List.mem Target cols then Printf.fprintf oc " %Ld " domain.target_kib
       )
       host.domains ;
     Printf.fprintf oc "\n"

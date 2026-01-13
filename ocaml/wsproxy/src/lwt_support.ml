@@ -25,7 +25,10 @@ let really_write fd str =
   let rec inner written =
     Lwt_unix.write fd (Bytes.unsafe_of_string str) written (len - written)
     >>= fun n ->
-    if n < len - written then inner (written + n) else Lwt.return ()
+    if n < len - written then
+      inner (written + n)
+    else
+      Lwt.return ()
   in
   inner 0
 
@@ -58,7 +61,7 @@ let with_fd fd ~callback =
   Lwt.finalize
     (fun () -> callback fd)
     (* The Lwt.catch below prevents errors on double close of the fd. *)
-      (fun () ->
+    (fun () ->
       Lwt.catch (fun () -> Lwt_unix.close fd) (fun _ -> Lwt.return_unit)
     )
 

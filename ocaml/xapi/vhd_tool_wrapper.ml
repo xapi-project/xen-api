@@ -108,7 +108,11 @@ let receive progress_cb format protocol (s : Unix.file_descr)
       | None ->
           []
       )
-    @ if prezeroed then ["--prezeroed"] else []
+    @
+    if prezeroed then
+      ["--prezeroed"]
+    else
+      []
   in
   run_vhd_tool progress_cb args s s' path
 

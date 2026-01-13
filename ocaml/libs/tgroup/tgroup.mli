@@ -47,8 +47,7 @@ module Group : sig
   (** Generic representation of different xapi threads origin endpoints. *)
   module Endpoint : sig
     (** Type that represents different origin endpoints of xapi threads. *)
-    type t = Internal | External
-  end
+    type t = Internal | External end
 
   (** Generic representation of different xapi threads creators. *)
   module Creator : sig

@@ -38,11 +38,17 @@ let choose x = snd (List.hd x)
 
 let fail_or f results =
   let successes, errors = partition results in
-  if errors <> [] then choose errors else f successes
+  if errors <> [] then
+    choose errors
+  else
+    f successes
 
 let success_or f results =
   let successes, errors = partition results in
-  if successes <> [] then f successes else f errors
+  if successes <> [] then
+    f successes
+  else
+    f errors
 
 module Mux = struct
   type context = unit

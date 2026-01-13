@@ -102,7 +102,7 @@ let check_host_liveness ~__context =
         if not (Clock.Timer.has_expired timer) then
           (* From the heartbeat PoV the host looks alive. We try to (i) minimise database sets; and (ii)
              	     avoid toggling the host back to live if it has been marked as shutting_down. *)
-          with_lock Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
+            with_lock Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
               let shutting_down =
                 List.exists
                   (fun x -> x = host)
@@ -179,7 +179,11 @@ let detect_rolling_upgrade ~__context =
           warn
             "Pool thinks rolling upgrade%s in progress but Host version \
              numbers indicate otherwise; correcting"
-            (if pool_says_in_progress then "" else " not") ;
+            ( if pool_says_in_progress then
+                ""
+              else
+                " not"
+            ) ;
           if actually_in_progress then
             Db.Pool.add_to_other_config ~__context ~self:pool
               ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"true"
@@ -202,7 +206,12 @@ let detect_rolling_upgrade ~__context =
               true
             with _ -> false
           then (
-            let args = if actually_in_progress then ["start"] else ["stop"] in
+            let args =
+              if actually_in_progress then
+                ["start"]
+              else
+                ["stop"]
+            in
             debug "Executing rolling_upgrade script: %s %s"
               rolling_upgrade_script_hook (String.concat " " args) ;
             ignore
@@ -302,7 +311,11 @@ let send_one_heartbeat ~__context ?(shutting_down = false) rpc session_id =
   in
   let stuff =
     [(_time, string_of_float time)]
-    @ if shutting_down then [(_shutting_down, "true")] else []
+    @
+    if shutting_down then
+      [(_shutting_down, "true")]
+    else
+      []
   in
   let (_ : (string * string) list) =
     Client.Client.Host.tickle_heartbeat ~rpc ~session_id ~host:localhost ~stuff

@@ -269,7 +269,8 @@ module Iteratee (IO : Monad) = struct
 
   let rec enum_nchunk str n =
     if str = "" then
-      fun x -> IO.return x
+      fun x ->
+    IO.return x
     else
       let str1, str2 = split str n in
       function

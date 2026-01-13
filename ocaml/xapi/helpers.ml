@@ -37,8 +37,7 @@ let ( let* ) = Result.bind
 let internal_error ?(log_err = false) ?(err_fun = error) fmt =
   Printf.ksprintf
     (fun str ->
-      if log_err then
-        err_fun "%s" str ;
+      if log_err then err_fun "%s" str ;
       raise Api_errors.(Server_error (internal_error, [str]))
     )
     fmt
@@ -763,7 +762,10 @@ let boot_method_of_vm ~__context ~vm =
     let kernel = vm.API.vM_PV_kernel
     and kernel_args = vm.API.vM_PV_args
     and ramdisk =
-      if vm.API.vM_PV_ramdisk <> "" then Some vm.API.vM_PV_ramdisk else None
+      if vm.API.vM_PV_ramdisk <> "" then
+        Some vm.API.vM_PV_ramdisk
+      else
+        None
     in
     {kernel; kernel_args; ramdisk}
   in
@@ -886,7 +888,10 @@ let rec compare_int_lists : int list -> int list -> int =
       1
   | x :: xs, y :: ys ->
       let r = compare x y in
-      if r <> 0 then r else compare_int_lists xs ys
+      if r <> 0 then
+        r
+      else
+        compare_int_lists xs ys
 
 let group_by f list =
   let evaluated_list = List.map (fun x -> (x, f x)) list in
@@ -922,7 +927,12 @@ let group_by ~ordering f list =
 
 (** Schwarzian transform sort *)
 let sort_by_schwarzian ?(descending = false) f list =
-  let comp x y = if descending then compare y x else compare x y in
+  let comp x y =
+    if descending then
+      compare y x
+    else
+      compare x y
+  in
   List.map (fun x -> (x, f x)) list
   |> List.sort (fun (_, x') (_, y') -> comp x' y')
   |> List.map (fun (x, _) -> x)
@@ -930,11 +940,11 @@ let sort_by_schwarzian ?(descending = false) f list =
 module Checks = struct
   let get_software_versions ~version_keys ~__context host =
     ( match host with
-    | LocalObject self ->
-        Db.Host.get_software_version ~__context ~self
-    | RemoteObject (rpc, session_id, self) ->
-        Client.Client.Host.get_software_version ~rpc ~session_id ~self
-    )
+      | LocalObject self ->
+          Db.Host.get_software_version ~__context ~self
+      | RemoteObject (rpc, session_id, self) ->
+          Client.Client.Host.get_software_version ~rpc ~session_id ~self
+      )
     |> List.filter (fun (k, _) -> List.mem k version_keys)
 
   let versions_string_of : (string * string) list -> string =
@@ -945,13 +955,13 @@ module Checks = struct
 
   let version_numbers_of_string version_string =
     ( match String.split_on_char '-' version_string with
-    | standard_version :: patch :: _ ->
-        List.concat_map (String.split_on_char '.') [standard_version; patch]
-    | standard_version :: [] ->
-        String.split_on_char '.' standard_version
-    | _ ->
-        ["0"; "0"; "0"]
-    )
+      | standard_version :: patch :: _ ->
+          List.concat_map (String.split_on_char '.') [standard_version; patch]
+      | standard_version :: [] ->
+          String.split_on_char '.' standard_version
+      | _ ->
+          ["0"; "0"; "0"]
+      )
     |> List.filter_map int_of_string_opt
 
   let version_of : version_key:string -> (string * string) list -> int list =
@@ -1167,8 +1177,7 @@ let cancel_tasks ~__context ~ops ~all_tasks_in_db
     (!su1, !c)
   in
   let unique_ops, got_common = cancel_splitset_taskid ops task_ids in
-  if got_common then
-    set unique_ops
+  if got_common then set unique_ops
 
 (** Returns true if the media is removable.
     Currently this just means "CD" but might change in future? *)
@@ -1327,8 +1336,7 @@ let gethostbyname_family host family =
     Unix.getaddrinfo host ""
       [Unix.AI_SOCKTYPE Unix.SOCK_STREAM; Unix.AI_FAMILY family]
   in
-  if he = [] then
-    throw_resolve_error () ;
+  if he = [] then throw_resolve_error () ;
   Unix.string_of_inet_addr (getaddr (List.hd he).Unix.ai_addr)
 
 (** Return the first address we find for a hostname *)
@@ -1342,11 +1350,19 @@ let gethostbyname host =
   in
   try
     gethostbyname_family host
-      (if pref = `IPv4 then Unix.PF_INET else Unix.PF_INET6)
+      ( if pref = `IPv4 then
+          Unix.PF_INET
+        else
+          Unix.PF_INET6
+      )
   with _ -> (
     try
       gethostbyname_family host
-        (if pref = `IPv4 then Unix.PF_INET6 else Unix.PF_INET)
+        ( if pref = `IPv4 then
+            Unix.PF_INET6
+          else
+            Unix.PF_INET
+        )
     with _ -> throw_resolve_error ()
   )
 
@@ -1385,7 +1401,10 @@ let rec bisect f lower upper =
   let ( /* ) = Int64.div and ( -* ) = Int64.sub and ( +* ) = Int64.add in
   assert (lower <= upper) ;
   if upper -* lower < 2L then
-    if f upper then upper else lower
+    if f upper then
+      upper
+    else
+      lower
   else (* there must be a distinct midpoint integer *)
     let mid = (upper +* lower) /* 2L in
     assert (lower < mid && mid < upper) ;
@@ -1816,8 +1835,7 @@ let rec retry_until_timeout ?(interval = 0.1) ?(timeout = 5.) doc f =
   | false ->
       let next_interval = interval *. 1.5 in
       let next_timeout = timeout -. interval in
-      if next_timeout < 0. then
-        internal_error "retry %s failed" doc ;
+      if next_timeout < 0. then internal_error "retry %s failed" doc ;
       Thread.delay interval ;
       retry_until_timeout ~interval:next_interval ~timeout:next_timeout doc f
 
@@ -2072,9 +2090,10 @@ end = struct
       ( try
           Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK] ;
           Unixext.string_of_file !Xapi_globs.pool_secret_path
-        with _ -> (* No pool secret exists. *)
-                  _make ()
-      )
+        with _ ->
+          (* No pool secret exists. *)
+          _make ()
+        )
       |> to_secret
     in
     Xapi_globs.pool_secrets := [ps] ;
@@ -2284,8 +2303,7 @@ module BoundedPsq = struct
         let n = Q.size t.queue in
         let would_overflow = n + 1 > t.capacity in
         let already_present = Q.mem k t.queue in
-        if would_overflow && not already_present then
-          remove_min t ;
+        if would_overflow && not already_present then remove_min t ;
         t.queue <- Q.add k v t.queue
       )
 
@@ -2307,10 +2325,7 @@ end
 
 module AuthenticationCache = struct
   (* Associate arbitrary data with an expiry time. *)
-  module Expires (Data : sig
-    type t
-  end) =
-  struct
+  module Expires (Data : sig type t end) = struct
     type t = Data.t with_expiration
 
     and 'a with_expiration = {data: 'a; expires: Mtime.Span.t}

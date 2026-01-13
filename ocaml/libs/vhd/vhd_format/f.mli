@@ -248,12 +248,9 @@ module Batmap_header : sig
     ; minor_version: int
     ; checksum: int32
     ; marker: int
-  }
-end
+  } end
 
-module Batmap : sig
-  type t
-end
+module Batmap : sig type t end
 
 module Bitmap : sig
   type t
@@ -271,8 +268,7 @@ module Bitmap_cache : sig
       cache: (int * Bitmap.t) option ref (* effective only for streaming *)
     ; all_zeroes: Cstruct.t
     ; all_ones: Cstruct.t
-  }
-end
+  } end
 
 module Sector : sig
   type t = Cstruct.t
@@ -308,9 +304,7 @@ module Vhd : sig
   end
 end
 
-module Raw : sig
-  type 'a t = {filename: string; handle: 'a}
-end
+module Raw : sig type 'a t = {filename: string; handle: 'a} end
 
 (** The amount of data contained in a stream, broken down by type *)
 type size = {
@@ -488,6 +482,5 @@ module From_file : functor (F : S.FILE) -> sig
     val vhd :
          fd Raw.t
       -> (blocks:int -> block_size:Int64.t -> int list F.t)
-      -> fd stream t
-  end
+      -> fd stream t end
 end

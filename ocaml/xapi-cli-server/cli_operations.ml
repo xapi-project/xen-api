@@ -61,12 +61,12 @@ let get_map_param params ?(default = []) param =
   let get_map x =
     String.split_on_char ',' x
     |> List.filter_map (fun x ->
-           match String.split_on_char ':' x with
-           | [k; v] ->
-               Some (k, v)
-           | _ ->
-               None
-       )
+        match String.split_on_char ':' x with
+        | [k; v] ->
+            Some (k, v)
+        | _ ->
+            None
+    )
   in
   List.assoc_opt param params |> Option.map get_map |> Option.value ~default
 
@@ -91,8 +91,7 @@ let no_force_msg =
    forced (use --force)."
 
 let fail_without_force params =
-  if not (get_bool_param params "force") then
-    failwith no_force_msg
+  if not (get_bool_param params "force") then failwith no_force_msg
 
 open Client
 
@@ -204,8 +203,8 @@ let diagnostic_timing_stats printer rpc session_id params =
     ; ("host-name-label", Client.Host.get_name_label ~rpc ~session_id ~self:host)
     ]
     @
-    try Client.Host.get_diagnostic_timing_stats ~rpc ~session_id ~host ~counts
-    with e -> [("Error", Api_errors.to_string e)]
+      try Client.Host.get_diagnostic_timing_stats ~rpc ~session_id ~host ~counts
+      with e -> [("Error", Api_errors.to_string e)]
   in
   let all = List.map table_of_host (Client.Host.get_all ~rpc ~session_id) in
   let sorted = List.map sort all in
@@ -290,7 +289,10 @@ let alltrue l = List.fold_left ( && ) true l
 let safe_get_field x =
   try x.get () with
   | Api_errors.Server_error (s, _) as e ->
-      if s = Api_errors.handle_invalid then "<invalid reference>" else raise e
+      if s = Api_errors.handle_invalid then
+        "<invalid reference>"
+      else
+        raise e
   | e ->
       raise e
 
@@ -459,7 +461,10 @@ let stdparams =
 let choose_params params defaults =
   if List.mem_assoc "params" params then
     let ps = List.assoc "params" params in
-    if ps = "all" then [] else Astring.String.cuts ~sep:"," ps
+    if ps = "all" then
+      []
+    else
+      Astring.String.cuts ~sep:"," ps
   else
     defaults
 
@@ -492,7 +497,16 @@ let print_field x =
       " ( RW)"
   in
   let result = safe_get_field x in
-  ((x.name ^ append ^ if x.deprecated then " [DEPRECATED]" else ""), result)
+  ( (x.name
+    ^ append
+    ^
+    if x.deprecated then
+      " [DEPRECATED]"
+    else
+      ""
+    )
+  , result
+  )
 
 type printer = Cli_printer.print_fn
 
@@ -571,7 +585,11 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
         let print_all = get_bool_param params "all" in
         let print_params =
           select_fields params
-            (if print_all then all_recs else records)
+            ( if print_all then
+                all_recs
+              else
+                records
+            )
             def_list_params
         in
         let print_params =
@@ -584,7 +602,10 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
             (fun fields ->
               List.map
                 (fun field ->
-                  if field.expensive then makeexpensivefield field else field
+                  if field.expensive then
+                    makeexpensivefield field
+                  else
+                    field
                 )
                 fields
             )
@@ -786,7 +807,12 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
         ; optn
         ; help
         ; implementation= No_fd impl
-        ; flags= (if std then [Standard] else [])
+        ; flags=
+            ( if std then
+                [Standard]
+              else
+                []
+            )
         }
       )
     in
@@ -836,7 +862,10 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
       in
       let cli_name n = class_name ^ "-" ^ n in
       let plural =
-        if class_name = "patch" then "patches" else class_name ^ "s"
+        if class_name = "patch" then
+          "patches"
+        else
+          class_name ^ "s"
       in
       let ops =
         [
@@ -1683,8 +1712,7 @@ let pool_eject fd printer rpc session_id params =
       marshal fd (Command (Print "The following VDI objects will be destroyed:")) ;
       List.iter (fun msg -> marshal fd (Command (Print msg))) warnings
     ) ;
-    if user_says_yes fd then
-      go ()
+    if user_says_yes fd then go ()
 
 let pool_emergency_reset_master printer rpc session_id params =
   let master_address = List.assoc "master-address" params in
@@ -2066,7 +2094,10 @@ let vdi_pool_migrate printer rpc session_id params =
     Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "uuid" params)
   and sr =
     Client.SR.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "sr-uuid" params)
-  and options = [] (* no options implemented yet *) in
+  and options =
+    []
+    (* no options implemented yet *)
+  in
   let newvdi = Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options in
   let newuuid = Client.VDI.get_uuid ~rpc ~session_id ~self:newvdi in
   printer (Cli_printer.PList [newuuid])
@@ -2454,7 +2485,11 @@ let vbd_unplug _printer rpc session_id params =
   let force = get_bool_param params "force" in
   let start = Unix.gettimeofday () in
   try
-    (if force then Client.VBD.unplug_force else Client.VBD.unplug)
+    ( if force then
+        Client.VBD.unplug_force
+      else
+        Client.VBD.unplug
+    )
       ~rpc ~session_id ~self:vbd
   with
   | Api_errors.Server_error (code, _) as e
@@ -2739,7 +2774,12 @@ let vif_create printer rpc session_id params =
   let network_uuid = List.assoc "network-uuid" params in
   let vm_uuid = List.assoc "vm-uuid" params in
   let mac = Listext.assoc_default "mac" params "" in
-  let mAC = if mac = "random" then Record_util.random_mac_local () else mac in
+  let mAC =
+    if mac = "random" then
+      Record_util.random_mac_local ()
+    else
+      mac
+  in
   let vM = Client.VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
   let network =
     Client.Network.get_by_uuid ~rpc ~session_id ~uuid:network_uuid
@@ -2768,7 +2808,11 @@ let vif_unplug _printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let vif = Client.VIF.get_by_uuid ~rpc ~session_id ~uuid in
   let force = get_bool_param params "force" in
-  (if force then Client.VIF.unplug_force else Client.VIF.unplug)
+  ( if force then
+      Client.VIF.unplug_force
+    else
+      Client.VIF.unplug
+  )
     ~rpc ~session_id ~self:vif
 
 let vif_configure_ipv4 _printer rpc session_id params =
@@ -4285,7 +4329,11 @@ let vm_uninstall_common fd _printer rpc session_id params vms =
     in
     let output =
       (string_of_vm vm :: List.map string_of_vdi vdis)
-      @ if suspend_VDI = Ref.null then [] else [string_of_vdi suspend_VDI]
+      @
+      if suspend_VDI = Ref.null then
+        []
+      else
+        [string_of_vdi suspend_VDI]
     in
     toprint := !toprint @ output ;
     let destroy () =
@@ -4602,7 +4650,10 @@ let vm_migrate printer rpc session_id params =
   let params =
     List.map
       (fun (k, v) ->
-        if k = "host-uuid" || k = "host-name" then ("host", v) else (k, v)
+        if k = "host-uuid" || k = "host-name" then
+          ("host", v)
+        else
+          (k, v)
       )
       params
   in
@@ -4767,9 +4818,9 @@ let vm_migrate printer rpc session_id params =
             let srs =
               remote Client.PBD.get_all_where ~expr
               |> List.map (fun pbd ->
-                     let sr = remote Client.PBD.get_SR ~self:pbd in
-                     (sr, remote Client.SR.get_record ~self:sr)
-                 )
+                  let sr = remote Client.PBD.get_SR ~self:pbd in
+                  (sr, remote Client.SR.get_record ~self:sr)
+              )
             in
             (* In the following loop, the current SR:sr' will be compared with previous checked ones,
                first if it is an ISO type, then pass this one for selection, then the only shared one from this and
@@ -4940,7 +4991,11 @@ let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
     List.filter
       (fun self ->
         Client.VBD.get_type ~rpc ~session_id ~self
-        = if is_cd_list then `CD else `Disk
+        =
+        if is_cd_list then
+          `CD
+        else
+          `Disk
       )
       (vm.record ()).API.vM_VBDs
   in
@@ -4961,7 +5016,12 @@ let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
   (* Hack - convert 'vbd-params' to 'params' *)
   let params' =
     List.map
-      (fun (a, b) -> if a = "vbd-params" then ("params", b) else (a, b))
+      (fun (a, b) ->
+        if a = "vbd-params" then
+          ("params", b)
+        else
+          (a, b)
+      )
       params
   in
   let selectedvbd =
@@ -4974,7 +5034,12 @@ let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
   in
   let params' =
     List.map
-      (fun (a, b) -> if a = "vdi-params" then ("params", b) else (a, b))
+      (fun (a, b) ->
+        if a = "vdi-params" then
+          ("params", b)
+        else
+          (a, b)
+      )
       params
   in
   let rec doit vbds vdis n =
@@ -4982,7 +5047,14 @@ let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
     | [], [] ->
         ()
     | vbd :: vbds, vdi :: vdis ->
-        let disk = (if is_cd_list then "CD " else "Disk ") ^ string_of_int n in
+        let disk =
+          ( if is_cd_list then
+              "CD "
+            else
+              "Disk "
+          )
+          ^ string_of_int n
+        in
         printer (Cli_printer.PMsg (disk ^ " VBD:")) ;
         printer (Cli_printer.PTable [List.map print_field vbd]) ;
         (* Only print out the VDI if there is one - empty cds don't have one *)
@@ -5224,8 +5296,7 @@ let host_careful_op op warnings fd _printer rpc session_id params =
   else (
     (* Best-effort attempt to warn the user *)
     List.iter (fun x -> marshal fd (Command (Print x))) warnings ;
-    if user_says_yes fd then
-      go ()
+    if user_says_yes fd then go ()
   )
 
 let host_forget x =
@@ -5391,8 +5462,8 @@ let host_evacuate _printer rpc session_id params =
   let network =
     List.assoc_opt "network-uuid" params
     |> Option.fold ~none:Ref.null ~some:(fun uuid ->
-           Client.Network.get_by_uuid ~rpc ~session_id ~uuid
-       )
+        Client.Network.get_by_uuid ~rpc ~session_id ~uuid
+    )
   in
   let evacuate_batch_size =
     match List.assoc_opt "batch-size" params with
@@ -5594,7 +5665,11 @@ let download_file_with_task fd rpc session_id filename uri query label task_name
       download_file rpc session_id task fd filename
         (Printf.sprintf "%s?session_id=%s&task_id=%s%s%s" uri
            (Ref.string_of session_id) (Ref.string_of task)
-           (if query = "" then "" else "&")
+           ( if query = "" then
+               ""
+             else
+               "&"
+           )
            query
         )
         label
@@ -5611,7 +5686,11 @@ let pool_retrieve_wlb_report fd _printer rpc session_id params =
   in
   download_file_with_task fd rpc session_id filename Constants.wlb_report_uri
     (Printf.sprintf "report=%s%s%s" (Http.urlencode report)
-       (if other_params = [] then "" else "&")
+       ( if other_params = [] then
+           ""
+         else
+           "&"
+       )
        (String.concat "&"
           (List.map
              (fun (k, v) ->
@@ -5703,7 +5782,11 @@ let vm_import fd _printer rpc session_id params =
           )
           (Ref.string_of session_id) (Ref.string_of task_id) full_restore force
           dry_run
-          (if sr <> Ref.null then "&sr_id=" ^ Ref.string_of sr else "")
+          ( if sr <> Ref.null then
+              "&sr_id=" ^ Ref.string_of sr
+            else
+              ""
+          )
           (String.concat ""
              (List.map (fun (a, b) -> "&vdi:" ^ a ^ "=" ^ b) vdi_map)
           )
@@ -5951,7 +6034,12 @@ let export_common fd _printer rpc session_id params filename num ?task_uuid
   finally
     (fun () ->
       let num = Atomic.fetch_and_add num 1 in
-      let f = if num > 1 then filename ^ string_of_int num else filename in
+      let f =
+        if num > 1 then
+          filename ^ string_of_int num
+        else
+          filename
+      in
       download_file rpc session_id exporttask fd f
         (Printf.sprintf
            "%s?session_id=%s&task_id=%s&ref=%s&%s=%s&preserve_power_state=%b&export_snapshots=%b%s"
@@ -6005,10 +6093,8 @@ let vm_export_aux obj_type fd printer rpc session_id params =
       "This operation can only be performed on a VM %s. %s is not a VM %s."
       obj_type uuid obj_type
   in
-  if obj_type = "template" && not (is_template ()) then
-    failwith (msg ()) ;
-  if obj_type = "snapshot" && not (is_snapshot ()) then
-    failwith (msg ()) ;
+  if obj_type = "template" && not (is_template ()) then failwith (msg ()) ;
+  if obj_type = "snapshot" && not (is_snapshot ()) then failwith (msg ()) ;
   let num = Atomic.make 1 in
   export_common fd printer rpc session_id params filename num compression
     preserve_power_state
@@ -6379,8 +6465,8 @@ let diagnostic_license_status printer rpc session_id _params =
     Client.Pool.get_all_records ~rpc ~session_id
     |> List.hd
     |> (fun (pool, _) ->
-         Client.Pool.get_restrictions ~rpc ~session_id ~self:pool
-       )
+    Client.Pool.get_restrictions ~rpc ~session_id ~self:pool
+    )
     |> Features.of_assoc_list
   in
   let divider = ["-"; "-"; "-"; "-"; "-"; "-"] in
@@ -6405,8 +6491,8 @@ let diagnostic_license_status printer rpc session_id _params =
     (fun row ->
       List.combine row column_sizes
       |> List.map (fun (data, len) ->
-             data ^ String.make (len - String.length data) ' '
-         )
+          data ^ String.make (len - String.length data) ' '
+      )
       |> String.concat " "
       |> (fun x -> Cli_printer.PMsg x)
       |> printer
@@ -7365,9 +7451,14 @@ let audit_log_get fd _printer rpc session_id params =
   in
   let label =
     Printf.sprintf "audit-log-get%sinto file %s"
-      (if since = "" then " " else Printf.sprintf " (since \"%s\") " since)
+      ( if since = "" then
+          " "
+        else
+          Printf.sprintf " (since \"%s\") " since
+      )
       ( if String.length filename <= 255 then
-          filename (* make sure filename has a reasonable length in the logs *)
+          filename
+        (* make sure filename has a reasonable length in the logs *)
         else
           String.sub filename 0 255
       )
@@ -7538,7 +7629,10 @@ let gpu_group_get_remaining_capacity printer rpc session_id params =
 
 let vgpu_create printer rpc session_id params =
   let device =
-    if List.mem_assoc "device" params then List.assoc "device" params else "0"
+    if List.mem_assoc "device" params then
+      List.assoc "device" params
+    else
+      "0"
   in
   let gpu_group_uuid = List.assoc "gpu-group-uuid" params in
   let vm_uuid = List.assoc "vm-uuid" params in
@@ -7796,8 +7890,8 @@ let host_apply_updates _printer rpc session_id params =
          let host = host.getref () in
          Client.Host.apply_updates ~rpc ~session_id ~self:host ~hash
          |> List.iter (fun l ->
-                _printer (Cli_printer.PMsg (String.concat "; " l))
-            )
+             _printer (Cli_printer.PMsg (String.concat "; " l))
+         )
        )
        params ["hash"]
     )

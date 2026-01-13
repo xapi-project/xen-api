@@ -138,8 +138,8 @@ let get_required_cluster_stacks ~__context ~sr_sm_type =
   sms_matching_sr_type
   (* We assume that we only have one SM for each SR type, so this is only to satisfy type checking *)
   |> List.concat_map (fun (_sm_ref, sm_rec) ->
-         sm_rec.API.sM_required_cluster_stack
-     )
+      sm_rec.API.sM_required_cluster_stack
+  )
 
 let assert_cluster_stack_valid ~cluster_stack =
   if not (List.mem cluster_stack Constants.supported_smapiv3_cluster_stacks)
@@ -513,10 +513,10 @@ module Watcher = struct
                 (fun h -> not (List.mem h quorum_hosts))
                 all_cluster_hosts
               |> List.iter (fun self ->
-                     Db.Cluster_host.set_live ~__context ~self ~value:false ;
-                     Db.Cluster_host.set_last_update_live ~__context ~self
-                       ~value:current_time
-                 ) ;
+                  Db.Cluster_host.set_live ~__context ~self ~value:false ;
+                  Db.Cluster_host.set_last_update_live ~__context ~self
+                    ~value:current_time
+              ) ;
               maybe_generate_alert ~__context ~hosts_left ~hosts_joined
                 ~num_hosts:(List.length quorum_hosts) ~quorum:diag.quorum
         ) ;

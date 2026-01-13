@@ -116,7 +116,12 @@ let ( let@ ) f x = f x
 let perf () =
   let use_fastpath = !use_fastpath in
   let use_framing = !use_framing in
-  let transport = if !use_ssl then with_stunnel else with_connection in
+  let transport =
+    if !use_ssl then
+      with_stunnel
+    else
+      with_connection
+  in
   Printf.printf "1 thread non-persistent connections:         " ;
   let nonpersistent =
     let@ () = sample 10 in
@@ -187,7 +192,12 @@ let logerr () =
   Debug.set_level Syslog.Debug ;
   let use_fastpath = !use_fastpath in
   let use_framing = !use_framing in
-  let transport = if !use_ssl then with_stunnel else with_connection in
+  let transport =
+    if !use_ssl then
+      with_stunnel
+    else
+      with_connection
+  in
   let call () =
     let@ () = Backtrace.with_backtraces in
     let@ s = transport !ip !port in

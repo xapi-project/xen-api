@@ -86,12 +86,12 @@ let read t offset bufs =
   | Some vhd ->
       forall_sectors
         (fun offset sector ->
-          (Vhd_IO.read_sector vhd offset sector >>= function
-           | false ->
-               Cstruct.blit zero 0 sector 0 512 ;
-               return ()
-           | true ->
-               return ()
+          ( Vhd_IO.read_sector vhd offset sector >>= function
+            | false ->
+                Cstruct.blit zero 0 sector 0 512 ;
+                return ()
+            | true ->
+                return ()
           )
           >>= fun () -> return ()
         )

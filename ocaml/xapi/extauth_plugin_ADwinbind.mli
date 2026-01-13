@@ -30,9 +30,7 @@ module Winbind : sig
   val build_netbios_name : string -> string
 end
 
-module AuthADWinbind : sig
-  val methods : Auth_signature.t
-end
+module AuthADWinbind : sig val methods : Auth_signature.t end
 
 (* Expose function to make compiler happy for unittest *)
 val extract_ou_config :

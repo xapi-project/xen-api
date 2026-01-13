@@ -492,7 +492,7 @@ module LiveSetInformation = struct
         ( match first_xml_element_with_name elements "localhost" with
         | Some
             (Xml.Element
-              (_, _, Xml.Element ("HostID", _, [Xml.PCData local_host_id]) :: _)
+               (_, _, Xml.Element ("HostID", _, [Xml.PCData local_host_id]) :: _)
               ) -> (
           match Uuidx.of_string local_host_id with
           | None ->
@@ -556,12 +556,36 @@ module LiveSetInformation = struct
     let host h =
       Printf.sprintf "%s [%s%s%s%s%s%s]"
         (Uuidx.to_string h.Host.id)
-        (if h.Host.id = t.local_host_id then "*" else " ")
-        (if h.Host.liveness then "L" else " ")
-        (if h.Host.master then "M" else " ")
-        (if h.Host.excluded then "X" else " ")
-        (if h.Host.state_file_access then "A" else " ")
-        (if h.Host.state_file_corrupted then "X" else " ")
+        ( if h.Host.id = t.local_host_id then
+            "*"
+          else
+            " "
+        )
+        ( if h.Host.liveness then
+            "L"
+          else
+            " "
+        )
+        ( if h.Host.master then
+            "M"
+          else
+            " "
+        )
+        ( if h.Host.excluded then
+            "X"
+          else
+            " "
+        )
+        ( if h.Host.state_file_access then
+            "A"
+          else
+            " "
+        )
+        ( if h.Host.state_file_corrupted then
+            "X"
+          else
+            " "
+        )
     in
     status ^ " " ^ Hashtbl.fold (fun _ h acc -> host h ^ "; " ^ acc) t.hosts ""
 end

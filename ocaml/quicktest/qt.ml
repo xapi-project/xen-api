@@ -203,8 +203,8 @@ module VDI = struct
       let vdis =
         Client.Client.SR.get_VDIs ~rpc ~session_id ~self:sr_info.sr
         |> List.filter (fun vdi ->
-               not (Client.Client.VDI.get_missing ~rpc ~session_id ~self:vdi)
-           )
+            not (Client.Client.VDI.get_missing ~rpc ~session_id ~self:vdi)
+        )
       in
       match vdis with
       | self :: _ ->

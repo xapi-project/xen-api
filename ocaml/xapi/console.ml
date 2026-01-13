@@ -159,7 +159,10 @@ module Console_idle_monitor = struct
           let pool = Helpers.get_pool ~__context in
           Db.Pool.get_vm_console_idle_timeout ~__context ~self:pool
       in
-      if idle_timeout > 0L then Some (Int64.to_float idle_timeout) else None
+      if idle_timeout > 0L then
+        Some (Int64.to_float idle_timeout)
+      else
+        None
     with _ -> None
 
   let is_active messages =

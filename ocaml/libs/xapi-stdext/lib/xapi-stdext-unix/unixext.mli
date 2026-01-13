@@ -300,8 +300,7 @@ module Daemon : sig
         (* The main process ID (PID) of the service, in case the service
            manager did not fork off the process itself. *)
       | Watchdog
-    (* Tells the service manager to update the watchdog timestamp. *)
-  end
+    (* Tells the service manager to update the watchdog timestamp. *) end
 
   val systemd_notify : State.t -> bool
   (** [systemd_notify state] informs systemd about changed

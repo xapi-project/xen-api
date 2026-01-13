@@ -48,7 +48,8 @@ let scans_in_progress_c = Condition.create ()
 let i_should_scan_sr sr =
   with_lock scans_in_progress_m (fun () ->
       if Hashtbl.mem scans_in_progress sr then
-        false (* someone else already is *)
+        false
+      (* someone else already is *)
       else (
         Hashtbl.replace scans_in_progress sr true ;
         true
@@ -180,7 +181,12 @@ let scanning_thread () =
 let introduce ~__context ~uuid ~name_label ~name_description ~_type
     ~content_type ~shared ~sm_config =
   let _type = String.lowercase_ascii _type in
-  let uuid = if uuid = "" then Uuidx.to_string (Uuidx.make ()) else uuid in
+  let uuid =
+    if uuid = "" then
+      Uuidx.to_string (Uuidx.make ())
+    else
+      uuid
+  in
   (* fill in uuid if none specified *)
   let sr_ref = Ref.make () in
   (* Create SR record in DB *)
@@ -439,8 +445,8 @@ let assert_sr_not_local_cache ~__context ~sr =
   let host_with_sr_as_cache =
     Db.Host.get_all ~__context
     |> List.find_opt (fun host ->
-           sr = Db.Host.get_local_cache_sr ~__context ~self:host
-       )
+        sr = Db.Host.get_local_cache_sr ~__context ~self:host
+    )
   in
   match host_with_sr_as_cache with
   | Some host ->
@@ -528,11 +534,11 @@ let unload_metrics_from_memory ~__context ~sr =
      this prevents these metrics from being archived *)
   Rrdd.query_possible_host_dss ()
   |> List.filter_map (fun ds ->
-         if is_sr_metric ds.Data_source.name then
-           Some ds.Data_source.name
-         else
-           None
-     )
+      if is_sr_metric ds.Data_source.name then
+        Some ds.Data_source.name
+      else
+        None
+  )
   |> List.iter (fun ds_name -> Rrdd.forget_host_ds ds_name)
 
 (* Remove SR record from database without attempting to remove SR from disk.

@@ -513,7 +513,8 @@ let _ =
       !good_ciphersuites verify_cert
   in
   if destination_format = "vhd" then
-    with_paused_tapdisk dest (fun () -> Lwt_main.run t)
+    with_paused_tapdisk dest (fun () -> Lwt_main.run t
+    )
   else
     Lwt_main.run t ;
   let time = Unix.gettimeofday () -. start in

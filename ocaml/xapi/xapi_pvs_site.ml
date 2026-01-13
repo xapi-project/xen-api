@@ -31,8 +31,8 @@ let cleanup_storage __context self =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Db.PVS_site.get_cache_storage ~__context ~self
       |> List.iter (fun self ->
-             Client.Client.PVS_cache_storage.destroy ~rpc ~session_id ~self
-         )
+          Client.Client.PVS_cache_storage.destroy ~rpc ~session_id ~self
+      )
   )
 
 let forget_internal ~__context ~self ~cleanup_storage =

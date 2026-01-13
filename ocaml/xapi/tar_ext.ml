@@ -166,8 +166,8 @@ let unpack_tar_file ~dir ~ifd ~max_size_limit =
   let unpack' = unpack dir max_size_limit in
   unpack_all_files unpack' 0L
   |> Result.map_error (fun err ->
-         error "%s: Failed to unpack to %s due to error: %s" __FUNCTION__ dir
-           (unpack_error_to_string err) ;
-         Unixext.rm_rec dir ;
-         err
-     )
+      error "%s: Failed to unpack to %s due to error: %s" __FUNCTION__ dir
+        (unpack_error_to_string err) ;
+      Unixext.rm_rec dir ;
+      err
+  )

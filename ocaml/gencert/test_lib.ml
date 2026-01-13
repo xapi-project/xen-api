@@ -206,11 +206,9 @@ let test_invalid_cert pem_leaf time pkey error reason =
 let load_pkcs8 name =
   X509.Private_key.decode_pem (load_test_data name)
   |> Rresult.R.reword_error (fun (`Msg msg) ->
-         `Msg
-           (Printf.sprintf "Could not load private key with name '%s': %s" name
-              msg
-           )
-     )
+      `Msg
+        (Printf.sprintf "Could not load private key with name '%s': %s" name msg)
+  )
 
 let sign_cert host_name ~pkey_sign digest pkey_leaf =
   let* csr = X509.Signing_request.create [host_name] ~digest pkey_leaf in

@@ -259,8 +259,7 @@ module type SMAPIv2 = sig
       Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2"
         (Storage_utils.localhost_connection_args ())
         call
-  end))
-end
+  end)) end
 
 module Local : SMAPIv2
 

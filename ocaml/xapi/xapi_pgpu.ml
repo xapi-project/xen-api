@@ -392,7 +392,12 @@ let nvidia_vf_setup_mutex = Mutex.create ()
 let nvidia_vf_setup ~__context ~pf ~enable =
   let sprintf = Printf.sprintf in
   let script = !Xapi_globs.nvidia_sriov_manage_script in
-  let enable' = if enable then "-e" else "-d" in
+  let enable' =
+    if enable then
+      "-e"
+    else
+      "-d"
+  in
   let bind_path = "/sys/bus/pci/drivers/nvidia/bind" in
   let unbind_path pci = sprintf "/sys/bus/pci/devices/%s/driver/unbind" pci in
   let pci = Db.PCI.get_pci_id ~__context ~self:pf in

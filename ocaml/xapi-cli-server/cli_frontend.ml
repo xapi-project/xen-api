@@ -3953,8 +3953,10 @@ let rec parse_params_2 xs =
       (* unary *)
       if starts_with p "--" then
         (String.sub p 2 (String.length p - 2), "true") :: parse_params_2 ps
-      else if (* x may be a diadic switch *)
-              starts_with p "-" then
+      else if
+        (* x may be a diadic switch *)
+        starts_with p "-"
+      then
         match ps with
         | q :: qs ->
             (convert_switch p, q) :: parse_params_2 qs
@@ -4008,9 +4010,21 @@ let rio_help printer minimal cmd =
         let sr_selectors = List.mem Sr_selectors cmd_spec.flags in
         let optional =
           cmd_spec.optn
-          @ (if vm_selectors then vmselectors else [])
-          @ (if sr_selectors then srselectors else [])
-          @ if host_selectors then hostselectors else []
+          @ ( if vm_selectors then
+                vmselectors
+              else
+                []
+            )
+          @ ( if sr_selectors then
+                srselectors
+              else
+                []
+            )
+          @
+          if host_selectors then
+            hostselectors
+          else
+            []
         in
         let desc =
           match (vm_selectors, host_selectors, sr_selectors) with

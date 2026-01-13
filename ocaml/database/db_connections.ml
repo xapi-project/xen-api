@@ -45,7 +45,10 @@ let choose connections =
         List.fold_left
           (fun (g, c) c' ->
             let g' = Parse_db_conf.generation_read c' in
-            if g' > g then (g', c') else (g, c)
+            if g' > g then
+              (g', c')
+            else
+              (g, c)
           )
           (Parse_db_conf.generation_read c, c)
           cs

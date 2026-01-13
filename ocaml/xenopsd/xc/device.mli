@@ -202,8 +202,7 @@ module NetSriovVf : sig
     -> ?extra_xenserver_keys:(string * string) list
     -> Xenops_task.task_handle
     -> Xenctrl.domid
-    -> device
-end
+    -> device end
 
 val clean_shutdown :
      Xenops_task.task_handle
@@ -297,8 +296,7 @@ module Vfs : sig
     -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> ?backend_domid:int
     -> Xenctrl.domid
-    -> unit
-end
+    -> unit end
 
 module Vfb : sig
   val add :
@@ -307,8 +305,7 @@ module Vfb : sig
     -> ?backend_domid:int
     -> ?protocol:protocol
     -> Xenctrl.domid
-    -> unit
-end
+    -> unit end
 
 module Vkbd : sig
   val add :
@@ -317,8 +314,7 @@ module Vkbd : sig
     -> ?backend_domid:int
     -> ?protocol:protocol
     -> Xenctrl.domid
-    -> unit
-end
+    -> unit end
 
 module Dm : sig
   type usb_opt = Enabled of (string * int) list | Disabled
@@ -337,9 +333,7 @@ module Dm : sig
 
   (* X11 display *)
 
-  module Media : sig
-    type t = Disk | Cdrom | Floppy
-  end
+  module Media : sig type t = Disk | Cdrom | Floppy end
 
   type info = {
       memory: int64
@@ -498,14 +492,11 @@ module Dm : sig
     -> Xenops_interface.Pci.address option
 end
 
-module Backend : sig
-  val init : unit -> unit
-end
+module Backend : sig val init : unit -> unit end
 
 module Serial : sig
   val update_xenstore :
-    xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> unit
-end
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> unit end
 
 module Vusb : sig
   val vusb_plug :

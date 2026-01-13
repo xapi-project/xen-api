@@ -56,7 +56,12 @@ let get_physical_pif_device ~__context ~interface_tables ~pif_rec =
   let find_name_by_position position original_name =
     match
       List.find_map
-        (fun (name, pos) -> if pos = position then Some name else None)
+        (fun (name, pos) ->
+          if pos = position then
+            Some name
+          else
+            None
+        )
         interface_tables.device_to_position_table
     with
     | Some name ->
@@ -417,24 +422,24 @@ let assert_fcoe_not_in_use ~__context ~self =
       let fcoe_scsids = Str.split (Str.regexp " ") output in
       Helpers.get_my_pbds __context
       |> List.iter (fun (_, pbd_rec) ->
-             let sr = pbd_rec.API.pBD_SR in
-             match Db.SR.get_type ~__context ~self:sr with
-             | "lvmofcoe" -> (
-               match List.assoc_opt "SCSIid" pbd_rec.API.pBD_device_config with
-               | Some scsid ->
-                   if List.mem scsid fcoe_scsids then
-                     raise
-                       (Api_errors.Server_error
-                          ( Api_errors.pif_has_fcoe_sr_in_use
-                          , [Ref.string_of self; Ref.string_of sr]
-                          )
+          let sr = pbd_rec.API.pBD_SR in
+          match Db.SR.get_type ~__context ~self:sr with
+          | "lvmofcoe" -> (
+            match List.assoc_opt "SCSIid" pbd_rec.API.pBD_device_config with
+            | Some scsid ->
+                if List.mem scsid fcoe_scsids then
+                  raise
+                    (Api_errors.Server_error
+                       ( Api_errors.pif_has_fcoe_sr_in_use
+                       , [Ref.string_of self; Ref.string_of sr]
                        )
-               | None ->
-                   ()
-             )
-             | _ ->
-                 ()
-         )
+                    )
+            | None ->
+                ()
+          )
+          | _ ->
+              ()
+      )
 
 let find_or_create_network (bridge : string) (device : string)
     (pos_opt : int option) ~managed ~__context =
@@ -520,7 +525,10 @@ let introduce_internal ?network ?(physical = true) ~t ~__context ~host ~mAC ~mTU
     () =
   let pos_opt = List.assoc_opt device t.device_to_position_table in
   let bridge =
-    if managed then bridge_naming_convention device pos_opt else ""
+    if managed then
+      bridge_naming_convention device pos_opt
+    else
+      ""
   in
   (* If we are not told which network to use,
      	 * apply the default convention *)
@@ -800,8 +808,8 @@ let destroy ~__context ~self =
 let restrict_to ~domain dns =
   Astring.String.cuts ~sep:"," ~empty:false dns
   |> List.filter (fun addr ->
-         Xapi_stdext_unix.Unixext.domain_of_addr addr = Some domain
-     )
+      Xapi_stdext_unix.Unixext.domain_of_addr addr = Some domain
+  )
 
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;
@@ -821,11 +829,9 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
     assert_no_protection_enabled ~__context ~self ;
     assert_no_clustering_enabled_on ~__context ~self
   ) ;
-  if gateway <> "" then
-    Helpers.assert_is_valid_ip `ipv6 "gateway" gateway ;
+  if gateway <> "" then Helpers.assert_is_valid_ip `ipv6 "gateway" gateway ;
   (* If we have an IPv6 address, check that it is valid and a prefix length is specified *)
-  if iPv6 <> "" then
-    Helpers.assert_is_valid_cidr `ipv6 "IPv6" iPv6 ;
+  if iPv6 <> "" then Helpers.assert_is_valid_cidr `ipv6 "IPv6" iPv6 ;
   (* Only set IPv6 dNS *)
   let ipv6_dNS = restrict_to ~domain:Unix.PF_INET6 dNS in
   (* Management iface must have an address for the primary address type *)
@@ -1036,9 +1042,9 @@ let rec unplug ~__context ~self =
   let unplug_vlan_on_sriov ~__context ~self =
     Db.PIF.get_VLAN_slave_of ~__context ~self
     |> List.iter (fun vlan ->
-           let untagged_pif = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
-           unplug ~__context ~self:untagged_pif
-       )
+        let untagged_pif = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
+        unplug ~__context ~self:untagged_pif
+    )
   in
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;
   assert_no_protection_enabled ~__context ~self ;

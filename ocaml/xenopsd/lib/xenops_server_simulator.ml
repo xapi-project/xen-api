@@ -129,7 +129,12 @@ let get_state_nolock vm () =
     let d = DB.read_exn vm.Vm.id in
     {
       halted_vm with
-      Vm.power_state= (if d.Domain.suspended then Suspended else Running)
+      Vm.power_state=
+        ( if d.Domain.suspended then
+            Suspended
+          else
+            Running
+        )
     ; domids= [d.Domain.domid]
     ; vcpu_target= d.Domain.vcpus
     ; last_start_time= d.Domain.last_create_time
@@ -150,8 +155,7 @@ let destroy_nolock vm () =
   if DB.exists vm.Vm.id then
     let d = DB.read_exn vm.Vm.id in
     (* Preserve the domain state if it has suspended *)
-    if not d.Domain.suspended then
-      DB.delete vm.Vm.id
+    if not d.Domain.suspended then DB.delete vm.Vm.id
 
 let build_nolock vm _vbds _vifs _vgpus _vusbs _extras () =
   debug "Domain.build vm=%s" vm.Vm.id ;
@@ -406,7 +410,12 @@ let set_carrier vm vif carrier () =
       (fun vif ->
         {
           vif with
-          Vif.carrier= (if this_one vif then carrier else vif.Vif.carrier)
+          Vif.carrier=
+            ( if this_one vif then
+                carrier
+              else
+                vif.Vif.carrier
+            )
         }
       )
       d.Domain.vifs
@@ -421,7 +430,12 @@ let set_locking_mode vm vif mode () =
       (fun vif ->
         {
           vif with
-          Vif.locking_mode= (if this_one vif then mode else vif.Vif.locking_mode)
+          Vif.locking_mode=
+            ( if this_one vif then
+                mode
+              else
+                vif.Vif.locking_mode
+            )
         }
       )
       d.Domain.vifs
@@ -476,7 +490,12 @@ let set_pvs_proxy vm vif proxy () =
       (fun vif ->
         {
           vif with
-          Vif.pvs_proxy= (if this_one vif then proxy else vif.Vif.pvs_proxy)
+          Vif.pvs_proxy=
+            ( if this_one vif then
+                proxy
+              else
+                vif.Vif.pvs_proxy
+            )
         }
       )
       d.Domain.vifs

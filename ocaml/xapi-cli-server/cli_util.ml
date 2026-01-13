@@ -53,8 +53,7 @@ let track callback rpc (session_id : API.ref_session) task =
     (fun () ->
       let finished = ref false in
       while not !finished do
-        if use_event_next then
-          Client.Event.register ~rpc ~session_id ~classes ;
+        if use_event_next then Client.Event.register ~rpc ~session_id ~classes ;
         try
           (* Need to check once after registering to avoid a race *)
           finished :=
@@ -236,7 +235,12 @@ let rewrite_provisioning_xml rpc session_id new_vm sr_uuid =
           Xml.Element
             ( "disk"
             , List.map
-                (fun (x, y) -> if x <> "sr" then (x, y) else ("sr", newsrname))
+                (fun (x, y) ->
+                  if x <> "sr" then
+                    (x, y)
+                  else
+                    ("sr", newsrname)
+                )
                 params
             , []
             )
@@ -276,7 +280,11 @@ let ref_convert x =
   | Some ir -> (
       ir.Ref_index.uuid
       ^
-      match ir.Ref_index.name_label with None -> "" | Some x -> " (" ^ x ^ ")"
+      match ir.Ref_index.name_label with
+      | None ->
+          ""
+      | Some x ->
+          " (" ^ x ^ ")"
     )
 
 (* Marshal an API-style server-error *)

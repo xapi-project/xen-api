@@ -109,8 +109,7 @@ end = struct
     | _, Any ->
         stop () ; start ~__context ()
     | Local old_addresses, Local new_addresses ->
-        if not (Addresses.subset old_addresses new_addresses) then
-          stop () ;
+        if not (Addresses.subset old_addresses new_addresses) then stop () ;
         let to_start = Addresses.diff new_addresses old_addresses in
         Addresses.iter (fun addr -> start ~__context ~addr ()) to_start
     | _, Local addresses ->

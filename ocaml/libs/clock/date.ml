@@ -66,7 +66,7 @@ let best_effort_iso8601_to_rfc3339 x =
 let of_iso8601 x =
   if String.length x > 5 && x.[4] <> '-' && x.[String.length x - 1] = 'Z' then
     (* dates in the DB look like "20250319T04:16:24Z", so decoding that should be the fastpath *)
-    Scanf.sscanf x "%04i%02i%02iT%02i:%02i:%02iZ" (fun y mon d hh mm ss ->
+      Scanf.sscanf x "%04i%02i%02iT%02i:%02i:%02iZ" (fun y mon d hh mm ss ->
         let tz = 0 in
         let date = (y, mon, d) and time = ((hh, mm, ss), tz) in
         match Ptime.of_date_time (date, time) with
@@ -90,7 +90,12 @@ let print_tz tz_s =
   | Some 0 ->
       "Z"
   | Some tz ->
-      let tz_sign = if tz < 0 then '-' else '+' in
+      let tz_sign =
+        if tz < 0 then
+          '-'
+        else
+          '+'
+      in
       let all_tz_minutes = tz / 60 |> Int.abs in
       let tz_h = all_tz_minutes / 60 in
       let tz_min = all_tz_minutes mod 60 in
@@ -179,7 +184,16 @@ let compare_tz a b =
       1
 
 let compare a b =
-  let ( <?> ) a b = if a = 0 then b else a in
+  let ( <?> ) a b =
+    if a = 0 then
+      b
+    else
+      a
+  in
   Ptime.compare (to_ptime a) (to_ptime b) <?> compare_tz a.tz b.tz
 
-let equal x y = if x == y then true else compare x y = 0
+let equal x y =
+  if x == y then
+    true
+  else
+    compare x y = 0

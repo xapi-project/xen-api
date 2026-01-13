@@ -73,7 +73,11 @@ module Make (Ch : ChannelType) = struct
 
       let make x = {marker= x; i= 0}
 
-      let input x c = if c = x.marker.[x.i] then x.i <- x.i + 1 else x.i <- 0
+      let input x c =
+        if c = x.marker.[x.i] then
+          x.i <- x.i + 1
+        else
+          x.i <- 0
 
       let remaining x = String.length x.marker - x.i
 

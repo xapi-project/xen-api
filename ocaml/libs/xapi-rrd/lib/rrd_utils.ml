@@ -73,7 +73,10 @@ let f_to_s f =
   | FP_nan ->
       "NaN"
   | FP_infinite ->
-      if f > 0.0 then "Infinity" else "-Infinity"
+      if f > 0.0 then
+        "Infinity"
+      else
+        "-Infinity"
   | FP_zero ->
       "0.0"
 
@@ -82,7 +85,11 @@ module Xmlm_utils = struct
 
   let start_tag n = `El_start (tag n)
 
-  let accept s i = if Xmlm.input i = s then () else raise Parse_error
+  let accept s i =
+    if Xmlm.input i = s then
+      ()
+    else
+      raise Parse_error
 
   let rec iter_seq el acc i =
     match Xmlm.peek i with

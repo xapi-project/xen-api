@@ -278,7 +278,14 @@ let update_allowed_operations ~__context ~self : unit =
   let all = Db.SR.get_record_internal ~__context ~self in
   let valid = valid_operations ~__context all self in
   let keys =
-    Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid []
+    Hashtbl.fold
+      (fun k v acc ->
+        if v = None then
+          k :: acc
+        else
+          acc
+      )
+      valid []
   in
   Db.SR.set_allowed_operations ~__context ~self ~value:keys
 

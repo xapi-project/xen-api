@@ -112,7 +112,10 @@ let of_datamodel () =
   in
   let add_relation p t (((one_tbl, one_fld), (many_tbl, many_fld)) as r) =
     let l =
-      if ForeignMap.mem one_tbl t then ForeignMap.find one_tbl t else []
+      if ForeignMap.mem one_tbl t then
+        ForeignMap.find one_tbl t
+      else
+        []
     in
     if p r then
       ForeignMap.add one_tbl ((one_fld, many_tbl, many_fld) :: l) t

@@ -93,8 +93,7 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
           if Db.is_valid_ref __context vbd then (
             add vbd ;
             let vbd = Db.VBD.get_record ~__context ~self:vbd in
-            if not vbd.API.vBD_empty then
-              add_vdi vbd.API.vBD_VDI
+            if not vbd.API.vBD_empty then add_vdi vbd.API.vBD_VDI
           )
         )
         vm.API.vM_VBDs ;
@@ -114,11 +113,11 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
     Db.PVS_proxy.get_all_records ~__context
     |> List.filter (fun (_, p) -> List.mem p.API.pVS_proxy_VIF vm.API.vM_VIFs)
     |> List.iter (fun (ref, proxy) ->
-           if Db.is_valid_ref __context ref then (
-             add ref ;
-             add proxy.API.pVS_proxy_site
-           )
-       ) ;
+        if Db.is_valid_ref __context ref then (
+          add ref ;
+          add proxy.API.pVS_proxy_site
+        )
+    ) ;
     (* add VTPMs that belong to this VM *)
     if not (List.mem Devicetype.VTPM excluded_devices) then
       vm.API.vM_VTPMs
@@ -224,7 +223,11 @@ let make_vm ?(with_snapshot_metadata = false) ~preserve_power_state table
     {
       vm with
       API.vM_power_state=
-        (if preserve_power_state then vm.API.vM_power_state else `Halted)
+        ( if preserve_power_state then
+            vm.API.vM_power_state
+          else
+            `Halted
+        )
     ; API.vM_suspend_VDI=
         ( if preserve_power_state then
             lookup table (Ref.string_of vm.API.vM_suspend_VDI)
@@ -232,7 +235,11 @@ let make_vm ?(with_snapshot_metadata = false) ~preserve_power_state table
             Ref.null
         )
     ; API.vM_is_a_snapshot=
-        (if with_snapshot_metadata then vm.API.vM_is_a_snapshot else false)
+        ( if with_snapshot_metadata then
+            vm.API.vM_is_a_snapshot
+          else
+            false
+        )
     ; API.vM_snapshot_of=
         ( if with_snapshot_metadata then
             lookup table (Ref.string_of vm.API.vM_snapshot_of)
@@ -240,9 +247,17 @@ let make_vm ?(with_snapshot_metadata = false) ~preserve_power_state table
             Ref.null
         )
     ; API.vM_snapshots=
-        (if with_snapshot_metadata then vm.API.vM_snapshots else [])
+        ( if with_snapshot_metadata then
+            vm.API.vM_snapshots
+          else
+            []
+        )
     ; API.vM_snapshot_time=
-        (if with_snapshot_metadata then vm.API.vM_snapshot_time else Date.epoch)
+        ( if with_snapshot_metadata then
+            vm.API.vM_snapshot_time
+          else
+            Date.epoch
+        )
     ; API.vM_transportable_snapshot_id=
         ( if with_snapshot_metadata then
             vm.API.vM_transportable_snapshot_id
@@ -303,7 +318,11 @@ let make_vif table ~preserve_power_state __context self =
     {
       vif with
       API.vIF_currently_attached=
-        (if preserve_power_state then vif.API.vIF_currently_attached else false)
+        ( if preserve_power_state then
+            vif.API.vIF_currently_attached
+          else
+            false
+        )
     ; API.vIF_network= lookup table (Ref.string_of vif.API.vIF_network)
     ; API.vIF_VM= lookup table (Ref.string_of vif.API.vIF_VM)
     ; API.vIF_metrics= Ref.null
@@ -343,7 +362,11 @@ let make_vbd table ~preserve_power_state __context self =
     {
       vbd with
       API.vBD_currently_attached=
-        (if preserve_power_state then vbd.API.vBD_currently_attached else false)
+        ( if preserve_power_state then
+            vbd.API.vBD_currently_attached
+          else
+            false
+        )
     ; API.vBD_VDI= lookup table (Ref.string_of vbd.API.vBD_VDI)
     ; API.vBD_VM= lookup table (Ref.string_of vbd.API.vBD_VM)
     ; API.vBD_metrics= Ref.null
@@ -901,21 +924,21 @@ let handler (req : Request.t) s _ =
       if not host_ok (* redirect *) then (
         (* We do this outside the Xapi_http.with_context below since that will complete the *)
         (* task when it exits, and we don't want to do that *)
-        try
-          let host = find_host_for_VM ~__context vm_ref in
-          let address = Db.Host.get_address ~__context ~self:host in
-          let url =
-            Uri.(
-              make ~scheme:"https" ~host:address ~path:req.Request.path
-                ~query:(List.map (fun (a, b) -> (a, [b])) req.Request.query)
-                ()
-              |> to_string
-            )
-          in
-          info "export VM = %s redirecting to: %s" (Ref.string_of vm_ref) url ;
-          let headers = Http.http_302_redirect url in
-          Http_svr.headers s headers
-        with
+          try
+            let host = find_host_for_VM ~__context vm_ref in
+            let address = Db.Host.get_address ~__context ~self:host in
+            let url =
+              Uri.(
+                make ~scheme:"https" ~host:address ~path:req.Request.path
+                  ~query:(List.map (fun (a, b) -> (a, [b])) req.Request.query)
+                  ()
+                |> to_string
+              )
+            in
+            info "export VM = %s redirecting to: %s" (Ref.string_of vm_ref) url ;
+            let headers = Http.http_302_redirect url in
+            Http_svr.headers s headers
+          with
         | Api_errors.Server_error _ as e -> (
             error "Caught exception in export handler: %s"
               (ExnHelper.string_of_exn e) ;

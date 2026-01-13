@@ -274,8 +274,7 @@ let object_level_event_test _session_id =
     Printf.printf "FAILURE: Didn't get expected change in event thread\n%!" ;
     failure := true
   ) ;
-  if !failure then
-    Alcotest.fail "failed to see object-level event change"
+  if !failure then Alcotest.fail "failed to see object-level event change"
 
 let test_short_oneshot () =
   (* don't call event_setup_common here, it'll register a dummy event and hide the bug *)

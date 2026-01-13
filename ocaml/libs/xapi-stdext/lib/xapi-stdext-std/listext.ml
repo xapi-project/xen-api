@@ -20,7 +20,10 @@ module List = struct
     | [] ->
         []
     | x :: xs ->
-        if mem x xs then setify xs else x :: setify xs
+        if mem x xs then
+          setify xs
+        else
+          x :: setify xs
 
   let subset s1 s2 = List.for_all (fun s -> List.mem s s2) s1
 
@@ -40,10 +43,26 @@ module List = struct
   let map_tr f l = rev (rev_map f l)
 
   let count pred l =
-    fold_left (fun count e -> count + if pred e then 1 else 0) 0 l
+    fold_left
+      (fun count e ->
+        count
+        +
+        if pred e then
+          1
+        else
+          0
+      )
+      0 l
 
   let position pred l =
-    let aux (i, is) e = (i + 1, if pred e then i :: is else is) in
+    let aux (i, is) e =
+      ( i + 1
+      , if pred e then
+          i :: is
+        else
+          is
+      )
+    in
     snd (fold_left aux (0, []) l)
 
   let rev_mapi f l =
@@ -164,7 +183,12 @@ module List = struct
     aux []
 
   let find_minimum compare =
-    let min a b = if compare a b <= 0 then a else b in
+    let min a b =
+      if compare a b <= 0 then
+        a
+      else
+        b
+    in
     function [] -> None | x :: xs -> Some (List.fold_left min x xs)
 
   let find_index f l =

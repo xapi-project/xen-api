@@ -47,22 +47,22 @@ let establish_server ?(signal_fds = []) forker handler sock =
     try
       ignore
       @@ Polly.wait epoll 2 (-1) (fun _ fd _ ->
-             (* If any of the signal_fd is active then bail out *)
-             if List.mem fd signal_fds then raise PleaseClose ;
-             Semaphore.Counting.acquire handler.lock ;
-             let s, caller = Unix.accept ~cloexec:true sock in
-             try ignore (forker handler s caller)
-             with exc ->
-               Backtrace.is_important exc ;
-               (* NB provided 'forker' is configured to make a background
+          (* If any of the signal_fd is active then bail out *)
+          if List.mem fd signal_fds then raise PleaseClose ;
+          Semaphore.Counting.acquire handler.lock ;
+          let s, caller = Unix.accept ~cloexec:true sock in
+          try ignore (forker handler s caller)
+          with exc ->
+            Backtrace.is_important exc ;
+            (* NB provided 'forker' is configured to make a background
                   thread then the only way we can get here is if Thread.create
                   fails. This means we haven't executed any code which could
                   close the fd therefore we should do it ourselves. *)
-               debug "Got exception in server_io.ml: %s" (Printexc.to_string exc) ;
-               log_backtrace exc ;
-               Unix.close s ;
-               Thread.delay 30.0
-         )
+            debug "Got exception in server_io.ml: %s" (Printexc.to_string exc) ;
+            log_backtrace exc ;
+            Unix.close s ;
+            Thread.delay 30.0
+      )
     with
     | PleaseClose ->
         debug "Caught PleaseClose: shutting down server thread" ;

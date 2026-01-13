@@ -72,7 +72,12 @@ let test_bpsq_competing_priority () =
     let present = BPSQ.contains psq i in
     let should_be_present = expectation i in
     if present <> should_be_present then
-      let polarity = if should_be_present then "" else " not" in
+      let polarity =
+        if should_be_present then
+          ""
+        else
+          " not"
+      in
       failwith
         (Printf.sprintf
            "Queue membership expectations violated, %d should%s be present" i

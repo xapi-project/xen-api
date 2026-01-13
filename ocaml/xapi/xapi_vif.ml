@@ -39,7 +39,12 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
   *)
   let power_state = Db.VM.get_power_state ~__context ~self:vM in
   let suspended = power_state = `Suspended in
-  let _currently_attached = if suspended then currently_attached else false in
+  let _currently_attached =
+    if suspended then
+      currently_attached
+    else
+      false
+  in
   create ~__context ~device ~network ~vM ~currently_attached:_currently_attached
     ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params
     ~locking_mode ~ipv4_allowed ~ipv6_allowed ~ipv4_configuration_mode:`None
@@ -69,8 +74,7 @@ let move_internal ~__context ~network ?active vif =
     match active with None -> device_active ~__context ~self:vif | Some x -> x
   in
   Db.VIF.set_network ~__context ~self:vif ~value:network ;
-  if active then
-    Xapi_xenops.vif_move ~__context ~self:vif network
+  if active then Xapi_xenops.vif_move ~__context ~self:vif network
 
 let move ~__context ~self ~network =
   let active = device_active ~__context ~self in
@@ -162,8 +166,7 @@ let assert_has_feature_static_ip_setting ~__context ~self =
   let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
   try
     let other = Db.VM_guest_metrics.get_other ~__context ~self:vm_gm in
-    if List.assoc feature other <> "1" then
-      failwith "not found"
+    if List.assoc feature other <> "1" then failwith "not found"
   with _ ->
     raise Api_errors.(Server_error (vm_lacks_feature, [Ref.string_of vm]))
 
@@ -171,7 +174,10 @@ let assert_no_locking_mode_conflict ~__context ~self kind address =
   let vif_locking_mode = Db.VIF.get_locking_mode ~__context ~self in
   if get_effective_locking_mode ~__context ~self vif_locking_mode = `locked then
     let get =
-      if kind = `ipv4 then Db.VIF.get_ipv4_allowed else Db.VIF.get_ipv6_allowed
+      if kind = `ipv4 then
+        Db.VIF.get_ipv4_allowed
+      else
+        Db.VIF.get_ipv6_allowed
     in
     let allowed = get ~__context ~self in
     match Helpers.parse_cidr kind address with
@@ -189,8 +195,7 @@ let configure_ipv4 ~__context ~self ~mode ~address ~gateway =
     Pool_features.assert_enabled ~__context ~f:Features.Guest_ip_setting ;
     Helpers.assert_is_valid_cidr `ipv4 "address" address ;
     assert_no_locking_mode_conflict ~__context ~self `ipv4 address ;
-    if gateway <> "" then
-      Helpers.assert_is_valid_ip `ipv4 "gateway" gateway
+    if gateway <> "" then Helpers.assert_is_valid_ip `ipv4 "gateway" gateway
   ) ;
   assert_has_feature_static_ip_setting ~__context ~self ;
   Db.VIF.set_ipv4_configuration_mode ~__context ~self ~value:mode ;
@@ -204,8 +209,7 @@ let configure_ipv6 ~__context ~self ~mode ~address ~gateway =
     Pool_features.assert_enabled ~__context ~f:Features.Guest_ip_setting ;
     Helpers.assert_is_valid_cidr `ipv6 "address" address ;
     assert_no_locking_mode_conflict ~__context ~self `ipv6 address ;
-    if gateway <> "" then
-      Helpers.assert_is_valid_ip `ipv6 "gateway" gateway
+    if gateway <> "" then Helpers.assert_is_valid_ip `ipv6 "gateway" gateway
   ) ;
   assert_has_feature_static_ip_setting ~__context ~self ;
   Db.VIF.set_ipv6_configuration_mode ~__context ~self ~value:mode ;

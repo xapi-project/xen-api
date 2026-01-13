@@ -393,7 +393,12 @@ let ds_update rrd timestamp valuesandtransforms new_rrd =
     let last_updated = rrd.rrd_dss.(first_ds_index).ds_last_updated in
     let interval = timestamp -. last_updated in
     (* Work around the clock going backwards *)
-    let interval = if interval < 0. then 5. else interval in
+    let interval =
+      if interval < 0. then
+        5.
+      else
+        interval
+    in
 
     (* start time (st) and age of the last processed pdp and the currently occupied one *)
     let proc_pdp_st, _proc_pdp_age = get_times last_updated rrd.timestep in
@@ -439,7 +444,7 @@ let ds_update rrd timestamp valuesandtransforms new_rrd =
           (* CA-404597 - Gauge and Absolute values should be passed as-is,
              without being involved in time-based calculations at all.
              This applies to calculations below as well *)
-          match ds.ds_ty with
+            match ds.ds_ty with
           | Gauge | Absolute ->
               ds.ds_value <- value
           | Derive ->
@@ -912,12 +917,12 @@ let from_xml input =
       let ds_names = ds_names rrd in
       List.sort_uniq String.compare ds_names
       |> List.filter_map (fun name ->
-             match List.filter (String.equal name) ds_names with
-             | [] | [_] ->
-                 None
-             | x ->
-                 Some (name, List.length x)
-         )
+          match List.filter (String.equal name) ds_names with
+          | [] | [_] ->
+              None
+          | x ->
+              Some (name, List.length x)
+      )
       |> List.fold_left
            (fun rrd (name, n) ->
              (* Remove n-1 lots of this data source *)
@@ -1081,10 +1086,10 @@ module Json = struct
         array
         @@ Array.to_list
         @@ Array.init rows (fun row ->
-               array
-               @@ Array.to_list
-               @@ Array.init cols (fun col -> get rings rows row col)
-           )
+            array
+            @@ Array.to_list
+            @@ Array.init cols (fun col -> get rings rows row col)
+        )
 
   let rra x =
     record

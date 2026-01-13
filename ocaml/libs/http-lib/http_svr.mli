@@ -26,8 +26,7 @@ module Stats : sig
       mutable n_requests: int  (** Total number of requests processed *)
     ; mutable n_connections: int  (** Total number of connections accepted *)
     ; mutable n_framed: int  (** using the more efficient framed protocol *)
-  }
-end
+  } end
 
 module Server : sig
   (** Represents an HTTP server with a set of handlers and set of listening sockets *)

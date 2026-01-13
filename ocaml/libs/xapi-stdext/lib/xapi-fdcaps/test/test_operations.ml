@@ -195,8 +195,7 @@ let test_block () =
         let bt = Printexc.get_raw_backtrace () in
         Printexc.raise_with_backtrace (Failure "with_temp_blk") bt
     in
-    if Unix.geteuid () = 0 then
-      run ()
+    if Unix.geteuid () = 0 then run ()
   in
   test_fd with_make
     [("read", read_fd); ("write", write_fd); ("lseek", test_lseek)]

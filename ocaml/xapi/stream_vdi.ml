@@ -235,8 +235,7 @@ let send_one ofd (__context : Context.t) rpc session_id progress refresh_session
         Bytes.make this_chunk_size '\000'
     in
     let filename = Printf.sprintf "%s/%08d" prefix this_chunk_no in
-    if seek then
-      Unix.LargeFile.lseek ifd offset Unix.SEEK_SET |> ignore ;
+    if seek then Unix.LargeFile.lseek ifd offset Unix.SEEK_SET |> ignore ;
     Unixext.really_read ifd buffer 0 this_chunk_size ;
     if write_check buffer first_or_last then (
       time_since_transmission := Mtime_clock.counter () ;
@@ -477,7 +476,11 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
     in
     (* If this is true, we skip writing zeros. Only for sparse files (vhd only atm) *)
     debug "begun import of VDI %s preserving sparseness"
-      (if vdi_skip_zeros then "" else "NOT") ;
+      ( if vdi_skip_zeros then
+          ""
+        else
+          "NOT"
+      ) ;
     with_open_vdi __context rpc session_id vdi_ref `RW [Unix.O_WRONLY] 0o644
       (fun ofd _ ->
         let reusable_buffer = Bytes.make (Int64.to_int chunk_size) '\000' in

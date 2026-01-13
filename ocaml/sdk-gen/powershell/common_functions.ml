@@ -154,14 +154,16 @@ and cut_msg_name message_name fn_type =
     else if name_len > 3 && String.sub message_name 0 3 = "Add" then
       String.sub message_name 3 (name_len - 3)
     else
-      "" (*Shouldn't happen*)
+      ""
+    (*Shouldn't happen*)
   else if fn_type = "Remove" then
     if name_len > 10 && String.sub message_name 0 10 = "RemoveFrom" then
       String.sub message_name 10 (name_len - 10)
     else if name_len > 6 && String.sub message_name 0 6 = "Remove" then
       String.sub message_name 6 (name_len - 6)
     else
-      message_name (* case of a destructor *)
+      message_name
+    (* case of a destructor *)
   else
     message_name
 

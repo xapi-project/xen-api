@@ -45,14 +45,12 @@ val get_applied_livepatches : unit -> t list
 (** The Xen live patch utility functions *)
 module XenLivePatch : sig
   val get_running_livepatch' :
-    string -> (string * string * string * string) option
-end
+    string -> (string * string * string * string) option end
 
 (** The Kernel live patch utility functions *)
 module KernelLivePatch : sig
   val get_running_livepatch' :
-    string -> (string * string * string * string) option
-end
+    string -> (string * string * string * string) option end
 
 val get_livepatch_file_path :
      component:component

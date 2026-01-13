@@ -976,7 +976,10 @@ module SMAPIv1 : Server_impl = struct
             StringMap.fold
               (fun vdi n acc ->
                 let current =
-                  if IntMap.mem n acc then IntMap.find n acc else []
+                  if IntMap.mem n acc then
+                    IntMap.find n acc
+                  else
+                    []
                 in
                 IntMap.add n (vdi :: current) acc
               )

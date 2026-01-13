@@ -45,7 +45,11 @@ open Db_actions
 let is_http action =
   Astring.String.is_prefix ~affix:Datamodel.rbac_http_permission_prefix action
 
-let call_type_of ~action = if is_http action then "HTTP" else "API"
+let call_type_of ~action =
+  if is_http action then
+    "HTTP"
+  else
+    "API"
 
 let str_local_session = "LOCAL_SESSION"
 
@@ -133,14 +137,14 @@ let populate_audit_record_with_obj_names_of_refs line =
     let sexpr_idx = String.index line ']' + 1 in
     let before_sexpr_str = String.sub line 0 sexpr_idx in
     (* remove the [...] prefix *)
-    (Xapi_stdext_std.Xstringext.String.sub_to_end line sexpr_idx
-     |> SExpr_TS.of_string
-     |> function
-     | SExpr.Node list ->
-         Xapi_stdext_std.Listext.List.last list
-         |> Option.map (fun last -> (list, last))
-     | _ ->
-         None
+    ( Xapi_stdext_std.Xstringext.String.sub_to_end line sexpr_idx
+    |> SExpr_TS.of_string
+    |> function
+      | SExpr.Node list ->
+          Xapi_stdext_std.Listext.List.last list
+          |> Option.map (fun last -> (list, last))
+      | _ ->
+          None
     )
     |> function
     | Some (els, args) -> (
@@ -423,7 +427,10 @@ let add_dummy_args __context action args =
 let sexpr_of __context session_id allowed_denied ok_error result_error ?args
     ?sexpr_of_args action _permission =
   let result_error =
-    if result_error = "" then result_error else ":" ^ result_error
+    if result_error = "" then
+      result_error
+    else
+      ":" ^ result_error
   in
   SExpr.Node
     [
@@ -522,7 +529,12 @@ let session_create_or_destroy ~create ~__context ~session_id ~uname =
       let s_is_lsu = session_rec.API.session_is_local_superuser in
       (* filters out intra-pool logins to avoid spamming the audit log *)
       if (not s_is_intrapool) && not s_is_lsu then
-        let action = if create then "session.create" else "session.destroy" in
+        let action =
+          if create then
+            "session.create"
+          else
+            "session.destroy"
+        in
         let originator = session_rec.API.session_originator in
         let sexpr_of_args = [get_sexpr_arg "originator" originator "" ""] in
         let sexpr_of_args =

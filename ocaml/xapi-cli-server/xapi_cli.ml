@@ -260,11 +260,19 @@ let exec_command req cmd s session args =
         (fun k -> Astring.String.is_suffix ~affix:k cmd_name)
         uninteresting_cmd_postfixes
     in
-    let do_log = if uninteresting then debug else info in
+    let do_log =
+      if uninteresting then
+        debug
+      else
+        info
+    in
     let param_filters =
       List.fold_left
         (fun accu (cmd_test, params) ->
-          if cmd_test cmd_name then accu @ params else accu
+          if cmd_test cmd_name then
+            accu @ params
+          else
+            accu
         )
         [] commands_and_params_to_hide
     in
@@ -275,7 +283,12 @@ let exec_command req cmd s session args =
       (String.concat " "
          (List.map
             (fun (k, v) ->
-              let v' = if must_censor k then "(omitted)" else v in
+              let v' =
+                if must_censor k then
+                  "(omitted)"
+                else
+                  v
+              in
               k ^ "=" ^ v'
             )
             params
@@ -295,7 +308,17 @@ let get_line str i =
 
 let param_error s t sock =
   marshal sock
-    (Command (PrintStderr ((if s <> "" then s ^ ": " ^ t else t) ^ "\n"))) ;
+    (Command
+       (PrintStderr
+          (( if s <> "" then
+               s ^ ": " ^ t
+             else
+               t
+           )
+          ^ "\n"
+          )
+       )
+    ) ;
   marshal sock (Command (PrintStderr "For usage run: 'xe help'\n"))
 
 let other_error msg sock = marshal sock (Command (PrintStderr (msg ^ "\n")))

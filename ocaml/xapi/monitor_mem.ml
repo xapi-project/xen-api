@@ -38,25 +38,25 @@ module Host = struct
             Mcache.log_errors_from filename ;
             datasources
             |> List.filter_map (function
-                 | Rrd.Host, ds
-                   when List.mem ds.Ds.ds_name
-                          ["memory_total_kib"; "memory_free_kib"] ->
-                     Some ds
-                 | _ ->
-                     None (* we are only interested in Host memory stats *)
-                 )
+              | Rrd.Host, ds
+                when List.mem ds.Ds.ds_name
+                       ["memory_total_kib"; "memory_free_kib"] ->
+                  Some ds
+              | _ ->
+                  None (* we are only interested in Host memory stats *)
+              )
             |> List.map (function ds ->
-                   let value =
-                     match ds.Ds.ds_value with
-                     | Rrd.VT_Int64 v ->
-                         Memory.bytes_of_kib v
-                     | Rrd.VT_Float v ->
-                         Memory.bytes_of_kib (Int64.of_float v)
-                     | Rrd.VT_Unknown ->
-                         -1L
-                   in
-                   (ds.Ds.ds_name, value)
-                   )
+                let value =
+                  match ds.Ds.ds_value with
+                  | Rrd.VT_Int64 v ->
+                      Memory.bytes_of_kib v
+                  | Rrd.VT_Float v ->
+                      Memory.bytes_of_kib (Int64.of_float v)
+                  | Rrd.VT_Unknown ->
+                      -1L
+                in
+                (ds.Ds.ds_name, value)
+                )
           with e ->
             if not (Mcache.is_ignored filename) then (
               error "Unable to read host memory metrics from %s: %s" filename
@@ -108,23 +108,23 @@ module VMs = struct
           Mcache.log_errors_from filename ;
           datasources
           |> List.filter_map (function
-               | Rrd.VM vm_uuid, ds when ds.Ds.ds_name = "memory" ->
-                   Some (vm_uuid, ds)
-               | _ ->
-                   None (* we are only interested in VM stats *)
-               )
+            | Rrd.VM vm_uuid, ds when ds.Ds.ds_name = "memory" ->
+                Some (vm_uuid, ds)
+            | _ ->
+                None (* we are only interested in VM stats *)
+            )
           |> List.iter (function vm_uuid, ds ->
-                 let value =
-                   match ds.Ds.ds_value with
-                   | Rrd.VT_Int64 v ->
-                       v
-                   | Rrd.VT_Float v ->
-                       Int64.of_float v
-                   | Rrd.VT_Unknown ->
-                       -1L
-                 in
-                 Hashtbl.add Mcache.vm_memory_tmp vm_uuid value
-                 )
+              let value =
+                match ds.Ds.ds_value with
+                | Rrd.VT_Int64 v ->
+                    v
+                | Rrd.VT_Float v ->
+                    Int64.of_float v
+                | Rrd.VT_Unknown ->
+                    -1L
+              in
+              Hashtbl.add Mcache.vm_memory_tmp vm_uuid value
+              )
         with e ->
           if not (Mcache.is_ignored filename) then (
             error "Unable to read memory usage for VM %s: %s" filename
