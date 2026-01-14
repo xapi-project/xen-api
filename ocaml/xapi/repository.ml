@@ -224,9 +224,12 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
       | s ->
           s
     in
-    let write_initial_yum_config ~binary_url =
-      write_yum_config ~source_url ~binary_url ~repo_gpgcheck:true ~gpgkey_path
-        ~repo_name
+    let proxy_config =
+      match use_proxy with true -> get_proxy_params ~__context | false -> []
+    in
+    let write_initial_yum_config ?(proxy_config = proxy_config) ~binary_url () =
+      write_yum_config ~proxy_config ~source_url ~binary_url ~repo_gpgcheck:true
+        ~gpgkey_path ~repo_name ()
     in
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
@@ -256,7 +259,8 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
         with_sync_client_auth client_auth @@ fun client_auth ->
         with_sync_server_auth server_auth @@ fun binary_url' ->
         write_initial_yum_config
-          ~binary_url:(Option.value binary_url' ~default:binary_url) ;
+          ~binary_url:(Option.value binary_url' ~default:binary_url)
+          () ;
         clean_yum_cache repo_name ;
         (* Remove imported YUM repository GPG key *)
         if Pkgs.manager = Yum then
@@ -272,15 +276,10 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
           | None ->
               []
         in
-        let proxy_params =
-          match use_proxy with
-          | true ->
-              get_proxy_params ~__context
-          | false ->
-              []
-        in
-        auth_params @ proxy_params |> fun x ->
-        config_repo x ; make_cache () ; sync_repo ()
+        (* Proxy config is now written directly to repo file, so only pass
+         * auth_params to config_repo to avoid exposing credentials in
+         * command-line arguments which get logged by DNF5 *)
+        config_repo auth_params ; make_cache () ; sync_repo ()
       )
       (fun () ->
         (* Rewrite repo conf file as initial content to remove credential
@@ -294,7 +293,8 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
          *)
         match Pkgs.manager with
         | Yum ->
-            write_initial_yum_config ~binary_url
+            (* Write clean config without proxy credentials *)
+            write_initial_yum_config ~proxy_config:[] ~binary_url ()
         | Dnf ->
             Unixext.unlink_safe !Xapi_globs.dnf_repo_config_file
       ) ;
