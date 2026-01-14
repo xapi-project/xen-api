@@ -149,6 +149,11 @@ let get_smapiv2_drivers_from_switch () =
       Debug.log_backtrace e (Backtrace.get e) ;
       []
 
+let log_and_unregister ~__context ~reason __FUN (self, rc) =
+  info "%s: unregistering SM plugin %s (%s) since %s" __FUN rc.API.sM_name_label
+    rc.API.sM_uuid reason ;
+  try Db.SM.destroy ~__context ~self with _ -> ()
+
 (** Synchronise the SM table with the SMAPIv1 plugins on the disk and the SMAPIv2
     plugins mentioned in the configuration file whitelist. *)
 let on_xapi_start ~__context =
@@ -182,26 +187,22 @@ let on_xapi_start ~__context =
   in
   (* Add all the running SMAPIv2 drivers *)
   let to_keep = to_keep @ running_smapiv2_drivers in
+  let unused = Listext.List.set_difference (List.map fst existing) to_keep in
   let unavailable =
     List.filter (fun (_, (_, rc)) -> not (is_available rc)) existing
   in
   (* Delete all records which aren't configured or in-use *)
-  List.iter
-    (fun ty ->
-      info
-        "Unregistering SM plugin %s since not in the whitelist and not in-use"
-        ty ;
-      let self, _ = List.assoc ty existing in
-      try Db.SM.destroy ~__context ~self with _ -> ()
-    )
-    (Listext.List.set_difference (List.map fst existing) to_keep) ;
-  List.iter
-    (fun (name, (self, rc)) ->
-      info "%s: unregistering SM plugin %s (%s) since it is unavailable"
-        __FUNCTION__ name rc.API.sM_uuid ;
-      try Db.SM.destroy ~__context ~self with _ -> ()
-    )
-    unavailable ;
+  let unregister_unused ty =
+    let sm = List.assoc ty existing in
+    let reason = "it's not in the allowed list and not in-use" in
+    log_and_unregister ~__context ~reason __FUNCTION__ sm
+  in
+  let unregister_unavailable (_, sm) =
+    let reason = "it's unavailable" in
+    log_and_unregister ~__context ~reason __FUNCTION__ sm
+  in
+  List.iter unregister_unused unused ;
+  List.iter unregister_unavailable unavailable ;
 
   (* Synchronize SMAPIv1 plugins *)
 
