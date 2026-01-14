@@ -154,6 +154,18 @@ let log_and_unregister ~__context ~reason __FUN (self, rc) =
     rc.API.sM_uuid reason ;
   try Db.SM.destroy ~__context ~self with _ -> ()
 
+module StringSet = Set.Make (String)
+
+let list_assoc_all a =
+  List.filter_map (fun (k, v) ->
+      if String.equal k a then
+        Some v
+      else
+        None
+  )
+
+let ( let@ ) f x = f x
+
 (** Synchronise the SM table with the SMAPIv1 plugins on the disk and the SMAPIv2
     plugins mentioned in the configuration file whitelist. *)
 let on_xapi_start ~__context =
@@ -168,63 +180,69 @@ let on_xapi_start ~__context =
     |> List.map (fun (rf, rc) -> (rc.API.sM_type, (rf, rc)))
   in
   let explicitly_configured_drivers =
-    List.filter_map
-      (function `Sm x -> Some x | _ -> None)
-      !Xapi_globs.sm_plugins
+    !Xapi_globs.sm_plugins
+    |> List.filter_map (function `Sm x -> Some x | _ -> None)
+    |> StringSet.of_list
   in
-  let smapiv1_drivers = Sm.supported_drivers () in
-  let configured_drivers = explicitly_configured_drivers @ smapiv1_drivers in
+  let smapiv1_drivers = Sm.supported_drivers () |> StringSet.of_list in
+  let configured_drivers =
+    StringSet.union explicitly_configured_drivers smapiv1_drivers
+  in
   let in_use_drivers =
     List.map (fun (_, rc) -> rc.API.sR_type) (Db.SR.get_all_records ~__context)
+    |> StringSet.of_list
   in
-  let to_keep = configured_drivers @ in_use_drivers in
+  let to_keep = StringSet.union configured_drivers in_use_drivers in
   (* Query the message switch to detect running SMAPIv2 plugins. *)
   let running_smapiv2_drivers =
     if !Xcp_client.use_switch then
-      get_smapiv2_drivers_from_switch ()
+      get_smapiv2_drivers_from_switch () |> StringSet.of_list
     else (* The SMAPIv2 drivers we know about *)
-      Listext.List.set_difference to_keep smapiv1_drivers
+      StringSet.diff to_keep smapiv1_drivers
   in
   (* Add all the running SMAPIv2 drivers *)
-  let to_keep = to_keep @ running_smapiv2_drivers in
-  let unused = Listext.List.set_difference (List.map fst existing) to_keep in
+  let to_keep = StringSet.union to_keep running_smapiv2_drivers in
+  let existing_types = List.map fst existing |> StringSet.of_list in
+  let unused = StringSet.diff existing_types to_keep in
   let unavailable =
     List.filter (fun (_, (_, rc)) -> not (is_available rc)) existing
   in
   (* Delete all records which aren't configured or in-use *)
   let unregister_unused ty =
-    let sm = List.assoc ty existing in
+    let sms = list_assoc_all ty existing in
     let reason = "it's not in the allowed list and not in-use" in
-    log_and_unregister ~__context ~reason __FUNCTION__ sm
+    List.iter (log_and_unregister ~__context ~reason __FUNCTION__) sms
   in
   let unregister_unavailable (_, sm) =
     let reason = "it's unavailable" in
     log_and_unregister ~__context ~reason __FUNCTION__ sm
   in
-  List.iter unregister_unused unused ;
+  StringSet.iter unregister_unused unused ;
   List.iter unregister_unavailable unavailable ;
 
   (* Synchronize SMAPIv1 plugins *)
 
   (* Create all missing SMAPIv1 plugins *)
-  List.iter
+  StringSet.iter
     (fun ty ->
       let query_result =
         Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info
       in
       Xapi_sm.create_from_query_result ~__context query_result
     )
-    (Listext.List.set_difference smapiv1_drivers (List.map fst existing)) ;
+    (StringSet.diff smapiv1_drivers existing_types) ;
   (* Update all existing SMAPIv1 plugins *)
-  List.iter
+  StringSet.iter
     (fun ty ->
       let query_result =
         Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info
       in
-      Xapi_sm.update_from_query_result ~__context (List.assoc ty existing)
-        query_result
+      list_assoc_all ty existing
+      |> List.iter (fun sm ->
+          Xapi_sm.update_from_query_result ~__context sm query_result
+      )
     )
-    (Listext.List.intersect smapiv1_drivers (List.map fst existing)) ;
+    (StringSet.inter smapiv1_drivers existing_types) ;
 
   (* Synchronize SMAPIv2 plugins *)
 
@@ -245,18 +263,19 @@ let on_xapi_start ~__context =
         f query_result
     )
   in
-  List.iter
+  StringSet.iter
     (fun ty ->
       with_query_result ty (Xapi_sm.create_from_query_result ~__context)
     )
-    (Listext.List.set_difference running_smapiv2_drivers (List.map fst existing)) ;
+    (StringSet.diff running_smapiv2_drivers existing_types) ;
   (* Update all existing SMAPIv2 plugins *)
-  List.iter
+  StringSet.iter
     (fun ty ->
-      with_query_result ty
-        (Xapi_sm.update_from_query_result ~__context (List.assoc ty existing))
+      let@ qr = with_query_result ty in
+      list_assoc_all ty existing
+      |> List.iter (fun sm -> Xapi_sm.update_from_query_result ~__context sm qr)
     )
-    (Listext.List.intersect running_smapiv2_drivers (List.map fst existing))
+    (StringSet.inter running_smapiv2_drivers existing_types)
 
 let bind ~__context ~pbd =
   let dbg = Context.string_of_task __context in
