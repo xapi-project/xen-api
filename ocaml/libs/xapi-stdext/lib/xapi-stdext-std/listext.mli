@@ -154,7 +154,8 @@ module List : sig
   val set_equiv : 'a list -> 'a list -> bool
 
   val set_difference : 'a list -> 'a list -> 'a list
-  (** Returns the set difference of two lists *)
+  (** [set_difference a b] returns the list with the elements in [a] that are
+      not present in [b] *)
 
   val intersect : 'a list -> 'a list -> 'a list
   (** Returns the intersection of two lists. *)
