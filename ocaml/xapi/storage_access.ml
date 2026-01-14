@@ -21,7 +21,8 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module XenAPI = Client.Client
 open Storage_interface
-open Storage_utils
+
+let transform_storage_exn = Storage_utils.transform_storage_exn
 
 module D = Debug.Make (struct let name = "storage_access" end)
 
@@ -103,8 +104,50 @@ let external_rpc queue_name uri =
 (* Internal exception, never escapes the module *)
 exception Message_switch_failure
 
-(* We have to be careful in this function, because an exception raised from
-   here will cause the startup sequence to fail *)
+(* We have to be careful in the call tree of on_xapi_start, because an
+   exception raised in it will cause the startup sequence to fail *)
+
+let get_smapiv2_drivers_from_switch () =
+  let module Client = Message_switch_unix.Protocol_unix.Client in
+  try
+    let ( >>| ) result f =
+      match Client.error_to_msg result with
+      | Error (`Msg x) ->
+          error "%s: Error %s while querying message switch queues" __FUNCTION__
+            x ;
+          raise Message_switch_failure
+      | Ok x ->
+          f x
+    in
+    Client.connect ~switch:!Xcp_client.switch_path () >>| fun t ->
+    Client.list ~t ~prefix:!Storage_interface.queue_name ~filter:`Alive ()
+    >>| fun running_smapiv2_driver_queues ->
+    running_smapiv2_driver_queues
+    (* The results include the prefix itself, but that is the main storage
+       queue, we don't need it *)
+    |> List.filter (( <> ) !Storage_interface.queue_name)
+    |> Listext.List.try_map (fun driver ->
+        (* Get the last component of the queue name:
+              org.xen.xapi.storage.sr_type -> sr_type *)
+        driver
+        |> String.split_on_char '.'
+        |> Listext.List.last
+        |> Option.to_result ~none:(Invalid_argument driver)
+    )
+    |> function
+    | Ok drivers ->
+        drivers
+    | Error exn ->
+        raise exn
+  with
+  | Message_switch_failure ->
+      [] (* no more logging *)
+  | e ->
+      Backtrace.is_important e ;
+      error "Unexpected error querying the message switch: %s"
+        (Printexc.to_string e) ;
+      Debug.log_backtrace e (Backtrace.get e) ;
+      []
 
 (** Synchronise the SM table with the SMAPIv1 plugins on the disk and the SMAPIv2
     plugins mentioned in the configuration file whitelist. *)
@@ -130,52 +173,12 @@ let on_xapi_start ~__context =
     List.map (fun (_, rc) -> rc.API.sR_type) (Db.SR.get_all_records ~__context)
   in
   let to_keep = configured_drivers @ in_use_drivers in
-  (* The SMAPIv2 drivers we know about *)
-  let smapiv2_drivers = Listext.List.set_difference to_keep smapiv1_drivers in
   (* Query the message switch to detect running SMAPIv2 plugins. *)
   let running_smapiv2_drivers =
-    if !Xcp_client.use_switch then (
-      try
-        let open Message_switch_unix.Protocol_unix in
-        let ( >>| ) result f =
-          match Client.error_to_msg result with
-          | Error (`Msg x) ->
-              error "Error %s while querying message switch queues" x ;
-              raise Message_switch_failure
-          | Ok x ->
-              f x
-        in
-        Client.connect ~switch:!Xcp_client.switch_path () >>| fun t ->
-        Client.list ~t ~prefix:!Storage_interface.queue_name ~filter:`Alive ()
-        >>| fun running_smapiv2_driver_queues ->
-        running_smapiv2_driver_queues
-        (* The results include the prefix itself, but that is the main storage
-           queue, we don't need it *)
-        |> List.filter (( <> ) !Storage_interface.queue_name)
-        |> Listext.List.try_map (fun driver ->
-            (* Get the last component of the queue name:
-                  org.xen.xapi.storage.sr_type -> sr_type *)
-            driver
-            |> String.split_on_char '.'
-            |> Listext.List.last
-            |> Option.to_result ~none:(Invalid_argument driver)
-        )
-        |> function
-        | Ok drivers ->
-            drivers
-        | Error exn ->
-            raise exn
-      with
-      | Message_switch_failure ->
-          [] (* no more logging *)
-      | e ->
-          Backtrace.is_important e ;
-          error "Unexpected error querying the message switch: %s"
-            (Printexc.to_string e) ;
-          Debug.log_backtrace e (Backtrace.get e) ;
-          []
-    ) else
-      smapiv2_drivers
+    if !Xcp_client.use_switch then
+      get_smapiv2_drivers_from_switch ()
+    else (* The SMAPIv2 drivers we know about *)
+      Listext.List.set_difference to_keep smapiv1_drivers
   in
   (* Add all the running SMAPIv2 drivers *)
   let to_keep = to_keep @ running_smapiv2_drivers in
