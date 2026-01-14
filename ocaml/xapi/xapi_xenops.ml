@@ -2493,6 +2493,40 @@ let update_vm_internal ~__context ~id ~self ~previous ~info ~localhost =
         error "Caught %s: while updating VM %s last_boot_CPU_flags"
           (Printexc.to_string e) id
     ) ;
+  different
+    (fun x -> x.Vm.numa_optimised)
+    Fun.id
+    (fun opt ->
+      let metrics = Db.VM.get_metrics ~__context ~self in
+      debug "Updating VM %s NUMA optimised=%b" id opt ;
+      Db.VM_metrics.set_numa_optimised ~__context ~self:metrics ~value:opt
+    ) ;
+  different
+    (fun x -> x.Vm.numa_nodes)
+    Fun.id
+    (fun n ->
+      let metrics = Db.VM.get_metrics ~__context ~self in
+      debug "Updating VM %s NUMA nodes=%d" id n ;
+      Db.VM_metrics.set_numa_nodes ~__context ~self:metrics
+        ~value:(Int64.of_int n)
+    ) ;
+  different
+    (fun x -> x.Vm.numa_node_memory)
+    Fun.id
+    (fun assoc ->
+      let mib n = Int64.shift_left n 20 in
+      let assignment =
+        List.map
+          (fun (node, mem) -> Printf.sprintf "%d:%LdMiB" node (mib mem))
+          assoc
+        |> String.concat " "
+      in
+      let metrics = Db.VM.get_metrics ~__context ~self in
+      debug "Updating VM %s NUMA assignment [%s]" id assignment ;
+      Db.VM_metrics.set_numa_node_memory ~__context ~self:metrics
+        ~value:(List.map (fun (x, y) -> (Int64.of_int x, y)) assoc)
+    ) ;
+
   Xenops_cache.update_vm id info ;
   if !should_update_allowed_operations then
     Helpers.call_api_functions ~__context (fun rpc session_id ->

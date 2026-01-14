@@ -1449,6 +1449,21 @@ let copy_metrics ~__context ~vm =
       (Option.fold ~none:`unspecified
          ~some:(fun x -> x.Db_actions.vM_metrics_current_domain_type)
          m
+      )
+    ~numa_optimised:
+      (Option.fold ~none:false
+         ~some:(fun x -> x.Db_actions.vM_metrics_numa_optimised)
+         m
+      )
+    ~numa_nodes:
+      (Option.fold ~none:0L
+         ~some:(fun x -> x.Db_actions.vM_metrics_numa_nodes)
+         m
+      )
+    ~numa_node_memory:
+      (Option.fold ~none:[]
+         ~some:(fun x -> x.Db_actions.vM_metrics_numa_node_memory)
+         m
       ) ;
   metrics
 

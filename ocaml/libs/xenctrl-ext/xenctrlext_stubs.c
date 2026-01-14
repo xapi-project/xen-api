@@ -696,6 +696,22 @@ CAMLprim value stub_xenctrlext_domain_claim_pages(value xch_val, value domid_val
         CAMLreturn(Val_unit);
 }
 
+#ifdef XEN_DOMCTL_NUMA_OP_GET_NODE_PAGES
+CAMLprim value stub_xc_domain_numa_get_node_pages(value xch_val, value domid);
+#endif
+
+CAMLprim value stub_xc_domain_numa_get_node_pages_wrapper(value xch_val, value domid)
+{
+#ifdef XEN_DOMCTL_NUMA_OP_GET_NODE_PAGES
+        return stub_xc_domain_numa_get_node_pages(xch_val, domid);
+#else
+        CAMLparam2(xch_val, domid);
+        caml_failwith(__func__);
+        CAMLnoreturn;
+#endif
+}
+
+
 /*
 * Local variables:
 * indent-tabs-mode: t

@@ -130,3 +130,41 @@ let domain_claim_pages handle domid ?(numa_node = NumaNode.none) nr_pages =
 let get_nr_nodes handle =
   let info = numainfo handle in
   Array.length info.memory
+
+module DomainNuma = struct
+  (* Numa state of a domain *)
+
+  type domain_numainfo_node_pages = {
+      tot_pages_per_node: int64 array (* page=4k bytes *)
+  }
+
+  external domain_get_numa_info_node_pages :
+    handle -> int -> domain_numainfo_node_pages
+    = "stub_xc_domain_numa_get_node_pages_wrapper"
+
+  type t = {optimised: bool; nodes: int; memory: int64 array (* bytes *)}
+
+  (* nodes = -1 signals that could not obtain a meaningful value *)
+  let default = {optimised= false; nodes= -1; memory= [||]}
+
+  let state handle ~domid =
+    try
+      let host_nodes = get_nr_nodes handle in
+      let pages = domain_get_numa_info_node_pages handle domid in
+      let memory =
+        Array.map (fun n -> Int64.shift_left n 12) pages.tot_pages_per_node
+      in
+      let nodes =
+        Array.fold_left
+          (fun n pages ->
+            if pages > 0L then
+              n + 1
+            else
+              n
+          )
+          0 pages.tot_pages_per_node
+      in
+      let optimised = nodes = 1 || nodes < host_nodes in
+      {optimised; nodes; memory}
+    with Failure _ -> default
+end

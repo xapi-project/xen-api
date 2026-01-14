@@ -374,6 +374,7 @@ and create_domain_zero_metrics_record ~__context ~domain_zero_metrics_ref
     ~vCPUs_flags:[] ~state:[] ~start_time:Date.epoch ~install_time:Date.epoch
     ~last_updated:Date.epoch ~other_config:[] ~hvm:false ~nomigrate:false
     ~nested_virt:false ~current_domain_type:Xapi_globs.domain_zero_domain_type
+    ~numa_optimised:false ~numa_nodes:0L ~numa_node_memory:[]
 
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info)
     : unit =

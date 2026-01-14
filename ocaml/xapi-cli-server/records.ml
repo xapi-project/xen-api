@@ -2181,6 +2181,40 @@ let vm_record rpc session_id vm =
           )
           ~get_map:(fun () -> (x ()).API.vM_platform)
           ()
+      ; make_field ~name:"numa-optimised"
+          ~get:(fun () ->
+            Option.fold ~none:"false"
+              ~some:(fun m -> string_of_bool m.API.vM_metrics_numa_optimised)
+              (xm ())
+          )
+          ()
+      ; make_field ~name:"numa-nodes"
+          ~get:(fun () ->
+            Option.fold ~none:"0"
+              ~some:(fun m -> Int64.to_string m.API.vM_metrics_numa_nodes)
+              (xm ())
+          )
+          ()
+      ; make_field ~name:"numa-node-memory"
+          ~get:(fun () ->
+            Option.fold ~none:"[]"
+              ~some:(fun m ->
+                map_and_concat
+                  (fun (x, y) -> Printf.sprintf "%Li: %Li" x y)
+                  m.API.vM_metrics_numa_node_memory
+              )
+              (xm ())
+          )
+          ~get_map:(fun () ->
+            Option.fold ~none:[]
+              ~some:(fun m ->
+                List.map
+                  (fun (x, y) -> (Int64.to_string x, Int64.to_string y))
+                  m.API.vM_metrics_numa_node_memory
+              )
+              (xm ())
+          )
+          ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
             map_and_concat Record_util.vm_operation_to_string

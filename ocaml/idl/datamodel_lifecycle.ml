@@ -137,6 +137,12 @@ let prototyped_of_field = function
       Some "25.15.0"
   | "VM_guest_metrics", "netbios_name" ->
       Some "24.28.0"
+  | "VM_metrics", "numa_node_memory" ->
+      Some "25.35.0"
+  | "VM_metrics", "numa_nodes" ->
+      Some "25.35.0"
+  | "VM_metrics", "numa_optimised" ->
+      Some "25.35.0"
   | "VM", "groups" ->
       Some "24.19.1"
   | "VM", "pending_guidances_full" ->
@@ -148,9 +154,9 @@ let prototyped_of_field = function
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "vm_console_idle_timeout" ->
-      Some "26.0.0-next"
+      Some "26.1.0"
   | "pool", "limit_console_sessions" ->
-      Some "26.0.0-next"
+      Some "26.1.0"
   | "pool", "ha_reboot_vm_on_internal_shutdown" ->
       Some "25.16.0"
   | "pool", "license_server" ->
