@@ -34,7 +34,12 @@ let examples_to_test =
       true
     with _ -> false
   in
-  examples @ if using_deprecated_ide then deprecated else []
+  examples
+  @
+  if using_deprecated_ide then
+    deprecated
+  else
+    []
 
 let equivalent =
   [

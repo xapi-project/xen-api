@@ -385,14 +385,13 @@ let suite_create_multi =
     let num_cols_in_legend = Array.length t.RU.legend in
     t.RU.data
     |> Array.iteri (fun i r ->
-           Alcotest.(check int)
-             (Printf.sprintf
-                "number of cols in legend must matche number of cols in row[%i]"
-                i
-             )
-             num_cols_in_legend
-             (Array.length r.RU.row_data)
-       )
+        Alcotest.(check int)
+          (Printf.sprintf
+             "number of cols in legend must matche number of cols in row[%i]" i
+          )
+          num_cols_in_legend
+          (Array.length r.RU.row_data)
+    )
   in
   let test_no_rrds () =
     Alcotest.check_raises "should raise error" No_RRA_Available (fun () ->
@@ -420,15 +419,15 @@ let suite_create_multi =
       )
     ]
     |> List.map (fun (name, rrds) ->
-           ( name
-           , `Quick
-           , fun () ->
-               let rrds =
-                 List.mapi (fun i rrd -> (Printf.sprintf "row[%i]" i, rrd)) rrds
-               in
-               RU.create_multi rrds 0L 1L None |> assert_size
-           )
-       )
+        ( name
+        , `Quick
+        , fun () ->
+            let rrds =
+              List.mapi (fun i rrd -> (Printf.sprintf "row[%i]" i, rrd)) rrds
+            in
+            RU.create_multi rrds 0L 1L None |> assert_size
+        )
+    )
   in
   ("no rrds", `Quick, test_no_rrds) :: valid_rrd_tests
 

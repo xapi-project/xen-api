@@ -781,8 +781,10 @@ module DeviceCache = struct
               (* force refresh of domid cache *)
               refresh_cache ()
           with _ -> (
-            try (* attempt to refresh cache *)
-                refresh_cache () with _ -> ()
+            try
+              (* attempt to refresh cache *)
+              refresh_cache ()
+            with _ -> ()
           )
         ) ;
         try PerVMCache.find domid_cache (Some key)
@@ -889,7 +891,12 @@ module Featureset = struct
     let scanf fmt s = Scanf.sscanf s fmt (fun x -> x) in
     try
       String.split_on_char '-' str
-      |> (fun lst -> if lst = [""] then [] else lst)
+      |> (fun lst ->
+      if lst = [""] then
+        []
+      else
+        lst
+      )
       |> Array.of_list
       |> Array.map (scanf "%08Lx%!")
     with _ -> raise (InvalidFeatureString str)
@@ -1056,7 +1063,12 @@ module HOST = struct
           x = 13 || x = 10 || (x >= 0x20 && x <= 0x7e)
         in
         Xenctrl.readconsolering xc
-        |> String.map (fun c -> if not (is_printable c) then ' ' else c)
+        |> String.map (fun c ->
+            if not (is_printable c) then
+              ' '
+            else
+              c
+        )
     )
 
   let get_total_memory_mib () =
@@ -1091,7 +1103,11 @@ module HOST = struct
                 write_with_perms parameters_root "" ;
                 write_with_perms
                   (Filename.concat feature_root "licensed")
-                  (if feature.Host.licensed then "1" else "0") ;
+                  ( if feature.Host.licensed then
+                      "1"
+                    else
+                      "0"
+                  ) ;
                 List.iter
                   (fun (key, value) ->
                     write_with_perms (Filename.concat parameters_root key) value
@@ -1173,26 +1189,25 @@ module Actions = struct
     let _ =
       DB.update vm
         (Option.map (function {VmExtra.persistent} as extra ->
-             ( match persistent with
-             | {VmExtra.ty= Some (Vm.HVM hvm_info); _} ->
-                 let platformdata =
-                   ("timeoffset", timeoffset)
-                   :: List.remove_assoc "timeoffset" persistent.platformdata
-                 in
-                 let persistent =
-                   {
-                     persistent with
-                     VmExtra.ty= Some (Vm.HVM {hvm_info with Vm.timeoffset})
-                   ; platformdata
-                   }
-                 in
-                 debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset ;
-                 VmExtra.{persistent}
-             | _ ->
-                 extra
-             )
-             )
-          )
+            ( match persistent with
+            | {VmExtra.ty= Some (Vm.HVM hvm_info); _} ->
+                let platformdata =
+                  ("timeoffset", timeoffset)
+                  :: List.remove_assoc "timeoffset" persistent.platformdata
+                in
+                let persistent =
+                  {
+                    persistent with
+                    VmExtra.ty= Some (Vm.HVM {hvm_info with Vm.timeoffset})
+                  ; platformdata
+                  }
+                in
+                debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset ;
+                VmExtra.{persistent}
+            | _ ->
+                extra
+            )
+            ))
     in
     ()
 
@@ -1246,15 +1261,13 @@ module Actions = struct
             let updated =
               DB.update vm
                 (Option.map (function {VmExtra.persistent} ->
-                     let persistent =
-                       {persistent with VmExtra.pv_drivers_detected}
-                     in
-                     VmExtra.{persistent}
-                     )
-                  )
+                    let persistent =
+                      {persistent with VmExtra.pv_drivers_detected}
+                    in
+                    VmExtra.{persistent}
+                    ))
             in
-            if updated then
-              Updates.add (Dynamic.Vm vm) internal_updates
+            if updated then Updates.add (Dynamic.Vm vm) internal_updates
           with Xs_protocol.Enoent _ ->
             warn "Watch event on %s fired but couldn't read from it" path ;
             ()
@@ -1653,8 +1666,8 @@ module VM = struct
     let weight =
       vm.scheduler_params.priority
       |> Option.map (fun (w, c) ->
-             [("vcpu/weight", string_of_int w); ("vcpu/cap", string_of_int c)]
-         )
+          [("vcpu/weight", string_of_int w); ("vcpu/cap", string_of_int c)]
+      )
       |> Option.value ~default:[]
     in
     let vcpus =
@@ -1675,7 +1688,12 @@ module VM = struct
       | None ->
           platformdata
     in
-    let default k v p = if List.mem_assoc k p then p else (k, v) :: p in
+    let default k v p =
+      if List.mem_assoc k p then
+        p
+      else
+        (k, v) :: p
+    in
     let platformdata =
       persistent.VmExtra.platformdata @ vcpus
       |> default "acpi_s3" "0"
@@ -1940,8 +1958,8 @@ module VM = struct
                 )
               ]
               |> List.map (fun (k, v) ->
-                     (Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid k, v)
-                 )
+                  (Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid k, v)
+              )
             in
             let minimal_vm_kvs =
               [
@@ -1953,8 +1971,8 @@ module VM = struct
               ; (Printf.sprintf "domains/%d/create-time" di.Xenctrl.domid, "0")
               ]
               |> List.map (fun (k, v) ->
-                     (Printf.sprintf "/vm/%s/%s" vm.Vm.id k, v)
-                 )
+                  (Printf.sprintf "/vm/%s/%s" vm.Vm.id k, v)
+              )
             in
             List.iter
               (fun (k, v) ->
@@ -2111,13 +2129,17 @@ module VM = struct
           !n + 1
         in
         if current > target then
-          for (* need to deplug cpus *)
-              i = current - 1 downto target do
+          for
+            (* need to deplug cpus *)
+            i = current - 1 downto target
+          do
             Device.Vcpu.set ~xs ~dm:(dm_of ~vm) ~devid:i domid false
           done
         else if current < target then
-          for (* need to plug cpus *)
-              i = current to target - 1 do
+          for
+            (* need to plug cpus *)
+            i = current to target - 1
+          do
             Device.Vcpu.set ~xs ~dm:(dm_of ~vm) ~devid:i domid true
           done
     )
@@ -2619,7 +2641,11 @@ module VM = struct
                 warn
                   "QEMU stub domains are no longer implemented;QEMU will be \
                    started in the control domain" ;
-              (if saved_state then Device.Dm.restore else Device.Dm.start)
+              ( if saved_state then
+                  Device.Dm.restore
+                else
+                  Device.Dm.start
+              )
                 task ~xc ~xs ~dm:qemu_dm info di.Xenctrl.domid ;
               Device.Serial.update_xenstore ~xs di.Xenctrl.domid
           | Vm.PV _ | Vm.PVinPVH _ | Vm.PVH _ ->
@@ -2630,8 +2656,7 @@ module VM = struct
       | PV {vncterm; vncterm_ip= ip; _}
       | PVH {vncterm; vncterm_ip= ip; _}
       | PVinPVH {vncterm; vncterm_ip= ip; _} ->
-          if vncterm then
-            Service.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
+          if vncterm then Service.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
       | HVM _ ->
           ()
     with Device.Ioemu_failed (name, msg) ->
@@ -3159,7 +3184,8 @@ module VM = struct
             let rec ls_lR ?(excludes = StringSet.empty) ?(depth = 512) root
                 (quota, acc) dir =
               if quota <= 0 || StringSet.mem dir excludes then
-                (quota, acc) (* quota reached, stop listing/reading *)
+                (quota, acc)
+              (* quota reached, stop listing/reading *)
               else
                 let value_opt, subdirs = ls_l ~depth root dir in
                 let quota, acc =
@@ -3285,7 +3311,12 @@ module VM = struct
             let xh = Xenctrlext.get_handle () in
             let numa = Xenctrlext.DomainNuma.state xh ~domid in
             {
-              Vm.power_state= (if di.Xenctrl.paused then Paused else Running)
+              Vm.power_state=
+                ( if di.Xenctrl.paused then
+                    Paused
+                  else
+                    Running
+                )
             ; domids= [di.Xenctrl.domid]
             ; consoles= Option.to_list vnc @ Option.to_list tc
             ; uncooperative_balloon_driver= uncooperative
@@ -3353,7 +3384,12 @@ module VM = struct
             let path =
               Printf.sprintf "/local/domain/%d/control/ts" di.Xenctrl.domid
             in
-            xs.Xs.write path (if enabled then "1" else "0")
+            xs.Xs.write path
+              ( if enabled then
+                  "1"
+                else
+                  "0"
+              )
     )
 
   let run_script task vm script =
@@ -3509,7 +3545,8 @@ module VM = struct
                     Needs_softreset
                 | _ ->
                     Needs_poweroff
-                ) (* unexpected *)
+                )
+            (* unexpected *)
             else
               match Domain.get_action_request ~xs d.Xenctrl.domid with
               | Some "poweroff" ->
@@ -3609,16 +3646,20 @@ module VM = struct
     let original_profile =
       (* Never overwrite the original_profile, if one is present. If not
          present, then make it equal to the profile derived above. *)
-      match persistent.VmExtra.original_profile with None -> profile | p -> p
+      match persistent.VmExtra.original_profile with
+      | None ->
+          profile
+      | p ->
+          p
     in
     let platformdata =
       (* If platformdata is missing from state, take the one from vm *)
       ( match persistent.VmExtra.platformdata with
-      | [] ->
-          vm.platformdata
-      | p ->
-          p
-      )
+        | [] ->
+            vm.platformdata
+        | p ->
+            p
+        )
       |> upgrade_featureset vm
     in
     let persistent =
@@ -3673,7 +3714,10 @@ module PCI = struct
     let state = get_state vm pci in
     (* If it has disappeared from xenstore then we assume unplug is needed if
        only to release resources/ deassign devices *)
-    if not state.plugged then Some Needs_unplug else None
+    if not state.plugged then
+      Some Needs_unplug
+    else
+      None
 
   let get_next_pci_index ~xs domid =
     let current = Device.PCI.list ~xs domid in
@@ -3693,12 +3737,20 @@ module PCI = struct
           (Printf.sprintf "/local/domain/0/backend/pci/%d/0/msitranslate"
              frontend_domid
           )
-          (if persistent.VmExtra.pci_msitranslate then "1" else "0") ;
+          ( if persistent.VmExtra.pci_msitranslate then
+              "1"
+            else
+              "0"
+          ) ;
         xs.Xs.write
           (Printf.sprintf "/local/domain/0/backend/pci/%d/0/power_mgmt"
              frontend_domid
           )
-          (if persistent.VmExtra.pci_power_mgmt then "1" else "0") ;
+          ( if persistent.VmExtra.pci_power_mgmt then
+              "1"
+            else
+              "0"
+          ) ;
         if not (Sys.file_exists "/sys/bus/pci/drivers/pciback") then (
           error "PCIBack has not been loaded" ;
           raise (Xenopsd_error PCIBack_not_loaded)
@@ -3825,7 +3877,10 @@ module VUSB = struct
     let state = get_state vm vusb in
     (* If it has disappeared from qom-list then we assume unplug is needed if
        only to release resources *)
-    if not state.plugged then Some Needs_unplug else None
+    if not state.plugged then
+      Some Needs_unplug
+    else
+      None
 
   let is_privileged vm =
     let open Vm in
@@ -4293,7 +4348,11 @@ module VBD = struct
               Xenops_task.with_subtask task
                 (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
                 (fun () ->
-                  (if force then Device.hard_shutdown else Device.clean_shutdown)
+                  ( if force then
+                      Device.hard_shutdown
+                    else
+                      Device.clean_shutdown
+                  )
                     task ~xs dev
                 )
             )
@@ -4414,7 +4473,11 @@ module VBD = struct
               Xenops_task.with_subtask task
                 (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
                 (fun () ->
-                  (if force then Device.hard_shutdown else Device.clean_shutdown)
+                  ( if force then
+                      Device.hard_shutdown
+                    else
+                      Device.clean_shutdown
+                  )
                     task ~xs dev
                 )
             )
@@ -4776,7 +4839,12 @@ module VIF = struct
 
   let disconnect_flag device disconnected =
     let path = Hotplug.vif_disconnect_path device in
-    let flag = if disconnected then "1" else "0" in
+    let flag =
+      if disconnected then
+        "1"
+      else
+        "0"
+    in
     (path, flag)
 
   let xenstore_of_pvs_proxy proxy =

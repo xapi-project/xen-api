@@ -53,7 +53,12 @@ let export_nbd_proxy ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest =
     in
     D.debug "%s making request to dest %s" __FUNCTION__
       (Http.Url.to_string dest_url) ;
-    let verify_cert = if verify_dest then Stunnel_client.pool () else None in
+    let verify_cert =
+      if verify_dest then
+        Stunnel_client.pool ()
+      else
+        None
+    in
     let transport = Xmlrpc_client.transport_of_url ~verify_cert dest_url in
     with_transport ~stunnel_wait_disconnect:false transport
       (with_http request (fun (_response, s) ->

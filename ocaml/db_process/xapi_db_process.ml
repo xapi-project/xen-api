@@ -59,7 +59,11 @@ let parse_operation s =
 let initialise_db_connections () =
   let dbs =
     Parse_db_conf.parse_db_conf
-      (if !config = "" then !Db_globs.db_conf_path else !config)
+      ( if !config = "" then
+          !Db_globs.db_conf_path
+        else
+          !config
+      )
   in
   Db_conn_store.initialise_db_connections dbs ;
   dbs
@@ -148,8 +152,7 @@ let do_read_hostiqn () =
       Printf.printf "%s" (List.assoc _iscsi_iqn other_config)
 
 let do_write_hostiqn () =
-  if !iqn = "" then
-    fatal_error "Must specify '-hostiqn <value>'" ;
+  if !iqn = "" then fatal_error "Must specify '-hostiqn <value>'" ;
   let new_iqn = !iqn in
   read_in_database () ;
   match find_my_host_row () with
@@ -164,7 +167,14 @@ let do_write_hostiqn () =
         if List.mem_assoc _iscsi_iqn other_config then
           (* replace if key already exists *)
           List.map
-            (fun (k, v) -> (k, if k = _iscsi_iqn then new_iqn else v))
+            (fun (k, v) ->
+              ( k
+              , if k = _iscsi_iqn then
+                  new_iqn
+                else
+                  v
+              )
+            )
             other_config
         else (* ... otherwise add new key/value pair *)
           (_iscsi_iqn, new_iqn) :: other_config
@@ -202,8 +212,7 @@ let _ =
     ]
     (fun x -> print_string ("Warning, ignoring unknown argument: " ^ x))
     "XE database tool" ;
-  if !operation = "" then
-    operation := "write_db" ;
+  if !operation = "" then operation := "write_db" ;
   info "xapi-db-process executed: operation='%s'" !operation ;
   match parse_operation !operation with
   | Write_database ->

@@ -48,10 +48,8 @@ let get_provider name_label =
   let providers =
     Tracing.TracerProvider.get_tracer_providers ()
     |> List.filter (fun provider ->
-           String.equal
-             (Tracing.TracerProvider.get_name_label provider)
-             name_label
-       )
+        String.equal (Tracing.TracerProvider.get_name_label provider) name_label
+    )
   in
   match providers with
   | [provider] ->

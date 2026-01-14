@@ -191,23 +191,23 @@ let make_server config trace_config =
   in
   let perform ops =
     let queues' = List.fold_left Q.do_op !queues ops in
-    (redo_log >>= function
-     | None ->
-         return ()
-     | Some redo_log ->
-         let rec loop = function
-           | [] ->
-               return ()
-           | op :: ops -> (
-               Redo_log.push redo_log op >>= function
-               | Result.Ok _waiter ->
-                   loop ops
-               | Result.Error (`Msg txt) ->
-                   error "Failed to push to redo-log: %s" txt ;
-                   fail (Failure "Failed to push to redo-log")
-             )
-         in
-         loop ops
+    ( redo_log >>= function
+      | None ->
+          return ()
+      | Some redo_log ->
+          let rec loop = function
+            | [] ->
+                return ()
+            | op :: ops -> (
+                Redo_log.push redo_log op >>= function
+                | Result.Ok _waiter ->
+                    loop ops
+                | Result.Error (`Msg txt) ->
+                    error "Failed to push to redo-log: %s" txt ;
+                    fail (Failure "Failed to push to redo-log")
+              )
+          in
+          loop ops
     )
     >>= fun () ->
     queues := queues' ;
@@ -235,30 +235,30 @@ let make_server config trace_config =
         (* If it's the "blocking poll", block first and then call the implementation
            with the new queue state post-blocking *)
         ( match (session, request) with
-        | Some _session, In.Transfer {In.from; timeout; queues= names} ->
-            let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
-            List.iter (record_transfer time) names ;
-            let from =
-              match from with None -> -1L | Some x -> Int64.of_string x
-            in
-            let rec wait () =
-              if Q.transfer !queues from names = [] then
-                let timeout =
-                  max 0. Int64.(to_float (sub time (ns ()))) /. 1e9
-                in
-                Lwt.pick [Lwt_unix.sleep timeout; Lwt_condition.wait queues_c]
-                >>= fun () ->
-                if ns () > time then
-                  return ()
+          | Some _session, In.Transfer {In.from; timeout; queues= names} ->
+              let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
+              List.iter (record_transfer time) names ;
+              let from =
+                match from with None -> -1L | Some x -> Int64.of_string x
+              in
+              let rec wait () =
+                if Q.transfer !queues from names = [] then
+                  let timeout =
+                    max 0. Int64.(to_float (sub time (ns ()))) /. 1e9
+                  in
+                  Lwt.pick [Lwt_unix.sleep timeout; Lwt_condition.wait queues_c]
+                  >>= fun () ->
+                  if ns () > time then
+                    return ()
+                  else
+                    wait ()
                 else
-                  wait ()
-              else
-                return ()
-            in
-            wait ()
-        | _, _ ->
-            return ()
-        )
+                  return ()
+              in
+              wait ()
+          | _, _ ->
+              return ()
+          )
         >>= fun () ->
         Lwt_mutex.with_lock Switch_main_helper.m (fun () ->
             process_request conn_id_s !queues session request trace
@@ -327,8 +327,7 @@ let main (Config.{pidfile; _} as config) trace_config =
     ( match config.Config.statedir with
     | Some dir ->
         if Sys.file_exists dir then (
-          if not (Sys.is_directory dir) then
-            raise (Not_a_directory dir)
+          if not (Sys.is_directory dir) then raise (Not_a_directory dir)
         ) else
           raise (Does_not_exist dir)
     | _ ->

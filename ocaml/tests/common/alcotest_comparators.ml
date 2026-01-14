@@ -17,7 +17,12 @@ let vdi_nbd_server_info = from_rpc_of_t API.rpc_of_vdi_nbd_server_info_t
 
 let vdi_nbd_server_info_set =
   let comp a b =
-    let ( >||= ) a b = if a = 0 then b else a in
+    let ( >||= ) a b =
+      if a = 0 then
+        b
+      else
+        a
+    in
     let open API in
     compare a.vdi_nbd_server_info_exportname b.vdi_nbd_server_info_exportname
     >||= compare a.vdi_nbd_server_info_address b.vdi_nbd_server_info_address

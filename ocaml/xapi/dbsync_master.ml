@@ -54,6 +54,7 @@ let create_pool_record ~__context =
       ~ext_auth_max_threads:1L ~ext_auth_cache_enabled:false
       ~ext_auth_cache_size:50L ~ext_auth_cache_expiry:300L ~recommendations:[]
       ~license_server:[] ~ha_reboot_vm_on_internal_shutdown:true
+      ~limit_console_sessions:false ~vm_console_idle_timeout:0L
 
 let set_master_ip ~__context =
   let ip =
@@ -163,16 +164,16 @@ let release_locks ~__context =
   let value = Ref.null in
   Db.VM.get_all ~__context
   |> List.iter (fun self ->
-         Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value
-     ) ;
+      Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value
+  ) ;
   Db.PCI.get_all ~__context
   |> List.iter (fun self ->
-         Db.PCI.set_scheduled_to_be_attached_to ~__context ~self ~value
-     ) ;
+      Db.PCI.set_scheduled_to_be_attached_to ~__context ~self ~value
+  ) ;
   Db.VGPU.get_all ~__context
   |> List.iter (fun self ->
-         Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self ~value
-     )
+      Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self ~value
+  )
 
 let create_tools_sr __context name_label name_description sr_introduce
     maybe_create_pbd =
@@ -373,7 +374,6 @@ let update_env __context =
      in the db for cancelling *)
   Cancel_tasks.cancel_tasks_on_host ~__context ~host_opt:None ;
   (* Update the SM plugin table *)
-  if !Xapi_globs.create_tools_sr then
-    create_tools_sr_noexn __context ;
+  if !Xapi_globs.create_tools_sr then create_tools_sr_noexn __context ;
   ensure_vm_metrics_records_exist_noexn __context ;
   update_pool_recommendations_noexn ~__context

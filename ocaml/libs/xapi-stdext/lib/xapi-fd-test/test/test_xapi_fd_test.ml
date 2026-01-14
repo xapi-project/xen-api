@@ -5,8 +5,7 @@ open Syntax
 
 let skip_blk = function
   | Unix.S_BLK ->
-      if Unix.geteuid () <> 0 then
-        Alcotest.skip ()
+      if Unix.geteuid () <> 0 then Alcotest.skip ()
   | _ ->
       ()
 

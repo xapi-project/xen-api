@@ -44,14 +44,26 @@ let http_403_forbidden ?(version = "1.1") () =
 let http_200_ok ?(version = "1.1") ?(keep_alive = true) () =
   [
     Printf.sprintf "HTTP/%s 200 OK" version
-  ; ("Connection: " ^ if keep_alive then "keep-alive" else "close")
+  ; ("Connection: "
+    ^
+    if keep_alive then
+      "keep-alive"
+    else
+      "close"
+    )
   ; "Cache-Control: no-cache, no-store"
   ]
 
 let http_200_ok_with_content length ?(version = "1.1") ?(keep_alive = true) () =
   [
     Printf.sprintf "HTTP/%s 200 OK" version
-  ; ("Connection: " ^ if keep_alive then "keep-alive" else "close")
+  ; ("Connection: "
+    ^
+    if keep_alive then
+      "keep-alive"
+    else
+      "close"
+    )
   ; "Content-Length: " ^ Int64.to_string length
   ; "Cache-Control: no-cache, no-store"
   ]
@@ -240,7 +252,11 @@ module Scanner = struct
 
   let make x = {marker= x; i= 0}
 
-  let input x c = if c = x.marker.[x.i] then x.i <- x.i + 1 else x.i <- 0
+  let input x c =
+    if c = x.marker.[x.i] then
+      x.i <- x.i + 1
+    else
+      x.i <- 0
 
   let remaining x = String.length x.marker - x.i
 
@@ -265,8 +281,7 @@ let read_up_to ?deadline ?max buf already_read marker fd =
   while not (Scanner.matched marker) do
     Option.iter
       (fun d ->
-        if Mtime.Span.compare (Mtime_clock.elapsed ()) d > 0 then
-          raise Timeout
+        if Mtime.Span.compare (Mtime_clock.elapsed ()) d > 0 then raise Timeout
       )
       deadline ;
     let safe_to_read =
@@ -335,8 +350,7 @@ let read_http_request_header ~read_timeout ~total_timeout ~max_length fd =
   let check_timeout_and_read x y =
     Option.iter
       (fun d ->
-        if Mtime.Span.compare (Mtime_clock.elapsed ()) d > 0 then
-          raise Timeout
+        if Mtime.Span.compare (Mtime_clock.elapsed ()) d > 0 then raise Timeout
       )
       deadline ;
     Unixext.really_read fd buf x y
@@ -595,9 +609,17 @@ module Request = struct
       String.concat "&"
         (List.map (fun (k, v) -> urlencode k ^ "=" ^ urlencode v) x)
     in
-    let query = if x.query = [] then "" else "?" ^ kvpairs x.query in
+    let query =
+      if x.query = [] then
+        ""
+      else
+        "?" ^ kvpairs x.query
+    in
     let cookie =
-      if x.cookie = [] then [] else [Hdr.cookie ^ ": " ^ kvpairs x.cookie]
+      if x.cookie = [] then
+        []
+      else
+        [Hdr.cookie ^ ": " ^ kvpairs x.cookie]
     in
     let transfer_encoding =
       Option.fold ~none:[]
@@ -639,7 +661,16 @@ module Request = struct
         x.user_agent
     in
     let close =
-      [(Hdr.connection ^ ": " ^ if x.close then "close" else "keep-alive")]
+      [
+        (Hdr.connection
+        ^ ": "
+        ^
+        if x.close then
+          "close"
+        else
+          "keep-alive"
+        )
+      ]
     in
     [
       Printf.sprintf "%s %s%s HTTP/%s" (string_of_method_t x.m) x.path query
@@ -674,7 +705,12 @@ module Request = struct
 
   let to_wire_string (x : t) =
     let headers, body = to_headers_and_body x in
-    let frame_header = if x.frame then make_frame_header headers else "" in
+    let frame_header =
+      if x.frame then
+        make_frame_header headers
+      else
+        ""
+    in
     frame_header ^ headers ^ body
 
   let with_originator_of req f =
@@ -782,7 +818,12 @@ module Response = struct
 
   let to_wire_string (x : t) =
     let headers, body = to_headers_and_body x in
-    let frame_header = if x.frame then make_frame_header headers else "" in
+    let frame_header =
+      if x.frame then
+        make_frame_header headers
+      else
+        ""
+    in
     frame_header ^ headers ^ body
 end
 
@@ -883,7 +924,12 @@ module Url = struct
       String.concat "&"
         (List.map (fun (k, v) -> urlencode k ^ "=" ^ urlencode v) x)
     in
-    let params = if params = [] then "" else "?" ^ kvpairs params in
+    let params =
+      if params = [] then
+        ""
+      else
+        "?" ^ kvpairs params
+    in
     path ^ params
 
   let to_string scheme =
@@ -904,7 +950,12 @@ module Url = struct
                 Option.none
           in
           Uri.make
-            ~scheme:(if h.ssl then "https" else "http")
+            ~scheme:
+              ( if h.ssl then
+                  "https"
+                else
+                  "http"
+              )
             ~host:h.host ?port:h.port ?userinfo:auth ~path
             ~query:(List.map query params) ()
           |> Uri.to_string

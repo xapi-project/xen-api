@@ -56,7 +56,12 @@ module String = struct
       else
         let a, b = split_one chars in
         let b = drop b in
-        let acc = if Seq.is_empty a then acc else Seq.cons a acc in
+        let acc =
+          if Seq.is_empty a then
+            acc
+          else
+            Seq.cons a acc
+        in
         split acc b
     in
     String.to_seq str
@@ -78,7 +83,12 @@ module String = struct
 
   let rec split ?(limit = -1) c s =
     let i = match index_opt s c with Some x -> x | None -> -1 in
-    let nlimit = if limit = -1 || limit = 0 then limit else limit - 1 in
+    let nlimit =
+      if limit = -1 || limit = 0 then
+        limit
+      else
+        limit - 1
+    in
     if i = -1 || nlimit = 0 then
       [s]
     else
@@ -149,14 +159,16 @@ module String = struct
     let buf = Buffer.create 0 in
     for i = 0 to String.length s - 1 do
       if !badchars then (
-        if valid s.[i] then
-          Buffer.add_char buf s.[i]
+        if valid s.[i] then Buffer.add_char buf s.[i]
       ) else if not (valid s.[i]) then (
         Buffer.add_substring buf s 0 i ;
         badchars := true
       )
     done ;
-    if !badchars then Buffer.contents buf else s
+    if !badchars then
+      Buffer.contents buf
+    else
+      s
 
   let map_unlikely s f =
     let changed = ref false in

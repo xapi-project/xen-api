@@ -34,8 +34,7 @@ let mkdir_safe dir perm =
 let mkdir_rec dir perm =
   let rec p_mkdir dir =
     let p_name = Filename.dirname dir in
-    if p_name <> "/" && p_name <> "." then
-      p_mkdir p_name ;
+    if p_name <> "/" && p_name <> "." then p_mkdir p_name ;
     mkdir_safe dir perm
   in
   p_mkdir dir
@@ -85,8 +84,7 @@ let pidfile_read filename =
       try
         let buf = Bytes.create 80 in
         let rd = Unix.read fd buf 0 (Bytes.length buf) in
-        if rd = 0 then
-          failwith "pidfile_read failed" ;
+        if rd = 0 then failwith "pidfile_read failed" ;
         Scanf.sscanf (Bytes.sub_string buf 0 rd) "%d" (fun i -> Some i)
       with _ -> None
     )
@@ -139,8 +137,16 @@ let fd_blocks_fold block_size f start fd =
   let rec fold acc =
     let n = Unix.read fd block 0 block_size in
     (* Consider making the interface explicitly use Substrings *)
-    let b = if n = block_size then block else Bytes.sub block 0 n in
-    if n = 0 then acc else fold (f acc b)
+    let b =
+      if n = block_size then
+        block
+      else
+        Bytes.sub block 0 n
+    in
+    if n = 0 then
+      acc
+    else
+      fold (f acc b)
   in
   fold start
 
@@ -206,8 +212,7 @@ let execv_get_output cmd args =
   | 0 -> (
       Unix.dup2 pipe_entrance Unix.stdout ;
       Unix.close pipe_entrance ;
-      if not r then
-        Unix.close pipe_exit ;
+      if not r then Unix.close pipe_exit ;
       try Unix.execv cmd args with _ -> exit 127
     )
   | pid ->
@@ -338,7 +343,8 @@ module CBuf = struct
     in
     let read = Unix.read fd x.buffer next len in
     if read = 0 then x.r_closed <- true ;
-    x.len <- x.len + read
+    x.len <- x.len + read ;
+    (x.buffer, read, next)
 end
 
 exception Process_still_alive
@@ -372,8 +378,7 @@ let kill_and_wait ?(signal = Sys.sigterm) ?(timeout = 10.) pid =
       ) else (* not the same, it's gone ! *)
         quit := true
     done ;
-    if !left <= 0. then
-      raise Process_still_alive
+    if !left <= 0. then raise Process_still_alive
   )
 
 let with_polly f =
@@ -381,11 +386,21 @@ let with_polly f =
   let finally () = Polly.close polly in
   Xapi_stdext_pervasives.Pervasiveext.finally (fun () -> f polly) finally
 
-let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
+exception Close_proxy
+
+let proxy ?should_close ?(poll_timeout = -1) (a : Unix.file_descr)
+    (b : Unix.file_descr) =
   let size = 64 * 1024 in
   (* [a'] is read from [a] and will be written to [b] *)
   (* [b'] is read from [b] and will be written to [a] *)
   let a' = CBuf.empty size and b' = CBuf.empty size in
+
+  let close_proxy () =
+    Unix.shutdown a Unix.SHUTDOWN_ALL ;
+    Unix.shutdown b Unix.SHUTDOWN_ALL ;
+    raise Close_proxy
+  in
+
   Unix.set_nonblock a ;
   Unix.set_nonblock b ;
   with_polly @@ fun polly ->
@@ -397,29 +412,55 @@ let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
          but it will disable itself each turn *)
       let a_events =
         Polly.Events.(
-          (if CBuf.should_read a' then inp lor oneshot else empty)
-          lor if CBuf.should_write b' then out lor oneshot else empty
+          ( if CBuf.should_read a' then
+              inp lor oneshot
+            else
+              empty
+          )
+          lor
+          if CBuf.should_write b' then
+            out lor oneshot
+          else
+            empty
         )
       and b_events =
         Polly.Events.(
-          (if CBuf.should_read b' then inp lor oneshot else empty)
-          lor if CBuf.should_write a' then out lor oneshot else empty
+          ( if CBuf.should_read b' then
+              inp lor oneshot
+            else
+              empty
+          )
+          lor
+          if CBuf.should_write a' then
+            out lor oneshot
+          else
+            empty
         )
       in
       (* If we can't make any progress (because fds have been closed), then stop *)
       if Polly.Events.(a_events lor b_events = empty) then raise End_of_file ;
 
-      if Polly.Events.(a_events <> empty) then
-        Polly.upd polly a a_events ;
-      if Polly.Events.(b_events <> empty) then
-        Polly.upd polly b b_events ;
-      Polly.wait_fold polly 4 (-1) () (fun _polly fd events () ->
+      if Polly.Events.(a_events <> empty) then Polly.upd polly a a_events ;
+      if Polly.Events.(b_events <> empty) then Polly.upd polly b b_events ;
+      Polly.wait_fold polly 4 poll_timeout (Bytes.empty, 0, 0)
+        (fun _polly fd events acc ->
           (* Do the writing before the reading *)
           if Polly.Events.(test out events) then
-            if a = fd then CBuf.write b' a else CBuf.write a' b ;
+            if a = fd then
+              CBuf.write b' a
+            else
+              CBuf.write a' b ;
           if Polly.Events.(test inp events) then
-            if a = fd then CBuf.read a' a else CBuf.read b' b
-      ) ;
+            if a = fd then (
+              ignore (CBuf.read a' a) ;
+              acc
+            ) else
+              CBuf.read b' b
+          else
+            acc
+      )
+      |> fun data ->
+      Option.iter (fun cb -> if cb data then close_proxy ()) should_close ;
       (* If there's nothing else to read or write then signal the other end *)
       List.iter
         (fun (buf, fd) ->
@@ -707,7 +748,8 @@ let read_data_in_chunks_internal (sub : bytes -> int -> int -> 'a)
   let rec do_read acc =
     let remaining_bytes = max_bytes - acc in
     if remaining_bytes = 0 then
-      acc (* we've read the amount requested *)
+      acc
+    (* we've read the amount requested *)
     else
       let bytes_to_read =
         if max_bytes < 0 || remaining_bytes > block_size then
@@ -717,7 +759,8 @@ let read_data_in_chunks_internal (sub : bytes -> int -> int -> 'a)
       in
       let bytes_read = Unix.read from_fd buf 0 bytes_to_read in
       if bytes_read = 0 then
-        acc (* we reached EOF *)
+        acc
+      (* we reached EOF *)
       else (
         f (sub buf 0 bytes_read) bytes_read ;
         do_read (acc + bytes_read)
@@ -800,7 +843,10 @@ let resolve_dot_and_dotdot (path : string) : string =
       let basename = Filename.basename path
       and dirname = Filename.dirname path in
       let rest =
-        if Filename.dirname dirname = dirname then [] else rev_split dirname
+        if Filename.dirname dirname = dirname then
+          []
+        else
+          rev_split dirname
       in
       basename :: rest
     in
@@ -969,7 +1015,10 @@ module Daemon = struct
               sendto_substring sock msg 0 (String.length msg) []
                 (ADDR_UNIX socket_path)
             in
-            if res >= 0 then Some () else None
+            if res >= 0 then
+              Some ()
+            else
+              None
           )
           (fun _ -> close sock)
       )
@@ -1002,3 +1051,19 @@ let with_socket_timeout fd timeout_opt f =
       set_socket_timeout fd t ; Fun.protect ~finally f
   | None ->
       f ()
+
+module Stat = struct
+  type device = {major: int; minor: int}
+
+  let device ~major ~minor = Some {major; minor}
+
+  external makedev : int -> int -> int = "stub_makedev" [@@noalloc]
+
+  let encode_st_dev {major; minor} = makedev major minor
+
+  external get_major : int -> int = "stub_major" [@@noalloc]
+
+  external get_minor : int -> int = "stub_minor" [@@noalloc]
+
+  let decode_st_dev dev = {major= get_major dev; minor= get_minor dev}
+end

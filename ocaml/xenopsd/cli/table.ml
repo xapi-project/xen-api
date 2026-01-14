@@ -22,7 +22,10 @@ let pad n s before =
       String.sub s 0 n
   else
     let padding = String.make (n - String.length s) ' ' in
-    if before then padding ^ s else s ^ padding
+    if before then
+      padding ^ s
+    else
+      s ^ padding
 
 let left n s = pad n s false
 
@@ -30,7 +33,12 @@ let right n s = pad n s true
 
 let compute_col_widths rows =
   let mkints n =
-    let rec f x = if x = n then [] else x :: f (x + 1) in
+    let rec f x =
+      if x = n then
+        []
+      else
+        x :: f (x + 1)
+    in
     f 0
   in
   let numcols = List.length (List.hd rows) in

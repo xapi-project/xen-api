@@ -113,7 +113,11 @@ let with_cluster_operation ~__context ~(self : [`Cluster] API.Ref.t) ~doc ~op
 let cluster_address_enabled ~__context =
   let r = Pool_features.is_enabled ~__context Features.Cluster_address in
   D.debug "%s extended cluster address is %s" __FUNCTION__
-    (if r then "enabled" else "disabled") ;
+    ( if r then
+        "enabled"
+      else
+        "disabled"
+    ) ;
   r
 
 let corosync3_enabled ~__context =

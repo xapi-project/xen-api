@@ -39,12 +39,12 @@ let load ~path =
   |> List.stable_sort compare
   |> List.map (Filename.concat path)
   |> List.filter (fun f ->
-         match Unix.((stat f).st_kind) with
-         | Unix.S_REG ->
-             true
-         | _ ->
-             false
-         | exception _ ->
-             false
-     )
+      match Unix.((stat f).st_kind) with
+      | Unix.S_REG ->
+          true
+      | _ ->
+          false
+      | exception _ ->
+          false
+  )
   |> List.fold_left parse StringMap.empty

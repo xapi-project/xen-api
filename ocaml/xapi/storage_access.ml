@@ -152,11 +152,19 @@ let on_xapi_start ~__context =
         (* The results include the prefix itself, but that is the main storage
            queue, we don't need it *)
         |> List.filter (( <> ) !Storage_interface.queue_name)
-        |> List.map (fun driver ->
-               (* Get the last component of the queue name: org.xen.xapi.storage.sr_type -> sr_type *)
-               (* split_on_char returns a non-empty list *)
-               String.split_on_char '.' driver |> List.rev |> List.hd
-           )
+        |> Listext.List.try_map (fun driver ->
+            (* Get the last component of the queue name:
+                  org.xen.xapi.storage.sr_type -> sr_type *)
+            driver
+            |> String.split_on_char '.'
+            |> Listext.List.last
+            |> Option.to_result ~none:(Invalid_argument driver)
+        )
+        |> function
+        | Ok drivers ->
+            drivers
+        | Error exn ->
+            raise exn
       with
       | Message_switch_failure ->
           [] (* no more logging *)
@@ -456,8 +464,7 @@ let update_mirror ~__context id =
   try
     let dbg = Context.string_of_task __context in
     let m = Client.DATA.MIRROR.stat dbg id in
-    if m.Mirror.failed then
-      debug "Mirror %s has failed" id ;
+    if m.Mirror.failed then debug "Mirror %s has failed" id ;
     let task = get_mirror_task id in
     debug "Mirror associated with task: %s" (Ref.string_of task) ;
     (* Just to get a nice error message *)

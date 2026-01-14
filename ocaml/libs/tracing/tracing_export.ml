@@ -79,12 +79,10 @@ module Content = struct
           s
           |> Span.get_events
           |> List.map (fun event : ZipkinSpan.annotation ->
-                 let timestamp =
-                   int_of_float (event.SpanEvent.time *. 1000000.)
-                 in
-                 let value = event.SpanEvent.name in
-                 {timestamp; value}
-             )
+              let timestamp = int_of_float (event.SpanEvent.time *. 1000000.) in
+              let value = event.SpanEvent.name in
+              {timestamp; value}
+          )
         in
         let tags =
           let trace_context = Span.get_trace_context s in
@@ -108,11 +106,11 @@ module Content = struct
             s
             |> Span.get_parent
             |> Option.map (fun x ->
-                   x
-                   |> Span.get_context
-                   |> SpanContext.span_id_of_span_context
-                   |> Span_id.to_string
-               )
+                x
+                |> Span.get_context
+                |> SpanContext.span_id_of_span_context
+                |> Span_id.to_string
+            )
         ; name= s |> Span.get_name
         ; timestamp= int_of_float (Span.get_begin_time s *. 1000000.)
         ; duration=

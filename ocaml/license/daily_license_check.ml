@@ -12,12 +12,26 @@ let a_month_after date =
 let days_to_expiry ~expiry now =
   Ptime.diff (Date.to_ptime expiry) (Date.to_ptime now) |> Ptime.Span.to_d_ps
   |> fun (days, picosec) ->
-  let with_fraction = if days < 0 then Fun.id else fun d -> d + 1 in
-  if picosec = 0L then days else with_fraction days
+  let with_fraction =
+    if days < 0 then
+      Fun.id
+    else
+      fun d ->
+    d + 1
+  in
+  if picosec = 0L then
+    days
+  else
+    with_fraction days
 
 let get_expiry_date pool_license =
   List.assoc_opt "expiry" pool_license
-  |> Fun.flip Option.bind (fun e -> if e = "never" then None else Some e)
+  |> Fun.flip Option.bind (fun e ->
+      if e = "never" then
+        None
+      else
+        Some e
+  )
   |> Option.map Clock.Date.of_iso8601
 
 let get_hosts all_license_params threshold =

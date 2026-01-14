@@ -1441,7 +1441,7 @@ let create_params =
       param_type= Map (String, String)
     ; param_name= "software_version"
     ; param_doc= "Information about the software versions on the host"
-    ; param_release= numbered_release "25.32.0-next"
+    ; param_release= numbered_release "25.33.0"
     ; param_default= Some (VMap [])
     }
   ; {
@@ -1449,7 +1449,7 @@ let create_params =
     ; param_name= "https_only"
     ; param_doc=
         "updates firewall to open or close port 80 depending on the value"
-    ; param_release= numbered_release "25.38.0-next"
+    ; param_release= numbered_release "25.39.0"
     ; param_default= Some (VBool false)
     }
   ; {
@@ -1459,7 +1459,7 @@ let create_params =
         "The maximum C-state that the host is allowed to enter, \"\" means \
          unlimited; \"N\" means limit to CN; \"N,M\" means limit to CN with \
          max sub cstate M."
-    ; param_release= numbered_release "25.39.0-next"
+    ; param_release= numbered_release "26.0.0"
     ; param_default= Some (VString "")
     }
   ; {
@@ -1468,7 +1468,7 @@ let create_params =
     ; param_doc=
         "Indicates NTP servers are assigned by DHCP, or configured by user, or \
          the factory servers, or NTP is disabled"
-    ; param_release= numbered_release "25.39.0-next"
+    ; param_release= numbered_release "26.0.0"
     ; param_default= Some (VEnum "Factory")
     }
   ; {
@@ -1476,7 +1476,7 @@ let create_params =
     ; param_name= "ntp_custom_servers"
     ; param_doc=
         "Custom NTP servers configured by users, used in Custom NTP mode"
-    ; param_release= numbered_release "25.39.0-next"
+    ; param_release= numbered_release "26.0.0"
     ; param_default= Some (VSet [])
     }
   ; {
@@ -1484,14 +1484,14 @@ let create_params =
     ; param_name= "timezone"
     ; param_doc=
         "The time zone identifier as defined in the IANA Time Zone Database"
-    ; param_release= numbered_release "25.39.0-next"
+    ; param_release= numbered_release "26.0.0"
     ; param_default= Some (VString "UTC")
     }
   ; {
       param_type= host_numa_affinity_policy
     ; param_name= "numa_affinity_policy"
     ; param_doc= "NUMA-aware VM memory and vCPU placement policy"
-    ; param_release= numbered_release "25.39.0-next"
+    ; param_release= numbered_release "26.0.0"
     ; param_default= Some (VEnum "default_policy")
     }
   ; {
@@ -1500,7 +1500,7 @@ let create_params =
     ; param_doc=
         "Default as 'unknown', 'yes' if the host is up to date with updates \
          synced from remote CDN, otherwise 'no'"
-    ; param_release= numbered_release "25.39.0-next"
+    ; param_release= numbered_release "26.0.0"
     ; param_default= Some (VSet [])
     }
   ; {
@@ -1511,7 +1511,7 @@ let create_params =
          user should follow to make some updates, e.g. specific hardware \
          drivers or CPU features, fully effective, but the 'average user' \
          doesn't need to"
-    ; param_release= numbered_release "25.39.0-next"
+    ; param_release= numbered_release "26.0.0"
     ; param_default= Some (VSet [])
     }
   ; {
@@ -1521,7 +1521,7 @@ let create_params =
         "The set of pending recommended guidances after applying updates, \
          which most users should follow to make the updates effective, but if \
          not followed, will not cause a failure"
-    ; param_release= numbered_release "25.39.0-next"
+    ; param_release= numbered_release "26.0.0"
     ; param_default= Some (VSet [])
     }
   ]

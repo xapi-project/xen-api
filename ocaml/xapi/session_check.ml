@@ -33,7 +33,8 @@ let check ~intra_pool_only ~session_id ~action =
     (fun __context ->
       (* First see if this is a "local" session *)
       if is_local_session __context session_id then
-        () (* debug "Session is in the local database" *)
+        ()
+      (* debug "Session is in the local database" *)
       else (* Assuming we're in master mode *)
         try
           let pool =

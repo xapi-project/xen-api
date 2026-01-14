@@ -225,7 +225,11 @@ let with_conversion_script task name hvm fd f =
     ; "32"
     ; "--skip-qemu"
     ; "--guest-type"
-    ; (if hvm then "hvm" else "pv")
+    ; ( if hvm then
+          "hvm"
+        else
+          "pv"
+      )
     ; "--syslog"
     ; "--verbose"
     ]

@@ -1,11 +1,11 @@
+module Stat = Xapi_stdext_unix.Unixext.Stat
+
 let get_device_numbers path =
-  let rdev = (Unix.LargeFile.stat path).Unix.LargeFile.st_rdev in
-  let major = rdev / 256 and minor = rdev mod 256 in
-  (major, minor)
+  Unix.LargeFile.((stat path).st_rdev) |> Stat.decode_st_dev
 
 let is_nbd_device path =
   let nbd_device_num = 43 in
-  let major, _ = get_device_numbers path in
+  let Stat.{major; _} = get_device_numbers path in
   major = nbd_device_num
 
 type t = [`Vhd of string | `Raw of string | `Nbd of string * string]
@@ -66,11 +66,11 @@ let image_behind_nbd_device image =
 
 let of_device path =
   match Tapctl.of_device (Tapctl.create ()) path with
-  | _, _, Some ("vhd", vhd) ->
+  | Some (_, _, Some ("vhd", vhd)) ->
       Some (`Vhd vhd)
-  | _, _, Some ("aio", vhd) ->
+  | Some (_, _, Some ("aio", vhd)) ->
       Some (`Raw vhd)
-  | _, _, _ ->
+  | _ ->
       None
   | exception Tapctl.Not_blktap ->
       get_nbd_device path |> image_behind_nbd_device

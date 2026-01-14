@@ -10,7 +10,7 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 792
+let schema_minor_vsn = 793
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -756,7 +756,12 @@ let namespace ?(get_field_writer_roles = fun x -> x)
         Field
           {
             x with
-            full_name= (if idempotent then x.full_name else name :: x.full_name)
+            full_name=
+              ( if idempotent then
+                  x.full_name
+                else
+                  name :: x.full_name
+              )
           ; field_setter_roles= get_field_writer_roles x.field_setter_roles
           ; field_getter_roles= get_field_reader_roles x.field_getter_roles
           }

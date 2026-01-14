@@ -31,7 +31,10 @@ let max_of = function
   | Floppy ->
       (2, 0)
   | Ide ->
-      if use_deprecated_ide_encoding then (19, 63) else (3, 63)
+      if use_deprecated_ide_encoding then
+        (19, 63)
+      else
+        (3, 63)
 
 let make bus ~disk ~partition =
   let in_range ~min ~max n = min <= n && n <= max in
@@ -98,7 +101,12 @@ let of_xenstore_key x = of_xenstore_int x
 (** Return an integer encoded as a linux device suffix *)
 let rec string_of_int26 x =
   let high, low = ((x / 26) - 1, (x mod 26) + 1) in
-  let high' = if high = -1 then "" else string_of_int26 high in
+  let high' =
+    if high = -1 then
+      ""
+    else
+      string_of_int26 high
+  in
   let low' = String.make 1 (char_of_int (low + int_of_char 'a' - 1)) in
   high' ^ low'
 
@@ -113,7 +121,12 @@ let to_linux_prefix = function
       "xvd"
 
 let to_linux_device (bus, disk, part) =
-  let p x = if x = 0 then "" else string_of_int x in
+  let p x =
+    if x = 0 then
+      ""
+    else
+      string_of_int x
+  in
   let bus = to_linux_prefix bus in
   Printf.sprintf "%s%s%s" bus (string_of_int26 disk) (p part)
 
@@ -209,7 +222,12 @@ let disk (_, disk, _) = disk
 let bus (bus, _, _) = bus
 
 let of_disk_number hvm n =
-  let bus = if hvm && n < 4 then Ide else Xen in
+  let bus =
+    if hvm && n < 4 then
+      Ide
+    else
+      Xen
+  in
   make bus ~disk:n ~partition:0
 
 let of_string ~hvm name =

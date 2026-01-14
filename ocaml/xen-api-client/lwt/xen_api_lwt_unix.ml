@@ -65,18 +65,19 @@ module Lwt_unix_IO = struct
 
   let open_connection uri =
     ( match Uri.scheme uri with
-    | Some "file" ->
-        return (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.path_unencoded uri), false)
-    | Some "http+unix" ->
-        return (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.host_with_default uri), false)
-    | Some "http" | Some "https" ->
-        Uri_util.sockaddr_of_uri uri >|= fun (sockaddr, ssl) ->
-        (Unix.domain_of_sockaddr sockaddr, sockaddr, ssl)
-    | Some x ->
-        fail (Unsupported_scheme x)
-    | None ->
-        fail (Unsupported_scheme "")
-    )
+      | Some "file" ->
+          return (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.path_unencoded uri), false)
+      | Some "http+unix" ->
+          return
+            (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.host_with_default uri), false)
+      | Some "http" | Some "https" ->
+          Uri_util.sockaddr_of_uri uri >|= fun (sockaddr, ssl) ->
+          (Unix.domain_of_sockaddr sockaddr, sockaddr, ssl)
+      | Some x ->
+          fail (Unsupported_scheme x)
+      | None ->
+          fail (Unsupported_scheme "")
+      )
     >>= fun (domain, sockaddr, ssl) ->
     if ssl then
       let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in

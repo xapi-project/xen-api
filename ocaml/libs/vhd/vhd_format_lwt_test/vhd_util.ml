@@ -17,7 +17,11 @@ let vhd_util = "vhd-util"
 let create ~name ~size ?(reserve = false) ?max_size () =
   let args =
     ["-n"; name; "-s"; string_of_int size]
-    @ (if reserve then ["-r"] else [])
+    @ ( if reserve then
+          ["-r"]
+        else
+          []
+      )
     @ match max_size with None -> [] | Some s -> ["-S"; string_of_int s]
   in
   let cmdline = vhd_util ^ " " ^ String.concat " " args in

@@ -56,14 +56,14 @@ module VBD = struct
       >>= fun () ->
       StringSet.elements !vbds_to_clean_up
       |> Lwt_list.iter_s (fun vbd ->
-             ignore_exn_log_error
-               (Printf.sprintf
-                  "Caught exception while cleaning up VBD with ref %s" vbd
-               ) (fun () ->
-                 Lwt_log.warning_f "Cleaning up VBD with ref %s" vbd
-                 >>= fun () -> cleanup_vbd (API.Ref.of_string vbd)
-             )
-         )
+          ignore_exn_log_error
+            (Printf.sprintf "Caught exception while cleaning up VBD with ref %s"
+               vbd
+            ) (fun () ->
+              Lwt_log.warning_f "Cleaning up VBD with ref %s" vbd >>= fun () ->
+              cleanup_vbd (API.Ref.of_string vbd)
+          )
+      )
   end
 
   module Persistent = struct

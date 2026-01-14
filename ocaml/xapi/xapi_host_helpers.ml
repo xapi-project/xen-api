@@ -186,7 +186,14 @@ let update_allowed_operations ~__context ~self : unit =
     let all = Db.Host.get_record_internal ~__context ~self in
     let valid = valid_operations ~__context all self in
     let keys =
-      Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid []
+      Hashtbl.fold
+        (fun k v acc ->
+          if v = None then
+            k :: acc
+          else
+            acc
+        )
+        valid []
     in
     (* CA-18377: If there's a rolling upgrade in progress, only send Miami keys across the wire. *)
     let keys =
@@ -339,8 +346,7 @@ let assert_xen_compatible () =
     | Some x ->
         x
   in
-  if not compatible then
-    raise Api_errors.(Server_error (xen_incompatible, []))
+  if not compatible then raise Api_errors.(Server_error (xen_incompatible, []))
 
 let remove_pending_guidance ~__context ~self ~value =
   let h = Db.Host.get_name_label ~__context ~self in
@@ -629,8 +635,7 @@ module Configuration = struct
           List.iter
             (function
               | Event_helper.Host (host_ref, Some host_rec) ->
-                  if not in_rpu then
-                    check_host (host_ref, host_rec)
+                  if not in_rpu then check_host (host_ref, host_rec)
               | _ ->
                   ()
               )

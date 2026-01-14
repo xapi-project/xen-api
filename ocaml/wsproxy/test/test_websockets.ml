@@ -44,42 +44,42 @@ let test_wsframe () =
   let unframe = wsunframe (writer Test.StringMonad.strwr "bar") in
   test_strings
   |> List.iter (fun str ->
-         (* Test with enum_1chunk *)
-         let x =
-           enum_1chunk (Test.StringMonad.getstr (enum_1chunk str frame)) unframe
-         in
-         Alcotest.(check string) __LOC__ str (Test.StringMonad.getstr x) ;
-         (* Test with enum_nchunk *)
-         for i = 1 to 10 do
-           let z =
-             enum_nchunk
-               (Test.StringMonad.getstr (enum_nchunk str i frame))
-               i unframe
-           in
-           Alcotest.(check string) __LOC__ str (Test.StringMonad.getstr z)
-         done
-     )
+      (* Test with enum_1chunk *)
+      let x =
+        enum_1chunk (Test.StringMonad.getstr (enum_1chunk str frame)) unframe
+      in
+      Alcotest.(check string) __LOC__ str (Test.StringMonad.getstr x) ;
+      (* Test with enum_nchunk *)
+      for i = 1 to 10 do
+        let z =
+          enum_nchunk
+            (Test.StringMonad.getstr (enum_nchunk str i frame))
+            i unframe
+        in
+        Alcotest.(check string) __LOC__ str (Test.StringMonad.getstr z)
+      done
+  )
 
 let test_wsframe_old () =
   let frame = wsframe_old (writer Test.StringMonad.strwr "foo") in
   let unframe = wsunframe_old (writer Test.StringMonad.strwr "bar") in
   test_strings
   |> List.iter (fun str ->
-         (* Test with enum_1chunk *)
-         let x =
-           enum_1chunk (Test.StringMonad.getstr (enum_1chunk str frame)) unframe
-         in
-         Alcotest.(check string) __LOC__ str (Test.StringMonad.getstr x) ;
-         (* Test with enum_nchunk *)
-         for i = 1 to 10 do
-           let z =
-             enum_nchunk
-               (Test.StringMonad.getstr (enum_nchunk str i frame))
-               i unframe
-           in
-           Alcotest.(check string) __LOC__ str (Test.StringMonad.getstr z)
-         done
-     )
+      (* Test with enum_1chunk *)
+      let x =
+        enum_1chunk (Test.StringMonad.getstr (enum_1chunk str frame)) unframe
+      in
+      Alcotest.(check string) __LOC__ str (Test.StringMonad.getstr x) ;
+      (* Test with enum_nchunk *)
+      for i = 1 to 10 do
+        let z =
+          enum_nchunk
+            (Test.StringMonad.getstr (enum_nchunk str i frame))
+            i unframe
+        in
+        Alcotest.(check string) __LOC__ str (Test.StringMonad.getstr z)
+      done
+  )
 
 let test_wsunframe () =
   let unframe = wsunframe (writer Test.StringMonad.strwr "foo") in

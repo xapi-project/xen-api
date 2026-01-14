@@ -439,9 +439,8 @@ module VM : HandlerTools = struct
     in
 
     let maybe_template =
-      List.nth_opt
+      Listext.List.head
         (Db.VM.get_by_name_label ~__context ~label:vm_record.API.vM_name_label)
-        0
     in
     match (is_default_template, maybe_template) with
     | true, Some template ->
@@ -519,8 +518,7 @@ module VM : HandlerTools = struct
         in
         match import_action with
         | Replace (_, vm_record) | Clean_import vm_record ->
-            if is_live config then
-              assert_can_live_import __context vm_record ;
+            if is_live config then assert_can_live_import __context vm_record ;
             ( if needs_cpu_check config vm_record then
                 let vmm_record =
                   find_in_export
@@ -921,7 +919,8 @@ module SR : HandlerTools = struct
     )
     | Full_import sr ->
         if sr_record.API.sR_content_type = "iso" then
-          SR_not_needed (* this one will be ejected *)
+          SR_not_needed
+        (* this one will be ejected *)
         else
           Will_use_SR sr
 
@@ -1005,8 +1004,8 @@ module VDI : HandlerTools = struct
           let find_by_sr_and_location sr location =
             vdi_records
             |> List.filter (fun (_, vdir) ->
-                   vdir.API.vDI_location = location && vdir.API.vDI_SR = sr
-               )
+                vdir.API.vDI_location = location && vdir.API.vDI_SR = sr
+            )
             |> choose_one
             |> Option.map fst
           in
@@ -1026,8 +1025,11 @@ module VDI : HandlerTools = struct
           let find_by_scsiid x =
             vdi_records
             |> List.filter_map (fun (rf, vdir) ->
-                   if scsiid_of vdir = Some x then Some (rf, vdir) else None
-               )
+                if scsiid_of vdir = Some x then
+                  Some (rf, vdir)
+                else
+                  None
+            )
             |> choose_one
           in
           let by_vdi_map =
@@ -1528,7 +1530,7 @@ module VIF : HandlerTools = struct
     let vif_opt =
       if config.full_restore then (
         (* If there's already a VIF with the same UUID and we're preserving UUIDs, use that one. *)
-        match get_vif () with
+          match get_vif () with
         | Some x ->
             Some x
         | None ->
@@ -1549,7 +1551,11 @@ module VIF : HandlerTools = struct
           {
             vif_record with
             API.vIF_MAC=
-              (if config.full_restore then vif_record.API.vIF_MAC else "")
+              ( if config.full_restore then
+                  vif_record.API.vIF_MAC
+                else
+                  ""
+              )
           }
         in
         (* Determine the VM to which we're going to attach this VIF. *)
@@ -1756,7 +1762,7 @@ module VGPU : HandlerTools = struct
     let vgpu_opt =
       if config.full_restore then (
         (* If there's already a VGPU with the same UUID and we're preserving UUIDs, use that one. *)
-        match get_vgpu () with
+          match get_vgpu () with
         | Some x ->
             Some x
         | None ->
@@ -2121,8 +2127,7 @@ let handle_all __context config rpc session_id (xs : obj list) =
       | _ ->
           false
     in
-    if not dry_run then
-      update_snapshot_and_parent_links ~__context state ;
+    if not dry_run then update_snapshot_and_parent_links ~__context state ;
     state
   with e ->
     Backtrace.is_important e ;
@@ -2646,7 +2651,8 @@ let handler (req : Request.t) s _ =
                         Xapi_session.consider_touching_session rpc
                           (Ref.of_secret_string external_session_id)
                       else
-                        fun () -> ()
+                        fun () ->
+                      ()
                     in
                     let refresh_internal =
                       Xapi_session.consider_touching_session rpc session_id
@@ -2655,7 +2661,11 @@ let handler (req : Request.t) s _ =
                       refresh_external () ; refresh_internal ()
                     in
                     debug "Importing %s"
-                      (if full_restore then "(as 'restore')" else "(as new VM)") ;
+                      ( if full_restore then
+                          "(as 'restore')"
+                        else
+                          "(as new VM)"
+                      ) ;
                     let config =
                       {import_type= Full_import sr; full_restore; force}
                     in

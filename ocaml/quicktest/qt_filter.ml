@@ -20,8 +20,8 @@ let count_vdis rpc session_id sr =
     Client.Client.SR.get_VDIs ~rpc ~session_id ~self:sr
     (* NB vhd backends may delete records beneath us *)
     |> Valid_ref_list.filter (fun vdi ->
-           Client.Client.VDI.get_managed ~rpc ~session_id ~self:vdi
-       )
+        Client.Client.VDI.get_managed ~rpc ~session_id ~self:vdi
+    )
   in
   List.length managed_vdis
 
@@ -46,11 +46,11 @@ let init () =
   let test_sr_uuid = get_test_sr_uuid () in
   Client.Client.SR.get_all_records ~rpc:!A.rpc ~session_id:!session_id
   |> List.iter (fun (ref, sr) ->
-         if test_sr_uuid = "" || sr.API.sR_uuid = test_sr_uuid then
-           if List.mem `scan sr.API.sR_allowed_operations then
-             let before = count_vdis !A.rpc !session_id ref in
-             Hashtbl.add vdi_count sr.API.sR_uuid before
-     )
+      if test_sr_uuid = "" || sr.API.sR_uuid = test_sr_uuid then
+        if List.mem `scan sr.API.sR_allowed_operations then
+          let before = count_vdis !A.rpc !session_id ref in
+          Hashtbl.add vdi_count sr.API.sR_uuid before
+  )
 
 (** Called at the end of the quicktests to check that no resources leaked
     during the test run *)
@@ -58,19 +58,19 @@ let finish () =
   let test_sr_uuid = get_test_sr_uuid () in
   Client.Client.SR.get_all_records ~rpc:!A.rpc ~session_id:!session_id
   |> List.iter (fun (ref, sr) ->
-         match Hashtbl.find_opt vdi_count sr.API.sR_uuid with
-         | Some before ->
-             if test_sr_uuid = "" || sr.API.sR_uuid = test_sr_uuid then
-               if List.mem `scan sr.API.sR_allowed_operations then
-                 let after = count_vdis !A.rpc !session_id ref in
-                 if after <> before then
-                   failwith
-                     (Printf.sprintf "VDIs leaked on SR %s: before=%d, after=%d"
-                        sr.API.sR_uuid before after
-                     )
-         | None ->
-             ()
-     )
+      match Hashtbl.find_opt vdi_count sr.API.sR_uuid with
+      | Some before ->
+          if test_sr_uuid = "" || sr.API.sR_uuid = test_sr_uuid then
+            if List.mem `scan sr.API.sR_allowed_operations then
+              let after = count_vdis !A.rpc !session_id ref in
+              if after <> before then
+                failwith
+                  (Printf.sprintf "VDIs leaked on SR %s: before=%d, after=%d"
+                     sr.API.sR_uuid before after
+                  )
+      | None ->
+          ()
+  )
 
 let cleanup () =
   Client.Client.Session.logout ~rpc:!A.rpc ~session_id:!session_id
@@ -252,11 +252,11 @@ module SR = struct
                 (Client.Client.SR.get_VDIs ~rpc:!A.rpc ~session_id:!session_id
                    ~self:sr_info.Qt.sr
                 |> List.filter (fun vdi ->
-                       not
-                         (Client.Client.VDI.get_missing ~rpc:!A.rpc
-                            ~session_id:!session_id ~self:vdi
-                         )
-                   )
+                    not
+                      (Client.Client.VDI.get_missing ~rpc:!A.rpc
+                         ~session_id:!session_id ~self:vdi
+                      )
+                )
                 )
              )
     )

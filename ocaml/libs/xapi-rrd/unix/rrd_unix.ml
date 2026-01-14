@@ -39,4 +39,9 @@ let json_to_fd rrd fd =
   Unix.write fd payload 0 len |> ignore
 
 let to_fd ?(json = false) ?(internal = false) rrd fd =
-  (if json then json_to_fd else xml_to_fd internal) rrd fd
+  ( if json then
+      json_to_fd
+    else
+      xml_to_fd internal
+  )
+    rrd fd

@@ -15,6 +15,8 @@ module Net = Network_client.Client
 
 module L = Debug.Make (struct let name = __MODULE__ end)
 
+module Listext = Xapi_stdext_std.Listext.List
+
 let get_hostname () = try Unix.gethostname () with _ -> ""
 
 type management_ip_error =
@@ -43,16 +45,16 @@ let dns_names () =
   in
   hostname :: fqdns
   |> List.filter_map (fun x ->
-         let x = Astring.String.trim x in
-         if
-           String.equal "" x
-           || String.equal "localhost" x
-           || Ipaddr.of_string x |> Stdlib.Result.is_ok
-         then
-           None
-         else
-           Some x
-     )
+      let x = Astring.String.trim x in
+      if
+        String.equal "" x
+        || String.equal "localhost" x
+        || Ipaddr.of_string x |> Stdlib.Result.is_ok
+      then
+        None
+      else
+        Some x
+  )
   |> Astring.String.uniquify
 
 let ipaddr_to_octets = function
@@ -99,7 +101,7 @@ let get_management_ip_addrs ~dbg =
 let get_management_ip_addr ~dbg =
   match get_management_ip_addrs ~dbg with
   | Ok (preferred, _) ->
-      List.nth_opt preferred 0 |> Option.map Ipaddr.to_string
+      Listext.head preferred |> Option.map Ipaddr.to_string
   | Error _ ->
       None
 
@@ -113,7 +115,7 @@ let get_host_certificate_subjects ~dbg =
         let ips = List.(rev_append (rev preferred) others) in
         Option.fold ~none:(Error IP_missing)
           ~some:(fun ip -> Ok (List.map ipaddr_to_octets ips, ip))
-          (List.nth_opt ips 0)
+          (Listext.head ips)
   in
   let dns_names = dns_names () in
   let name =

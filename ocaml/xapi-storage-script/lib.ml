@@ -155,9 +155,9 @@ module Process = struct
       Unix.environment ()
       |> Array.to_seq
       |> Seq.map (fun kv ->
-             let k, v = Scanf.sscanf kv "%s@=%s" (fun k v -> (k, v)) in
-             (k, v)
-         )
+          let k, v = Scanf.sscanf kv "%s@=%s" (fun k v -> (k, v)) in
+          (k, v)
+      )
       |> StringMap.of_seq
       |> StringMap.add_seq (List.to_seq env)
       |> StringMap.to_seq

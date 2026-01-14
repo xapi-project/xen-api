@@ -147,6 +147,11 @@ module Vm_memory_constraints : T = struct
     ; dynamic_max= max
     ; target= max
     ; dynamic_min= max
-    ; static_min= (if min < max then min else max)
+    ; static_min=
+        ( if min < max then
+            min
+          else
+            max
+        )
     }
 end

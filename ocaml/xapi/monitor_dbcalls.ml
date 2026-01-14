@@ -95,11 +95,12 @@ let pifs_update_fn () =
                 (fun (_, pif) -> List.hd pif.API.pIF_bond_master_of)
                 my_bond_pifs
             in
-            if List.length my_bonds <> 1 then
-              debug "Error: bond %s cannot be found" bond
-            else
-              Db.Bond.set_links_up ~__context ~self:(List.hd my_bonds)
-                ~value:(Int64.of_int links_up)
+            match my_bonds with
+            | [self] ->
+                Db.Bond.set_links_up ~__context ~self
+                  ~value:(Int64.of_int links_up)
+            | _ ->
+                debug "Error: bond %s cannot be found" bond
           with e ->
             issues := e :: !issues ;
             keeps := bond :: !keeps

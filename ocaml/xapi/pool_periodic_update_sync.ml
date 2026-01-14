@@ -170,5 +170,4 @@ and add_to_queue ~__context () =
 
 let set_enabled ~__context ~value =
   Scheduler.remove_from_queue periodic_update_sync_task_name ;
-  if value then
-    add_to_queue ~__context ()
+  if value then add_to_queue ~__context ()

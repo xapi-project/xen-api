@@ -245,7 +245,13 @@ let options =
     )
   ; ( "action-after-qemu-crash"
     , Arg.String
-        (fun x -> action_after_qemu_crash := if x = "" then None else Some x)
+        (fun x ->
+          action_after_qemu_crash :=
+            if x = "" then
+              None
+            else
+              Some x
+        )
     , (fun () -> match !action_after_qemu_crash with None -> "" | Some x -> x)
     , "Action to take for VMs if QEMU crashes or dies unexpectedly: pause, \
        poweroff. Otherwise, no action (default)."
@@ -373,12 +379,12 @@ let rpc_fn call =
         let span_parent =
           kv_list
           |> List.find_map (function
-               | "debug_info", Rpc.String debug_info ->
-                   let di = debug_info |> Debug_info.of_string in
-                   di.tracing
-               | _ ->
-                   None
-               )
+            | "debug_info", Rpc.String debug_info ->
+                let di = debug_info |> Debug_info.of_string in
+                di.tracing
+            | _ ->
+                None
+            )
         in
         (call, call_name, span_parent)
     | call_name, _ ->

@@ -81,8 +81,7 @@ module To = struct
     (* we write a table entry whether or not the table persists, because populate happens to assume
        that all tables will be present. However, if the table is marked as "don't persist" then we
        don't write any row entries: *)
-    if Schema.is_table_persistent schema name then
-      Table.fold record tbl () ;
+    if Schema.is_table_persistent schema name then Table.fold record tbl () ;
     Xmlm.output output `El_end
 
   (* Write out a manifest *)

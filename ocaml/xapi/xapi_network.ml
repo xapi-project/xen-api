@@ -145,8 +145,7 @@ let attach_internal ?(management_interface = false) ?(force_bringup = false)
 let detach ~__context net =
   let dbg = Context.string_of_task __context in
   let bridge_name = net.API.network_bridge in
-  if is_himn net then
-    Xapi_mgmt_iface.reconfigure_himn ~__context ~addr:None ;
+  if is_himn net then Xapi_mgmt_iface.reconfigure_himn ~__context ~addr:None ;
   if net.API.network_managed && Net.Interface.exists dbg bridge_name then (
     List.iter
       (fun iface ->
@@ -189,7 +188,12 @@ let deregister_vif ~__context vif =
         (* Are there any more vifs using this network? *)
         let others =
           Hashtbl.fold
-            (fun v n acc -> if n = network then v :: acc else acc)
+            (fun v n acc ->
+              if n = network then
+                v :: acc
+              else
+                acc
+            )
             active_vifs_to_networks []
         in
         debug "deregister_vif vif=%s network=%s remaining vifs = [ %s ]"
@@ -237,7 +241,12 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
       let bridges =
         List.map (fun self -> Db.Network.get_bridge ~__context ~self) networks
       in
-      let mTU = if mTU <= 0L then 1500L else mTU in
+      let mTU =
+        if mTU <= 0L then
+          1500L
+        else
+          mTU
+      in
       let is_internal_session =
         try
           Db.Session.get_pool ~__context ~self:(Context.get_session_id __context)
@@ -300,10 +309,10 @@ let destroy ~__context ~self =
   if
     List.mem_assoc Xapi_globs.is_host_internal_management_network oc
     &&
-    try
-      bool_of_string
-        (List.assoc Xapi_globs.is_host_internal_management_network oc)
-    with _ -> false
+      try
+        bool_of_string
+          (List.assoc Xapi_globs.is_host_internal_management_network oc)
+      with _ -> false
   then
     raise
       (Api_errors.Server_error
@@ -420,17 +429,17 @@ let assert_can_add_purpose ~__context ~network:_ ~current:_ newval =
      * type doesn't allow searching for a value inside a list. *)
     Db.Network.get_all ~__context
     |> List.iter (fun nwk ->
-           Db.Network.get_purpose ~__context ~self:nwk
-           |> List.iter (fun suspect ->
-                  if List.mem suspect bads then (
-                    info
-                      "Cannot set new network purpose %s when there is a \
-                       network with purpose %s"
-                      (sop newval) (sop suspect) ;
-                    reject suspect
-                  )
-              )
-       )
+        Db.Network.get_purpose ~__context ~self:nwk
+        |> List.iter (fun suspect ->
+            if List.mem suspect bads then (
+              info
+                "Cannot set new network purpose %s when there is a network \
+                 with purpose %s"
+                (sop newval) (sop suspect) ;
+              reject suspect
+            )
+        )
+    )
   in
   match newval with
   | `nbd ->

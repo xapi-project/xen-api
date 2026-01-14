@@ -32,5 +32,4 @@ type writer = {
 }
 
 module Make (T : TRANSPORT) : sig
-  val create : T.id_t -> Rrd_protocol.protocol -> T.info_t * writer
-end
+  val create : T.id_t -> Rrd_protocol.protocol -> T.info_t * writer end

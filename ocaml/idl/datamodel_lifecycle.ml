@@ -98,15 +98,15 @@ let prototyped_of_field = function
   | "SM", "host_pending_features" ->
       Some "24.37.0"
   | "host", "timezone" ->
-      Some "25.39.0-next"
+      Some "26.0.0"
   | "host", "ntp_custom_servers" ->
-      Some "25.39.0-next"
+      Some "26.0.0"
   | "host", "ntp_mode" ->
-      Some "25.39.0-next"
+      Some "26.0.0"
   | "host", "secure_boot" ->
       Some "25.31.0"
   | "host", "max_cstate" ->
-      Some "25.39.0-next"
+      Some "26.0.0"
   | "host", "ssh_auto_mode" ->
       Some "25.27.0"
   | "host", "console_idle_timeout" ->
@@ -153,6 +153,10 @@ let prototyped_of_field = function
       Some "23.18.0"
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
+  | "pool", "vm_console_idle_timeout" ->
+      Some "26.0.0-next"
+  | "pool", "limit_console_sessions" ->
+      Some "26.0.0-next"
   | "pool", "ha_reboot_vm_on_internal_shutdown" ->
       Some "25.16.0"
   | "pool", "license_server" ->
@@ -240,21 +244,21 @@ let prototyped_of_message = function
   | "VTPM", "create" ->
       Some "22.26.0"
   | "host", "set_servertime" ->
-      Some "25.39.0-next"
+      Some "26.0.0"
   | "host", "get_ntp_synchronized" ->
-      Some "25.39.0-next"
+      Some "26.0.0"
   | "host", "list_timezones" ->
-      Some "25.39.0-next"
+      Some "26.0.0"
   | "host", "set_timezone" ->
-      Some "25.39.0-next"
+      Some "26.0.0"
   | "host", "get_ntp_servers_status" ->
-      Some "25.39.0-next"
+      Some "26.0.0"
   | "host", "set_ntp_custom_servers" ->
-      Some "25.39.0-next"
+      Some "26.0.0"
   | "host", "set_ntp_mode" ->
-      Some "25.39.0-next"
+      Some "26.0.0"
   | "host", "set_max_cstate" ->
-      Some "25.39.0-next"
+      Some "26.0.0"
   | "host", "update_firewalld_service_status" ->
       Some "25.34.0"
   | "host", "get_tracked_user_agents" ->

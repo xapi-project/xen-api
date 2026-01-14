@@ -652,7 +652,8 @@ let xml_length rpc =
 let char_max_encoded_length =
   Array.init 256 (fun i ->
       if i >= 0x80 then
-        3 (* Uutf.u_rep, see utf8_recode *)
+        3
+      (* Uutf.u_rep, see utf8_recode *)
       else
         let s = String.init 1 (fun _ -> Char.chr i) in
         let rpc = Rpc.String s in

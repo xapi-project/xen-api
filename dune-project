@@ -361,6 +361,7 @@
   ; because it is not in xs-opam yet
   rrd-transport
   rrdd-plugin
+  xapi-stdext-std
   xapi-tracing-export
   xen-api-client
   (alcotest :with-test)
@@ -536,10 +537,32 @@
   (xen-api-client-lwt
    (= :version))
   xenstore
-  xenstore_transport))
+  xenstore_transport
+  yojson))
 
 (package
- (name vhd-format))
+ (name vhd-format)
+ (synopsis "Pure OCaml library to read/write VHD format data")
+ (description "A pure OCaml library to read and write [vhd](http://en.wikipedia.org/wiki/VHD_(file_format)) format data, plus a simple command-line tool which allows vhd files to be interrogated, manipulated, format-converted and streamed to and from files and remote servers.")
+ (authors "Jon Ludlam" "Dave Scott")
+ (maintainers "Dave Scott <dave@recoil.org>")
+ (homepage "https://github.com/mirage/ocaml-vhd")
+ (tags
+  ("org:mirage" "org:xapi-project"))
+ (depends
+  (ocaml (>= "4.10.0"))
+  (bigarray-compat (>= "1.1.0"))
+  (cstruct (>= "6.0.0"))
+  io-page
+  yojson
+  (rresult
+   (>= "0.3.0"))
+  (uuidm (>= "0.9.9"))
+  stdlib-shims
+  dune
+  (ppx_cstruct (and :build (>= "3.0.0")))
+ )
+)
 
 (package
  (name vhd-format-lwt)

@@ -44,7 +44,12 @@ let version, xapi_version_major, xapi_version_minor, git_id =
 let compare_version version_a version_b =
   let maj_a, min_a, _ = parse_xapi_version version_a in
   let maj_b, min_b, _ = parse_xapi_version version_b in
-  let ( <?> ) a b = if a = 0 then b else a in
+  let ( <?> ) a b =
+    if a = 0 then
+      b
+    else
+      a
+  in
   Int.compare maj_a maj_b <?> Int.compare min_a min_b <?> 0
 
 let xapi_user_agent =

@@ -300,3 +300,150 @@ let read_raw ~__context ~vdi =
             Some (VDI_CStruct.read cstruct)
       )
   )
+
+type nbd_connect_info = {path: string; exportname: string} [@@deriving rpc]
+
+let get_device_numbers path =
+  Unix.LargeFile.((stat path).st_rdev) |> Unixext.Stat.decode_st_dev
+
+let is_nbd_device path =
+  let nbd_device_num = 43 in
+  let Unixext.Stat.{major; _} = get_device_numbers path in
+  major = nbd_device_num
+
+let get_nbd_device path =
+  let nbd_device_prefix = "/dev/nbd" in
+  if
+    Astring.String.is_prefix ~affix:nbd_device_prefix path && is_nbd_device path
+  then
+    let nbd_number =
+      Astring.String.with_range ~first:(String.length nbd_device_prefix) path
+    in
+    let {path; exportname} =
+      (* persistent_nbd_info_dir is written from nbd_client_manager.py as part of VBD plug*)
+      let persistent_nbd_info_dir = "/var/run/nonpersistent/nbd" in
+      let filename = persistent_nbd_info_dir ^ "/" ^ nbd_number in
+      Xapi_stdext_unix.Unixext.string_of_file filename
+      |> Jsonrpc.of_string
+      |> nbd_connect_info_of_rpc
+    in
+    Some (path, exportname)
+  else
+    None
+
+(* Copied from vhd-tool/src/image.ml.
+ * Just keep the situation of xapi doesn't depend on vhd-tool OCaml module.
+ *)
+let image_behind_nbd_device = function
+  | Some (path, _exportname) as image ->
+      (* The nbd server path exposed by tapdisk can lead us to the actual image
+         file below. Following the symlink gives a path like
+            `/run/blktap-control/nbd<pid>.<minor>`,
+         containing the tapdisk pid and minor number. Using this information,
+         we can get the file path from tap-ctl.
+      *)
+      let default _ _ = image in
+      let filename = Unix.realpath path |> Filename.basename in
+      Scanf.ksscanf filename default "nbd%d.%d" (fun pid minor ->
+          match Tapctl.find (Tapctl.create ()) ~pid ~minor with
+          | _, _, Some ("vhd", vhd) ->
+              Some ("vhd", vhd)
+          | _, _, Some ("aio", vhd) ->
+              Some ("raw", vhd)
+          | _, _, _ | (exception _) ->
+              None
+      )
+  | _ ->
+      None
+
+(** [find_backend_device path] returns [Some path'] where [path'] is the backend path in
+    the driver domain corresponding to the frontend device [path] in this domain. *)
+let find_backend_device path =
+  try
+    let open Ezxenstore_core.Xenstore in
+    (* If we're looking at a xen frontend device, see if the backend
+       is in the same domain. If so check if it looks like a .vhd *)
+    let Unixext.Stat.{major; minor} = get_device_numbers path in
+    let link =
+      Unix.readlink (Printf.sprintf "/sys/dev/block/%d:%d/device" major minor)
+    in
+    match List.rev (Xapi_stdext_std.Xstringext.String.split '/' link) with
+    | id :: "xen" :: "devices" :: _
+      when Astring.String.is_prefix ~affix:"vbd-" id ->
+        let id = int_of_string (String.sub id 4 (String.length id - 4)) in
+        with_xs (fun xs ->
+            let self = xs.Xs.read "domid" in
+            let backend =
+              xs.Xs.read (Printf.sprintf "device/vbd/%d/backend" id)
+            in
+            let params = xs.Xs.read (Printf.sprintf "%s/params" backend) in
+            match Xapi_stdext_std.Xstringext.String.split '/' backend with
+            | "local" :: "domain" :: bedomid :: _ ->
+                if not (self = bedomid) then
+                  Helpers.internal_error
+                    "find_backend_device: Got domid %s but expected %s" bedomid
+                    self ;
+                Some params
+            | _ ->
+                raise Not_found
+        )
+    | _ ->
+        raise Not_found
+  with _ -> None
+
+type backing_file_error =
+  | Driver_mismatch of {expected: string; actual: string option}
+  | Driver_unknown of {path: string}
+  | Not_a_device
+
+let backing_file_error_to_string = function
+  | Not_a_device ->
+      "Not a device"
+  | Driver_mismatch {expected; actual= None} ->
+      Printf.sprintf "Driver mismatch {expected=%s; actual=None}" expected
+  | Driver_mismatch {expected; actual= Some actual} ->
+      Printf.sprintf "Driver mismatch {expected=%s; actual=%s}" expected actual
+  | Driver_unknown {path} ->
+      Printf.sprintf "Driver unknown {path=%s}" path
+
+(** [backing_info_of_device] returns [Ok (Some (driver_type, backing_file))]
+    for the leaf backing a particular device [path]. *)
+let backing_info_of_device path =
+  let tapdisk_of_path path =
+    match Tapctl.of_device (Tapctl.create ()) path with
+    | Some (_, _, backing_info) ->
+        Ok backing_info
+    | None ->
+        Ok None
+    | exception Tapctl.Not_a_device ->
+        debug "%s is not a device" path ;
+        Error Not_a_device
+    | exception Tapctl.Not_blktap -> (
+        debug "Device %s is not controlled by blktap" path ;
+        (* Check if it is a [driver] behind a NBD device *)
+        get_nbd_device path |> image_behind_nbd_device |> function
+        | Some (typ, backing_file) as backing_info ->
+            debug "%s is a %s behind NBD device %s" backing_file typ path ;
+            Ok backing_info
+        | _ ->
+            Ok None
+      )
+  in
+  find_backend_device path |> Option.value ~default:path |> tapdisk_of_path
+
+(** [backing_file_of_device_with_driver path driver] returns [Ok backing_file]
+    where [backing_file] is the leaf backing a particular device [path]
+    (with a driver of type [driver]) or [Error backing_file_error].
+    [path] may either be a blktap2 device *or* a blkfront device backed by a
+    blktap2 device. If the latter then the script must be
+    run in the same domain as blkback. *)
+let backing_file_of_device_with_driver path ~driver =
+  match backing_info_of_device path with
+  | Ok (Some (typ, backing_file)) when typ = driver ->
+      Ok backing_file
+  | Ok info ->
+      debug "Device %s has an unknown driver" path ;
+      let typ = Option.map fst info in
+      Error (Driver_mismatch {expected= driver; actual= typ})
+  | Error _ as err ->
+      err

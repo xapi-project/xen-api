@@ -36,7 +36,12 @@ let _ =
   try
     let config = Network_config.read_config () in
     let r =
-      let* bridge = if !bridge = "" then Error Skip else Ok !bridge in
+      let* bridge =
+        if !bridge = "" then
+          Error Skip
+        else
+          Ok !bridge
+      in
       let* bridge_config =
         let error = Msg (Printf.sprintf "Could not find bridge %s\n" bridge) in
         List.assoc_opt bridge config.bridge_config
@@ -119,21 +124,21 @@ let _ =
                 |> Option.map fst
                 |> Option.map (List.map Unix.string_of_inet_addr)
                 |> Option.fold ~none:[] ~some:(function
-                     | [] ->
-                         []
-                     | dns' ->
-                         [("dns", String.concat "," dns')]
-                     )
+                  | [] ->
+                      []
+                  | dns' ->
+                      [("dns", String.concat "," dns')]
+                  )
               in
               let domains =
                 interface_config.dns
                 |> Option.map snd
                 |> Option.fold ~none:[] ~some:(function
-                     | [] ->
-                         []
-                     | domains' ->
-                         [("domain", String.concat "," domains')]
-                     )
+                  | [] ->
+                      []
+                  | domains' ->
+                      [("domain", String.concat "," domains')]
+                  )
               in
               mode @ addrs @ gateway @ dns @ domains
           | None4 ->

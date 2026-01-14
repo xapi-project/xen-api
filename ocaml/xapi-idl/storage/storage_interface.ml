@@ -1692,8 +1692,7 @@ module type Server_impl = sig
 
   module Policy : sig
     val get_backend_vm :
-      context -> dbg:debug_info -> vm:string -> sr:sr -> vdi:vdi -> string
-  end
+      context -> dbg:debug_info -> vm:string -> sr:sr -> vdi:vdi -> string end
 
   module TASK : sig
     val stat : context -> dbg:debug_info -> task:Task.id -> Task.t
@@ -1711,8 +1710,7 @@ module type Server_impl = sig
       -> dbg:debug_info
       -> from:string
       -> timeout:int option
-      -> Dynamic.id list * string
-  end
+      -> Dynamic.id list * string end
 end
 
 module Server (Impl : Server_impl) () = struct

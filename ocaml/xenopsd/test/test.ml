@@ -31,7 +31,10 @@ let expect_exception pred f =
       failwith "Unexpected success"
     with Xenopsd_error e -> e
   in
-  if pred exn then () else raise (Xenopsd_error exn)
+  if pred exn then
+    ()
+  else
+    raise (Xenopsd_error exn)
 
 let fail_running f =
   expect_exception
@@ -727,7 +730,8 @@ functor
           let (dev_id : id) = add dev in
           plug dev_id |> wait_for_task |> success_task ;
           (* no unplug *)
-          fail_connected (fun () -> remove dev_id)
+          fail_connected (fun () -> remove dev_id
+          )
       )
   end
 

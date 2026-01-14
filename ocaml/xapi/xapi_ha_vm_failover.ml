@@ -135,7 +135,7 @@ end = struct
             ((k, r) :: completed, pending, tasks)
         | (_, Task (task, _)) as t ->
             (completed, t :: pending, task :: tasks)
-      )
+        )
       (completed, [], []) lst
 
   let parallel ~__context ~rpc ~session_id lst =
@@ -170,7 +170,12 @@ let all_protected_vms ~__context =
 
 (* Comparison function which can be used to sort a list of VM ref, record by order *)
 let order_f (_, vm_rec) =
-  let negative_high x = if x < 0L then Int64.max_int else x in
+  let negative_high x =
+    if x < 0L then
+      Int64.max_int
+    else
+      x
+  in
   negative_high vm_rec.API.vM_order
 
 let ( $ ) x y = x y
@@ -282,7 +287,14 @@ let update_spread_evenly_plan_pool_state vm_size group host pool_state =
       Q.adjust host
         (fun {vm_cnt; h_size} ->
           let h_size = Int64.sub h_size vm_size in
-          let vm_cnt = vm_cnt + if grp = group then 1 else 0 in
+          let vm_cnt =
+            vm_cnt
+            +
+            if grp = group then
+              1
+            else
+              0
+          in
           {vm_cnt; h_size}
         )
         hosts_q
@@ -310,11 +322,11 @@ let init_no_breach_plan_pool_state spread_evenly_plan_pool_state =
   let module Q = AntiAffEvacPlanHostPsq in
   spread_evenly_plan_pool_state
   |> VMGrpMap.map (fun hs ->
-         let no_resident_hosts, resident_hosts =
-           Q.partition (fun _ {vm_cnt; _} -> vm_cnt = 0) hs
-         in
-         (no_resident_hosts, Q.size resident_hosts)
-     )
+      let no_resident_hosts, resident_hosts =
+        Q.partition (fun _ {vm_cnt; _} -> vm_cnt = 0) hs
+      in
+      (no_resident_hosts, Q.size resident_hosts)
+  )
 
 (* Update "no_breach_plan_pool_state" after a VM from anti-affinity "group"
    with memory size: "vm_size" is planned on the "host":
@@ -426,7 +438,8 @@ let compute_spread_evenly_plan ~__context pool_state anti_aff_vms =
 let compute_no_breach_plan ~__context pool_state anti_aff_vms =
   info "compute_no_breach_plan" ;
   List.fold_left
-    (fun (acc_mapping, acc_not_planned_vms, acc_pool_state) (vm, vm_size, group) ->
+    (fun (acc_mapping, acc_not_planned_vms, acc_pool_state) (vm, vm_size, group)
+       ->
       debug "No breach plan: try to plan for anti-affinity VM (%s %s %s)."
         (Ref.string_of vm)
         (Db.VM.get_name_label ~__context ~self:vm)
@@ -473,12 +486,12 @@ let compute_no_breach_plan ~__context pool_state anti_aff_vms =
 let vms_partition ~__context vms =
   vms
   |> List.partition_map (fun (vm, vm_size) ->
-         match Xapi_vm_helpers.vm_has_anti_affinity ~__context ~vm with
-         | Some (`AntiAffinity group) ->
-             Either.Left (vm, vm_size, group)
-         | _ ->
-             Either.Right (vm, vm_size)
-     )
+      match Xapi_vm_helpers.vm_has_anti_affinity ~__context ~vm with
+      | Some (`AntiAffinity group) ->
+          Either.Left (vm, vm_size, group)
+      | _ ->
+          Either.Right (vm, vm_size)
+  )
 
 (* Return an evacuation plan respecting VM anti-affinity rules: it is done in 3
    phases:
@@ -512,9 +525,9 @@ let compute_anti_aff_evac_plan ~__context total_hosts hosts vms =
       (String.concat "; "
          (vms
          |> List.map (fun (self, _) ->
-                Printf.sprintf "%s (%s)" (Ref.short_string_of self)
-                  (Db.VM.get_name_label ~__context ~self)
-            )
+             Printf.sprintf "%s (%s)" (Ref.short_string_of self)
+               (Db.VM.get_name_label ~__context ~self)
+         )
          )
       ) ;
     let h = Binpack.choose_heuristic config in
@@ -702,8 +715,8 @@ let get_live_set ~__context =
       (fun (_, r) ->
         r.API.host_enabled
         &&
-        try Db.Host_metrics.get_live ~__context ~self:r.API.host_metrics
-        with _ -> false
+          try Db.Host_metrics.get_live ~__context ~self:r.API.host_metrics
+          with _ -> false
       )
       all_hosts
   in
@@ -803,7 +816,7 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
     && (not (List.mem rf change.hosts_to_disable))
     && ( try Db.Host_metrics.get_live ~__context ~self:r.API.host_metrics
          with _ -> false
-       )
+      )
     && List.mem rf live_set
   in
   let live_hosts_and_snapshots, _dead_hosts_and_snapshots =
@@ -958,7 +971,12 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
   (* These VMs are not running on any host (either in real life or only hypothetically) *)
   let agile_vm_failed =
     List.concat_map
-      (fun (vm, host) -> if host = None then [vm] else [])
+      (fun (vm, host) ->
+        if host = None then
+          [vm]
+        else
+          []
+      )
       agile_vm_accounted_to_host
   in
   let config =
@@ -1504,11 +1522,11 @@ let restart_auto_run_vms ~__context ~last_live_set ~live_set n =
         lst
         |> Helpers.group_by ~ordering:`ascending order_f
         |> ordered_map_concat (fun same_order ->
-               same_order
-               |> List.rev_map fst
-               |> List.rev_map f
-               |> TaskChains.parallel ~__context ~rpc ~session_id
-           )
+            same_order
+            |> List.rev_map fst
+            |> List.rev_map f
+            |> TaskChains.parallel ~__context ~rpc ~session_id
+        )
       in
       (* Build a list of bools, one per Halted protected VM indicating whether we managed to start it or not *)
       let started =
@@ -1594,12 +1612,12 @@ let restart_auto_run_vms ~__context ~last_live_set ~live_set n =
         let valid, invalid =
           VMMap.bindings m
           |> List.partition_map (fun (self, _) ->
-                 match Db.VM.get_record ~__context ~self with
-                 | r ->
-                     Left (self, r)
-                 | exception _ ->
-                     Right self
-             )
+              match Db.VM.get_record ~__context ~self with
+              | r ->
+                  Left (self, r)
+              | exception _ ->
+                  Right self
+          )
         in
         let to_retry, to_remove =
           List.partition (fun (_, r) -> is_best_effort r) valid
@@ -1616,25 +1634,25 @@ let restart_auto_run_vms ~__context ~last_live_set ~live_set n =
         let all_prot_is_ok = List.for_all (fun (_, r) -> r = Ok ()) started in
         let is_better = List.compare_lengths live_set last_live_set > 0 in
         ( match (all_prot_is_ok, is_better, last_live_set = live_set) with
-        | true, true, _ ->
-            (* Try to start all the best-effort halted VMs when HA is being
+          | true, true, _ ->
+              (* Try to start all the best-effort halted VMs when HA is being
                enabled or some hosts are transiting to HA live.
                The DB has been updated by Xapi_vm_lifecycle.force_state_reset.
                Read again. *)
-            tried_best_eff_vms := VMMap.empty ;
-            Db.VM.get_all_records ~__context
-        | true, false, true ->
-            (* Retry for best-effort VMs which attepmted but failed last time. *)
-            let to_retry, m = revalidate_tried !tried_best_eff_vms in
-            tried_best_eff_vms := m ;
-            List.rev_append to_retry resets
-        | true, false, false | false, _, _ ->
-            (* Try to start only the reset VMs. They were observed as residing
+              tried_best_eff_vms := VMMap.empty ;
+              Db.VM.get_all_records ~__context
+          | true, false, true ->
+              (* Retry for best-effort VMs which attepmted but failed last time. *)
+              let to_retry, m = revalidate_tried !tried_best_eff_vms in
+              tried_best_eff_vms := m ;
+              List.rev_append to_retry resets
+          | true, false, false | false, _, _ ->
+              (* Try to start only the reset VMs. They were observed as residing
                on the non-live hosts in this run.
                Give up starting tried VMs as the HA situation changes. *)
-            tried_best_eff_vms := VMMap.empty ;
-            resets
-        )
+              tried_best_eff_vms := VMMap.empty ;
+              resets
+          )
         |> List.filter (fun (_, r) -> is_best_effort r)
       in
       map_parallel ~order_f
@@ -1648,24 +1666,24 @@ let restart_auto_run_vms ~__context ~last_live_set ~live_set n =
         )
         best_effort_vms
       |> List.iter (fun (vm, result) ->
-             match result with
-             | Error e ->
-                 tried_best_eff_vms :=
-                   VMMap.update vm
-                     (Option.fold ~none:(Some 1) ~some:(fun n ->
-                          if n < !Xapi_globs.ha_best_effort_max_retries then
-                            Some (n + 1)
-                          else
-                            None
-                      )
-                     )
-                     !tried_best_eff_vms ;
-                 error "Failed to restart best-effort VM %s (%s): %s"
-                   (Db.VM.get_uuid ~__context ~self:vm)
-                   (Db.VM.get_name_label ~__context ~self:vm)
-                   (ExnHelper.string_of_exn e)
-             | Ok _ ->
-                 tried_best_eff_vms := VMMap.remove vm !tried_best_eff_vms ;
-                 ()
-         )
+          match result with
+          | Error e ->
+              tried_best_eff_vms :=
+                VMMap.update vm
+                  (Option.fold ~none:(Some 1) ~some:(fun n ->
+                       if n < !Xapi_globs.ha_best_effort_max_retries then
+                         Some (n + 1)
+                       else
+                         None
+                   )
+                  )
+                  !tried_best_eff_vms ;
+              error "Failed to restart best-effort VM %s (%s): %s"
+                (Db.VM.get_uuid ~__context ~self:vm)
+                (Db.VM.get_name_label ~__context ~self:vm)
+                (ExnHelper.string_of_exn e)
+          | Ok _ ->
+              tried_best_eff_vms := VMMap.remove vm !tried_best_eff_vms ;
+              ()
+      )
   )

@@ -455,10 +455,7 @@ module VM_DB = struct
 
   let signal id =
     debug "VM_DB.signal %s" id ;
-    with_lock m (fun () ->
-        if exists id then
-          Updates.add (Dynamic.Vm id) updates
-    )
+    with_lock m (fun () -> if exists id then Updates.add (Dynamic.Vm id) updates)
 
   let remove id =
     with_lock m (fun () ->
@@ -505,8 +502,7 @@ module PCI_DB = struct
   let signal id =
     debug "PCI_DB.signal %s" (string_of_id id) ;
     with_lock m (fun () ->
-        if exists id then
-          Updates.add (Dynamic.Pci id) updates
+        if exists id then Updates.add (Dynamic.Pci id) updates
     )
 
   let remove id =
@@ -569,8 +565,7 @@ module VBD_DB = struct
   let signal id =
     debug "VBD_DB.signal %s" (string_of_id id) ;
     with_lock m (fun () ->
-        if exists id then
-          Updates.add (Dynamic.Vbd id) updates
+        if exists id then Updates.add (Dynamic.Vbd id) updates
     )
 
   let remove id =
@@ -707,8 +702,7 @@ module VGPU_DB = struct
   let signal id =
     debug "VGPU_DB.signal %s" (string_of_id id) ;
     with_lock m (fun () ->
-        if exists id then
-          Updates.add (Dynamic.Vgpu id) updates
+        if exists id then Updates.add (Dynamic.Vgpu id) updates
     )
 
   let remove id =
@@ -889,13 +883,21 @@ module Queues = struct
         (* the min_binding in the 'after' is the next queue *)
         let last_tag, q =
           StringMap.min_binding
-            (if StringMap.is_empty after then before else after)
+            ( if StringMap.is_empty after then
+                before
+              else
+                after
+            )
         in
         qs.last_tag <- last_tag ;
         let item = Queue.pop q in
         (* remove empty queues from the whole mapping *)
         qs.qs <-
-          (if Queue.is_empty q then StringMap.remove last_tag qs.qs else qs.qs) ;
+          ( if Queue.is_empty q then
+              StringMap.remove last_tag qs.qs
+            else
+              qs.qs
+          ) ;
         (last_tag, item)
     )
 
@@ -1801,7 +1803,11 @@ let rec atomics_of_operation = function
         (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
         plug_vbds "RW" vbds_rw
       ; plug_vbds "RO" vbds_ro
-      ; (if restore_vifs then atomics_of_operation (VM_restore_vifs id) else [])
+      ; ( if restore_vifs then
+            atomics_of_operation (VM_restore_vifs id)
+          else
+            []
+        )
       ; (* Nvidia SRIOV PCI devices have been already been plugged *)
         parallel_map "VGPUs.activate" ~id vgpus (fun vgpu ->
             [VGPU_set_active (vgpu.Vgpu.id, true)]
@@ -1873,7 +1879,12 @@ let rec atomics_of_operation = function
       |> List.concat
   | VM_suspend (id, data) ->
       (* If we've got a vGPU, then save its state to the same file *)
-      let vgpu_data = if VGPU_DB.ids id = [] then None else Some data in
+      let vgpu_data =
+        if VGPU_DB.ids id = [] then
+          None
+        else
+          Some data
+      in
       [
         [
           VM_hook_script
@@ -1891,7 +1902,12 @@ let rec atomics_of_operation = function
       |> List.concat
   | VM_resume (id, data) ->
       (* If we've got a vGPU, then save its state will be in the same file *)
-      let vgpu_data = if VGPU_DB.ids id = [] then None else Some data in
+      let vgpu_data =
+        if VGPU_DB.ids id = [] then
+          None
+        else
+          Some data
+      in
       let pcis = PCI_DB.pcis id |> pci_plug_order in
       let vgpu_start_operations =
         match VGPU_DB.ids id with
@@ -2493,34 +2509,31 @@ and queue_atomics_and_wait ~progress_callback ~max_parallel_atoms dbg id ops
   let from = Updates.last_id dbg updates in
   Xenops_utils.chunks max_parallel_atoms ops
   |> List.mapi (fun chunk_idx ops ->
-         debug "queue_atomics_and_wait: %s: chunk of %d atoms" dbg
-           (List.length ops) ;
-         let task_list =
-           List.mapi
-             (fun atom_idx op ->
-               (* atom_id is a unique name for a parallel atom worker queue *)
-               let atom_id =
-                 Printf.sprintf "%s.chunk=%d.atom=%d" id chunk_idx atom_idx
-               in
-               ( queue_atomic_int ~progress_callback dbg atom_id op redirector
-               , op
-               )
-             )
-             ops
-         in
-         let timeout_start = Unix.gettimeofday () in
-         List.map
-           (fun (task, op) ->
-             let task_id = Xenops_task.id_of_handle task in
-             let expiration = atomic_expires_after op in
-             let completion =
-               event_wait updates task ~from ~timeout_start expiration
-                 (is_task task_id) task_ended
-             in
-             (task_id, task, completion)
-           )
-           task_list
-     )
+      debug "queue_atomics_and_wait: %s: chunk of %d atoms" dbg (List.length ops) ;
+      let task_list =
+        List.mapi
+          (fun atom_idx op ->
+            (* atom_id is a unique name for a parallel atom worker queue *)
+            let atom_id =
+              Printf.sprintf "%s.chunk=%d.atom=%d" id chunk_idx atom_idx
+            in
+            (queue_atomic_int ~progress_callback dbg atom_id op redirector, op)
+          )
+          ops
+      in
+      let timeout_start = Unix.gettimeofday () in
+      List.map
+        (fun (task, op) ->
+          let task_id = Xenops_task.id_of_handle task in
+          let expiration = atomic_expires_after op in
+          let completion =
+            event_wait updates task ~from ~timeout_start expiration
+              (is_task task_id) task_ended
+          in
+          (task_id, task, completion)
+        )
+        task_list
+  )
   |> List.concat
 
 (* Used to divide up the progress (bar) amongst atomic operations *)
@@ -2774,7 +2787,10 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
            because xenopsd does not get notified if certificate checking is
            turned on or off in xapi. Xapi takes the global on/off switch into
            account when setting `verify_dest`. *)
-        if vmm.vmm_verify_dest then Some Stunnel.pool else None
+        if vmm.vmm_verify_dest then
+          Some Stunnel.pool
+        else
+          None
       in
       (* We need to perform version exchange here *)
       let module B = (val get_backend () : S) in
@@ -2845,8 +2861,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
       Open_uri.with_open_uri ~verify_cert url (fun vm_fd ->
           let module Handshake = Xenops_migrate.Handshake in
           let do_request fd extra_cookies url =
-            if not https then
-              Sockopt.set_sock_keepalives fd ;
+            if not https then Sockopt.set_sock_keepalives fd ;
             let module Request =
               Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
             let cookies =
@@ -2951,8 +2966,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
                   (VGPU_DB.string_of_id (new_dest_id, dev_id))
               in
               Open_uri.with_open_uri ~verify_cert url (fun vgpu_fd ->
-                  if not https then
-                    Sockopt.set_sock_keepalives vgpu_fd ;
+                  if not https then Sockopt.set_sock_keepalives vgpu_fd ;
                   do_request vgpu_fd [(cookie_vgpu_migration, "")] url ;
                   Handshake.recv_success vgpu_fd ;
                   debug "VM.migrate: Synchronisation point 1-vgpu" ;
@@ -3425,7 +3439,12 @@ let queue_operation_int ?traceparent ?(redirector = Redirector.default) dbg id
        fun t -> perform ~result:r op t ; !r
       )
   in
-  let tag = if uses_mxgpu id then "mxgpu" else id in
+  let tag =
+    if uses_mxgpu id then
+      "mxgpu"
+    else
+      id
+  in
   Redirector.push redirector tag (op, task) ;
   task
 
@@ -3635,7 +3654,10 @@ let string_of_numa_affinity_policy =
 let affinity_of_numa_affinity_policy =
   let open Xenops_interface.Host in
   function
-  | Any | Best_effort | Prio_mem_only -> Soft | Best_effort_hard -> Hard
+  | Any | Best_effort | Prio_mem_only ->
+      Soft
+  | Best_effort_hard ->
+      Hard
 
 let cores_of_numa_affinity_policy policy ~vcpus =
   let open Xenops_interface.Host in
@@ -3772,7 +3794,10 @@ module VM = struct
     let state = B.VM.get_state vm_t in
     (* If we're rebooting the VM then keep the power state running *)
     let state =
-      if is_rebooting x then {state with Vm.power_state= Running} else state
+      if is_rebooting x then
+        {state with Vm.power_state= Running}
+      else
+        state
     in
     (vm_t, state)
 
@@ -3842,7 +3867,7 @@ module VM = struct
   let s3resume _ dbg id = queue_operation dbg id (Atomic (VM_s3resume id))
 
   let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url
-      (compress : bool) (localhost_migration : bool) (verify_dest : bool) =
+      (compress : bool) (verify_dest : bool) (localhost_migration : bool) =
     let tmp_uuid_of uuid ~kind =
       Printf.sprintf "%s00000000000%c" (String.sub uuid 0 24)
         (match kind with `dest -> '1' | `src -> '0')

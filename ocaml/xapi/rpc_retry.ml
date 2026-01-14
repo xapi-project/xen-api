@@ -66,5 +66,8 @@ functor
         | None ->
             aux ~retrying:true
       in
-      if Meta.should_retry then aux ~retrying:false else simple_rpc call
+      if Meta.should_retry then
+        aux ~retrying:false
+      else
+        simple_rpc call
   end

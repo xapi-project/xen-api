@@ -108,9 +108,7 @@ let mk_hosts num =
 
 module Impl =
 functor
-  (Hosts : sig
-     val master : master
-   end)
+  (Hosts : sig val master : master end)
   ->
   struct
     open Hosts
@@ -188,8 +186,7 @@ module type PSR = sig
        string * string
     -> master:master
     -> members:member list
-    -> host_id Xapi_psr.r
-end
+    -> host_id Xapi_psr.r end
 
 (* the test implementation has been defined above,
    and we use this function to access it *)
@@ -302,22 +299,22 @@ let test_fail_once () =
   let hosts = master.member :: members in
   almost_all_possible_fists ~num_hosts
   |> List.iter (fun (fistpoint, host_id, exp_err) ->
-         let new_pool_secret =
-           Printf.sprintf "%s-%d-%s" new_pool_secret host_id
-             (string_of_fistpoint fistpoint)
-         in
-         let faulty_host = List.nth hosts host_id in
-         faulty_host.fistpoint <- Some fistpoint ;
-         let r =
-           PSR.start (default_pool_secret, new_pool_secret) ~master ~members
-         in
-         Alcotest.check r'
-           (Printf.sprintf "PSR should fail with %s" (string_of_r exp_err))
-           exp_err r ;
-         faulty_host.fistpoint <- None ;
-         let r = PSR.start (default_pool_secret, "not_used") ~master ~members in
-         check_psr_succeeded r new_pool_secret master members
-     )
+      let new_pool_secret =
+        Printf.sprintf "%s-%d-%s" new_pool_secret host_id
+          (string_of_fistpoint fistpoint)
+      in
+      let faulty_host = List.nth hosts host_id in
+      faulty_host.fistpoint <- Some fistpoint ;
+      let r =
+        PSR.start (default_pool_secret, new_pool_secret) ~master ~members
+      in
+      Alcotest.check r'
+        (Printf.sprintf "PSR should fail with %s" (string_of_r exp_err))
+        exp_err r ;
+      faulty_host.fistpoint <- None ;
+      let r = PSR.start (default_pool_secret, "not_used") ~master ~members in
+      check_psr_succeeded r new_pool_secret master members
+  )
 
 let test_master_fails_during_cleanup () =
   let open Xapi_psr in

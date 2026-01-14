@@ -49,8 +49,7 @@ let assert_not_in_use ~__context self =
     |> List.map (fun self -> Db.VIF.get_VM ~__context ~self)
     |> List.exists (fun self -> Db.VM.get_resident_on ~__context ~self = host)
   in
-  if in_use then
-    api_error E.pvs_cache_storage_is_in_use [str self]
+  if in_use then api_error E.pvs_cache_storage_is_in_use [str self]
 
 let destroy ~__context ~self =
   assert_not_in_use ~__context self ;

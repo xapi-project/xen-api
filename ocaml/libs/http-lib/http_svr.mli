@@ -26,8 +26,7 @@ module Stats : sig
       mutable n_requests: int  (** Total number of requests processed *)
     ; mutable n_connections: int  (** Total number of connections accepted *)
     ; mutable n_framed: int  (** using the more efficient framed protocol *)
-  }
-end
+  } end
 
 module Server : sig
   (** Represents an HTTP server with a set of handlers and set of listening sockets *)
@@ -49,6 +48,9 @@ module Server : sig
 end
 
 exception Generic_error of string
+
+val escape : string -> string
+(** [escape str] escapes HTML/XML special characters in [str] for safe inclusion in HTML/XML content. *)
 
 type socket
 
@@ -96,6 +98,9 @@ val response_unauthorised :
   ?req:Http.Request.t -> string -> Unix.file_descr -> unit
 
 val response_forbidden : ?req:Http.Request.t -> Unix.file_descr -> unit
+
+val response_custom_error :
+  ?req:Http.Request.t -> Unix.file_descr -> string -> string -> string -> unit
 
 val response_badrequest : ?req:Http.Request.t -> Unix.file_descr -> unit
 

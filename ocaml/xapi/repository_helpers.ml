@@ -371,13 +371,13 @@ let get_repo_config repo_name config_name =
   Helpers.call_script cmd params
   |> Astring.String.cuts ~sep:"\n"
   |> List.filter_map (fun kv ->
-         let prefix = Printf.sprintf "%s = " config_name in
-         match Astring.String.cuts ~sep:prefix kv with
-         | [""; v] ->
-             Some v
-         | _ ->
-             None
-     )
+      let prefix = Printf.sprintf "%s = " config_name in
+      match Astring.String.cuts ~sep:prefix kv with
+      | [""; v] ->
+          Some v
+      | _ ->
+          None
+  )
   |> function
   | [x] ->
       x
@@ -468,12 +468,12 @@ let with_local_repositories ~__context f =
     (fun () ->
       enabled
       |> List.iter (fun repository ->
-             let repo_name =
-               get_local_repository_name ~__context ~self:repository
-             in
-             clean_yum_cache repo_name ;
-             remove_repo_conf_file repo_name
-         )
+          let repo_name =
+            get_local_repository_name ~__context ~self:repository
+          in
+          clean_yum_cache repo_name ;
+          remove_repo_conf_file repo_name
+      )
     )
 
 let assert_yum_error output =
@@ -536,11 +536,11 @@ let get_pkgs_from_yum_updateinfo_list updateinfo repositories =
   |> assert_yum_error
   |> Astring.String.cuts ~sep:"\n"
   |> List.map (fun x ->
-         debug "yum/dnf updateinfo list %s: %s"
-           (Pkg_mgr.Updateinfo.to_string updateinfo)
-           x ;
-         x
-     )
+      debug "yum/dnf updateinfo list %s: %s"
+        (Pkg_mgr.Updateinfo.to_string updateinfo)
+        x ;
+      x
+  )
   |> List.fold_left parse_updateinfo_list []
 
 let get_updates_from_updateinfo ~__context repositories =
@@ -679,12 +679,12 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches =
     )
     GuidanceSet.empty updates
   |> (fun l ->
-       match kind with
-       | Recommended ->
-           append_livepatch_guidance ~updates_info ~upd_ids_of_livepatches l
-       | _ ->
-           l
-     )
+  match kind with
+  | Recommended ->
+      append_livepatch_guidance ~updates_info ~upd_ids_of_livepatches l
+  | _ ->
+      l
+  )
   |> GuidanceSet.resort
 
 let parse_line_of_repoquery acc line =
@@ -708,9 +708,9 @@ let get_installed_pkgs () =
   Helpers.call_script cmd params
   |> Astring.String.cuts ~sep:"\n"
   |> List.map (fun x ->
-         debug "repoquery installed: %s" x ;
-         x
-     )
+      debug "repoquery installed: %s" x ;
+      x
+  )
   |> List.fold_left parse_line_of_repoquery []
   |> List.map (fun (pkg, _) -> (Pkg.to_name_arch_string pkg, pkg))
 
@@ -718,9 +718,9 @@ let get_pkgs_from_repoquery cmd params =
   Helpers.call_script cmd params
   |> Astring.String.cuts ~sep:"\n"
   |> List.map (fun x ->
-         debug "repoquery available: %s" x ;
-         x
-     )
+      debug "repoquery available: %s" x ;
+      x
+  )
   |> List.fold_left parse_line_of_repoquery []
 
 let get_updates_from_repoquery repositories =
@@ -887,16 +887,16 @@ module YumUpgradeOutput = struct
         in
         sections
         |> List.filter (fun (section, _) ->
-               match section with
-               | "Installing:"
-               | "Updating:"
-               | "Upgrading:"
-               | "Installing for dependencies:"
-               | "Updating for dependencies:" ->
-                   true
-               | _ ->
-                   false
-           )
+            match section with
+            | "Installing:"
+            | "Updating:"
+            | "Upgrading:"
+            | "Installing for dependencies:"
+            | "Updating for dependencies:" ->
+                true
+            | _ ->
+                false
+        )
         |> List.fold_left
              (fun acc (section, lines) ->
                match (acc, get_pkgs lines) with
@@ -1077,9 +1077,9 @@ let get_livepatches_in_updateinfo ~updates_info ~component ~base_build_id =
       let available_livepatches =
         update_info.UpdateInfo.livepatches
         |> List.filter (fun lp ->
-               let open LivePatch in
-               lp.component = component && lp.base_build_id = base_build_id
-           )
+            let open LivePatch in
+            lp.component = component && lp.base_build_id = base_build_id
+        )
         |> List.map (fun lp -> (lp, update_info))
       in
       List.rev_append available_livepatches acc
@@ -1092,22 +1092,22 @@ let get_accumulative_livepatches ~since ~updates_info =
     ~component:since.Livepatch.component
     ~base_build_id:since.Livepatch.base_build_id
   |> List.filter (fun (lp, _) ->
-         let open LivePatch in
-         match since with
-         | Livepatch.{to_version= Some to_ver; to_release= Some to_rel; _} ->
-             (* There is a running livepatch *)
-             Pkg.gt None lp.to_version lp.to_release None to_ver to_rel
-         | Livepatch.{to_version= None; to_release= None; _} ->
-             (* No running livepatch *)
-             true
-         | _ ->
-             (* Ignore unexpected error to get updating proceeded *)
-             let lp_in_str =
-               Yojson.Basic.pretty_to_string (Livepatch.to_json since)
-             in
-             warn "Ignore un-expected applied livepatch %s." lp_in_str ;
-             false
-     )
+      let open LivePatch in
+      match since with
+      | Livepatch.{to_version= Some to_ver; to_release= Some to_rel; _} ->
+          (* There is a running livepatch *)
+          Pkg.gt None lp.to_version lp.to_release None to_ver to_rel
+      | Livepatch.{to_version= None; to_release= None; _} ->
+          (* No running livepatch *)
+          true
+      | _ ->
+          (* Ignore unexpected error to get updating proceeded *)
+          let lp_in_str =
+            Yojson.Basic.pretty_to_string (Livepatch.to_json since)
+          in
+          warn "Ignore un-expected applied livepatch %s." lp_in_str ;
+          false
+  )
 
 let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
   let remove_prefix prefix s =
@@ -1175,35 +1175,34 @@ let retrieve_livepatches_from_updateinfo ~updates_info ~updates =
   get_list_from_updates_of_host "applied_livepatches" updates
   |> List.map Livepatch.of_json
   |> List.filter_map (fun applied_lp ->
-         let acc_livepatches =
-           get_accumulative_livepatches ~since:applied_lp ~updates_info
-         in
-         (* Find the livepatch with maximum 'to-version' and 'to-release' *)
-         let latest_livepatch =
-           acc_livepatches
-           |> List.map (fun (lp, _) -> (lp.to_version, lp.to_release))
-           |> get_latest_version_release
-           |> fun latest ->
-           match latest with
-           | Some (latest_ver, latest_rel) ->
-               List.find_map
-                 (fun (lp, _) ->
-                   if lp.to_version = latest_ver && lp.to_release = latest_rel
-                   then
-                     Some lp
-                   else
-                     None
-                 )
-                 acc_livepatches
-           | None ->
-               None
-         in
-         match latest_livepatch with
-         | Some latest_lp ->
-             Some (latest_lp, acc_livepatches)
-         | None ->
-             None
-     )
+      let acc_livepatches =
+        get_accumulative_livepatches ~since:applied_lp ~updates_info
+      in
+      (* Find the livepatch with maximum 'to-version' and 'to-release' *)
+      let latest_livepatch =
+        acc_livepatches
+        |> List.map (fun (lp, _) -> (lp.to_version, lp.to_release))
+        |> get_latest_version_release
+        |> fun latest ->
+        match latest with
+        | Some (latest_ver, latest_rel) ->
+            List.find_map
+              (fun (lp, _) ->
+                if lp.to_version = latest_ver && lp.to_release = latest_rel then
+                  Some lp
+                else
+                  None
+              )
+              acc_livepatches
+        | None ->
+            None
+      in
+      match latest_livepatch with
+      | Some latest_lp ->
+          Some (latest_lp, acc_livepatches)
+      | None ->
+          None
+  )
 
 let merge_livepatches ~livepatches =
   let get_accumulative_upd_ids acc_lps =
@@ -1224,8 +1223,8 @@ let reduce_guidance ~updates_info ~updates ~livepatches =
   (* The order does matter with the following reducing *)
   [Mandatory; Recommended; Full]
   |> List.map (fun kind ->
-         (kind, eval_guidances ~updates_info ~updates ~kind ~livepatches)
-     )
+      (kind, eval_guidances ~updates_info ~updates ~kind ~livepatches)
+  )
   |> GuidanceSet.reduce_cascaded_list
   |> List.map (fun (kind, s) -> (kind, GuidanceSet.elements s))
 
@@ -1382,12 +1381,12 @@ let prune_updateinfo_for_livepatches latest_lps updateinfo =
      *)
     updateinfo.UpdateInfo.livepatches
     |> List.filter (fun lp ->
-           let is_rolled_up_by latest =
-             latest.component = lp.component
-             && latest.base_build_id = lp.base_build_id
-           in
-           LivePatchSet.exists is_rolled_up_by latest_lps
-       )
+        let is_rolled_up_by latest =
+          latest.component = lp.component
+          && latest.base_build_id = lp.base_build_id
+        in
+        LivePatchSet.exists is_rolled_up_by latest_lps
+    )
   in
   {updateinfo with livepatches}
 
@@ -1461,15 +1460,15 @@ let get_ops_of_pending ~__context ~host ~kind =
   let get_pending_guidances_of_vms ~db_get =
     Db.Host.get_resident_VMs ~__context ~self:host
     |> List.filter (fun self ->
-           not (Db.VM.get_is_control_domain ~__context ~self)
-       )
+        not (Db.VM.get_is_control_domain ~__context ~self)
+    )
     |> List.map (fun vm_ref ->
-           let pending_guidances =
-             db_get ~__context ~self:vm_ref
-             |> List.map Guidance.of_pending_guidance
-           in
-           (Ref.string_of vm_ref, pending_guidances)
-       )
+        let pending_guidances =
+          db_get ~__context ~self:vm_ref
+          |> List.map Guidance.of_pending_guidance
+        in
+        (Ref.string_of vm_ref, pending_guidances)
+    )
   in
   let is_vm_applicable ~self = function
     | `restart_device_model ->
@@ -1568,14 +1567,14 @@ let set_pending_guidances ~ops ~coming =
 
   ops.vms_get ()
   |> List.map (fun (vm_ref_str, pending_of_vm) ->
-         let pending = List.append pending_of_host pending_of_vm in
-         (vm_ref_str, merge_with_pending_guidances ~pending ~coming)
-     )
+      let pending = List.append pending_of_host pending_of_vm in
+      (vm_ref_str, merge_with_pending_guidances ~pending ~coming)
+  )
   |> List.iter (fun (vm_ref_str, (to_be_added, to_be_removed)) ->
-         do_with_vm_pending_guidances ~op:ops.vm_remove ~vm:vm_ref_str
-           to_be_removed ;
-         do_with_vm_pending_guidances ~op:ops.vm_add ~vm:vm_ref_str to_be_added
-     )
+      do_with_vm_pending_guidances ~op:ops.vm_remove ~vm:vm_ref_str
+        to_be_removed ;
+      do_with_vm_pending_guidances ~op:ops.vm_add ~vm:vm_ref_str to_be_added
+  )
 
 let failure_of_livepatch_component = function
   | Livepatch.Xen ->
@@ -1687,8 +1686,8 @@ let assert_host_evacuation_if_required ~__context ~host ~mandatory =
   let resident_vms =
     Db.Host.get_resident_VMs ~__context ~self:host
     |> List.filter (fun self ->
-           not (Db.VM.get_is_control_domain ~__context ~self)
-       )
+        not (Db.VM.get_is_control_domain ~__context ~self)
+    )
   in
   match (need_evacuation, resident_vms <> []) with
   | true, true ->

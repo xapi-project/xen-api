@@ -114,7 +114,14 @@ module Updates = struct
             )
     in
     let port =
-      match Uri.port host with Some x -> x | None -> if ssl then 443 else 80
+      match Uri.port host with
+      | Some x ->
+          x
+      | None ->
+          if ssl then
+            443
+          else
+            80
     in
     let query =
       [

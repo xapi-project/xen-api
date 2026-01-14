@@ -14,8 +14,18 @@ let vm_import ?(metadata_only = false) ?(preserve = false) ?sr rpc session_id
   let args =
     args @ Option.fold ~none:[] ~some:(fun x -> ["sr-uuid=" ^ x]) sr_uuid
   in
-  let args = if metadata_only then args @ ["metadata=true"] else args in
-  let args = if preserve then args @ ["preserve=true"] else args in
+  let args =
+    if metadata_only then
+      args @ ["metadata=true"]
+    else
+      args
+  in
+  let args =
+    if preserve then
+      args @ ["preserve=true"]
+    else
+      args
+  in
   let newvm_uuids = String.split_on_char ',' (Qt.cli_cmd args) in
   List.map
     (fun uuid -> Client.Client.VM.get_by_uuid ~rpc ~session_id ~uuid)
@@ -24,7 +34,12 @@ let vm_import ?(metadata_only = false) ?(preserve = false) ?sr rpc session_id
 let vm_export ?(metadata_only = false) rpc session_id vm filename =
   let uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:vm in
   let args = ["vm-export"; "vm=" ^ uuid; "filename=" ^ filename] in
-  let args = if metadata_only then args @ ["metadata=true"] else args in
+  let args =
+    if metadata_only then
+      args @ ["metadata=true"]
+    else
+      args
+  in
   ignore (Qt.cli_cmd args)
 
 let vm_uninstall rpc session_id vm =

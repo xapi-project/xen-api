@@ -108,21 +108,21 @@ let require_operation_on_pci_device ~__context ~sriov ~self =
                )
             )
         |> List.filter (fun (_, pif_rec) ->
-               let sriov =
-                 match pif_rec.API.pIF_sriov_logical_PIF_of with
-                 | v :: _ ->
-                     v
-                 | [] ->
-                     Helpers.internal_error
-                       "Cannot find sriov object in sriov logical PIF %s"
-                       pif_rec.API.pIF_uuid
-               in
-               let physical_pif =
-                 Db.Network_sriov.get_physical_PIF ~__context ~self:sriov
-               in
-               let pci = Db.PIF.get_PCI ~__context ~self:physical_pif in
-               Db.PCI.get_driver_name ~__context ~self:pci = driver_name
-           )
+            let sriov =
+              match pif_rec.API.pIF_sriov_logical_PIF_of with
+              | v :: _ ->
+                  v
+              | [] ->
+                  Helpers.internal_error
+                    "Cannot find sriov object in sriov logical PIF %s"
+                    pif_rec.API.pIF_uuid
+            in
+            let physical_pif =
+              Db.Network_sriov.get_physical_PIF ~__context ~self:sriov
+            in
+            let pci = Db.PIF.get_PCI ~__context ~self:physical_pif in
+            Db.PCI.get_driver_name ~__context ~self:pci = driver_name
+        )
         |> List.filter (fun (_, pif_rec) -> is_sriov_enabled ~pif_rec)
         |> List.map (fun (pif_ref, _) -> pif_ref)
         |> ( = ) [self]
@@ -244,7 +244,10 @@ let group_hosts_by_best_sriov ~__context ~network =
         let host = pif_rec.API.pIF_host in
         if pif_rec.API.pIF_currently_attached then
           let num = get_remaining_capacity_on_host ~__context ~host ~network in
-          if num = 0L then (l1, l2) else ((host, num) :: l1, l2)
+          if num = 0L then
+            (l1, l2)
+          else
+            ((host, num) :: l1, l2)
         else
           let sriov =
             match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec with

@@ -68,7 +68,12 @@ let command bootloader q pv_bootloader_args image vm_uuid domid =
     else
       Astring.String.cuts ~sep:" " pv_bootloader_args
   in
-  let q = if q then ["-q"] else [] in
+  let q =
+    if q then
+      ["-q"]
+    else
+      []
+  in
   let vm = ["--vm"; vm_uuid] in
   let image = [image] in
   match bootloader_of_string bootloader with

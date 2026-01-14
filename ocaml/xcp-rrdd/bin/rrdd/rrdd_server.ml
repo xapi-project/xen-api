@@ -303,14 +303,14 @@ let migrate_rrd (session_id : string option) (remote_address : string)
           None
   )
   |> Option.iter (fun rrdi ->
-         let transport =
-           Xmlrpc_client.(
-             SSL (SSL.make ~verify_cert:None (), remote_address, !https_port)
-           )
-         in
-         send_rrd ?session_id ~transport ~to_archive:false ~uuid:vm_uuid
-           ~rrd:rrdi.rrd ()
-     )
+      let transport =
+        Xmlrpc_client.(
+          SSL (SSL.make ~verify_cert:None (), remote_address, !https_port)
+        )
+      in
+      send_rrd ?session_id ~transport ~to_archive:false ~uuid:vm_uuid
+        ~rrd:rrdi.rrd ()
+  )
 
 (* Called on host shutdown/reboot to send the Host RRD to the master for backup.
    Note all VMs will have been shutdown by now. *)
@@ -396,36 +396,36 @@ let query_possible_dss rrdi =
     let is_live_ds_enabled ds = SSet.mem ds.ds_name enabled_names in
     live_sources
     |> Rrd.StringMap.map (fun (_timestamp, ds) ->
-           {
-             name= ds.ds_name
-           ; description= ds.ds_description
-           ; enabled= is_live_ds_enabled ds
-           ; standard= ds.ds_default
-           ; min= ds.ds_min
-           ; max= ds.ds_max
-           ; units= ds.ds_units
-           }
-       )
+        {
+          name= ds.ds_name
+        ; description= ds.ds_description
+        ; enabled= is_live_ds_enabled ds
+        ; standard= ds.ds_default
+        ; min= ds.ds_min
+        ; max= ds.ds_max
+        ; units= ds.ds_units
+        }
+    )
   in
   let name_to_disabled_dss =
     archival_sources
     |> Seq.filter_map (fun ds ->
-           if Rrd.StringMap.mem ds.Rrd.ds_name name_to_live_dss then
-             None
-           else
-             Some
-               ( ds.ds_name
-               , {
-                   name= ds.ds_name
-                 ; description= "description not available"
-                 ; enabled= false
-                 ; standard= false
-                 ; units= "unknown"
-                 ; min= ds.ds_min
-                 ; max= ds.ds_max
-                 }
-               )
-       )
+        if Rrd.StringMap.mem ds.Rrd.ds_name name_to_live_dss then
+          None
+        else
+          Some
+            ( ds.ds_name
+            , {
+                name= ds.ds_name
+              ; description= "description not available"
+              ; enabled= false
+              ; standard= false
+              ; units= "unknown"
+              ; min= ds.ds_min
+              ; max= ds.ds_max
+              }
+            )
+    )
   in
   Rrd.StringMap.add_seq name_to_disabled_dss name_to_live_dss
   |> Rrd.StringMap.bindings
@@ -455,7 +455,12 @@ let convert_value x =
   | FP_nan ->
       `String "NaN"
   | FP_infinite ->
-      `String (if x > 0.0 then "infinity" else "-infinity")
+      `String
+        ( if x > 0.0 then
+            "infinity"
+          else
+            "-infinity"
+        )
   | _ ->
       `Float x
 
@@ -467,8 +472,8 @@ let generate_json rrd =
       `Assoc
         (Rrd.ds_names rrdi.rrd
         |> List.map (fun ds_name ->
-               (ds_name, convert_value (query ds_name rrdi))
-           )
+            (ds_name, convert_value (query ds_name rrdi))
+        )
         )
 
 let write_json_to_file file json =

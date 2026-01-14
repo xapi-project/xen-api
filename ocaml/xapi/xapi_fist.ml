@@ -127,15 +127,15 @@ let set_periodic_update_sync_delay () =
 
 let hang_psr psr_checkpoint =
   ( match psr_checkpoint with
-  | `backup ->
-      "psr_backup"
-  | `notify_new ->
-      "psr_notify_new"
-  | `notify_send ->
-      "psr_notify_send"
-  | `cleanup ->
-      "psr_cleanup"
-  )
+    | `backup ->
+        "psr_backup"
+    | `notify_new ->
+        "psr_notify_new"
+    | `notify_send ->
+        "psr_notify_send"
+    | `cleanup ->
+        "psr_cleanup"
+    )
   |> hang_while
 
 (* extract integer seed from fist file, if it exists.

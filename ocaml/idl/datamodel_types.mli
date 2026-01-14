@@ -80,6 +80,8 @@ val release_order_full : api_release list
 
 val release_order : api_release list
 
+val latest_release : api_release
+
 exception Unknown_release of string
 
 exception UnspecifiedRelease

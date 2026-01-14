@@ -39,14 +39,12 @@ let check_datasources kind rdds expected_dss =
       let actual_dss =
         dss_of_rrds actual_rdds
         |> List.map (fun (name, dss) ->
-               ( name
-               , Rrd.StringMap.(
-                   map (fun (_timestamp, ds) -> ds) dss
-                   |> bindings
-                   |> List.map snd
-                 )
-               )
-           )
+            ( name
+            , Rrd.StringMap.(
+                map (fun (_timestamp, ds) -> ds) dss |> bindings |> List.map snd
+              )
+            )
+        )
       in
       let expected_dss = List.fast_sort Stdlib.compare expected_dss in
       Alcotest.(check @@ list @@ pair string (list ds))

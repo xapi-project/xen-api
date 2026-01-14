@@ -37,7 +37,11 @@ let debug_enabled = false
 let ignore_log fmt = Printf.ksprintf (fun _ -> ()) fmt
 
 (* Use and overlay the definition from D. *)
-let debug = if debug_enabled then debug else ignore_log
+let debug =
+  if debug_enabled then
+    debug
+  else
+    ignore_log
 
 type endpoint = {host: string; port: int}
 

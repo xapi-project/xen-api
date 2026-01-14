@@ -280,17 +280,16 @@ let update_vgpu_metadata ~__context ~vm =
   Db.VM.get_VGPUs ~__context ~self:vm
   |> List.filter (fun vgpu -> Db.is_valid_ref __context vgpu)
   |> List.iter (fun vgpu ->
-         let value =
-           if Nvidia.is_nvidia ~__context ~vgpu then
-             Nvidia.get_vgpu_compatibility_metadata ~__context ~vm ~vgpu
-           else
-             []
-         in
-         Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value ;
-         debug "Writing vGPU compat metadata for vGPU %s: [%s]"
-           (Ref.string_of vgpu)
-           (List.map fst value |> String.concat ":")
-     )
+      let value =
+        if Nvidia.is_nvidia ~__context ~vgpu then
+          Nvidia.get_vgpu_compatibility_metadata ~__context ~vm ~vgpu
+        else
+          []
+      in
+      Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value ;
+      debug "Writing vGPU compat metadata for vGPU %s: [%s]" (Ref.string_of vgpu)
+        (List.map fst value |> String.concat ":")
+  )
 
 (** [clear_vgpu_metadata] removes compatibility metadata from all
  * vgpus of [vm]. *)
@@ -298,9 +297,9 @@ let clear_vgpu_metadata ~__context ~vm =
   Db.VM.get_VGPUs ~__context ~self:vm
   |> List.filter (fun vgpu -> Db.is_valid_ref __context vgpu)
   |> List.iter (fun vgpu ->
-         Db.VGPU.get_compatibility_metadata ~__context ~self:vgpu
-         |> List.filter (fun (k, _) -> k <> Nvidia.key)
-         |> fun value ->
-         Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value ;
-         debug "clearing vGPU compat metadata for vGPU %s" (Ref.string_of vgpu)
-     )
+      Db.VGPU.get_compatibility_metadata ~__context ~self:vgpu
+      |> List.filter (fun (k, _) -> k <> Nvidia.key)
+      |> fun value ->
+      Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value ;
+      debug "clearing vGPU compat metadata for vGPU %s" (Ref.string_of vgpu)
+  )

@@ -37,7 +37,12 @@ let set_role r =
     state in the local database. *)
 let run_external_scripts becoming_master =
   let call_scripts () =
-    let arg = if becoming_master then "start" else "stop" in
+    let arg =
+      if becoming_master then
+        "start"
+      else
+        "stop"
+    in
     debug "Calling scripts in %s with argument %s"
       !Xapi_globs.master_scripts_dir
       arg ;
@@ -47,7 +52,12 @@ let run_external_scripts becoming_master =
     in
     let order =
       List.sort
-        (fun a b -> if becoming_master then compare a b else -compare a b)
+        (fun a b ->
+          if becoming_master then
+            compare a b
+          else
+            -compare a b
+        )
         all
     in
     List.iter
@@ -89,7 +99,11 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
   debug
     "attempting %s two-phase commit of new master. My address = %s; peer \
      addresses = [ %s ]"
-    (if manual then "manual" else "automatic")
+    ( if manual then
+        "manual"
+      else
+        "automatic"
+    )
     my_address
     (String.concat "; " peer_addresses) ;
   (* Always send the calls to old master first and myself last *)

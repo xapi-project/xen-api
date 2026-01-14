@@ -62,8 +62,7 @@ let map2_unlikely f s =
     incr i
   done ;
   (* process the last character *)
-  if !i = length_s - 1 then
-    aux s.[!i] None ;
+  if !i = length_s - 1 then aux s.[!i] None ;
   if !changed then (
     Buffer.add_substring buf s !m (String.length s - !m) ;
     Buffer.contents buf

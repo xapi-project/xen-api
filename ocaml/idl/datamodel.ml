@@ -11206,8 +11206,8 @@ let all_lifecycles =
   let map_with f ls = List.to_seq ls |> Seq.concat_map f |> StringMap.of_seq in
   Dm_api.objects_of_api all_api
   |> map_with (fun {name; obj_lifecycle= {state; _}; messages; contents; _} ->
-         let msg_states = map_with get_msg_state messages in
-         let fld_states = map_with (get_content_states name) contents in
-         let fld_states = StringMap.add "_ref" state fld_states in
-         Seq.return (name, {obj_state= state; msg_states; fld_states})
-     )
+      let msg_states = map_with get_msg_state messages in
+      let fld_states = map_with (get_content_states name) contents in
+      let fld_states = StringMap.add "_ref" state fld_states in
+      Seq.return (name, {obj_state= state; msg_states; fld_states})
+  )

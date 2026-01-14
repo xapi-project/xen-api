@@ -3,12 +3,9 @@ type tapdev
 
 module Stats : sig
   module Tap : sig
-    type t = {minor: int; reqs: int64 * int64; kicks: int64 * int64}
-  end
+    type t = {minor: int; reqs: int64 * int64; kicks: int64 * int64} end
 
-  module Driver : sig
-    type t = {ty: int; name: string}
-  end
+  module Driver : sig type t = {ty: int; name: string} end
 
   module Image : sig
     type t = {
@@ -16,8 +13,7 @@ module Stats : sig
       ; hits: int64 * int64
       ; fail: int64 * int64
       ; driver: Driver.t
-    }
-  end
+    } end
 
   type t = {
       name: string
@@ -91,7 +87,7 @@ exception Not_blktap
 (** Thrown by [of_device x] when [x] is not a device *)
 exception Not_a_device
 
-val of_device : context -> string -> t
+val of_device : context -> string -> t option
 (** Given a path to a device, return the corresponding tap information *)
 
 val find : context -> pid:int -> minor:int -> t

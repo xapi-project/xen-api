@@ -294,10 +294,7 @@ module type S = sig
   end
 
   module UPDATES : sig
-    val get : Updates.id option -> int option -> Updates.get_result
-  end
+    val get : Updates.id option -> int option -> Updates.get_result end
 
-  module DEBUG : sig
-    val trigger : string -> string list -> unit
-  end
+  module DEBUG : sig val trigger : string -> string list -> unit end
 end

@@ -637,7 +637,12 @@ module Monitor = struct
                   in
                   if current <> newval then
                     Db.Host.set_ha_statefiles ~__context ~self:host
-                      ~value:(if newval then statefiles else [])
+                      ~value:
+                        ( if newval then
+                            statefiles
+                          else
+                            []
+                        )
                 )
                 host_host_table ;
               (* If all live hosts have lost statefile then we are running thanks to Survival Rule 2:
@@ -1571,7 +1576,10 @@ let disable_internal __context =
   (* Find the HA metadata and statefile VDIs for later *)
   let statefile_vdis =
     let is_valid ref =
-      if Db.is_valid_ref __context ref then Some ref else None
+      if Db.is_valid_ref __context ref then
+        Some ref
+      else
+        None
     in
     Db.Pool.get_ha_statefiles ~__context ~self:pool
     |> List.map Ref.of_string

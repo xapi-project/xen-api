@@ -57,8 +57,8 @@ let classes_with_records =
   Datamodel_utils.add_implicit_messages ~document_order:false Datamodel.all_api
   |> objects_of_api
   |> List.filter (fun x ->
-         List.exists (fun y -> y.msg_name = "get_all_records") x.messages
-     )
+      List.exists (fun y -> y.msg_name = "get_all_records") x.messages
+  )
   |> List.map (fun x -> x.name)
 
 let classes = objects_of_api api
@@ -339,7 +339,8 @@ and print_header_constructor message classname =
     \    [OutputType(typeof(%s))]%s\n\
     \    [OutputType(typeof(void))]\n\
     \    public class NewXen%sCommand : XenServerCmdlet\n\
-    \    {" Licence.bsd_two_clause
+    \    {"
+    Licence.bsd_two_clause
     (ocaml_class_to_csharp_class classname)
     (qualified_class_name classname)
     ( if message.msg_async then
@@ -1115,7 +1116,10 @@ and gen_message_as_param classname commonVerb messages =
       let msgType = get_message_type hd classname commonVerb in
       let cutMessageName = cut_msg_name (pascal_case hd.msg_name) commonVerb in
       let msgName =
-        if cutMessageName = "Host" then "XenHost" else cutMessageName
+        if cutMessageName = "Host" then
+          "XenHost"
+        else
+          cutMessageName
       in
       sprintf
         "\n\
@@ -1144,7 +1148,10 @@ and gen_message_as_param classname commonVerb messages =
 and print_cmdlet_methods classname messages commonVerb =
   let cut_message_name x = cut_msg_name (pascal_case x.msg_name) commonVerb in
   let switch_name x =
-    if cut_message_name x = "Host" then "XenHost" else cut_message_name x
+    if cut_message_name x = "Host" then
+      "XenHost"
+    else
+      cut_message_name x
   in
   let localVar = ocaml_class_to_csharp_local_var classname in
   match messages with
@@ -1178,7 +1185,11 @@ and print_xenobject_params obj classname mandatoryRef includeXenObject
       else
         ""
     )
-    (if mandatoryRef then ", Mandatory = true" else "")
+    ( if mandatoryRef then
+        ", Mandatory = true"
+      else
+        ""
+    )
     (qualified_class_name classname)
     (print_param_uuid (has_uuid obj && includeUuidAndName))
     (print_param_name (has_name obj && includeUuidAndName))
@@ -1188,7 +1199,8 @@ and print_param_xen_object qualifiedClassName publicName =
     "\n\
     \        [Parameter(ParameterSetName = \"XenObject\", Mandatory = true, \
      ValueFromPipeline = true, Position = 0)]\n\
-    \        public %s %s { get; set; }" qualifiedClassName publicName
+    \        public %s %s { get; set; }"
+    qualifiedClassName publicName
 
 and print_param_uuid hasUuid =
   if hasUuid then
@@ -1507,7 +1519,8 @@ and print_pass_thru x =
     "\n\
     \                    if (PassThru)\n\
     \                    {%s\n\
-    \                    }" x
+    \                    }"
+    x
 
 and gen_csharp_api_call_async message classname commonVerb =
   sprintf "\n                    taskRef = %s.async_%s(%s);\n"

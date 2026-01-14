@@ -507,18 +507,15 @@ let stats ctx t =
 let read_proc_devices () : (int * string) list =
   let parse_line x =
     match List.filter (fun x -> x <> "") (String.split_on_char ' ' x) with
-    | [x; y] -> (
-      try Some (int_of_string x, y) with _ -> None
-    )
+    | [x; y] ->
+        Option.bind (int_of_string_opt x) (fun x -> Some (x, y))
     | _ ->
         None
   in
-  List.concat
-    (List.map Option.to_list
-       (Unixext.file_lines_fold
-          (fun acc x -> parse_line x :: acc)
-          [] "/proc/devices"
-       )
+  List.concat_map Option.to_list
+    (Unixext.file_lines_fold
+       (fun acc x -> parse_line x :: acc)
+       [] "/proc/devices"
     )
 
 let driver_of_major major = List.assoc major (read_proc_devices ())
@@ -529,15 +526,15 @@ exception Not_a_device
 
 let of_device ctx path =
   let stat = Unix.stat path in
+  let module Stat = Unixext.Stat in
   if stat.Unix.st_kind <> Unix.S_BLK then raise Not_a_device ;
-  let major = stat.Unix.st_rdev / 256 in
-  let minor = stat.Unix.st_rdev mod 256 in
+  let Stat.{major; minor} = Stat.decode_st_dev stat.Unix.st_rdev in
   if driver_of_major major <> "tapdev" then raise Not_blktap ;
   match List.filter (fun (tapdev, _, _) -> tapdev.minor = minor) (list ctx) with
   | [t] ->
-      t
+      Some t
   | _ ->
-      raise Not_found
+      None
 
 let find ctx ~pid ~minor =
   match list ~t:{minor; tapdisk_pid= pid} ctx with

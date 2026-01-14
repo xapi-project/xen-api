@@ -109,7 +109,11 @@ let new_uuid () =
 module Feature = struct
   type t = Temporary
 
-  let of_int32 x = if Int32.logand x 1l <> 0l then [Temporary] else []
+  let of_int32 x =
+    if Int32.logand x 1l <> 0l then
+      [Temporary]
+    else
+      []
 
   let to_int32 ts =
     let one = function Temporary -> 1 in
@@ -493,7 +497,12 @@ module Footer = struct
     set_footer_disk_type buf (Disk_type.to_int32 t.disk_type) ;
     set_footer_checksum buf 0l ;
     set_footer_uid (Uuidm.to_binary_string t.uid) 0 buf ;
-    set_footer_saved_state buf (if t.saved_state then 1 else 0) ;
+    set_footer_saved_state buf
+      ( if t.saved_state then
+          1
+        else
+          0
+      ) ;
     let remaining = Cstruct.shift buf sizeof_footer in
     for i = 0 to 426 do
       Cstruct.set_uint8 remaining i 0
@@ -544,14 +553,15 @@ module Footer = struct
     let checksum = get_footer_checksum buf in
     let bytes = copy_footer_uid buf in
     ( match Uuidm.of_binary_string bytes with
-    | None ->
-        R.error
-          (Failure
-             (Printf.sprintf "Failed to decode UUID: %s" (String.escaped bytes))
-          )
-    | Some uid ->
-        R.ok uid
-    )
+      | None ->
+          R.error
+            (Failure
+               (Printf.sprintf "Failed to decode UUID: %s" (String.escaped bytes)
+               )
+            )
+      | Some uid ->
+          R.ok uid
+      )
     >>= fun uid ->
     let saved_state = get_footer_saved_state buf = 1 in
     let expected_checksum =
@@ -864,14 +874,16 @@ module Header = struct
     && a.parent_unicode_name = b.parent_unicode_name
     && Array.length a.parent_locators = Array.length b.parent_locators
     &&
-    try
-      for i = 0 to Array.length a.parent_locators - 1 do
-        if not (Parent_locator.equal a.parent_locators.(i) b.parent_locators.(i))
-        then
-          raise Not_found (* arbitrary exn *)
-      done ;
-      true
-    with _ -> false
+      try
+        for i = 0 to Array.length a.parent_locators - 1 do
+          if
+            not
+              (Parent_locator.equal a.parent_locators.(i) b.parent_locators.(i))
+          then
+            raise Not_found (* arbitrary exn *)
+        done ;
+        true
+      with _ -> false
 
   let set_parent t filename =
     let parent_locators = Parent_locator.from_filename filename in
@@ -1076,14 +1088,15 @@ module Header = struct
     let checksum = get_header_checksum buf in
     let bytes = copy_header_parent_unique_id buf in
     ( match Uuidm.of_binary_string bytes with
-    | None ->
-        R.error
-          (Failure
-             (Printf.sprintf "Failed to decode UUID: %s" (String.escaped bytes))
-          )
-    | Some x ->
-        R.ok x
-    )
+      | None ->
+          R.error
+            (Failure
+               (Printf.sprintf "Failed to decode UUID: %s" (String.escaped bytes)
+               )
+            )
+      | Some x ->
+          R.ok x
+      )
     >>= fun parent_unique_id ->
     let parent_time_stamp = get_header_parent_time_stamp buf in
     UTF16.unmarshal (Cstruct.sub buf unicode_offset 512) 512
@@ -1154,8 +1167,7 @@ module BAT = struct
     Cstruct.BE.set_uint32 t.data (i * 4) j ;
     (* TODO: we need a proper free 'list' if we are going to allow blocks to be deallocated
        eg through TRIM *)
-    if j <> unused && j > t.highest_value then
-      t.highest_value <- j
+    if j <> unused && j > t.highest_value then t.highest_value <- j
 
   let length t = t.max_table_entries
 
@@ -1181,12 +1193,12 @@ module BAT = struct
     && t1.highest_value = t2.highest_value
     && t1.max_table_entries = t2.max_table_entries
     &&
-    try
-      for i = 0 to length t1 - 1 do
-        if get t1 i <> get t2 i then raise Not_found
-      done ;
-      true
-    with Not_found -> false
+      try
+        for i = 0 to length t1 - 1 do
+          if get t1 i <> get t2 i then raise Not_found
+        done ;
+        true
+      with Not_found -> false
 
   (* We always round up the size of the BAT to the next sector *)
   let sizeof_bytes (header : Header.t) =
@@ -1383,7 +1395,8 @@ module Bitmap = struct
         let bitmap_bit = sector_in_block mod 8 in
         let mask = 0x80 lsr bitmap_bit in
         if bitmap_byte land mask = mask then
-          None (* already set, no on-disk update required *)
+          None
+        (* already set, no on-disk update required *)
         else (* not set, we must update the sector on disk *)
           let byte_offset = sector_in_block / 8 in
           Cstruct.set_uint8 buf byte_offset (bitmap_byte lor mask) ;
@@ -1906,14 +1919,16 @@ functor
       block phys_to_virt (fun () ->
           let buffer = alloc Footer.sizeof in
           ( match size_opt with
-          | None ->
-              return ()
-          | Some s ->
-              let ( &&& ) = Int64.logand in
-              let footer_offset = Int64.(sub s 1L &&& lognot 0b1_1111_1111L) in
-              (* offset is last 512-byte-aligned block in the file *)
-              skip_to fd footer_offset
-          )
+            | None ->
+                return ()
+            | Some s ->
+                let ( &&& ) = Int64.logand in
+                let footer_offset =
+                  Int64.(sub s 1L &&& lognot 0b1_1111_1111L)
+                in
+                (* offset is last 512-byte-aligned block in the file *)
+                skip_to fd footer_offset
+            )
           >>= fun () ->
           read fd buffer >>= fun () ->
           Footer.unmarshal buffer >>|= fun footer ->
@@ -2279,16 +2294,16 @@ functor
             Header_IO.read handle (Int64.of_int Footer.sizeof) >>= fun header ->
             BAT_IO.read handle header >>= fun bat ->
             ( match footer.Footer.disk_type with
-            | Disk_type.Differencing_hard_disk ->
-                (* Add the directory of the current file to the search path *)
-                let path = Filename.dirname filename :: path in
-                Header_IO.get_parent_filename header path
-                >>= fun parent_filename ->
-                openchain ~path parent_filename false >>= fun p ->
-                return (Some p)
-            | _ ->
-                return None
-            )
+              | Disk_type.Differencing_hard_disk ->
+                  (* Add the directory of the current file to the search path *)
+                  let path = Filename.dirname filename :: path in
+                  Header_IO.get_parent_filename header path
+                  >>= fun parent_filename ->
+                  openchain ~path parent_filename false >>= fun p ->
+                  return (Some p)
+              | _ ->
+                  return None
+              )
             >>= fun parent ->
             Batmap_IO.read handle header >>= fun batmap ->
             let bitmap_cache = Bitmap_cache.make header in
@@ -2450,7 +2465,12 @@ functor
         let sector = to_int (rem offset (of_int block_size_in_sectors)) in
         let rec loop acc (offset, bufs) (block, sector) = function
           | [] ->
-              let acc = if bufs = [] then acc else (offset, bufs) :: acc in
+              let acc =
+                if bufs = [] then
+                  acc
+                else
+                  (offset, bufs) :: acc
+              in
               List.rev acc
           | b :: bs ->
               let remaining_this_block = block_size_in_sectors - sector in
@@ -2883,6 +2903,37 @@ functor
 
       let raw ?from (vhd : fd Vhd.t) = raw_common ?from vhd
 
+      let vhd_blocks_to_json (t : fd Vhd.t) =
+        let block_size_sectors_shift =
+          t.Vhd.header.Header.block_size_sectors_shift
+        in
+        let max_table_entries = Vhd.used_max_table_entries t in
+
+        let include_block = include_block None t in
+
+        let blocks =
+          Seq.init max_table_entries Fun.id
+          |> Seq.filter_map (fun i ->
+              if include_block i then
+                Some (`Int i)
+              else
+                None
+          )
+          |> List.of_seq
+        in
+        let json =
+          `Assoc
+            [
+              ( "virtual_size"
+              , `Int (Int64.to_int t.Vhd.footer.Footer.current_size)
+              )
+            ; ("cluster_bits", `Int (block_size_sectors_shift + sector_shift))
+            ; ("data_clusters", `List blocks)
+            ]
+        in
+        let json_string = Yojson.to_string json in
+        print_string json_string ; return ()
+
       let vhd_common ?from ?raw ?(emit_batmap = false) (t : fd Vhd.t) =
         let block_size_sectors_shift =
           t.Vhd.header.Header.block_size_sectors_shift
@@ -2912,26 +2963,27 @@ functor
           Footer.create ~data_offset ~current_size:size ~disk_type ()
         in
         ( match from with
-        | None ->
-            return
-              (Header.create ~table_offset ~current_size:size
-                 ~block_size_sectors_shift ()
-              )
-        | Some from ->
-            let parent_locators =
-              Parent_locator.from_filename from.Vhd.filename
-            in
-            F.get_modification_time from.Vhd.filename
-            >>= fun parent_time_stamp ->
-            let h =
-              Header.create ~table_offset ~current_size:size
-                ~block_size_sectors_shift
-                ~parent_unique_id:from.Vhd.footer.Footer.uid ~parent_time_stamp
-                ~parent_unicode_name:(UTF16.of_utf8 from.Vhd.filename)
-                ~parent_locators ()
-            in
-            return h
-        )
+          | None ->
+              return
+                (Header.create ~table_offset ~current_size:size
+                   ~block_size_sectors_shift ()
+                )
+          | Some from ->
+              let parent_locators =
+                Parent_locator.from_filename from.Vhd.filename
+              in
+              F.get_modification_time from.Vhd.filename
+              >>= fun parent_time_stamp ->
+              let h =
+                Header.create ~table_offset ~current_size:size
+                  ~block_size_sectors_shift
+                  ~parent_unique_id:from.Vhd.footer.Footer.uid
+                  ~parent_time_stamp
+                  ~parent_unicode_name:(UTF16.of_utf8 from.Vhd.filename)
+                  ~parent_locators ()
+              in
+              return h
+          )
         >>= fun header ->
         let bat_buffer = Memory.alloc (BAT.sizeof_bytes header) in
         let bat = BAT.of_buffer header bat_buffer in
@@ -3119,6 +3171,8 @@ functor
 
       let vhd ?from (raw : 'a) (vhd : fd Vhd.t) =
         Vhd_input.vhd_common ?from ~raw vhd
+
+      let blocks_json = Vhd_input.vhd_blocks_to_json
     end
 
     (* Create a VHD stream from data on t, using `include_block` guide us which blocks have data *)

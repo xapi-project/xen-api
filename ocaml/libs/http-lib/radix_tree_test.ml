@@ -46,15 +46,13 @@ let t = List.fold_left (fun t x -> insert x x t) empty test_strings
 let check1 () =
   List.iter
     (fun x ->
-      if longest_prefix x t <> Some x then
-        failwith (Printf.sprintf "x = %s" x)
+      if longest_prefix x t <> Some x then failwith (Printf.sprintf "x = %s" x)
     )
     test_strings
 
 let check2 () =
   let all = fold (fun k _ acc -> k :: acc) [] t in
-  if List.length all <> List.length test_strings then
-    failwith "fold"
+  if List.length all <> List.length test_strings then failwith "fold"
 
 let previous_longest_prefix x =
   let uris =

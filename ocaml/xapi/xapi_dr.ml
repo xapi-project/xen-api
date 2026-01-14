@@ -207,8 +207,7 @@ let signal_sr_is_processing ~__context ~sr =
     (Db.SR.get_uuid ~__context ~self:sr) ;
   with_lock processing_srs_m (fun () ->
       let srs = !processing_srs in
-      if not (List.mem sr srs) then
-        processing_srs := sr :: srs
+      if not (List.mem sr srs) then processing_srs := sr :: srs
   )
 
 let signal_sr_is_ready ~__context ~sr =

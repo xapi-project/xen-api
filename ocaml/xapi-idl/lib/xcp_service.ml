@@ -159,7 +159,12 @@ let setify =
     | [] ->
         acc
     | x :: xs ->
-        (if List.mem x acc then loop acc else loop (x :: acc)) xs
+        ( if List.mem x acc then
+            loop acc
+          else
+            loop (x :: acc)
+        )
+          xs
   in
   loop []
 
@@ -390,7 +395,10 @@ let canonicalise x =
       List.find_map
         (fun path ->
           let possibility = Filename.concat path x in
-          if Sys.file_exists possibility then Some possibility else None
+          if Sys.file_exists possibility then
+            Some possibility
+          else
+            None
         )
         (paths @ !extra_search_path)
     in
@@ -423,9 +431,9 @@ let read_config_file x =
   |> Array.to_list
   |> List.stable_sort compare
   |> List.iter (fun fragment ->
-         let path = Filename.concat !config_dir fragment in
-         Config_file.parse path x
-     )
+      let path = Filename.concat !config_dir fragment in
+      Config_file.parse path x
+  )
 
 let startswith prefix x =
   let prefix' = String.length prefix and x' = String.length x in

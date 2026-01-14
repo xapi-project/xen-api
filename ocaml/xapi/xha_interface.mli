@@ -16,9 +16,7 @@
 *)
 
 module DaemonConfiguration : sig
-  module Host : sig
-    type t = {uuid: string; address: string}
-  end
+  module Host : sig type t = {uuid: string; address: string} end
 
   type t = {
       common_generation_uuid: string
@@ -74,9 +72,7 @@ module DaemonConfiguration : sig
 end
 
 module LiveSetInformation : sig
-  module Status : sig
-    type t = Online | Offline | Starting
-  end
+  module Status : sig type t = Online | Offline | Starting end
 
   module Host : sig
     type t = {
@@ -86,8 +82,7 @@ module LiveSetInformation : sig
       ; state_file_access: bool
       ; state_file_corrupted: bool
       ; excluded: bool
-    }
-  end
+    } end
 
   module HostRawData : sig
     type t = {
@@ -97,8 +92,7 @@ module LiveSetInformation : sig
       ; time_since_xapi_restart_first_attempted: int
       ; heartbeat_active_list_on_heartbeat: [`host] Uuidx.t list
       ; heartbeat_active_list_on_statefile: [`host] Uuidx.t list (* ... *)
-    }
-  end
+    } end
 
   module RawStatus : sig
     type t = {
@@ -112,8 +106,7 @@ module LiveSetInformation : sig
       ; xapi_healthcheck_min: int
       ; xapi_healthcheck_max: int
       ; host_raw_data: ([`host] Uuidx.t, HostRawData.t) Hashtbl.t
-    }
-  end
+    } end
 
   module Warning : sig
     type t = {
@@ -122,8 +115,7 @@ module LiveSetInformation : sig
       ; statefile_approaching_timeout: bool
       ; xapi_healthcheck_approaching_timeout: bool
       ; network_bonding_error: bool
-    }
-  end
+    } end
 
   type t = {
       status: Status.t

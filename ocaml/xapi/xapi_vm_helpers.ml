@@ -114,8 +114,8 @@ let set_is_a_template ~__context ~self ~value =
       (* Destroy any attached pvs proxies *)
       Db.VM.get_VIFs ~__context ~self
       |> List.filter_map (fun vif ->
-             Pvs_proxy_control.find_proxy_for_vif ~__context ~vif
-         )
+          Pvs_proxy_control.find_proxy_for_vif ~__context ~vif
+      )
       |> List.rev
       |> List.iter (fun p -> Db.PVS_proxy.destroy ~__context ~self:p) ;
       (* Remove from any VM groups when we templatize it *)
@@ -424,8 +424,7 @@ let assert_can_see_specified_SRs ~__context ~reqd_srs ~host =
   let not_available =
     which_specified_SRs_not_available_on_host ~__context ~reqd_srs ~host
   in
-  if not_available <> [] then
-    raise Host_cannot_see_all_SRs
+  if not_available <> [] then raise Host_cannot_see_all_SRs
 
 let assert_can_see_SRs ~__context ~self ~host =
   let vbds = Db.VM.get_VBDs ~__context ~self in
@@ -439,7 +438,10 @@ let assert_can_see_SRs ~__context ~self ~host =
   let suspend_vdi =
     if Db.VM.get_power_state ~__context ~self = `Suspended then
       let vdi = Db.VM.get_suspend_VDI ~__context ~self in
-      if vdi = Ref.null then [] else [vdi]
+      if vdi = Ref.null then
+        []
+      else
+        [vdi]
     else
       []
   in
@@ -483,8 +485,8 @@ let assert_host_has_iommu ~__context ~host =
 let has_non_allocated_vgpus ~__context ~self =
   Db.VM.get_VGPUs ~__context ~self
   |> List.map (fun vgpu ->
-         Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
-     )
+      Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
+  )
   |> List.filter (fun pgpu -> not (Db.is_valid_ref __context pgpu))
   |> ( <> ) []
 
@@ -513,24 +515,24 @@ let assert_gpus_available ~__context ~self ~host =
 let assert_usbs_available ~__context ~self ~host =
   Db.VM.get_VUSBs ~__context ~self
   |> List.iter (fun vusb ->
-         try
-           let usb_group = Db.VUSB.get_USB_group ~__context ~self:vusb in
-           let pusb =
-             List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group)
-           in
-           let usb_host = Db.PUSB.get_host ~__context ~self:pusb in
-           assert (usb_host = host)
-         with _ ->
-           raise
-             (Api_errors.Server_error
-                ( Api_errors.operation_not_allowed
-                , [
-                    Printf.sprintf "VUSB %s is not available on Host %s"
-                      (Ref.string_of vusb) (Ref.string_of host)
-                  ]
-                )
+      try
+        let usb_group = Db.VUSB.get_USB_group ~__context ~self:vusb in
+        let pusb =
+          List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group)
+        in
+        let usb_host = Db.PUSB.get_host ~__context ~self:pusb in
+        assert (usb_host = host)
+      with _ ->
+        raise
+          (Api_errors.Server_error
+             ( Api_errors.operation_not_allowed
+             , [
+                 Printf.sprintf "VUSB %s is not available on Host %s"
+                   (Ref.string_of vusb) (Ref.string_of host)
+               ]
              )
-     )
+          )
+  )
 
 (* 1.To avoid redundant checks,for each VF if it was reserved, then it's no need to check remaining capacity again.
    2.Get SR-IOV Vifs by return a list of [(network1,(required_num1,PCI1));(network2,(required_num2,PCI2))....]
@@ -700,11 +702,9 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check
     ~host:(Helpers.LocalObject host) ;
   if do_cpuid_check then
     Cpuid_helpers.assert_vm_is_compatible ~__context ~vm:(`db self) ~host ;
-  if do_sr_check then
-    assert_can_see_SRs ~__context ~self ~host ;
+  if do_sr_check then assert_can_see_SRs ~__context ~self ~host ;
   assert_can_see_networks ~__context ~self ~host ;
-  if vm_needs_iommu ~__context ~self then
-    assert_host_has_iommu ~__context ~host ;
+  if vm_needs_iommu ~__context ~self then assert_host_has_iommu ~__context ~host ;
   (* Assumption: a VM can have only one vGPU *)
   assert_no_legacy_vgpu ~__context ~vm:self ;
   if has_non_allocated_vgpus ~__context ~self then
@@ -916,14 +916,14 @@ let vm_has_anti_affinity ~__context ~vm =
       (fun g -> Db.VM_group.get_placement ~__context ~self:g = `anti_affinity)
       (Db.VM.get_groups ~__context ~self:vm)
     |> Option.map (fun group ->
-           debug
-             "The VM (uuid %s) is associated with an anti-affinity group \
-              (uuid: %s, name: %s)"
-             (Db.VM.get_uuid ~__context ~self:vm)
-             (Db.VM_group.get_uuid ~__context ~self:group)
-             (Db.VM_group.get_name_label ~__context ~self:group) ;
-           `AntiAffinity group
-       )
+        debug
+          "The VM (uuid %s) is associated with an anti-affinity group (uuid: \
+           %s, name: %s)"
+          (Db.VM.get_uuid ~__context ~self:vm)
+          (Db.VM_group.get_uuid ~__context ~self:group)
+          (Db.VM_group.get_name_label ~__context ~self:group) ;
+        `AntiAffinity group
+    )
   else (
     debug
       "VM group feature is disabled, ignore VM anti-affinity during VM start" ;
@@ -1266,8 +1266,7 @@ type set_cpus_number_fn =
   __context:Context.t -> self:API.ref_VM -> int -> API.vM_t -> int64 -> unit
 
 let validate_HVM_shadow_multiplier multiplier =
-  if multiplier < 1. then
-    invalid_value "multiplier" (string_of_float multiplier)
+  if multiplier < 1. then invalid_value "multiplier" (string_of_float multiplier)
 
 (** Sets the HVM shadow multiplier for a {b Halted} VM. Runs on the master. *)
 let set_HVM_shadow_multiplier ~__context ~self ~value =
@@ -1355,7 +1354,10 @@ let allowed_VBD_devices ~__context ~vm ~_type =
 let allowed_VIF_devices ~__context ~vm =
   let will_have_qemu = Helpers.will_have_qemu ~__context ~self:vm in
   let all_devices =
-    if will_have_qemu then allowed_VIF_devices_HVM else allowed_VIF_devices_PV
+    if will_have_qemu then
+      allowed_VIF_devices_HVM
+    else
+      allowed_VIF_devices_PV
   in
   (* Filter out those we've already got VIFs for *)
   let all_vifs = Db.VM.get_VIFs ~__context ~self:vm in
@@ -1576,7 +1578,10 @@ let get_SRs_required_for_recovery ~__context ~self ~session_to =
                 )
                 pbds
             in
-            if attached_pbds = [] then true else false
+            if attached_pbds = [] then
+              true
+            else
+              false
           with Db_exn.Read_missing_uuid _ -> true
         )
         required_SR_list
@@ -1589,36 +1594,35 @@ let assert_valid_bios_strings ~__context ~value =
   (* Validate value chars are printable ASCII characters *)
   value
   |> List.iter (fun (k, v) ->
-         if not (List.mem k Constants.settable_vm_bios_string_keys) then
-           raise
-             (Api_errors.Server_error
-                (Api_errors.invalid_value, [k; "Unknown key"])
-             ) ;
-         match String.length v with
-         | 0 ->
-             raise
-               (Api_errors.Server_error
-                  (Api_errors.invalid_value, [k; "Value provided is empty"])
-               )
-         | len when len > Constants.bios_string_limit_size ->
-             let err =
-               Printf.sprintf "%s has length more than %d characters" v
-                 Constants.bios_string_limit_size
-             in
-             raise (Api_errors.Server_error (Api_errors.invalid_value, [k; err]))
-         | _ ->
-             String.iter
-               (fun c ->
-                 if c < Char.chr 32 || c >= Char.chr 127 then
-                   raise
-                     (Api_errors.Server_error
-                        ( Api_errors.invalid_value
-                        , [k; v ^ " has non-printable ASCII characters"]
-                        )
+      if not (List.mem k Constants.settable_vm_bios_string_keys) then
+        raise
+          (Api_errors.Server_error (Api_errors.invalid_value, [k; "Unknown key"])
+          ) ;
+      match String.length v with
+      | 0 ->
+          raise
+            (Api_errors.Server_error
+               (Api_errors.invalid_value, [k; "Value provided is empty"])
+            )
+      | len when len > Constants.bios_string_limit_size ->
+          let err =
+            Printf.sprintf "%s has length more than %d characters" v
+              Constants.bios_string_limit_size
+          in
+          raise (Api_errors.Server_error (Api_errors.invalid_value, [k; err]))
+      | _ ->
+          String.iter
+            (fun c ->
+              if c < Char.chr 32 || c >= Char.chr 127 then
+                raise
+                  (Api_errors.Server_error
+                     ( Api_errors.invalid_value
+                     , [k; v ^ " has non-printable ASCII characters"]
                      )
-               )
-               v
-     )
+                  )
+            )
+            v
+  )
 
 let copy_bios_strings ~__context ~vm ~host =
   (* only allow to fill in BIOS strings if they are not yet set *)
@@ -1691,7 +1695,13 @@ let ensure_device_model_profile_present ~__context ~domain_type ~is_a_template
     (not needs_qemu) || List.mem_assoc Vm_platform.device_model platform
     (* upgrade existing Device Model entry *)
   then
-    platform |> List.map (fun entry -> if entry = trad then default else entry)
+    platform
+    |> List.map (fun entry ->
+        if entry = trad then
+          default
+        else
+          entry
+    )
   else
     (* only add device-model to an HVM VM platform if it is not already there *)
     default :: platform
