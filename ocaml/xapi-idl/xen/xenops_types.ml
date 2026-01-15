@@ -139,7 +139,7 @@ module Vm = struct
 
   type id = string [@@deriving rpcty, sexp]
 
-  type action = Coredump | Shutdown | Start | Pause | Softreboot
+  type action = Coredump | Shutdown | Start | Pause | Softreboot | Recover
   [@@deriving rpcty, sexp]
 
   type scheduler_params = {
