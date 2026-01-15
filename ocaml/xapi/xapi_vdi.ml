@@ -736,7 +736,9 @@ let pool_introduce = internal_db_introduce
 let db_introduce = internal_db_introduce
 
 let db_forget ~__context ~vdi =
-  debug "db_forget uuid=%s" (Db.VDI.get_uuid ~__context ~self:vdi) ;
+  debug "db_forget uuid=%s ref=%s"
+    (Db.VDI.get_uuid ~__context ~self:vdi)
+    (Ref.string_of vdi) ;
   Db.VDI.destroy ~__context ~self:vdi
 
 let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type
