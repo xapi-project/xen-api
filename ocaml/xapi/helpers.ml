@@ -1127,8 +1127,14 @@ let check_sr_exists_for_host ~__context ~self ~host =
   else
     None
 
+(* Returns the amount of free space for a given SR *)
+let get_sr_free_space ~__context ~sr =
+  let size = Db.SR.get_physical_size ~__context ~self:sr in
+  let utilisation = Db.SR.get_physical_utilisation ~__context ~self:sr in
+  Int64.sub size utilisation
+
 (* Returns an SR suitable for suspending this VM *)
-let choose_suspend_sr ~__context ~vm =
+let choose_suspend_sr ~__context ~vm ~required_space =
   (* If the VM.suspend_SR exists, use that. If it fails, try the Pool.suspend_image_SR. *)
   (* If that fails, try the Host.suspend_image_SR. *)
   let vm_sr = Db.VM.get_suspend_SR ~__context ~self:vm in
@@ -1136,23 +1142,36 @@ let choose_suspend_sr ~__context ~vm =
   let pool_sr = Db.Pool.get_suspend_image_SR ~__context ~self:pool in
   let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
   let host_sr = Db.Host.get_suspend_image_sr ~__context ~self:resident_on in
-  match
-    ( check_sr_exists_for_host ~__context ~self:vm_sr ~host:resident_on
-    , check_sr_exists_for_host ~__context ~self:pool_sr ~host:resident_on
-    , check_sr_exists_for_host ~__context ~self:host_sr ~host:resident_on
-    )
-  with
-  | Some x, _, _ ->
-      x
-  | _, Some x, _ ->
-      x
-  | _, _, Some x ->
-      x
-  | None, None, None ->
-      raise
-        (Api_errors.Server_error
-           (Api_errors.vm_no_suspend_sr, [Ref.string_of vm])
-        )
+  let sr =
+    match
+      ( check_sr_exists_for_host ~__context ~self:vm_sr ~host:resident_on
+      , check_sr_exists_for_host ~__context ~self:pool_sr ~host:resident_on
+      , check_sr_exists_for_host ~__context ~self:host_sr ~host:resident_on
+      )
+    with
+    | Some x, _, _ ->
+        x
+    | _, Some x, _ ->
+        x
+    | _, _, Some x ->
+        x
+    | None, None, None ->
+        raise
+          (Api_errors.Server_error
+             (Api_errors.vm_no_suspend_sr, [Ref.string_of vm])
+          )
+  in
+  let free_space = get_sr_free_space ~__context ~sr in
+  if free_space < required_space then (
+    let sr_str = Ref.string_of sr in
+    error "%s: SR %s free=%Ld needed=%Ld" __FUNCTION__ sr_str free_space
+      required_space ;
+    raise
+      (Api_errors.Server_error
+         (Api_errors.sr_suspend_space_insufficient, [sr_str])
+      )
+  ) else
+    sr
 
 (* return the operations filtered for cancels functions *)
 let cancel_tasks ~__context ~ops ~all_tasks_in_db
