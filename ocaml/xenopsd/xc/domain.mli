@@ -130,6 +130,8 @@ val builder_spec_info : builder_spec_info Rpc.Types.def
 type build_info = {
     memory_max: int64  (** memory max in kilobytes *)
   ; memory_target: int64  (** memory target in kilobytes *)
+  ; memory_total_source: int64 option
+        (** memory used on source during migration/resume in kilobytes *)
   ; kernel: string  (** image to load. In HVM case, point to hvmloader *)
   ; vcpus: int  (** vcpus max *)
   ; priv: builder_spec_info
