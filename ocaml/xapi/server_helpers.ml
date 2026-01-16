@@ -182,10 +182,11 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
         )
       (* Return task id immediately *)
     in
-    let user_agent_option = http_req.user_agent in
+    let client_id_option = http_req.user_agent in
     let peek_result =
-      Option.bind user_agent_option (fun user_agent ->
-          Rate_limit.Bucket_table.peek Xapi_rate_limit.bucket_table ~user_agent
+      Option.bind client_id_option (fun client_id ->
+          Xapi_rate_limit.Bucket_table.peek Xapi_rate_limit.bucket_table
+            ~client_id
       )
     in
     let token_cost = Xapi_rate_limit.get_token_cost called_fn_name in
@@ -201,22 +202,23 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
           async ~need_complete:true ;
           Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
     in
-    match user_agent_option with
-    | Some user_agent -> (
+    match client_id_option with
+    | Some client_id -> (
       match peek_result with
       | Some tokens -> (
           D.debug
             "Bucket table: Expecting to consume %f tokens from user_agent %s \
              with available tokens %f in function %s"
-            token_cost user_agent tokens __FUNCTION__ ;
+            token_cost client_id tokens __FUNCTION__ ;
           match sync_ty with
           | `Sync ->
-              Rate_limit.Bucket_table.submit_sync Xapi_rate_limit.bucket_table
-                ~user_agent ~callback:sync token_cost
+              Xapi_rate_limit.Bucket_table.submit_sync
+                Xapi_rate_limit.bucket_table ~client_id ~callback:sync
+                token_cost
           | `Async ->
               let need_complete = not (Context.forwarded_task __context) in
-              Rate_limit.Bucket_table.submit Xapi_rate_limit.bucket_table
-                ~user_agent
+              Xapi_rate_limit.Bucket_table.submit Xapi_rate_limit.bucket_table
+                ~client_id
                 ~callback:(fun () -> async ~need_complete)
                 token_cost ;
               Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
@@ -225,7 +227,7 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
               Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
         )
       | None ->
-          D.debug "%s not registered, not throttling" user_agent ;
+          D.debug "%s not registered, not throttling" client_id ;
           handle_request ()
     )
     | None ->

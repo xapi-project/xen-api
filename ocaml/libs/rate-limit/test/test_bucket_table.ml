@@ -1,32 +1,34 @@
 open Rate_limit
 
+module Bucket_table = Bucket_table.Make (String)
+
 let test_create () =
   let table = Bucket_table.create () in
   Alcotest.(check (option (float 0.0)))
     "Empty table returns None for peek" None
-    (Bucket_table.peek table ~user_agent:"test")
+    (Bucket_table.peek table ~client_id:"test")
 
 let test_add_bucket () =
   let table = Bucket_table.create () in
   let success =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:10.0
+    Bucket_table.add_bucket table ~client_id:"agent1" ~burst_size:10.0
       ~fill_rate:2.0
   in
   Alcotest.(check bool) "Adding valid bucket should succeed" true success ;
   Alcotest.(check (option (float 0.1)))
     "Peek should return burst_size" (Some 10.0)
-    (Bucket_table.peek table ~user_agent:"agent1")
+    (Bucket_table.peek table ~client_id:"agent1")
 
 let test_add_bucket_invalid () =
   let table = Bucket_table.create () in
   let success =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:10.0
+    Bucket_table.add_bucket table ~client_id:"agent1" ~burst_size:10.0
       ~fill_rate:0.0
   in
   Alcotest.(check bool)
     "Adding bucket with zero fill rate should fail" false success ;
   let success_neg =
-    Bucket_table.add_bucket table ~user_agent:"agent2" ~burst_size:10.0
+    Bucket_table.add_bucket table ~client_id:"agent2" ~burst_size:10.0
       ~fill_rate:(-1.0)
   in
   Alcotest.(check bool)
@@ -35,50 +37,50 @@ let test_add_bucket_invalid () =
 let test_delete_bucket () =
   let table = Bucket_table.create () in
   let _ =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:10.0
+    Bucket_table.add_bucket table ~client_id:"agent1" ~burst_size:10.0
       ~fill_rate:2.0
   in
   Alcotest.(check (option (float 0.1)))
     "Bucket exists before delete" (Some 10.0)
-    (Bucket_table.peek table ~user_agent:"agent1") ;
-  Bucket_table.delete_bucket table ~user_agent:"agent1" ;
+    (Bucket_table.peek table ~client_id:"agent1") ;
+  Bucket_table.delete_bucket table ~client_id:"agent1" ;
   Alcotest.(check (option (float 0.0)))
     "Bucket removed after delete" None
-    (Bucket_table.peek table ~user_agent:"agent1")
+    (Bucket_table.peek table ~client_id:"agent1")
 
 let test_delete_nonexistent () =
   let table = Bucket_table.create () in
-  Bucket_table.delete_bucket table ~user_agent:"nonexistent" ;
+  Bucket_table.delete_bucket table ~client_id:"nonexistent" ;
   Alcotest.(check pass) "Deleting nonexistent bucket should not raise" () ()
 
 let test_try_consume () =
   let table = Bucket_table.create () in
   let _ =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:10.0
+    Bucket_table.add_bucket table ~client_id:"agent1" ~burst_size:10.0
       ~fill_rate:2.0
   in
-  let success = Bucket_table.try_consume table ~user_agent:"agent1" 3.0 in
+  let success = Bucket_table.try_consume table ~client_id:"agent1" 3.0 in
   Alcotest.(check bool) "Consuming available tokens should succeed" true success ;
   Alcotest.(check (option (float 0.1)))
     "Tokens reduced after consume" (Some 7.0)
-    (Bucket_table.peek table ~user_agent:"agent1")
+    (Bucket_table.peek table ~client_id:"agent1")
 
 let test_try_consume_insufficient () =
   let table = Bucket_table.create () in
   let _ =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:5.0
+    Bucket_table.add_bucket table ~client_id:"agent1" ~burst_size:5.0
       ~fill_rate:1.0
   in
-  let success = Bucket_table.try_consume table ~user_agent:"agent1" 10.0 in
+  let success = Bucket_table.try_consume table ~client_id:"agent1" 10.0 in
   Alcotest.(check bool)
     "Consuming more than available should fail" false success ;
   Alcotest.(check (option (float 0.1)))
     "Tokens unchanged after failed consume" (Some 5.0)
-    (Bucket_table.peek table ~user_agent:"agent1")
+    (Bucket_table.peek table ~client_id:"agent1")
 
 let test_try_consume_nonexistent () =
   let table = Bucket_table.create () in
-  let success = Bucket_table.try_consume table ~user_agent:"nonexistent" 1.0 in
+  let success = Bucket_table.try_consume table ~client_id:"nonexistent" 1.0 in
   Alcotest.(check bool)
     "Consuming from nonexistent bucket should fail" false success
 
@@ -86,36 +88,36 @@ let test_peek_nonexistent () =
   let table = Bucket_table.create () in
   Alcotest.(check (option (float 0.0)))
     "Peek nonexistent bucket returns None" None
-    (Bucket_table.peek table ~user_agent:"nonexistent")
+    (Bucket_table.peek table ~client_id:"nonexistent")
 
 let test_multiple_agents () =
   let table = Bucket_table.create () in
   let _ =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:10.0
+    Bucket_table.add_bucket table ~client_id:"agent1" ~burst_size:10.0
       ~fill_rate:2.0
   in
   let _ =
-    Bucket_table.add_bucket table ~user_agent:"agent2" ~burst_size:20.0
+    Bucket_table.add_bucket table ~client_id:"agent2" ~burst_size:20.0
       ~fill_rate:5.0
   in
-  let _ = Bucket_table.try_consume table ~user_agent:"agent1" 5.0 in
+  let _ = Bucket_table.try_consume table ~client_id:"agent1" 5.0 in
   Alcotest.(check (option (float 0.1)))
     "Agent1 tokens reduced" (Some 5.0)
-    (Bucket_table.peek table ~user_agent:"agent1") ;
+    (Bucket_table.peek table ~client_id:"agent1") ;
   Alcotest.(check (option (float 0.1)))
     "Agent2 tokens unchanged" (Some 20.0)
-    (Bucket_table.peek table ~user_agent:"agent2")
+    (Bucket_table.peek table ~client_id:"agent2")
 
 let test_submit () =
   let table = Bucket_table.create () in
   let _ =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:10.0
+    Bucket_table.add_bucket table ~client_id:"agent1" ~burst_size:10.0
       ~fill_rate:10.0
   in
-  let _ = Bucket_table.try_consume table ~user_agent:"agent1" 10.0 in
+  let _ = Bucket_table.try_consume table ~client_id:"agent1" 10.0 in
   let executed = ref false in
   let start_counter = Mtime_clock.counter () in
-  Bucket_table.submit table ~user_agent:"agent1"
+  Bucket_table.submit table ~client_id:"agent1"
     ~callback:(fun () -> executed := true)
     5.0 ;
   let elapsed_span = Mtime_clock.count start_counter in
@@ -129,7 +131,7 @@ let test_submit () =
 let test_submit_nonexistent () =
   let table = Bucket_table.create () in
   let executed = ref false in
-  Bucket_table.submit table ~user_agent:"nonexistent"
+  Bucket_table.submit table ~client_id:"nonexistent"
     ~callback:(fun () -> executed := true)
     1.0 ;
   Alcotest.(check bool)
@@ -139,11 +141,11 @@ let test_submit_fairness () =
   (* Test that callbacks are executed in FIFO order regardless of token cost *)
   let table = Bucket_table.create () in
   let _ =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:5.0
+    Bucket_table.add_bucket table ~client_id:"agent1" ~burst_size:5.0
       ~fill_rate:5.0
   in
   (* Drain the bucket *)
-  let _ = Bucket_table.try_consume table ~user_agent:"agent1" 5.0 in
+  let _ = Bucket_table.try_consume table ~client_id:"agent1" 5.0 in
   let execution_order = ref [] in
   let order_mutex = Mutex.create () in
   let record_execution id =
@@ -152,16 +154,16 @@ let test_submit_fairness () =
     Mutex.unlock order_mutex
   in
   (* Submit callbacks with varying costs - order should be preserved *)
-  Bucket_table.submit table ~user_agent:"agent1"
+  Bucket_table.submit table ~client_id:"agent1"
     ~callback:(fun () -> record_execution 1)
     1.0 ;
-  Bucket_table.submit table ~user_agent:"agent1"
+  Bucket_table.submit table ~client_id:"agent1"
     ~callback:(fun () -> record_execution 2)
     3.0 ;
-  Bucket_table.submit table ~user_agent:"agent1"
+  Bucket_table.submit table ~client_id:"agent1"
     ~callback:(fun () -> record_execution 3)
     1.0 ;
-  Bucket_table.submit table ~user_agent:"agent1"
+  Bucket_table.submit table ~client_id:"agent1"
     ~callback:(fun () -> record_execution 4)
     2.0 ;
   (* Wait for all callbacks to complete (total cost = 7 tokens, rate = 5/s) *)
@@ -173,22 +175,22 @@ let test_submit_fairness () =
 let test_submit_sync () =
   let table = Bucket_table.create () in
   let _ =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:10.0
+    Bucket_table.add_bucket table ~client_id:"agent1" ~burst_size:10.0
       ~fill_rate:10.0
   in
   (* Test 1: Returns callback result immediately when tokens available *)
   let result =
-    Bucket_table.submit_sync table ~user_agent:"agent1"
+    Bucket_table.submit_sync table ~client_id:"agent1"
       ~callback:(fun () -> 42)
       5.0
   in
   Alcotest.(check int) "returns callback result" 42 result ;
   (* Test 2: Blocks and waits for tokens, then returns result *)
-  let _ = Bucket_table.try_consume table ~user_agent:"agent1" 5.0 in
+  let _ = Bucket_table.try_consume table ~client_id:"agent1" 5.0 in
   (* drain bucket *)
   let start_counter = Mtime_clock.counter () in
   let result2 =
-    Bucket_table.submit_sync table ~user_agent:"agent1"
+    Bucket_table.submit_sync table ~client_id:"agent1"
       ~callback:(fun () -> "hello")
       5.0
   in
@@ -201,7 +203,7 @@ let test_submit_sync () =
 let test_submit_sync_nonexistent () =
   let table = Bucket_table.create () in
   let result =
-    Bucket_table.submit_sync table ~user_agent:"nonexistent"
+    Bucket_table.submit_sync table ~client_id:"nonexistent"
       ~callback:(fun () -> 99)
       1.0
   in
@@ -212,11 +214,11 @@ let test_submit_sync_with_queued_items () =
   (* Test that submit_sync respects FIFO ordering when queue has items *)
   let table = Bucket_table.create () in
   let _ =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:5.0
+    Bucket_table.add_bucket table ~client_id:"agent1" ~burst_size:5.0
       ~fill_rate:10.0
   in
   (* Drain the bucket *)
-  let _ = Bucket_table.try_consume table ~user_agent:"agent1" 5.0 in
+  let _ = Bucket_table.try_consume table ~client_id:"agent1" 5.0 in
   let execution_order = ref [] in
   let order_mutex = Mutex.create () in
   let record_execution id =
@@ -225,15 +227,15 @@ let test_submit_sync_with_queued_items () =
     Mutex.unlock order_mutex
   in
   (* Submit async items first *)
-  Bucket_table.submit table ~user_agent:"agent1"
+  Bucket_table.submit table ~client_id:"agent1"
     ~callback:(fun () -> record_execution 1)
     1.0 ;
-  Bucket_table.submit table ~user_agent:"agent1"
+  Bucket_table.submit table ~client_id:"agent1"
     ~callback:(fun () -> record_execution 2)
     1.0 ;
   (* Now submit_sync should queue behind the async items *)
   let result =
-    Bucket_table.submit_sync table ~user_agent:"agent1"
+    Bucket_table.submit_sync table ~client_id:"agent1"
       ~callback:(fun () -> record_execution 3 ; "sync_result")
       1.0
   in
@@ -247,18 +249,18 @@ let test_submit_sync_concurrent () =
   (* Test multiple concurrent submit_sync calls *)
   let table = Bucket_table.create () in
   let _ =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:1.0
+    Bucket_table.add_bucket table ~client_id:"agent1" ~burst_size:1.0
       ~fill_rate:10.0
   in
   (* Drain the bucket to force queueing *)
-  let _ = Bucket_table.try_consume table ~user_agent:"agent1" 1.0 in
+  let _ = Bucket_table.try_consume table ~client_id:"agent1" 1.0 in
   let results = Array.make 5 0 in
   let threads =
     Array.init 5 (fun i ->
         Thread.create
           (fun () ->
             let r =
-              Bucket_table.submit_sync table ~user_agent:"agent1"
+              Bucket_table.submit_sync table ~client_id:"agent1"
                 ~callback:(fun () -> i + 1)
                 1.0
             in
@@ -279,19 +281,19 @@ let test_submit_sync_interleaved () =
   (* Test interleaving submit and submit_sync *)
   let table = Bucket_table.create () in
   let _ =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:2.0
+    Bucket_table.add_bucket table ~client_id:"agent1" ~burst_size:2.0
       ~fill_rate:10.0
   in
   (* Drain the bucket *)
-  let _ = Bucket_table.try_consume table ~user_agent:"agent1" 2.0 in
+  let _ = Bucket_table.try_consume table ~client_id:"agent1" 2.0 in
   let async_executed = ref false in
   (* Submit async first *)
-  Bucket_table.submit table ~user_agent:"agent1"
+  Bucket_table.submit table ~client_id:"agent1"
     ~callback:(fun () -> async_executed := true)
     1.0 ;
   (* Submit sync should wait for async to complete first *)
   let sync_result =
-    Bucket_table.submit_sync table ~user_agent:"agent1"
+    Bucket_table.submit_sync table ~client_id:"agent1"
       ~callback:(fun () -> !async_executed)
       1.0
   in
@@ -315,7 +317,7 @@ let test_concurrent_add_delete_stress () =
                 Printf.sprintf "key%d" (((t * iterations) + i) mod num_keys)
               in
               let _ =
-                Bucket_table.add_bucket table ~user_agent:key ~burst_size:10.0
+                Bucket_table.add_bucket table ~client_id:key ~burst_size:10.0
                   ~fill_rate:1.0
               in
               ()
@@ -332,7 +334,7 @@ let test_concurrent_add_delete_stress () =
               let key =
                 Printf.sprintf "key%d" (((t * iterations) + i) mod num_keys)
               in
-              Bucket_table.delete_bucket table ~user_agent:key
+              Bucket_table.delete_bucket table ~client_id:key
             done
           )
           ()
@@ -348,7 +350,7 @@ let test_concurrent_add_delete_stress () =
               in
               (* This should never crash, even if key doesn't exist *)
               try
-                let _ = Bucket_table.peek table ~user_agent:key in
+                let _ = Bucket_table.peek table ~client_id:key in
                 ()
               with _ ->
                 Mutex.lock errors_mutex ;
@@ -373,7 +375,7 @@ let test_consume_during_delete_race () =
   for _ = 1 to iterations do
     let table = Bucket_table.create () in
     let _ =
-      Bucket_table.add_bucket table ~user_agent:"target" ~burst_size:100.0
+      Bucket_table.add_bucket table ~client_id:"target" ~burst_size:100.0
         ~fill_rate:1.0
     in
     let barrier = ref 0 in
@@ -392,7 +394,7 @@ let test_consume_during_delete_race () =
             Thread.yield ()
           done ;
           try
-            let _ = Bucket_table.try_consume table ~user_agent:"target" 1.0 in
+            let _ = Bucket_table.try_consume table ~client_id:"target" 1.0 in
             ()
           with _ ->
             Mutex.lock errors_mutex ; incr errors ; Mutex.unlock errors_mutex
@@ -412,7 +414,7 @@ let test_consume_during_delete_race () =
           do
             Thread.yield ()
           done ;
-          Bucket_table.delete_bucket table ~user_agent:"target"
+          Bucket_table.delete_bucket table ~client_id:"target"
         )
         ()
     in

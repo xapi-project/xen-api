@@ -351,17 +351,17 @@ let add_handler (name, handler) =
       failwith (Printf.sprintf "Unregistered HTTP handler: %s" name)
   in
   let check_rbac = Rbac.is_rbac_enabled_for_http_action name in
-  let rate_limit user_agent_opt handler () =
+  let rate_limit client_id_opt handler () =
     if List.mem name Datamodel.custom_rate_limit_http_actions then
       handler ()
     else
-      match user_agent_opt with
+      match client_id_opt with
       | None ->
           handler ()
-      | Some user_agent ->
-          debug "Rate limiting handler %s with user_agent %s" name user_agent ;
-          Rate_limit.Bucket_table.submit Xapi_rate_limit.bucket_table
-            ~user_agent ~callback:handler Xapi_rate_limit.median_token_cost
+      | Some client_id ->
+          debug "Rate limiting handler %s with client_id %s" name client_id ;
+          Xapi_rate_limit.Bucket_table.submit Xapi_rate_limit.bucket_table
+            ~client_id ~callback:handler Xapi_rate_limit.median_token_cost
   in
   let h req ic () =
     let client =
