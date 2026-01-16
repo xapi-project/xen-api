@@ -8287,8 +8287,8 @@ module Rate_limit = struct
     let burst_size = float_of_string (List.assoc "burst-size" params) in
     let fill_rate = float_of_string (List.assoc "fill-rate" params) in
     let ref =
-      Client.Rate_limit.create ~rpc ~session_id ~client_id ~burst_size
-        ~fill_rate
+      Client.Rate_limit.create ~rpc ~session_id ~user_agent:client_id
+        ~burst_size ~fill_rate ~host_ip:""
     in
     let uuid = Client.Rate_limit.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PMsg uuid)

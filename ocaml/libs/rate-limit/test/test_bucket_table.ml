@@ -1,5 +1,4 @@
 open Rate_limit
-
 module Bucket_table = Bucket_table.Make (String)
 
 let test_create () =

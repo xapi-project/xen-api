@@ -19,8 +19,10 @@ let prototyped_of_field = function
       Some "25.39.0"
   | "Rate_limit", "burst_size" ->
       Some "25.39.0"
-  | "Rate_limit", "client_id" ->
-      Some "25.39.0"
+  | "Rate_limit", "host_ip" ->
+      Some "26.1.0"
+  | "Rate_limit", "user_agent" ->
+      Some "26.1.0"
   | "Rate_limit", "uuid" ->
       Some "25.39.0"
   | "Driver_variant", "status" ->
@@ -207,6 +209,10 @@ let prototyped_of_field = function
       None
 
 let prototyped_of_message = function
+  | "Rate_limit", "destroy" ->
+      Some "26.1.0"
+  | "Rate_limit", "create" ->
+      Some "26.1.0"
   | "Driver_variant", "select" ->
       Some "25.2.0"
   | "Host_driver", "rescan" ->

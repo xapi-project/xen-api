@@ -359,15 +359,24 @@ let add_handler (name, handler) =
       | None ->
           handler ()
       | Some client_id ->
-          debug "Rate limiting handler %s with client_id %s" name client_id ;
+          debug "Rate limiting handler %s with user_agent %s host_ip %s" name
+            client_id.Xapi_rate_limit.Client_id.user_agent
+            client_id.Xapi_rate_limit.Client_id.host_ip ;
           Xapi_rate_limit.Bucket_table.submit Xapi_rate_limit.bucket_table
             ~client_id ~callback:handler Xapi_rate_limit.median_token_cost
   in
   let h req ic () =
-    let client =
-      Http_svr.(client_of_req_and_fd req ic |> Option.map string_of_client)
+    let client_info = Http_svr.client_of_req_and_fd req ic in
+    let client = Option.map Http_svr.string_of_client client_info in
+    let client_id =
+      match (req.Http.Request.user_agent, client_info) with
+      | Some user_agent, Some (_, ip) ->
+          Some
+            Xapi_rate_limit.Client_id.{user_agent; host_ip= Ipaddr.to_string ip}
+      | _ ->
+          None
     in
-    let rate_limited_handler = rate_limit req.user_agent (handler req ic) in
+    let rate_limited_handler = rate_limit client_id (handler req ic) in
     Debug.with_thread_associated ?client name
       (fun () ->
         try
