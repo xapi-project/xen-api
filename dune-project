@@ -53,6 +53,13 @@
  (depends xapi-log xapi-stdext-unix))
 
 (package
+ (name rate-limit)
+ (synopsis "Simple token bucket-based rate-limiting")
+ (depends
+   (ocaml (>= 4.12))
+   xapi-log xapi-stdext-unix))
+
+(package
  (name xml-light2))
 
 (package
@@ -586,6 +593,7 @@
   (depends
     qcow-stream
     cmdliner
+    yojson
   )
 )
 
@@ -593,7 +601,17 @@
  (name varstored-guard))
 
 (package
- (name uuid))
+ (name uuid)
+ (synopsis "Library used by xapi to generate database UUIDs")
+ (description
+  "This library allows xapi to use UUIDs with phantom types to avoid mixing UUIDs from different classes of objects. It's based on `uuidm`.")
+ (depends
+   (alcotest :with-test)
+   (fmt :with-test)
+   ptime
+   uuidm
+ )
+)
 
 (package
  (name stunnel)

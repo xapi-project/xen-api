@@ -212,6 +212,7 @@ let reset_state () =
           ) ;
         None
   in
+  Inventory.reread_inventory () ;
   config := Network_config.read_management_conf reset_order
 
 let set_gateway_interface _dbg name =

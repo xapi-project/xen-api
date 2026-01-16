@@ -179,18 +179,69 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
                ~marshaller op_fn
            )
            ()
-        ) ;
+        )
       (* Return task id immediately *)
-      Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
     in
-    match sync_ty with
-    | `Sync ->
-        sync ()
-    | `Async ->
-        let need_complete = not (Context.forwarded_task __context) in
-        async ~need_complete
-    | `InternalAsync ->
-        async ~need_complete:true
+    let client_id_option =
+      match (http_req.user_agent, Context.get_client_ip __context) with
+      | Some user_agent, Some host_ip ->
+          Some Xapi_rate_limit.Client_id.{user_agent; host_ip}
+      | _ ->
+          None
+    in
+    let peek_result =
+      Option.bind client_id_option (fun client_id ->
+          Xapi_rate_limit.Bucket_table.peek Xapi_rate_limit.bucket_table
+            ~client_id
+      )
+    in
+    let token_cost = Xapi_rate_limit.get_token_cost called_fn_name in
+    let handle_request () =
+      match sync_ty with
+      | `Sync ->
+          sync ()
+      | `Async ->
+          let need_complete = not (Context.forwarded_task __context) in
+          async ~need_complete ;
+          Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+      | `InternalAsync ->
+          async ~need_complete:true ;
+          Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+    in
+    match client_id_option with
+    | Some client_id -> (
+      match peek_result with
+      | Some tokens -> (
+          D.debug
+            "Bucket table: Expecting to consume %f tokens from user_agent %s \
+             host_ip %s with available tokens %f in function %s"
+            token_cost client_id.Xapi_rate_limit.Client_id.user_agent
+            client_id.Xapi_rate_limit.Client_id.host_ip tokens __FUNCTION__ ;
+          match sync_ty with
+          | `Sync ->
+              Xapi_rate_limit.Bucket_table.submit_sync
+                Xapi_rate_limit.bucket_table ~client_id ~callback:sync
+                token_cost
+          | `Async ->
+              let need_complete = not (Context.forwarded_task __context) in
+              Xapi_rate_limit.Bucket_table.submit Xapi_rate_limit.bucket_table
+                ~client_id
+                ~callback:(fun () -> async ~need_complete)
+                token_cost ;
+              Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+          | `InternalAsync ->
+              async ~need_complete:true ;
+              Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+        )
+      | None ->
+          D.debug "%s/%s not registered, not throttling"
+            client_id.Xapi_rate_limit.Client_id.user_agent
+            client_id.Xapi_rate_limit.Client_id.host_ip ;
+          handle_request ()
+    )
+    | None ->
+        D.debug "Bucket table: user_agent was None, not throttling" ;
+        handle_request ()
 
 (* regardless of forwarding, we are expected to complete the task *)
 

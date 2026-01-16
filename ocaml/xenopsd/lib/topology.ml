@@ -28,19 +28,20 @@ module CPUSet = struct
 end
 
 module NUMAResource = struct
-  type t = {affinity: CPUSet.t; memfree: int64}
+  type t = {affinity: CPUSet.t; cores: int; memfree: int64}
 
-  let make ~affinity ~memfree =
+  let make ~affinity ~cores ~memfree =
     if memfree < 0L then
       invalid_arg
         (Printf.sprintf "NUMAResource: memory cannot be negative: %Ld" memfree) ;
-    {affinity; memfree}
+    {affinity; cores; memfree}
 
-  let empty = {affinity= CPUSet.empty; memfree= 0L}
+  let empty = {affinity= CPUSet.empty; cores= 0; memfree= 0L}
 
   let union a b =
     make
       ~affinity:(CPUSet.union a.affinity b.affinity)
+      ~cores:(a.cores + b.cores)
       ~memfree:(Int64.add a.memfree b.memfree)
 
   let min_memory r1 r2 = {r1 with memfree= min r1.memfree r2.memfree}
@@ -50,29 +51,43 @@ module NUMAResource = struct
       Dump.record
         [
           Dump.field "affinity" (fun t -> t.affinity) CPUSet.pp_dump
+        ; Dump.field "cores" (fun t -> t.cores) int
         ; Dump.field "memfree" (fun t -> t.memfree) int64
         ]
     )
 end
 
 module NUMARequest = struct
-  type t = {memory: int64; vcpus: int}
+  type t = {memory: int64; vcpus: int; cores: int}
 
-  let make ~memory ~vcpus =
+  let make ~memory ~vcpus ~cores =
     if Int64.compare memory 0L < 0 then
       invalid_arg (Printf.sprintf "NUMARequest: memory must be > 0: %Ld" memory) ;
     if vcpus < 0 then
       invalid_arg (Printf.sprintf "vcpus cannot be negative: %d" vcpus) ;
-    {memory; vcpus}
+    if cores < 0 then
+      invalid_arg (Printf.sprintf "cores cannot be negative: %d" cores) ;
+    {memory; vcpus; cores}
 
   let fits requested available =
+    (* this is a hard constraint: a VM cannot boot if it doesn't have
+       enough memory *)
     Int64.compare requested.memory available.NUMAResource.memfree <= 0
+    (* this is a soft constraint: a VM can still boot if the (soft) affinity
+       constraint is not met, although if hard affinity is used this is a hard
+       constraint too *)
     && CPUSet.(cardinal available.NUMAResource.affinity >= requested.vcpus)
+    && (* this is an optional constraint: it is desirable to be able to leave
+          hyperthread siblings idle, when the system is not busy.
+          However requested.cores can also be 0.
+       *)
+    available.NUMAResource.cores >= requested.cores
 
   let shrink a b =
     make
       ~memory:(max 0L (Int64.sub a.memory b.NUMAResource.memfree))
       ~vcpus:(max 0 (a.vcpus - CPUSet.cardinal b.NUMAResource.affinity))
+      ~cores:(max 0 (a.cores - b.NUMAResource.cores))
 
   let pp_dump =
     Fmt.(
@@ -80,6 +95,7 @@ module NUMARequest = struct
         [
           Dump.field "memory" (fun t -> t.memory) int64
         ; Dump.field "vcpus" (fun t -> t.vcpus) int
+        ; Dump.field "cores" (fun t -> t.cores) int
         ]
     )
 end
@@ -134,6 +150,7 @@ module NUMA = struct
       distances: int array array
     ; cpu_to_node: node array
     ; node_cpus: CPUSet.t array
+    ; node_cores: int array
     ; all: CPUSet.t
     ; node_usage: int array
           (** Usage across nodes is meant to be balanced when choosing candidates for a VM *)
@@ -203,7 +220,7 @@ module NUMA = struct
     |> seq_sort ~cmp:dist_cmp
     |> Seq.map (fun ((_, avg), nodes) -> (avg, Seq.map (fun n -> Node n) nodes))
 
-  let make ~distances ~cpu_to_node =
+  let make ~distances ~cpu_to_node ~node_cores =
     let ( let* ) = Option.bind in
     let node_cpus = Array.map (fun _ -> CPUSet.empty) distances in
 
@@ -256,6 +273,7 @@ module NUMA = struct
         distances
       ; cpu_to_node= Array.map node_of_int cpu_to_node
       ; node_cpus
+      ; node_cores
       ; all
       ; node_usage= Array.map (fun _ -> 0) distances
       ; candidates
@@ -264,6 +282,8 @@ module NUMA = struct
   let distance t (Node a) (Node b) = t.distances.(a).(b)
 
   let cpuset_of_node t (Node i) = t.node_cpus.(i)
+
+  let coreset_of_node t (Node i) = t.node_cores.(i)
 
   let node_of_cpu t i = t.cpu_to_node.(i)
 
@@ -278,8 +298,8 @@ module NUMA = struct
     {t with node_cpus; all}
 
   let resource t node ~memory =
-    let affinity = cpuset_of_node t node in
-    NUMAResource.make ~affinity ~memfree:memory
+    let affinity = cpuset_of_node t node and cores = coreset_of_node t node in
+    NUMAResource.make ~affinity ~cores ~memfree:memory
 
   let candidates t = t.candidates
 
@@ -316,6 +336,7 @@ module NUMA = struct
         ; Dump.field "node_cpus"
             (fun t -> t.node_cpus)
             (Dump.array CPUSet.pp_dump)
+        ; Dump.field "node_cores" (fun t -> t.node_cores) (Dump.array int)
         ]
     )
 end

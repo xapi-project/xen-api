@@ -492,8 +492,12 @@ module Host = struct
     | Best_effort
         (** Best-effort placement. Assigns the memory of the VM to a single
             node, and soft-pins its VCPUs to the node, if possible. Otherwise
-            behaves like Any. *)
+            behaves like Any.
+            The node(s) need to have enough cores to run all the vCPUs of the VM
+            *)
     | Best_effort_hard  (** Like Best_effort, but hard-pins the VCPUs *)
+    | Prio_mem_only
+        (** Prioritizes reducing memory bandwidth, ignores CPU overload *)
   [@@deriving rpcty]
 
   type numa_affinity_policy_opt = numa_affinity_policy option [@@deriving rpcty]
@@ -850,6 +854,10 @@ module XenopsAPI (R : RPC) = struct
       let disk_p = Param.mk ~name:"suspend_vdi" disk in
       declare "VM.resume" []
         (debug_info_p @-> vm_id_p @-> disk_p @-> returning task_id_p err)
+
+    let fast_resume =
+      declare "VM.fast_resume" []
+        (debug_info_p @-> vm_id_p @-> returning task_id_p err)
 
     let s3suspend =
       declare "VM.s3suspend" []
