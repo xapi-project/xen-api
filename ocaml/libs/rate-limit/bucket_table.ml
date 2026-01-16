@@ -12,6 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module D = Debug.Make (struct let name = "bucket_table" end)
+
+module Make (Key : Map.OrderedType) = struct
 type rate_limit_data = {
     bucket: Token_bucket.t
   ; process_queue:
@@ -21,21 +24,18 @@ type rate_limit_data = {
   ; should_terminate: bool ref (* signal termination to worker thread *)
   ; worker_thread: Thread.t
 }
-[@@warning "-69"]
 
-module StringMap = Map.Make (String)
+  module KeyMap = Map.Make (Key)
 
-module D = Debug.Make (struct let name = "bucket_table" end)
-
-type t = rate_limit_data StringMap.t Atomic.t
+  type t = rate_limit_data KeyMap.t Atomic.t
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-let create () = Atomic.make StringMap.empty
+  let create () = Atomic.make KeyMap.empty
 
-let mem t ~user_agent =
+let mem t ~client_id =
   let map = Atomic.get t in
-  StringMap.mem user_agent map
+  KeyMap.mem client_id map
 
 (* The worker thread is responsible for calling the callback when the token
    amount becomes available *)
@@ -63,10 +63,10 @@ let rec worker_loop ~bucket ~process_queue ~process_queue_lock
         ~should_terminate
 
 (* TODO: Indicate failure reason - did we get invalid config or try to add an
-   already present user_agent? *)
-let add_bucket t ~user_agent ~burst_size ~fill_rate =
+   already present client_id? *)
+let add_bucket t ~client_id ~burst_size ~fill_rate =
   let map = Atomic.get t in
-  if StringMap.mem user_agent map then
+  if KeyMap.mem client_id map then
     false
   else
     match Token_bucket.create ~burst_size ~fill_rate with
@@ -93,14 +93,14 @@ let add_bucket t ~user_agent ~burst_size ~fill_rate =
           ; worker_thread
           }
         in
-        let updated_map = StringMap.add user_agent data map in
+        let updated_map = KeyMap.add client_id data map in
         Atomic.set t updated_map ; true
     | None ->
         false
 
-let delete_bucket t ~user_agent =
+let delete_bucket t ~client_id =
   let map = Atomic.get t in
-  match StringMap.find_opt user_agent map with
+  match KeyMap.find_opt client_id map with
   | None ->
       ()
   | Some data ->
@@ -108,29 +108,30 @@ let delete_bucket t ~user_agent =
           data.should_terminate := true ;
           Condition.signal data.worker_thread_cond
       ) ;
-      Atomic.set t (StringMap.remove user_agent map)
+      Thread.join data.worker_thread ;
+      Atomic.set t (KeyMap.remove client_id map)
 
-let try_consume t ~user_agent amount =
+let try_consume t ~client_id amount =
   let map = Atomic.get t in
-  match StringMap.find_opt user_agent map with
+  match KeyMap.find_opt client_id map with
   | None ->
       false
   | Some data ->
       Token_bucket.consume data.bucket amount
 
-let peek t ~user_agent =
+let peek t ~client_id =
   let map = Atomic.get t in
   Option.map
     (fun contents -> Token_bucket.peek contents.bucket)
-    (StringMap.find_opt user_agent map)
+    (KeyMap.find_opt client_id map)
 
 (* The callback should return quickly - if it is a longer task it is
    responsible for creating a thread to do the task *)
-let submit t ~user_agent ~callback amount =
+let submit t ~client_id ~callback amount =
   let map = Atomic.get t in
-  match StringMap.find_opt user_agent map with
+  match KeyMap.find_opt client_id map with
   | None ->
-      D.debug "Found no rate limited user_agent for %s, returning" user_agent ;
+      D.debug "Found no rate limited client_id, returning" ;
       callback ()
   | Some {bucket; process_queue; process_queue_lock; worker_thread_cond; _} ->
       let run_immediately =
@@ -147,9 +148,9 @@ let submit t ~user_agent ~callback amount =
       if run_immediately then callback ()
 
 (* Block and execute on the same thread *)
-let submit_sync t ~user_agent ~callback amount =
+let submit_sync t ~client_id ~callback amount =
   let map = Atomic.get t in
-  match StringMap.find_opt user_agent map with
+  match KeyMap.find_opt client_id map with
   | None ->
       callback ()
   | Some bucket_data -> (
@@ -177,3 +178,4 @@ let submit_sync t ~user_agent ~callback amount =
           Event.sync (Event.receive channel) ;
           callback ()
     )
+end

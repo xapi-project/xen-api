@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val bucket_table : Rate_limit.Bucket_table.t
+module Bucket_table : module type of Rate_limit.Bucket_table.Make (String)
+
+val bucket_table : Bucket_table.t
 
 val get_token_cost : string -> float
 
