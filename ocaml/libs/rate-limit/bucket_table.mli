@@ -12,40 +12,43 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Hash table mapping client identifiers to their token buckets for rate limiting. *)
-type t
+(** Functor to create a bucket table with a custom key type. *)
+module Make (Key : Map.OrderedType) : sig
+  (** Hash table mapping keys to their token buckets for rate limiting. *)
+  type t
 
-val create : unit -> t
-(** [create ()] creates a new empty bucket table. *)
+  val create : unit -> t
+  (** [create ()] creates a new empty bucket table. *)
 
-val add_bucket :
-  t -> user_agent:string -> burst_size:float -> fill_rate:float -> bool
-(** [add_bucket table ~user_agent ~burst_size ~fill_rate] adds a token bucket
-    for the given user agent. Returns [false] if a bucket already exists, or if
-    the bucket configuration is invalid, e.g. negative/zero fill rate. *)
+  val add_bucket :
+    t -> client_id:Key.t -> burst_size:float -> fill_rate:float -> bool
+  (** [add_bucket table ~client_id ~burst_size ~fill_rate] adds a token bucket
+      for the given client_id. Returns [false] if a bucket already exists, or if
+      the bucket configuration is invalid, e.g. negative/zero fill rate. *)
 
-val mem : t -> user_agent:string -> bool
-(** [mem table ~user_agent] returns whether [user_agent] has an associated
-    token bucket in the bucket table *)
+  val mem : t -> client_id:Key.t -> bool
+  (** [mem table ~client_id] returns whether [client_id] has an associated
+      token bucket in the bucket table *)
 
-val peek : t -> user_agent:string -> float option
-(** [peek table ~user_agent] returns the current token count for the user agent,
-    or [None] if no bucket exists. *)
+  val peek : t -> client_id:Key.t -> float option
+  (** [peek table ~client_id] returns the current token count for the client_id,
+      or [None] if no bucket exists. *)
 
-val delete_bucket : t -> user_agent:string -> unit
-(** [delete_bucket table ~user_agent] removes the bucket for the user agent. *)
+  val delete_bucket : t -> client_id:Key.t -> unit
+  (** [delete_bucket table ~client_id] removes the bucket for the client_id. *)
 
-val try_consume : t -> user_agent:string -> float -> bool
-(** [try_consume table ~user_agent amount] attempts to consume tokens.
-    Returns [true] on success, [false] if insufficient tokens. *)
+  val try_consume : t -> client_id:Key.t -> float -> bool
+  (** [try_consume table ~client_id amount] attempts to consume tokens.
+      Returns [true] on success, [false] if insufficient tokens. *)
 
-val submit : t -> user_agent:string -> callback:(unit -> unit) -> float -> unit
-(** [submit table ~user_agent ~callback amount] submits a callback to be executed
-    under rate limiting. If tokens are immediately available and no callbacks are
-    queued, the callback runs synchronously. Otherwise, it is enqueued and will
-    be executed by a worker thread when tokens become available. Returns immediately. *)
+  val submit : t -> client_id:Key.t -> callback:(unit -> unit) -> float -> unit
+  (** [submit table ~client_id ~callback amount] submits a callback to be executed
+      under rate limiting. If tokens are immediately available and no callbacks are
+      queued, the callback runs synchronously. Otherwise, it is enqueued and will
+      be executed by a worker thread when tokens become available. Returns immediately. *)
 
-val submit_sync : t -> user_agent:string -> callback:(unit -> 'a) -> float -> 'a
-(** [submit_sync table ~user_agent ~callback amount] submits a callback to be
-    executed under rate limiting and blocks until it completes, returning the
-    callback's result. *)
+  val submit_sync : t -> client_id:Key.t -> callback:(unit -> 'a) -> float -> 'a
+  (** [submit_sync table ~client_id ~callback amount] submits a callback to be
+      executed under rate limiting and blocks until it completes, returning the
+      callback's result. *)
+end
