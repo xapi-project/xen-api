@@ -46,29 +46,16 @@ namespace XenAPI
         public const int STANDARD_TIMEOUT = 24 * 60 * 60 * 1000;
 
         /// <summary>
-        /// This string is used as the HTTP UserAgent for each request.
+        /// The default HTTP UserAgent for each request.
         /// </summary>
-        public static string UserAgent = $"XenAPI/{Helper.APIVersionString(API_Version.LATEST)}";
-
-        /// <summary>
-        /// If null, no proxy is used, otherwise this proxy is used for each request.
-        /// </summary>
-        public static IWebProxy Proxy = null;
-
-        public API_Version APIVersion = API_Version.UNKNOWN;
-
-        public object Tag;
+        public static readonly string DefaultUserAgent = $"XenAPI/{Helper.APIVersionString(API_Version.LATEST)}";
 
         #region Constructors
 
+        /// <exception cref="ArgumentNullException">Thrown if 'client' is null</exception>
         public Session(JsonRpcClient client)
         {
-            client.Timeout = STANDARD_TIMEOUT;
-            client.KeepAlive = true;
-            client.UserAgent = UserAgent;
-            client.WebProxy = Proxy;
-            client.AllowAutoRedirect = true;
-            JsonRpcClient = client;
+            JsonRpcClient = client ?? throw new ArgumentNullException(nameof(client));
         }
 
         public Session(string url) :
@@ -231,6 +218,19 @@ namespace XenAPI
         #region Properties
 
         /// <summary>
+        /// The WebProxy to use for each HTTP request.
+        /// </summary>
+        public IWebProxy Proxy
+        {
+            get => JsonRpcClient.WebProxy;
+            set => JsonRpcClient.WebProxy = value;
+        }
+
+        public API_Version APIVersion { get; private set;  } = API_Version.UNKNOWN;
+
+        public object Tag { get; set; }
+
+        /// <summary>
         /// Retrieves the current users details from the UserDetails map. These values are only updated when a new session is created.
         /// </summary>
         public virtual UserDetails CurrentUserDetails => UserSid == null ? null : UserDetails.Sid_To_UserDetails[UserSid];
@@ -239,15 +239,24 @@ namespace XenAPI
 
         public string Url => JsonRpcClient.Url;
 
+        /// <summary>
+        /// The UserAgent to use for each HTTP request. If set to null or empty the DefaultUserAgent will be used.
+        /// </summary>
+        public string UserAgent
+        {
+            get => JsonRpcClient.UserAgent;
+            set => JsonRpcClient.UserAgent = value;
+        }
+
         public string ConnectionGroupName
         {
-            get => JsonRpcClient?.ConnectionGroupName;
+            get => JsonRpcClient.ConnectionGroupName;
             set => JsonRpcClient.ConnectionGroupName = value;
         }
 
         public int Timeout
         {
-            get => JsonRpcClient?.Timeout ?? STANDARD_TIMEOUT;
+            get => JsonRpcClient.Timeout;
             set => JsonRpcClient.Timeout = value;
         }
 

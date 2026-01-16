@@ -163,6 +163,7 @@ namespace XenAPI
     public partial class JsonRpcClient
     {
         private int _globalId;
+        private string _userAgent;
 
 #if (NET8_0_OR_GREATER)
         private static readonly Type ClassType = typeof(JsonRpcClient);
@@ -205,6 +206,10 @@ namespace XenAPI
             Url = baseUrl;
             JsonRpcUrl = new Uri(new Uri(baseUrl), "/jsonrpc").ToString();
             JsonRpcVersion = JsonRpcVersion.v1;
+            Timeout = Session.STANDARD_TIMEOUT;
+            UserAgent = Session.DefaultUserAgent;
+            KeepAlive = true;
+            AllowAutoRedirect = true;
         }
 
         /// <summary>
@@ -215,7 +220,11 @@ namespace XenAPI
         public event Action<string> RequestEvent;
 
         public JsonRpcVersion JsonRpcVersion { get; set; }
-        public string UserAgent { get; set; }
+        public string UserAgent
+        {
+            get => _userAgent;
+            set => _userAgent = string.IsNullOrEmpty(value) ? Session.DefaultUserAgent : value;
+        }
         public bool KeepAlive { get; set; }
         public IWebProxy WebProxy { get; set; }
         public int Timeout { get; set; }
