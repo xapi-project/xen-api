@@ -227,9 +227,9 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
     let proxy_config =
       match use_proxy with true -> get_proxy_params ~__context | false -> []
     in
-    let write_initial_yum_config ?(proxy_config = proxy_config) ~binary_url () =
+    let write_initial_yum_config ~proxy_config ~binary_url =
       write_yum_config ~proxy_config ~source_url ~binary_url ~repo_gpgcheck:true
-        ~gpgkey_path ~repo_name ()
+        ~gpgkey_path ~repo_name
     in
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
@@ -258,9 +258,8 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
 
         with_sync_client_auth client_auth @@ fun client_auth ->
         with_sync_server_auth server_auth @@ fun binary_url' ->
-        write_initial_yum_config
-          ~binary_url:(Option.value binary_url' ~default:binary_url)
-          () ;
+        write_initial_yum_config ~proxy_config
+          ~binary_url:(Option.value binary_url' ~default:binary_url) ;
         clean_yum_cache repo_name ;
         (* Remove imported YUM repository GPG key *)
         if Pkgs.manager = Yum then
@@ -294,7 +293,7 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
         match Pkgs.manager with
         | Yum ->
             (* Write clean config without proxy credentials *)
-            write_initial_yum_config ~proxy_config:[] ~binary_url ()
+            write_initial_yum_config ~proxy_config:[] ~binary_url
         | Dnf ->
             Unixext.unlink_safe !Xapi_globs.dnf_repo_config_file
       ) ;

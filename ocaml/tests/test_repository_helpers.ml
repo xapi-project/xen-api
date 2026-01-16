@@ -346,8 +346,8 @@ module WriteYumConfig = Generic.MakeStateless (struct
     let gpgkey_path' = Option.value ~default:"" name in
     try
       (* The path of file which will be written by write_yum_config *)
-      write_yum_config ~source_url ~binary_url ~repo_gpgcheck:true
-        ~gpgkey_path:gpgkey_path' ~repo_name () ;
+      write_yum_config ~proxy_config:[] ~source_url ~binary_url
+        ~repo_gpgcheck:true ~gpgkey_path:gpgkey_path' ~repo_name ;
       let in_ch = open_in repo_file_path in
       let content = read_from_in_channel "" in_ch in
       close_in in_ch ; finally () ; Ok content
