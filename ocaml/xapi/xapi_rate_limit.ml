@@ -13,17 +13,35 @@
  *)
 module D = Debug.Make (struct let name = "xapi_rate_limit" end)
 
-module Bucket_table = Rate_limit.Bucket_table.Make (String)
+module Client_id = struct
+  type t = {user_agent: string; host_ip: string}
+
+  let compare a b =
+    match String.compare a.user_agent b.user_agent with
+    | 0 ->
+        String.compare a.host_ip b.host_ip
+    | n ->
+        n
+end
+
+module Bucket_table = Rate_limit.Bucket_table.Make (Client_id)
 
 let bucket_table = Bucket_table.create ()
 
-let create ~__context ~client_id ~burst_size ~fill_rate =
+let create ~__context ~user_agent ~host_ip ~burst_size ~fill_rate =
+  if user_agent = "" && host_ip = "" then
+    raise
+      Api_errors.(
+        Server_error
+          (invalid_value, ["Expected user_agent or host_ip to be nonempty"])
+      ) ;
+  let client_id = Client_id.{user_agent; host_ip} in
   if Bucket_table.mem bucket_table ~client_id then
     raise
       Api_errors.(
         Server_error
           ( map_duplicate_key
-          , ["user_agent"; client_id; "user_agent already registered"]
+          , ["user_agent"; user_agent; "user_agent already registered"]
           )
       ) ;
   let uuid = Uuidx.make () in
@@ -34,7 +52,7 @@ let create ~__context ~client_id ~burst_size ~fill_rate =
   match add_bucket_succeeded with
   | true ->
       Db.Rate_limit.create ~__context ~ref ~uuid:(Uuidx.to_string uuid)
-        ~client_id ~burst_size ~fill_rate ;
+        ~user_agent ~host_ip ~burst_size ~fill_rate ;
       ref
   | false ->
       raise
@@ -51,16 +69,29 @@ let create ~__context ~client_id ~burst_size ~fill_rate =
 
 let destroy ~__context ~self =
   let record = Db.Rate_limit.get_record ~__context ~self in
-  Bucket_table.delete_bucket bucket_table ~client_id:record.rate_limit_client_id ;
+  let client_id =
+    Client_id.
+      {
+        user_agent= record.rate_limit_user_agent
+      ; host_ip= record.rate_limit_host_ip
+      }
+  in
+  Bucket_table.delete_bucket bucket_table ~client_id ;
   Db.Rate_limit.destroy ~__context ~self
 
 let register ~__context =
   List.iter
     (fun (_, bucket) ->
+      let client_id =
+        Client_id.
+          {
+            user_agent= bucket.API.rate_limit_user_agent
+          ; host_ip= bucket.API.rate_limit_host_ip
+          }
+      in
       ignore
-        (Bucket_table.add_bucket bucket_table
+        (Bucket_table.add_bucket bucket_table ~client_id
            ~fill_rate:bucket.API.rate_limit_fill_rate
-           ~client_id:bucket.API.rate_limit_client_id
            ~burst_size:bucket.API.rate_limit_burst_size
         )
     )

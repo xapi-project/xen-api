@@ -12,7 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Bucket_table : module type of Rate_limit.Bucket_table.Make (String)
+module Client_id : sig
+  type t = {user_agent: string; host_ip: string}
+
+  val compare : t -> t -> int
+end
+
+module Bucket_table : module type of Rate_limit.Bucket_table.Make (Client_id)
 
 val bucket_table : Bucket_table.t
 
@@ -22,7 +28,8 @@ val median_token_cost : float
 
 val create :
      __context:Context.t
-  -> client_id:string
+  -> user_agent:string
+  -> host_ip:string
   -> burst_size:float
   -> fill_rate:float
   -> [`Rate_limit] Ref.t
