@@ -273,8 +273,8 @@ let test_consume_quickcheck =
       \  Time: %d ns (delta: %d ns)\n\
       \  Expected tokens: %.3f (current: %.3f + added: %.3f)\n\
       \  Actual tokens: %.3f\n\
-      \  Diff: %.6f" op_num time_ns time_delta expected current added actual
-      diff
+      \  Diff: %.6f"
+      op_num time_ns time_delta expected current added actual diff
   in
 
   let fail_consume op_num time_ns time_delta amount available success expected
@@ -287,8 +287,8 @@ let test_consume_quickcheck =
       \  Success: %b\n\
       \  Expected after: %.3f\n\
       \  Actual after: %.3f\n\
-      \  Diff: %.6f" op_num time_ns time_delta amount available success expected
-      actual diff
+      \  Diff: %.6f"
+      op_num time_ns time_delta amount available success expected actual diff
   in
 
   let property (burst_size, fill_rate, operations) =
@@ -362,9 +362,9 @@ let test_consume_quickcheck =
         let ops_str =
           ops
           |> List.mapi (fun i (amount, delta) ->
-                 Printf.sprintf "    Op %d: consume %.3f at +%d ns" (i + 1)
-                   amount delta
-             )
+              Printf.sprintf "    Op %d: consume %.3f at +%d ns" (i + 1) amount
+                delta
+          )
           |> String.concat "\n"
         in
         Printf.sprintf "burst_size=%.3f, fill_rate=%.3f, %d operations:\n%s"
