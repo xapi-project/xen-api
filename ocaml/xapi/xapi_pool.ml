@@ -2037,7 +2037,7 @@ let eject_self ~__context ~host =
     (* disable the external authentication of this slave being ejected *)
     (* this call will return an exception if something goes wrong *)
     Xapi_host.disable_external_auth_common ~during_pool_eject:true ~__context
-      ~host ~config:[] () ;
+      ~host ~config:[] ~force:false () ;
 
     (* FIXME: in the future, we should send the windows AD admin/pass here *)
     (* in order to remove the slave from the AD database during pool-eject *)
@@ -2973,7 +2973,7 @@ let enable_external_auth ~__context ~pool:_ ~config ~service_name ~auth_type =
                     (* best-effort attempt to disable all enabled hosts, swallowing any exceptions *)
                     try
                       call_fn_on_host ~__context
-                        (Client.Host.disable_external_auth ~config)
+                        (Client.Host.disable_external_auth ~config ~force:false)
                         host
                     with e ->
                       debug
@@ -3041,7 +3041,7 @@ let disable_external_auth ~__context ~pool:_ ~config =
             (* forward the call to the host in the pool *)
             try
               call_fn_on_host ~__context
-                (Client.Host.disable_external_auth ~config)
+                (Client.Host.disable_external_auth ~config ~force:false)
                 host ;
               (* no failed host to add to the filtered list, just visit next host *)
               (host, "", "")

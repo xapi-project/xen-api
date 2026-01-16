@@ -361,6 +361,7 @@ val disable_external_auth_common :
   -> __context:Context.t
   -> host:API.ref_host
   -> config:(string * string) list
+  -> force:bool
   -> unit
   -> unit
 
@@ -368,6 +369,7 @@ val disable_external_auth :
      __context:Context.t
   -> host:API.ref_host
   -> config:(string * string) list
+  -> force:bool
   -> unit
 
 (** {2 Static VDIs} *)
