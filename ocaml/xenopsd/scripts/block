@@ -15,6 +15,25 @@ syslog ()
 	logger -tscripts-block "$*"
 }
 
+wait_tapback_ready()
+{
+	local statefile="/var/run/tapback.${DOMID}.statefile"
+	while true; do
+		if [[ -f "$statefile" ]]; then
+			content=$(cat "$statefile")
+			if [[ "$content" == *"ping"* ]]; then
+				syslog "${XENBUS_PATH}: tapback ready"
+				break
+			fi
+		fi
+		syslog "${XENBUS_PATH}: tapback not ready"
+		sleep 1
+	done
+	syslog "${XENBUS_PATH}: signal tapback to continue"
+	echo -n "pong" > "$statefile.tmp"
+	mv "$statefile.tmp" "$statefile"
+}
+
 case "$1" in
 add)
 	if [ "$XENBUS_PREFIX" = "" ]; then
@@ -27,6 +46,8 @@ add)
 		if [ "$TYPE" != "9pfs" ]; then
 			if [[ $params =~ nbd:unix:([^:]*) ]]
 			then
+				# tapback slave process should be ready to process xenstore watch event
+				wait_tapback_ready
 				physical_device_path=$(readlink -f ${BASH_REMATCH[1]})
 				syslog "${XENBUS_PATH}: physical-device-path=${physical_device_path}"
 				xenstore-exists "${XENBUS_PATH}/physical-device-path"
