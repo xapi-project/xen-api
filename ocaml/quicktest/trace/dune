@@ -12,4 +12,6 @@
     pbrt
     ptime
     threads.posix
+    unix
+    backtrace
    ))
