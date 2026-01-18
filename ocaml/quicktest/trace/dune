@@ -1,0 +1,14 @@
+(library
+  (name quicktest_trace)
+  (modules_without_implementation sampling)
+  (libraries
+    ambient-context
+    fmt
+    logs
+    mtime
+    (re_export opentelemetry)
+    (re_export opentelemetry.proto)
+    pbrt
+    ptime
+    threads.posix
+   ))
