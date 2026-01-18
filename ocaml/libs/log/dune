@@ -5,6 +5,7 @@
    (language c)
    (names syslog_stubs))
  (libraries
+   ambient-context.thread_local
    astring
    fmt
    mtime
