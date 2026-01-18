@@ -5,6 +5,7 @@
     ambient-context
     fmt
     logs
+    logs.fmt
     mtime
     mtime.clock.os
     (re_export opentelemetry)
@@ -12,5 +13,6 @@
     pbrt
     ptime
     threads.posix
+    unix
     xapi-backtrace
    ))
