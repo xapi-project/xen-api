@@ -12,4 +12,5 @@
     pbrt
     ptime
     threads.posix
+    xapi-backtrace
    ))
