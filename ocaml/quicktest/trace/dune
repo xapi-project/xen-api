@@ -6,6 +6,7 @@
     fmt
     logs
     mtime
+    mtime.clock.os
     (re_export opentelemetry)
     (re_export opentelemetry.proto)
     pbrt
