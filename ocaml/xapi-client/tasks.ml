@@ -23,7 +23,8 @@ module TaskSet = Set.Make (struct
 end)
 
 (* Return once none of the tasks have a `pending status. *)
-let wait_for_all_inner ~rpc ~session_id ~all_timeout ~tasks ~callback =
+let wait_for_all_inner ~rpc ~session_id ~all_timeout ~tasks ~callback
+    ~on_progress =
   let classes =
     List.map (fun task -> Printf.sprintf "task/%s" (Ref.string_of task)) tasks
   in
@@ -68,6 +69,7 @@ let wait_for_all_inner ~rpc ~session_id ~all_timeout ~tasks ~callback =
               (fun (task_set', completed_task_count, _) record ->
                 match record with
                 | Event_helper.Task (t, Some t_rec) ->
+                    on_progress t completed_task_count t_rec.API.task_progress ;
                     if
                       TaskSet.mem t task_set'
                       && t_rec.API.task_status <> `pending
@@ -107,12 +109,19 @@ let wait_for_all_inner ~rpc ~session_id ~all_timeout ~tasks ~callback =
 
 let wait_for_all ~rpc ~session_id ~tasks =
   wait_for_all_inner ~rpc ~session_id ~all_timeout:None ~tasks
-    ~callback:(fun _ _ -> []
-  )
+    ~callback:(fun _ _ -> [])
+    ~on_progress:(fun _ _ _ -> ())
   |> ignore
 
 let wait_for_all_with_callback ~rpc ~session_id ~tasks ~callback =
   wait_for_all_inner ~rpc ~session_id ~all_timeout:None ~tasks ~callback
+    ~on_progress:(fun _ _ _ -> ()
+  )
+  |> ignore
+
+let wait_for_all_with_progress ~rpc ~session_id ~tasks ~callback ~on_progress =
+  wait_for_all_inner ~rpc ~session_id ~all_timeout:None ~tasks ~callback
+    ~on_progress
   |> ignore
 
 let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
@@ -121,8 +130,8 @@ let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
     if
       not
         (wait_for_all_inner ~rpc ~session_id ~all_timeout:(Some timeout) ~tasks
-           ~callback:(fun _ _ -> []
-         )
+           ~callback:(fun _ _ -> [])
+           ~on_progress:(fun _ _ _ -> ())
         )
     then (
       D.info "Canceling tasks" ;
@@ -134,8 +143,8 @@ let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
         tasks ;
       (* cancel is not immediate, give it a reasonable chance to take effect *)
       wait_for_all_inner ~rpc ~session_id ~all_timeout:(Some 60.) ~tasks
-        ~callback:(fun _ _ -> []
-      )
+        ~callback:(fun _ _ -> [])
+        ~on_progress:(fun _ _ _ -> ())
       |> ignore ;
       false
     ) else
