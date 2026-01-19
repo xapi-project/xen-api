@@ -14,14 +14,14 @@ runs:
     - name: Pull configuration from xs-opam
       shell: bash
       run: |
-        curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+        curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/6.99-lcm/tools/xs-opam-ci.env | cut -f2 -d " " > .env
         cat /etc/os-release
 
     - name: Download XE_SR_ERRORCODES.xml
       shell: bash
       run: |
         mkdir -p /opt/xensource/sm
-        wget -O /opt/xensource/sm/XE_SR_ERRORCODES.xml https://raw.githubusercontent.com/xapi-project/sm/master/libs/sm/core/XE_SR_ERRORCODES.xml
+        wget -O /opt/xensource/sm/XE_SR_ERRORCODES.xml https://raw.githubusercontent.com/xapi-project/sm/v4.1.9/libs/sm/core/XE_SR_ERRORCODES.xml
 
     - name: Load environment file
       id: dotenv

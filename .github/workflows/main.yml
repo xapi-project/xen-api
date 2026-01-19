@@ -27,13 +27,6 @@ jobs:
         runs-on: ["ubuntu-22.04"]
         ocaml-version: ["4.14.2"]
         experimental: [false]
-        include:
-        - runs-on: "ubuntu-22.04-arm"
-          ocaml-version: "4.14.2"
-          experimental: true
-        - runs-on: "ubuntu-22.04"
-          ocaml-version: "5.3.0"
-          experimental: true
 
     continue-on-error: ${{ matrix.experimental }}
     runs-on: ${{ matrix.runs-on }}
