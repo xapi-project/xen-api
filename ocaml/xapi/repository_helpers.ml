@@ -310,8 +310,8 @@ let remove_repo_conf_file repo_name =
   in
   Unixext.unlink_safe path
 
-let write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
-    ~repo_name =
+let write_yum_config ~proxy_config ~source_url ~binary_url ~repo_gpgcheck
+    ~gpgkey_path ~repo_name =
   let file_path =
     Filename.concat !Xapi_globs.yum_repos_config_dir (repo_name ^ ".repo")
   in
@@ -344,6 +344,7 @@ let write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
     ; opt_gpgcheck
     ; opt_gpgkey
     ]
+    @ proxy_config
   in
   let content_of_source =
     match source_url with
@@ -445,8 +446,8 @@ let with_local_repositories ~__context f =
                   s
             in
             remove_repo_conf_file repo_name ;
-            write_yum_config ~source_url:None ~binary_url ~repo_gpgcheck:false
-              ~gpgkey_path ~repo_name ;
+            write_yum_config ~proxy_config:[] ~source_url:None ~binary_url
+              ~repo_gpgcheck:false ~gpgkey_path ~repo_name ;
             clean_yum_cache repo_name ;
             let Pkg_mgr.{cmd; params} =
               [
