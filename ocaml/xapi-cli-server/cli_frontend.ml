@@ -3871,12 +3871,13 @@ let rec cmdtable_data : (string * cmd_spec) list =
     )
   ; ( "rate-limit-create"
     , {
-        reqd= ["client-id"; "burst-size"; "fill-rate"]
-      ; optn= []
+        reqd= ["burst-size"; "fill-rate"]
+      ; optn= ["user-agent"; "host-ip"]
       ; help=
-          "Add a rate limit to a XAPI client, by specifying fill rate \
-           (requests per second) and burst size (maximum number of requests at \
-           once)"
+          "Add rate limiting to an XAPI client by identifying it via user \
+           agent, IP address, or both, and by configuring a refill rate \
+           (requests per second) and a burst size (maximum number of \
+           concurrent requests)."
       ; implementation= No_fd Cli_operations.Rate_limit.create
       ; flags= []
       }
