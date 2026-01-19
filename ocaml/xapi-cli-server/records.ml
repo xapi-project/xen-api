@@ -6054,8 +6054,11 @@ let rate_limit_record rpc session_id rate_limit =
   ; fields=
       [
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.rate_limit_uuid) ()
-      ; make_field ~name:"client-id"
+      ; make_field ~name:"user-agent"
           ~get:(fun () -> (x ()).API.rate_limit_user_agent)
+          ()
+      ; make_field ~name:"host-ip"
+          ~get:(fun () -> (x ()).API.rate_limit_host_ip)
           ()
       ; make_field ~name:"burst-size"
           ~get:(fun () -> string_of_float (x ()).API.rate_limit_burst_size)

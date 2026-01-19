@@ -1411,7 +1411,7 @@ let gen_cmds rpc session_id =
       )
     ; Client.Rate_limit.(
         mk get_all_records_where get_by_uuid rate_limit_record "rate-limit" []
-          ["uuid"; "client-id"; "burst-size"; "fill-rate"]
+          ["uuid"; "host-ip"; "user-agent"; "burst-size"; "fill-rate"]
           rpc session_id
       )
     ]
@@ -8283,12 +8283,18 @@ end
 
 module Rate_limit = struct
   let create printer rpc session_id params =
-    let client_id = List.assoc "client-id" params in
+    let user_agent = get_param params "user-agent" ~default:"" in
+    let host_ip = get_param params "host-ip" ~default:"" in
+
+    if user_agent = "" && host_ip = "" then
+      failwith "Either user-agent or host-ip must be specified" ;
+
     let burst_size = float_of_string (List.assoc "burst-size" params) in
     let fill_rate = float_of_string (List.assoc "fill-rate" params) in
+
     let ref =
-      Client.Rate_limit.create ~rpc ~session_id ~user_agent:client_id
-        ~burst_size ~fill_rate ~host_ip:""
+      Client.Rate_limit.create ~rpc ~session_id ~user_agent ~host_ip ~burst_size
+        ~fill_rate
     in
     let uuid = Client.Rate_limit.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PMsg uuid)
