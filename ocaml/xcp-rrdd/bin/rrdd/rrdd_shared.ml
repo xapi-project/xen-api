@@ -121,13 +121,21 @@ let send_rrd ?(session_id : string option)
   debug "Sending RRD for object uuid=%s archiving=%b to address: %s" uuid
     to_archive
     (Xmlrpc_client.string_of_transport transport) ;
-  let arch_query = if to_archive then [("archive", "true")] else [] in
+  let arch_query =
+    if to_archive then
+      [("archive", "true")]
+    else
+      []
+  in
   let sid_query =
     match session_id with None -> [] | Some id -> [("session_id", id)]
   in
   let query = sid_query @ arch_query @ [("uuid", uuid)] in
   let cookie =
-    if sid_query = [] then [("pool_secret", get_pool_secret ())] else []
+    if sid_query = [] then
+      [("pool_secret", get_pool_secret ())]
+    else
+      []
   in
   let request =
     Http.Request.make ~user_agent:Rrdd_libs.Constants.rrdd_user_agent ~query

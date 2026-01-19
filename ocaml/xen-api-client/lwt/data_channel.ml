@@ -72,7 +72,12 @@ let of_seekable_fd fd =
   return {c with skip}
 
 let of_fd fd ~seekable =
-  (if seekable then of_seekable_fd else of_unseekable_fd) fd
+  ( if seekable then
+      of_seekable_fd
+    else
+      of_unseekable_fd
+  )
+    fd
 
 let sslctx =
   Ssl.init () ;

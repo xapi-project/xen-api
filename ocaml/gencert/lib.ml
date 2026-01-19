@@ -24,10 +24,10 @@ let validate_private_key pkcs8_private_key =
         if length < 2048 || length > 4096 then
           Error
             (`Msg
-              ( server_certificate_key_rsa_length_not_supported
-              , [Int.to_string length]
-              )
-              )
+               ( server_certificate_key_rsa_length_not_supported
+               , [Int.to_string length]
+               )
+            )
         else
           Ok (`RSA priv)
     | key ->
@@ -36,31 +36,31 @@ let validate_private_key pkcs8_private_key =
   in
   X509.Private_key.decode_pem pkcs8_private_key
   |> R.reword_error (fun (`Msg err_msg) ->
-         let unknown_algorithm = "Unknown algorithm " in
-         if Astring.String.is_prefix ~affix:"multi-prime RSA" err_msg then
-           `Msg (server_certificate_key_rsa_multi_not_supported, [])
-         else if Astring.String.is_prefix ~affix:unknown_algorithm err_msg then
-           `Msg
-             ( server_certificate_key_algorithm_not_supported
-             , [
-                 Astring.String.with_range
-                   ~first:(String.length unknown_algorithm)
-                   err_msg
-               ]
-             )
-         else (
-           D.info {|Failed to validate private key because "%s"|} err_msg ;
-           `Msg (server_certificate_key_invalid, [])
-         )
-     )
+      let unknown_algorithm = "Unknown algorithm " in
+      if Astring.String.is_prefix ~affix:"multi-prime RSA" err_msg then
+        `Msg (server_certificate_key_rsa_multi_not_supported, [])
+      else if Astring.String.is_prefix ~affix:unknown_algorithm err_msg then
+        `Msg
+          ( server_certificate_key_algorithm_not_supported
+          , [
+              Astring.String.with_range
+                ~first:(String.length unknown_algorithm)
+                err_msg
+            ]
+          )
+      else (
+        D.info {|Failed to validate private key because "%s"|} err_msg ;
+        `Msg (server_certificate_key_invalid, [])
+      )
+  )
   >>= ensure_rsa_key_length
 
 let decode_cert pem ~error_invalid =
   X509.Certificate.decode_pem pem
   |> R.reword_error (fun (`Msg err_msg) ->
-         D.info {|Failed to validate certificate because "%s"|} err_msg ;
-         `Msg (error_invalid, [])
-     )
+      D.info {|Failed to validate certificate because "%s"|} err_msg ;
+      `Msg (error_invalid, [])
+  )
 
 let assert_not_expired ~now certificate ~error_not_yet ~error_expired =
   let to_string = Ptime.to_rfc3339 ~tz_offset_s:0 in

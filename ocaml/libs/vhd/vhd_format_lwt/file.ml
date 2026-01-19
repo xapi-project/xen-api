@@ -18,10 +18,22 @@ external openfile_unbuffered : string -> bool -> int -> Unix.file_descr
   = "stub_openfile_direct"
 
 let openfile_buffered filename rw perm =
-  Unix.openfile filename [(if rw then Unix.O_RDWR else Unix.O_RDONLY)] perm
+  Unix.openfile filename
+    [
+      ( if rw then
+          Unix.O_RDWR
+        else
+          Unix.O_RDONLY
+      )
+    ]
+    perm
 
 let openfile filename rw perm =
-  (if !use_unbuffered then openfile_unbuffered else openfile_buffered)
+  ( if !use_unbuffered then
+      openfile_unbuffered
+    else
+      openfile_buffered
+  )
     filename rw perm
 
 external blkgetsize64 : string -> int64 = "stub_blkgetsize64"

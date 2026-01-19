@@ -111,7 +111,12 @@ let process_request conn_id queues session request trace =
       Traceext.get trace from timeout >>= fun events ->
       return (None, Out.Trace {Out.events})
   | _, In.Get path ->
-      let path = if path = [] || path = [""] then ["index.html"] else path in
+      let path =
+        if path = [] || path = [""] then
+          ["index.html"]
+        else
+          path
+      in
       Lwt_io.open_file ~mode:Lwt_io.input (String.concat "/" ("www" :: path))
       >>= fun ic ->
       Lwt_stream.to_string (Lwt_io.read_chars ic) >>= fun txt ->

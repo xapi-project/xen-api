@@ -40,33 +40,32 @@ let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
   assert_gpgkey_path_is_valid gpgkey_path ;
   Db.Repository.get_all ~__context
   |> List.iter (fun ref ->
-         if
-           name_label = Db.Repository.get_name_label ~__context ~self:ref
-           || binary_url = Db.Repository.get_binary_url ~__context ~self:ref
-         then
-           raise
-             Api_errors.(
-               Server_error (repository_already_exists, [Ref.string_of ref])
-             )
-     ) ;
+      if
+        name_label = Db.Repository.get_name_label ~__context ~self:ref
+        || binary_url = Db.Repository.get_binary_url ~__context ~self:ref
+      then
+        raise
+          Api_errors.(
+            Server_error (repository_already_exists, [Ref.string_of ref])
+          )
+  ) ;
   create_repository_record ~__context ~name_label ~name_description ~binary_url
     ~source_url ~update ~gpgkey_path ~origin:`remote ~certificate:""
 
 let introduce_bundle ~__context ~name_label ~name_description =
   Db.Repository.get_all ~__context
   |> List.iter (fun ref ->
-         if name_label = Db.Repository.get_name_label ~__context ~self:ref then
-           raise
-             Api_errors.(
-               Server_error (repository_already_exists, [Ref.string_of ref])
-             ) ;
-         if Db.Repository.get_origin ~__context ~self:ref = `bundle then
-           raise
-             Api_errors.(
-               Server_error
-                 (bundle_repository_already_exists, [Ref.string_of ref])
-             )
-     ) ;
+      if name_label = Db.Repository.get_name_label ~__context ~self:ref then
+        raise
+          Api_errors.(
+            Server_error (repository_already_exists, [Ref.string_of ref])
+          ) ;
+      if Db.Repository.get_origin ~__context ~self:ref = `bundle then
+        raise
+          Api_errors.(
+            Server_error (bundle_repository_already_exists, [Ref.string_of ref])
+          )
+  ) ;
   create_repository_record ~__context ~name_label ~name_description
     ~binary_url:"" ~source_url:"" ~update:true ~gpgkey_path:"" ~origin:`bundle
     ~certificate:""
@@ -76,15 +75,15 @@ let introduce_remote_pool ~__context ~name_label ~name_description ~binary_url
   assert_remote_pool_url_is_valid ~url:binary_url ;
   Db.Repository.get_all ~__context
   |> List.iter (fun ref ->
-         if
-           name_label = Db.Repository.get_name_label ~__context ~self:ref
-           || binary_url = Db.Repository.get_binary_url ~__context ~self:ref
-         then
-           raise
-             Api_errors.(
-               Server_error (repository_already_exists, [Ref.string_of ref])
-             )
-     ) ;
+      if
+        name_label = Db.Repository.get_name_label ~__context ~self:ref
+        || binary_url = Db.Repository.get_binary_url ~__context ~self:ref
+      then
+        raise
+          Api_errors.(
+            Server_error (repository_already_exists, [Ref.string_of ref])
+          )
+  ) ;
   create_repository_record ~__context ~name_label ~name_description ~binary_url
     ~source_url:"" ~update:true ~gpgkey_path:"" ~origin:`remote_pool
     ~certificate
@@ -107,11 +106,11 @@ let cleanup_all_pool_repositories () =
     let prefix = !Xapi_globs.remote_repository_prefix ^ "-" in
     Sys.readdir !Xapi_globs.yum_repos_config_dir
     |> Array.iter (fun file ->
-           let open Astring.String in
-           if is_prefix ~affix:prefix file && is_suffix ~affix:".repo" file then
-             let path = Filename.concat !Xapi_globs.yum_repos_config_dir file in
-             Unixext.unlink_safe path
-       ) ;
+        let open Astring.String in
+        if is_prefix ~affix:prefix file && is_suffix ~affix:".repo" file then
+          let path = Filename.concat !Xapi_globs.yum_repos_config_dir file in
+          Unixext.unlink_safe path
+    ) ;
     Xapi_stdext_unix.Unixext.rm_rec !Xapi_globs.local_pool_repo_dir
   with e ->
     error "Failed to clean up all pool repositories: %s"
@@ -746,18 +745,18 @@ let apply_livepatches' ~__context ~host ~livepatches =
 let update_cache ~host ~failed_livepatches =
   Hashtbl.replace updates_in_cache host
     (`Assoc
-      [
-        ("updates", `List [])
-      ; ("accumulative_updates", `List [])
-      ; ( "livepatches"
-        , `List
-            (List.map
-               (fun (lp, _) -> `String (LivePatch.to_string lp))
-               failed_livepatches
-            )
-        )
-      ]
-      )
+       [
+         ("updates", `List [])
+       ; ("accumulative_updates", `List [])
+       ; ( "livepatches"
+         , `List
+             (List.map
+                (fun (lp, _) -> `String (LivePatch.to_string lp))
+                failed_livepatches
+             )
+         )
+       ]
+    )
 
 let maybe_set_restart_for_all_vms ~__context ~updates_of_hosts =
   let open Guidance in
@@ -787,9 +786,9 @@ let maybe_set_restart_for_all_vms ~__context ~updates_of_hosts =
     let vms =
       Db.VM.get_all ~__context
       |> List.filter (fun self ->
-             Db.VM.get_power_state ~__context ~self <> `Halted
-             && not (Db.VM.get_is_control_domain ~__context ~self)
-         )
+          Db.VM.get_power_state ~__context ~self <> `Halted
+          && not (Db.VM.get_is_control_domain ~__context ~self)
+      )
     in
     (* fold each guidance kind from all hosts *)
     updates_of_hosts
@@ -803,11 +802,11 @@ let maybe_set_restart_for_all_vms ~__context ~updates_of_hosts =
          )
          []
     |> List.iter (fun kind ->
-           (* set RestartVM for all VMs if it is presented from at least one host *)
-           debug "add RestartVM for all VMs' pending %s guidance list"
-             (kind_to_string kind) ;
-           add_restart_to_vms ~__context ~vms ~kind |> ignore
-       )
+        (* set RestartVM for all VMs if it is presented from at least one host *)
+        debug "add RestartVM for all VMs' pending %s guidance list"
+          (kind_to_string kind) ;
+        add_restart_to_vms ~__context ~vms ~kind |> ignore
+    )
 
 let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
     =

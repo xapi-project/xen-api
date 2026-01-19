@@ -294,7 +294,10 @@ functor
           (fun name _ table acc ->
             Db_cache_types.Table.fold_over_recent g
               (fun r {Db_cache_types.Stat.created; _} _ acc ->
-                if created >= g then (name, r) :: acc else acc
+                if created >= g then
+                  (name, r) :: acc
+                else
+                  acc
               )
               table acc
           )
@@ -321,7 +324,10 @@ functor
           (fun _ _ table acc ->
             Db_cache_types.Table.fold_over_deleted g
               (fun r {Db_cache_types.Stat.deleted; _} acc ->
-                if deleted > g then r :: acc else acc
+                if deleted > g then
+                  r :: acc
+                else
+                  acc
               )
               table acc
           )
@@ -730,11 +736,9 @@ functor
           ()
       ) ;
       let xs = Client.read_records_where t "VM" Db_filter_types.True in
-      if List.length xs <> 1 then
-        failwith "read_records_where <valid table> 2" ;
+      if List.length xs <> 1 then failwith "read_records_where <valid table> 2" ;
       let xs = Client.read_records_where t "VM" Db_filter_types.False in
-      if xs <> [] then
-        failwith "read_records_where <valid table> 3" ;
+      if xs <> [] then failwith "read_records_where <valid table> 3" ;
       expect_missing_tbl "Vm" (fun () ->
           let _ = Client.find_refs_with_filter t "Vm" Db_filter_types.True in
           failwith "find_refs_with_filter <invalid table>"
@@ -743,8 +747,7 @@ functor
       if List.length xs <> 1 then
         failwith "find_refs_with_filter <valid table> 1" ;
       let xs = Client.find_refs_with_filter t "VM" Db_filter_types.False in
-      if xs <> [] then
-        failwith "find_refs_with_filter <valid table> 2" ;
+      if xs <> [] then failwith "find_refs_with_filter <valid table> 2" ;
       expect_missing_tbl "Vm" (fun () ->
           Client.process_structured_field t ("", "") "Vm" "wibble" invalid_ref
             Db_cache_types.AddSet ;

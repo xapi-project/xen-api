@@ -62,9 +62,15 @@ let rec is_last x list =
   | [] ->
       false
   | hd :: [] ->
-      if hd = x then true else false
+      if hd = x then
+        true
+      else
+        false
   | hd :: tl ->
-      if hd = x then false else is_last x tl
+      if hd = x then
+        false
+      else
+        is_last x tl
 
 let rec main () =
   let filtered_classes =
@@ -189,8 +195,8 @@ and gen_decl cls =
                |> List.map String.lowercase_ascii
                |> List.sort String.compare
                |> List.filter (fun x ->
-                      not (Astring.String.is_suffix ~affix:"internal" x)
-                  )
+                   not (Astring.String.is_suffix ~affix:"internal" x)
+               )
                )
             )
         )
@@ -199,38 +205,34 @@ and gen_decl cls =
             (cls
             |> Datamodel_utils.fields_of_obj
             |> List.map (fun field ->
-                   `O
-                     [
-                       ( "field_name_lower"
-                       , `String (fieldname (String.concat "_" field.full_name))
-                       )
-                     ; ( "field_type"
-                       , `String (c_type_of_ty headers true field.ty)
-                       )
-                     ]
-               )
+                `O
+                  [
+                    ( "field_name_lower"
+                    , `String (fieldname (String.concat "_" field.full_name))
+                    )
+                  ; ("field_type", `String (c_type_of_ty headers true field.ty))
+                  ]
+            )
             )
         )
       ; ( "messages"
         , `A
             (cls.messages
             |> List.filter (fun x ->
-                   not (cls.name = "event" && x.msg_name = "from")
-               )
+                not (cls.name = "event" && x.msg_name = "from")
+            )
             |> List.map (fun x ->
-                   `O
-                     [
-                       ( "msg_name_lower"
-                       , `String (String.lowercase_ascii x.msg_name)
-                       )
-                     ; ( "msg_doc"
-                       , `String (Helper.comment true (full_msg_doc x))
-                       )
-                     ; ("is_async", `Bool x.msg_async)
-                     ; ("sync_params", `A (List.map paramJson (syncParams x)))
-                     ; ("async_params", `A (List.map paramJson (asyncParams x)))
-                     ]
-               )
+                `O
+                  [
+                    ( "msg_name_lower"
+                    , `String (String.lowercase_ascii x.msg_name)
+                    )
+                  ; ("msg_doc", `String (Helper.comment true (full_msg_doc x)))
+                  ; ("is_async", `Bool x.msg_async)
+                  ; ("sync_params", `A (List.map paramJson (syncParams x)))
+                  ; ("async_params", `A (List.map paramJson (asyncParams x)))
+                  ]
+            )
             )
         )
       ]
@@ -393,8 +395,8 @@ and gen_impl cls =
                |> List.map String.lowercase_ascii
                |> List.sort String.compare
                |> List.filter (fun x ->
-                      Astring.String.is_suffix ~affix:"internal" x
-                  )
+                   Astring.String.is_suffix ~affix:"internal" x
+               )
                )
             )
         )
@@ -403,8 +405,8 @@ and gen_impl cls =
         , `A
             (cls.messages
             |> List.filter (fun x ->
-                   not (cls.name = "event" && x.msg_name = "from")
-               )
+                not (cls.name = "event" && x.msg_name = "from")
+            )
             |> List.map messageJson
             )
         )
@@ -416,7 +418,11 @@ and gen_impl cls =
     )
     json templates_dir destdir
 
-and full_stop x = if Astring.String.is_suffix ~affix:"." x then "" else "."
+and full_stop x =
+  if Astring.String.is_suffix ~affix:"." x then
+    ""
+  else
+    "."
 
 and full_class_doc cls =
   let intro = sprintf "The %s class.\n\n" cls.name in
@@ -427,7 +433,12 @@ and full_msg_doc message =
     sprintf "\nMinimum allowed role: %s." (get_minimum_allowed_role message)
   in
   let deprecated = get_deprecated_info_message message in
-  let deprecated = if deprecated = "" then "" else "\n" ^ deprecated in
+  let deprecated =
+    if deprecated = "" then
+      ""
+    else
+      "\n" ^ deprecated
+  in
   message.msg_doc ^ full_stop message.msg_doc ^ role ^ deprecated
 
 and abstract_param_conv name = function
@@ -595,8 +606,8 @@ and render_map_decl l r =
                |> List.map String.lowercase_ascii
                |> List.sort String.compare
                |> List.filter (fun x ->
-                      not (Astring.String.is_suffix ~affix:"internal" x)
-                  )
+                   not (Astring.String.is_suffix ~affix:"internal" x)
+               )
                )
             )
         )
@@ -636,8 +647,8 @@ and render_map_impl l r =
                |> List.map String.lowercase_ascii
                |> List.sort String.compare
                |> List.filter (fun x ->
-                      not (Astring.String.is_suffix ~affix:"internal" x)
-                  )
+                   not (Astring.String.is_suffix ~affix:"internal" x)
+               )
                )
             )
         )
@@ -649,8 +660,8 @@ and render_map_impl l r =
                |> List.map String.lowercase_ascii
                |> List.sort String.compare
                |> List.filter (fun x ->
-                      Astring.String.is_suffix ~affix:"internal" x
-                  )
+                   Astring.String.is_suffix ~affix:"internal" x
+               )
                )
             )
         )
@@ -740,7 +751,11 @@ and free_impl val_name record = function
       ""
   | Ref n ->
       sprintf "%s_free(%s);"
-        (if record then record_opt_typename n else typename n)
+        ( if record then
+            record_opt_typename n
+          else
+            typename n
+        )
         val_name
   | Set (Ref n) ->
       sprintf "%s_opt_set_free(%s);" (record_typename n) val_name
@@ -896,7 +911,10 @@ and record_opt_typename classname = sprintf "%s_record_opt" (typename classname)
 
 and keyword_map name =
   let keywords = [("class", "XEN_CLAZZ"); ("public", "pubblic")] in
-  if List.mem_assoc name keywords then List.assoc name keywords else name
+  if List.mem_assoc name keywords then
+    List.assoc name keywords
+  else
+    name
 
 and paramname name = keyword_map (String.lowercase_ascii name)
 

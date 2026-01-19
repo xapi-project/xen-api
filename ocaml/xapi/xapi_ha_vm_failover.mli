@@ -95,9 +95,7 @@ val assert_new_vm_preserves_ha_plan : __context:Context.t -> API.ref_VM -> unit
 
 module VMGrpMap : Map.S with type key = API.ref_VM_group
 
-module HostKey : sig
-  type t = API.ref_host
-end
+module HostKey : sig type t = API.ref_host end
 
 module AntiAffEvacPlanHostPsq : Psq.S with type k = HostKey.t
 

@@ -165,7 +165,13 @@ let foreach_cluster_host ~__context ~self:_
        -> self:API.ref_Cluster_host
        -> unit
        ) ~log =
-  let wrapper = if log then log_and_ignore_exn else fun f -> f () in
+  let wrapper =
+    if log then
+      log_and_ignore_exn
+    else
+      fun f ->
+    f ()
+  in
   List.iter (fun self ->
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           wrapper (fun () -> fn ~rpc ~session_id ~self)

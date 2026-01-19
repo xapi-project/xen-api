@@ -256,7 +256,8 @@ let repeat_read op fd buf off len =
   let rec loop consumed =
     let off = off + consumed and len = len - consumed in
     if len = 0 then
-      consumed (* we filled the buffer *)
+      consumed
+    (* we filled the buffer *)
     else
       match op fd buf off len with
       | 0 (* EOF *)
@@ -277,7 +278,8 @@ let repeat_write op fd buf off len =
   let rec loop written =
     let off = off + written and len = len - written in
     if len = 0 then
-      written (* we've written the entire buffer *)
+      written
+    (* we've written the entire buffer *)
     else
       match op fd buf off len with
       | 0

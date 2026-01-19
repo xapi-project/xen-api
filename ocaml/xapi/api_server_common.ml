@@ -152,7 +152,12 @@ let forward req call is_json =
       , !Constants.https_port
       )
   in
-  let rpc = if is_json then JSONRPC_protocol.rpc else XMLRPC_protocol.rpc in
+  let rpc =
+    if is_json then
+      JSONRPC_protocol.rpc
+    else
+      XMLRPC_protocol.rpc
+  in
   rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport
     ~http:{req with Http.Request.frame= true}
     call

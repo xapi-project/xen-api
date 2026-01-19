@@ -53,17 +53,17 @@ module Test = struct
   let assert_exceptional outcomes =
     outcomes
     |> Array.iter (fun outcome ->
-           let exceptional = is_exceptional outcome in
-           let msg =
-             match (exceptional, outcome) with
-             | true, Excepted (_, trace) ->
-                 Printf.sprintf "Exception found when parsing Sexpr: %s"
-                   (Printexc.raw_backtrace_to_string trace)
-             | _ ->
-                 ""
-           in
-           Alcotest.(check bool) msg false exceptional
-       )
+        let exceptional = is_exceptional outcome in
+        let msg =
+          match (exceptional, outcome) with
+          | true, Excepted (_, trace) ->
+              Printf.sprintf "Exception found when parsing Sexpr: %s"
+                (Printexc.raw_backtrace_to_string trace)
+          | _ ->
+              ""
+        in
+        Alcotest.(check bool) msg false exceptional
+    )
 
   let go n =
     Printexc.record_backtrace true ;

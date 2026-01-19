@@ -57,8 +57,7 @@ module Exporter = struct
     let dst = Uri.of_string dst in
     let submit_json = submit_json dst in
     iter_src src submit_json ;
-    if erase then
-      Unixext.rm_rec ~rm_top:true src
+    if erase then Unixext.rm_rec ~rm_top:true src
 
   let pretty_print src =
     iter_src src @@ fun line ->

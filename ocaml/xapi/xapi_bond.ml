@@ -105,7 +105,12 @@ let get_local_vifs ~__context host networks =
   let vms = Hashtbl.to_seq_keys vms_with_vifs |> List.of_seq in
   let local_vifs =
     List.concat_map
-      (fun vm -> if is_local vm then Hashtbl.find_all vms_with_vifs vm else [])
+      (fun vm ->
+        if is_local vm then
+          Hashtbl.find_all vms_with_vifs vm
+        else
+          []
+      )
       vms
   in
   debug "Found these local VIFs: %s"
@@ -670,12 +675,11 @@ let set_mode ~__context ~self ~value =
   let properties =
     Db.Bond.get_properties ~__context ~self
     |> List.filter (fun property ->
-           try
-             ignore
-               (Map_check.validate_kvpair "properties" requirements property) ;
-             true
-           with _ -> false
-       )
+        try
+          ignore (Map_check.validate_kvpair "properties" requirements property) ;
+          true
+        with _ -> false
+    )
     |> Map_check.add_defaults requirements
   in
   Db.Bond.set_properties ~__context ~self ~value:properties ;

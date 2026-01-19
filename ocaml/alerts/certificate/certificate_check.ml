@@ -68,14 +68,12 @@ let get_expiry = function
 let alert rpc session_id =
   get_certificates rpc session_id
   |> List.map (fun cert ->
-         let cls, obj_uuid =
-           alert_message_cls_and_obj_uuid rpc session_id cert
-         in
-         let obj_description = certificate_description cert in
-         let alert_conditions = alert_conditions cert in
-         let expiry = get_expiry cert in
-         Expiry_alert.{cls; obj_uuid; obj_description; alert_conditions; expiry}
-     )
+      let cls, obj_uuid = alert_message_cls_and_obj_uuid rpc session_id cert in
+      let obj_description = certificate_description cert in
+      let alert_conditions = alert_conditions cert in
+      let expiry = get_expiry cert in
+      Expiry_alert.{cls; obj_uuid; obj_description; alert_conditions; expiry}
+  )
   |> Expiry_alert.alert ~rpc ~session_id
 
 let maybe_generate_alert = Expiry_alert.maybe_generate_alert

@@ -46,7 +46,10 @@ let is_tunnel_access_pif pif_rec =
 
 let is_vlan_master_pif pif_rec =
   let vlan = pif_rec.API.pIF_VLAN_master_of in
-  if vlan = Ref.null then None else Some (VLAN_untagged vlan)
+  if vlan = Ref.null then
+    None
+  else
+    Some (VLAN_untagged vlan)
 
 let is_sriov_logical_pif pif_rec =
   match pif_rec.API.pIF_sriov_logical_PIF_of with
@@ -63,7 +66,10 @@ let is_bond_master_pif pif_rec =
       None
 
 let is_physical_pif pif_rec =
-  if pif_rec.API.pIF_physical then Some (Physical pif_rec) else None
+  if pif_rec.API.pIF_physical then
+    Some (Physical pif_rec)
+  else
+    None
 
 let ( >>= ) (ret, pif_rec) f =
   match (ret, pif_rec) with

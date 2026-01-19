@@ -70,11 +70,23 @@ let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
   Hashtbl.add table "tot pages" (pages_to_string_pages x.total_memory_pages) ;
   Hashtbl.add table "tot MiB" (pages_to_string_mib_used x.total_memory_pages) ;
   Hashtbl.add table "max bytes"
-    (if x.domid = 0 then "N/A" else pages_to_string_bytes x.max_memory_pages) ;
+    ( if x.domid = 0 then
+        "N/A"
+      else
+        pages_to_string_bytes x.max_memory_pages
+    ) ;
   Hashtbl.add table "max pages"
-    (if x.domid = 0 then "N/A" else pages_to_string_pages x.max_memory_pages) ;
+    ( if x.domid = 0 then
+        "N/A"
+      else
+        pages_to_string_pages x.max_memory_pages
+    ) ;
   Hashtbl.add table "max MiB"
-    (if x.domid = 0 then "N/A" else pages_to_string_mib_used x.max_memory_pages) ;
+    ( if x.domid = 0 then
+        "N/A"
+      else
+        pages_to_string_mib_used x.max_memory_pages
+    ) ;
   Hashtbl.add table "sif" (int64 x.shared_info_frame) ;
   Hashtbl.add table "cpu time" (int64 x.cpu_time) ;
   Hashtbl.add table "vcpus online" (int x.nr_online_vcpus) ;

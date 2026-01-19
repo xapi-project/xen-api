@@ -34,6 +34,70 @@ type address =
 
 (* console is listening on a Unix domain socket *)
 
+(* This module limits VNC console sessions to at most one per VM/host.
+   Depending on configuration, either unlimited connections are allowed,
+   or only a single active connection per VM/host is allowed. *)
+module Connection_limit = struct
+  module VMMap = Map.Make (String)
+
+  type connection_info = {user_name: string; connection_id: string}
+
+  (* VMMap maps VM IDs to a list of connection_info records representing active connections *)
+  let active_connections : connection_info list VMMap.t ref = ref VMMap.empty
+
+  let mutex = Mutex.create ()
+
+  let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
+  let generate_connection_id () = Uuidx.to_string (Uuidx.make ())
+
+  let drop vm_id connection_id =
+    with_lock mutex (fun () ->
+        let f conns =
+          Option.bind conns (fun conns ->
+              match
+                List.filter
+                  (fun conn -> conn.connection_id <> connection_id)
+                  conns
+              with
+              | [] ->
+                  None
+              | l ->
+                  Some l
+          )
+        in
+        active_connections := VMMap.update vm_id f !active_connections
+    )
+
+  (* When the limit is disabled (false), we must still track the connections for each vm_id.
+     This ensures that if the limit is later enabled (set to true), any existing connections are accounted for,
+     and the limit can be correctly enforced for subsequent connection attempts. *)
+  let try_add vm_id user_name is_limit_enabled =
+    with_lock mutex (fun () ->
+        let connections =
+          VMMap.find_opt vm_id !active_connections |> Option.value ~default:[]
+        in
+        match (is_limit_enabled, connections) with
+        | true, _ :: _ ->
+            let connected_users =
+              List.map (fun conn -> conn.user_name) connections
+            in
+            debug
+              "limit_console_sessions is true. Console connection is rejected \
+               for VM %s, active connections: %d"
+              vm_id (List.length connections) ;
+            Error connected_users
+        | _ ->
+            let connection_id = generate_connection_id () in
+            let updated_connections =
+              {user_name; connection_id} :: connections
+            in
+            active_connections :=
+              VMMap.add vm_id updated_connections !active_connections ;
+            Ok connection_id
+    )
+end
+
 let string_of_address = function
   | Port x ->
       "localhost:" ^ string_of_int x
@@ -84,7 +148,90 @@ let address_of_console __context console : address option =
     ) ;
   address_option
 
-let real_proxy __context _ _ vnc_port s =
+module Console_idle_monitor = struct
+  let get_idle_timeout_config ~__context ~vm =
+    try
+      let idle_timeout =
+        if Db.VM.get_is_control_domain ~__context ~self:vm then
+          let host = Helpers.get_localhost ~__context in
+          Db.Host.get_console_idle_timeout ~__context ~self:host
+        else
+          let pool = Helpers.get_pool ~__context in
+          Db.Pool.get_vm_console_idle_timeout ~__context ~self:pool
+      in
+      if idle_timeout > 0L then
+        Some (Int64.to_float idle_timeout)
+      else
+        None
+    with _ -> None
+
+  let is_active messages =
+    List.exists
+      (function
+        | Rfb_client_msgtype_parser.KeyEvent
+        | Rfb_client_msgtype_parser.PointerEvent
+        | Rfb_client_msgtype_parser.QEMUClientMessage ->
+            true
+        | _ ->
+            false
+        )
+      messages
+
+  let timed_out ~idle_timeout_seconds ~last_activity =
+    let elapsed = Mtime_clock.count last_activity in
+    Mtime.Span.to_float_ns elapsed /. 1e9 > idle_timeout_seconds
+
+  (* Create an idle timeout callback for the console,
+     if idle timeout, then close the proxy *)
+  let create_idle_timeout_callback ~__context ~vm =
+    match get_idle_timeout_config ~__context ~vm with
+    | Some idle_timeout_seconds -> (
+        let module P = Rfb_client_msgtype_parser in
+        let state = ref (Some (P.create (), Mtime_clock.counter ())) in
+        (* Return true for idle timeout to close the proxy,
+            otherwise return false to keep the proxy open *)
+        fun (buf, read_len, offset) ->
+          match !state with
+          | None ->
+              false
+          | Some (rfb_parser, last_activity) ->
+              let ok msgs =
+                if is_active msgs then (
+                  state := Some (rfb_parser, Mtime_clock.counter ()) ;
+                  false
+                ) else
+                  let timeout_result =
+                    timed_out ~idle_timeout_seconds ~last_activity
+                  in
+                  if timeout_result then
+                    debug
+                      "Console connection idle timeout exceeded for VM %s \
+                       (timeout: %.1fs)"
+                      (Ref.string_of vm) idle_timeout_seconds ;
+                  timeout_result
+              in
+              let error msg =
+                debug "RFB parse error: %s" msg ;
+                state := None ;
+                false
+              in
+              Bytes.sub_string buf offset read_len
+              |> rfb_parser
+              |> Result.fold ~ok ~error
+      )
+    | None ->
+        Fun.const false
+end
+
+let get_poll_timeout =
+  let poll_period_timeout = !Xapi_globs.proxy_poll_period_timeout in
+  if poll_period_timeout < 0. then
+    -1
+  else
+    Float.to_int (poll_period_timeout *. 1000.)
+(* convert to milliseconds *)
+
+let real_proxy' ~__context ~vm vnc_port s =
   try
     Http_svr.headers s (Http.http_200_ok ()) ;
     let vnc_sock =
@@ -99,11 +246,65 @@ let real_proxy __context _ _ vnc_port s =
     debug "Connected; running proxy (between fds: %d and %d)"
       (Unixext.int_of_file_descr vnc_sock)
       (Unixext.int_of_file_descr s') ;
-    Unixext.proxy vnc_sock s' ;
+
+    let poll_timeout = get_poll_timeout in
+    let should_close =
+      Console_idle_monitor.create_idle_timeout_callback ~__context ~vm
+    in
+    Unixext.proxy ~should_close ~poll_timeout vnc_sock s' ;
     debug "Proxy exited"
   with exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
 
-let ws_proxy __context req protocol address s =
+let respond_console_limit_exceeded req s vm_id connected_users =
+  let body =
+    let users_text =
+      match
+        (!Xapi_globs.include_console_username_in_error, connected_users)
+      with
+      | true, [] ->
+          error "The connected user list should not be empty." ;
+          raise Failure
+      | true, [user] ->
+          Printf.sprintf "User '%s' is" (Http_svr.escape user)
+      | true, users ->
+          let escaped_users = List.map Http_svr.escape users in
+          Printf.sprintf "Users '%s' are" (String.concat ", " escaped_users)
+      | false, _ ->
+          "There're users"
+    in
+    Printf.sprintf
+      "<html><body><h1>Connection Limit Exceeded</h1><p>%s currently connected \
+       to this console (VM %s). No more connections are allowed when \
+       limit_console_sessions is enabled.</p></body></html>"
+      users_text vm_id
+  in
+  Http_svr.response_custom_error ~req s "503" "Connection Limit Exceeded" body
+
+let real_proxy __context vm req _ vnc_port s =
+  let vm_id = Ref.string_of vm in
+  let pool = Helpers.get_pool ~__context in
+  let is_limit_enabled =
+    Db.Pool.get_limit_console_sessions ~__context ~self:pool
+  in
+  let session_id = Xapi_http.get_session_id req in
+  let user = Db.Session.get_auth_user_name ~__context ~self:session_id in
+  match Connection_limit.try_add vm_id user is_limit_enabled with
+  | Ok connection_id ->
+      finally (* Ensure we drop the vm connection count if exceptions occur *)
+        (fun () -> real_proxy' ~__context ~vm vnc_port s)
+        (fun () -> Connection_limit.drop vm_id connection_id)
+  | Error connected_users ->
+      respond_console_limit_exceeded req s vm_id connected_users
+
+let go_if_no_limit __context s f =
+  let pool = Helpers.get_pool ~__context in
+  if Db.Pool.get_limit_console_sessions ~__context ~self:pool then
+    Http_svr.headers s (Http.http_503_service_unavailable ())
+  else
+    f ()
+
+let ws_proxy __context _ req protocol address s =
+  go_if_no_limit __context s @@ fun () ->
   let addr = match address with Port p -> string_of_int p | Path p -> p in
   let protocol =
     match protocol with `rfb -> "rfb" | `vt100 -> "vt100" | `rdp -> "rdp"
@@ -247,7 +448,8 @@ let handler proxy_fn (req : Request.t) s _ =
       check_vm_is_running_here __context console ;
       match address_of_console __context console with
       | Some vnc_port ->
-          proxy_fn __context req protocol vnc_port s
+          let vm = Db.Console.get_VM ~__context ~self:console in
+          proxy_fn __context vm req protocol vnc_port s
       | None ->
           Http_svr.headers s (Http.http_404_missing ())
   )

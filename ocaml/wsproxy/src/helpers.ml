@@ -51,9 +51,11 @@ let marshal_int ?(bigendian = true) n x =
   let b = Bytes.create n in
   let f =
     if bigendian then
-      function x -> n - x - 1
+      function
+    | x -> n - x - 1
     else
-      function x -> x
+      function
+    | x -> x
   in
   let rec inner num i =
     if i = n then
@@ -77,9 +79,11 @@ let unmarshal_int ?(bigendian = true) n s =
   if String.length s < n then failwith "Invalid argument" ;
   let f =
     if bigendian then
-      function x -> x
+      function
+    | x -> x
     else
-      function x -> n - x - 1
+      function
+    | x -> n - x - 1
   in
   let rec inner acc i =
     if i = n then

@@ -30,7 +30,12 @@ let main () =
   let* vms = SessionCache.with_session t @@ VM.get_all_records in
   List.iter
     (fun (_vm, vm_rec) ->
-      let kind = if vm_rec.API.vM_is_a_template then "Template" else "VM" in
+      let kind =
+        if vm_rec.API.vM_is_a_template then
+          "Template"
+        else
+          "VM"
+      in
       Printf.printf "%s %s\n" kind vm_rec.API.vM_name_label
     )
     vms ;

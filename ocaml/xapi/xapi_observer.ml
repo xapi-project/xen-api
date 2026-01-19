@@ -304,9 +304,7 @@ module ObserverConfig = struct
     }
 end
 
-module type OBSERVER_COMPONENT = sig
-  val component : t
-end
+module type OBSERVER_COMPONENT = sig val component : t end
 
 module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
   ObserverInterface = struct
@@ -642,11 +640,11 @@ let initialise ~__context =
   List.iter (initialise_observer_meta ~__context) (startup_components ()) ;
   Db.Observer.get_all ~__context
   |> List.iter (fun self ->
-         Db.Observer.get_components ~__context ~self
-         |> List.map of_string
-         |> observed_components_of
-         |> List.iter (initialise_observer_component ~__context)
-     ) ;
+      Db.Observer.get_components ~__context ~self
+      |> List.map of_string
+      |> observed_components_of
+      |> List.iter (initialise_observer_component ~__context)
+  ) ;
   (* If SMApi is now experimental, manually remove the config as there is no observer to do it *)
   if
     Xapi_globs.(

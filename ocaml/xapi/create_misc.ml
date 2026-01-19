@@ -71,7 +71,10 @@ let make_xen_livepatch_list () =
       )
       [] lines
   in
-  if patches <> [] then Some (String.concat ", " patches) else None
+  if patches <> [] then
+    Some (String.concat ", " patches)
+  else
+    None
 
 (** The format of the response looks like
  *  # kpatch list
@@ -113,14 +116,22 @@ let make_kpatch_list () =
           loop acc started rest
   in
   let patches = loop [] false lines in
-  if patches <> [] then Some (String.concat ", " patches) else None
+  if patches <> [] then
+    Some (String.concat ", " patches)
+  else
+    None
 
 (** [count_cpus] returns the number of CPUs found in /proc/cpuinfo *)
 let count_cpus () =
   let cpuinfo = "/proc/cpuinfo" in
   let re = Re.Perl.compile @@ Re.Perl.re {|^processor\s*:\s+\d+|} in
   let matches line = Re.matches re line <> [] in
-  let count n line = if matches line then n + 1 else n in
+  let count n line =
+    if matches line then
+      n + 1
+    else
+      n
+  in
   Unixext.file_lines_fold count 0 cpuinfo
 
 let read_localhost_info ~__context =
@@ -262,7 +273,10 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info
   (* Determine information about the host machine. *)
   let domarch =
     let i = Int64.of_nativeint (Int64.to_nativeint 0xffffffffL) in
-    if i > 0L then "x64" else "x32"
+    if i > 0L then
+      "x64"
+    else
+      "x32"
   in
   let localhost = Helpers.get_localhost ~__context in
   (* Read the control domain uuid from the inventory file *)
@@ -360,6 +374,7 @@ and create_domain_zero_metrics_record ~__context ~domain_zero_metrics_ref
     ~vCPUs_flags:[] ~state:[] ~start_time:Date.epoch ~install_time:Date.epoch
     ~last_updated:Date.epoch ~other_config:[] ~hvm:false ~nomigrate:false
     ~nested_virt:false ~current_domain_type:Xapi_globs.domain_zero_domain_type
+    ~numa_optimised:false ~numa_nodes:0L ~numa_node_memory:[]
 
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info)
     : unit =

@@ -70,7 +70,11 @@ let shape ?(stack = false) kind ?label ~def fill =
         ""
   in
   Printf.sprintf "%s:%s%s%s%s" kind defstr fillstr
-    (if stack then ":STACK" else "")
+    ( if stack then
+        ":STACK"
+      else
+        ""
+    )
     (match label with None -> "" | Some x -> ":" ^ x)
 
 let area = shape "AREA"
@@ -101,7 +105,12 @@ let colors =
 
 let get_color ~dark i =
   let RGB col_light, col_dark = colors.(i mod Array.length colors) in
-  Some (if dark then col_dark else RGB {col_light with alpha= Some 50})
+  Some
+    ( if dark then
+        col_dark
+      else
+        RGB {col_light with alpha= Some 50}
+    )
 
 let rrdtool ~filename ~data title ~ds_names ~first ~last ~step ~width
     ~has_min_max =
@@ -407,8 +416,8 @@ let parse_ds_defs path =
   in
   OS.File.fold_lines fold (Rrd.StringMap.empty, None) path
   |> Logs.on_error_msg ~use:(fun _ ->
-         failwith "Could not parse datasource definitions"
-     )
+      failwith "Could not parse datasource definitions"
+  )
   |> fst
 
 let plot_rrd ~filename rrd =

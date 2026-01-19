@@ -40,23 +40,23 @@ let get_changes rrd_files =
         Mcache.log_errors_from filename ;
         datasources
         |> List.filter_map (function
-             | Rrd.VM vm_uuid, ds when ds.Ds.ds_name = "pvscache_status" ->
-                 Some (vm_uuid, ds)
-             | _ ->
-                 None (* we are only interested in VM stats *)
-             )
+          | Rrd.VM vm_uuid, ds when ds.Ds.ds_name = "pvscache_status" ->
+              Some (vm_uuid, ds)
+          | _ ->
+              None (* we are only interested in VM stats *)
+          )
         |> List.iter (function vm_uuid, ds ->
-               let value =
-                 match ds.Ds.ds_value with
-                 | Rrd.VT_Int64 v ->
-                     Int64.to_int v
-                 | Rrd.VT_Float v ->
-                     int_of_float v
-                 | Rrd.VT_Unknown ->
-                     -1
-               in
-               Hashtbl.add Mcache.pvs_proxy_tmp vm_uuid value
-               )
+            let value =
+              match ds.Ds.ds_value with
+              | Rrd.VT_Int64 v ->
+                  Int64.to_int v
+              | Rrd.VT_Float v ->
+                  int_of_float v
+              | Rrd.VT_Unknown ->
+                  -1
+            in
+            Hashtbl.add Mcache.pvs_proxy_tmp vm_uuid value
+            )
       with e ->
         if not (Mcache.is_ignored filename) then (
           error "Unable to read PVS-proxy status for %s: %s" filename
@@ -104,14 +104,14 @@ let update rrd_files =
             let vm = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
             Db.VM.get_VIFs ~__context ~self:vm
             |> List.filter_map (fun vif ->
-                   Pvs_proxy_control.find_proxy_for_vif ~__context ~vif
-               )
+                Pvs_proxy_control.find_proxy_for_vif ~__context ~vif
+            )
             |> List.filter (fun self ->
-                   Db.PVS_proxy.get_currently_attached ~__context ~self
-               )
+                Db.PVS_proxy.get_currently_attached ~__context ~self
+            )
             |> List.iter (fun self ->
-                   Db.PVS_proxy.set_status ~__context ~self ~value
-               )
+                Db.PVS_proxy.set_status ~__context ~self ~value
+            )
           with e ->
             keeps := vm_uuid :: !keeps ;
             error "Unable to update PVS-proxy status for %s: %s" vm_uuid

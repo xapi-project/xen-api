@@ -467,6 +467,11 @@ let xha_timeout = "timeout"
 
 let message_limit = ref 10000
 
+(* The timeout (in seconds) for event polling in the proxy loop.
+   If set to a positive value, the poll will wake up periodically,
+   which is useful for implementing features like idle timeout or periodic inspection of proxy buffers. *)
+let proxy_poll_period_timeout = ref 5.0
+
 let xapi_message_script = ref "mail-alarm"
 
 (* Emit a warning if more than this amount of clock skew detected *)
@@ -1058,8 +1063,6 @@ let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
 
 let winbind_set_machine_account_kerberos_encryption_type = ref false
 
-let winbind_allow_kerberos_auth_fallback = ref false
-
 let winbind_scan_trusted_domains = ref false
 
 let winbind_keep_configuration = ref false
@@ -1367,6 +1370,8 @@ let ssh_monitor_service = ref "xapi-ssh-monitor"
 
 let ssh_auto_mode_default = ref true
 
+let include_console_username_in_error = ref true
+
 type firewall_backend_type = Firewalld | Iptables
 
 (* Firewall backend to use. iptables in XS 8, firewalld in XS 9. *)
@@ -1434,7 +1439,12 @@ let other_options =
   [
     gen_list_option "sm-plugins"
       "space-separated list of storage plugins to allow."
-      (fun x -> if x = "*" then `All else `Sm x)
+      (fun x ->
+        if x = "*" then
+          `All
+        else
+          `Sm x
+      )
       (fun x -> match x with `All -> "*" | `Sm x -> x)
       sm_plugins
   ; ( "hotfix-fingerprint"
@@ -1477,6 +1487,11 @@ let other_options =
     , (fun () -> string_of_bool !relax_xsm_sr_check)
     , "allow storage migration when SRs have been mirrored out-of-band (and \
        have matching SR uuids)"
+    )
+  ; ( "include-console-username-in-error"
+    , Arg.Set include_console_username_in_error
+    , (fun () -> string_of_bool !include_console_username_in_error)
+    , "Allow displaying user names in XenCenter"
     )
   ; gen_list_option "disable-logging-for"
       "space-separated list of modules to suppress logging from"
@@ -1645,11 +1660,6 @@ let other_options =
       )
     , "Whether set machine account encryption type \
        (msDS-SupportedEncryptionTypes) on domain controller"
-    )
-  ; ( "winbind_allow_kerberos_auth_fallback"
-    , Arg.Set winbind_allow_kerberos_auth_fallback
-    , (fun () -> string_of_bool !winbind_allow_kerberos_auth_fallback)
-    , "Whether to allow fallback to other auth on kerberos failure"
     )
   ; ( "winbind_scan_trusted_domains"
     , Arg.Set winbind_scan_trusted_domains
@@ -1858,6 +1868,14 @@ let other_options =
     , Arg.Set_float vm_sysprep_wait
     , (fun () -> string_of_float !vm_sysprep_wait)
     , "Time in seconds to wait for VM to recognise inserted CD"
+    )
+  ; ( "proxy_poll_period_timeout"
+    , Arg.Set_float proxy_poll_period_timeout
+    , (fun () -> string_of_float !proxy_poll_period_timeout)
+    , "Timeout (in seconds) for event polling in network proxy loops. When \
+       positive, the proxy will wake up periodically to check tasks like vnc \
+       idle timeouts or perform other maintenance tasks. Set to -1 to wait \
+       indefinitely for network events without periodic wake-ups."
     )
   ; ( "max-span-depth"
     , Arg.Set_int max_span_depth

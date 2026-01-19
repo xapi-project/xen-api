@@ -92,7 +92,11 @@ let op_of_string x =
 
 let string_of_event ev =
   sprintf "%s %s %s %s %s" ev.id ev.ty (string_of_op ev.op) ev.reference
-    (if ev.snapshot = None then "(no snapshot)" else "OK")
+    ( if ev.snapshot = None then
+        "(no snapshot)"
+      else
+        "OK"
+    )
 
 (** This function should be used, instead of
     {!event_from_of_rpc}, to parse the value returned by {!Xapi_event.from} in

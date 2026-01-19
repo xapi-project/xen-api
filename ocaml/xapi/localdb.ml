@@ -103,8 +103,7 @@ let flush () =
 let put (key : string) (v : string) =
   with_lock m (fun () ->
       assert_loaded () ;
-      if put_one key v then
-        flush ()
+      if put_one key v then flush ()
   )
 
 let putv (all : (string * string) list) =

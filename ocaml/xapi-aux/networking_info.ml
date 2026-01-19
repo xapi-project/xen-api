@@ -45,16 +45,16 @@ let dns_names () =
   in
   hostname :: fqdns
   |> List.filter_map (fun x ->
-         let x = Astring.String.trim x in
-         if
-           String.equal "" x
-           || String.equal "localhost" x
-           || Ipaddr.of_string x |> Stdlib.Result.is_ok
-         then
-           None
-         else
-           Some x
-     )
+      let x = Astring.String.trim x in
+      if
+        String.equal "" x
+        || String.equal "localhost" x
+        || Ipaddr.of_string x |> Stdlib.Result.is_ok
+      then
+        None
+      else
+        Some x
+  )
   |> Astring.String.uniquify
 
 let ipaddr_to_octets = function

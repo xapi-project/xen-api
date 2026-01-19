@@ -53,19 +53,47 @@ let proxy (ain : Unix.file_descr) (aout : Unix.file_descr) (bin : Unixfd.t)
   try
     while true do
       let r =
-        (if can_read a' then [ain] else [])
-        @ if can_read b' then [Unixfd.(!bin)] else []
+        ( if can_read a' then
+            [ain]
+          else
+            []
+        )
+        @
+        if can_read b' then
+          [Unixfd.(!bin)]
+        else
+          []
       in
       let w =
-        (if can_write a' then [bout] else [])
-        @ if can_write b' then [aout] else []
+        ( if can_write a' then
+            [bout]
+          else
+            []
+        )
+        @
+        if can_write b' then
+          [aout]
+        else
+          []
       in
       let r, w, _ = Xapi_stdext_unix.Unixext.select r w [] (-1.0) in
       (* Do the writing before the reading *)
       List.iter
-        (fun fd -> if aout = fd then write_from b' a' else write_from a' b')
+        (fun fd ->
+          if aout = fd then
+            write_from b' a'
+          else
+            write_from a' b'
+        )
         w ;
-      List.iter (fun fd -> if ain = fd then read_into a' else read_into b') r
+      List.iter
+        (fun fd ->
+          if ain = fd then
+            read_into a'
+          else
+            read_into b'
+        )
+        r
     done
   with _ -> (
     (try Unix.clear_nonblock ain with _ -> ()) ;

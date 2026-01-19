@@ -143,6 +143,4 @@ type t = {
 }
 
 (* Auth modules must implement this signature:*)
-module type AUTH_MODULE = sig
-  val methods : t
-end
+module type AUTH_MODULE = sig val methods : t end

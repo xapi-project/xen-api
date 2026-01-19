@@ -65,7 +65,18 @@ module To = struct
 
   let array vs = value (box "array" [box "data" vs])
 
-  let boolean b = value (box "boolean" [pcdata (if b then "1" else "0")])
+  let boolean b =
+    value
+      (box "boolean"
+         [
+           pcdata
+             ( if b then
+                 "1"
+               else
+                 "0"
+             )
+         ]
+      )
 
   let datetime s =
     value (box "dateTime.iso8601" [pcdata (Clock.Date.to_rfc3339 s)])

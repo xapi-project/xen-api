@@ -41,6 +41,4 @@ val call : string list -> string
 (** invoke drivertool with argumtns and return stdout *)
 
 (** install a mock drivertool.sh *)
-module Mock : sig
-  val install : unit -> unit
-end
+module Mock : sig val install : unit -> unit end

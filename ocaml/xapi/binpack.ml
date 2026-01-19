@@ -22,7 +22,10 @@ let rec insert compare elt sorted_list =
   | [] ->
       [elt]
   | x :: xs ->
-      if compare elt x <= 0 then elt :: x :: xs else x :: insert compare elt xs
+      if compare elt x <= 0 then
+        elt :: x :: xs
+      else
+        x :: insert compare elt xs
 
 let biggest_fit_decreasing (things : ('a * int64) list)
     (bins : ('b * int64) list) : ('a * 'b) list =
@@ -38,7 +41,8 @@ let biggest_fit_decreasing (things : ('a * int64) list)
     | (first_bin_id, first_bin_size) :: rest ->
         let remaining = Int64.sub first_bin_size thing_size in
         if remaining < 0L then
-          (mapping, bins) (* leave it out *)
+          (mapping, bins)
+        (* leave it out *)
         else
           (* Allocate the thing to this bin, subtract from bin size and resort *)
           let bins = insert less_than (first_bin_id, remaining) rest in
@@ -66,11 +70,17 @@ exception Overflow
 
 let ( +* ) a b =
   let result = Int64.add a b in
-  if result < 0L then raise Overflow else result
+  if result < 0L then
+    raise Overflow
+  else
+    result
 
 let ( ** ) a b =
   let result = Int64.mul a b in
-  if result < 0L then raise Overflow else result
+  if result < 0L then
+    raise Overflow
+  else
+    result
 
 (** Compute nCr (the binomial coefficient) by dynamic programming. Raises Overflow if the result is too big for an int64 (eg 68 C 34) *)
 let binomial n r =
@@ -162,7 +172,10 @@ let account hosts vms plan =
     let memory_needed =
       List.map
         (fun (vm, host) ->
-          if h = host then assoc "memory_needed_on_host" vm vms else 0L
+          if h = host then
+            assoc "memory_needed_on_host" vm vms
+          else
+            0L
         )
         plan
     in

@@ -57,8 +57,7 @@ let remove_from_queue name =
       pending_event := None
   | Some _ | None ->
       let index = Ipq.find_p queue (fun {name= n; _} -> name = n) in
-      if index > -1 then
-        Ipq.remove queue index
+      if index > -1 then Ipq.remove queue index
 
 let add_periodic_pending () =
   with_lock lock @@ fun () ->

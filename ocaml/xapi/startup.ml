@@ -99,8 +99,7 @@ let run ~__context tasks =
         )
       with exn ->
         warn "task [%s] exception: %s" tsk_name (Printexc.to_string exn) ;
-        if exnraise then
-          raise exn
+        if exnraise then raise exn
     )
     tasks
 

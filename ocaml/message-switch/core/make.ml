@@ -386,20 +386,20 @@ functor
                     (fun (i, m) ->
                       process m.Message.payload >>= fun response ->
                       ( match m.Message.kind with
-                      | Message.Response _ ->
-                          return () (* configuration error *)
-                      | Message.Request reply_to ->
-                          let request =
-                            In.Send
-                              ( reply_to
-                              , {
-                                  Message.kind= Message.Response i
-                                ; payload= response
-                                }
-                              )
-                          in
-                          Connection.rpc c request >>= fun _ -> return ()
-                      )
+                        | Message.Response _ ->
+                            return () (* configuration error *)
+                        | Message.Request reply_to ->
+                            let request =
+                              In.Send
+                                ( reply_to
+                                , {
+                                    Message.kind= Message.Response i
+                                  ; payload= response
+                                  }
+                                )
+                            in
+                            Connection.rpc c request >>= fun _ -> return ()
+                        )
                       >>= fun () ->
                       let request = In.Ack i in
                       Connection.rpc c request >>= fun _ -> return ()
@@ -468,23 +468,23 @@ functor
                     (fun (i, m) ->
                       process m.Message.payload >>= fun response ->
                       ( match m.Message.kind with
-                      | Message.Response _ ->
-                          return () (* configuration error *)
-                      | Message.Request reply_to ->
-                          let request =
-                            In.Send
-                              ( reply_to
-                              , {
-                                  Message.kind= Message.Response i
-                                ; payload= response
-                                }
-                              )
-                          in
-                          M.Mutex.with_lock mutex (fun () ->
-                              Connection.rpc reply_conn request
-                          )
-                          >>= print_error
-                      )
+                        | Message.Response _ ->
+                            return () (* configuration error *)
+                        | Message.Request reply_to ->
+                            let request =
+                              In.Send
+                                ( reply_to
+                                , {
+                                    Message.kind= Message.Response i
+                                  ; payload= response
+                                  }
+                                )
+                            in
+                            M.Mutex.with_lock mutex (fun () ->
+                                Connection.rpc reply_conn request
+                            )
+                            >>= print_error
+                        )
                       >>= fun () ->
                       let request = In.Ack i in
                       M.Mutex.with_lock mutex (fun () ->

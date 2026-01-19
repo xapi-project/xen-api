@@ -94,8 +94,7 @@ let service_type_to_service_info = function
 
 module type FIREWALL = sig
   val update_firewall_status :
-    ?interfaces:string list -> service_type -> status -> unit
-end
+    ?interfaces:string list -> service_type -> status -> unit end
 
 module Firewalld : FIREWALL = struct
   let update_firewall_status ?(interfaces = []) service status =

@@ -22,9 +22,7 @@ module type ASYNC = sig
   val return : 'a -> 'a t
 end
 
-module type TIME = sig
-  val now : unit -> int32
-end
+module type TIME = sig val now : unit -> int32 end
 
 module type RW = sig
   include ASYNC

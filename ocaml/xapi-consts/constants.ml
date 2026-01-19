@@ -457,7 +457,11 @@ let observer_components_all =
 
 let tgroups_enabled = ref false
 
-let when_tgroups_enabled f = if !tgroups_enabled then f () else ()
+let when_tgroups_enabled f =
+  if !tgroups_enabled then
+    f ()
+  else
+    ()
 
 let default_ssh_enabled = true
 

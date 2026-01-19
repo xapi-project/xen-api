@@ -14,8 +14,7 @@
 
 module Time : sig
   (** A monotonically increasing counter associated with this database *)
-  type t = Generation.t
-end
+  type t = Generation.t end
 
 module Stat : sig
   (** Metadata associated with a database value *)
@@ -24,8 +23,7 @@ module Stat : sig
     ; modified: Time.t  (** Time this value was last modified *)
     ; deleted: Time.t
           (** Time this value was deleted (or 0L meaning it is still alive) *)
-  }
-end
+  } end
 
 module type MAP = sig
   (** A map from string to some value *)

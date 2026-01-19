@@ -67,11 +67,11 @@ let filter_out_exp_components components =
 
 let observed_components_of components =
   ( match components with
-  | [] ->
-      startup_components ()
-  | components ->
-      components
-  )
+    | [] ->
+        startup_components ()
+    | components ->
+        components
+    )
   |> filter_out_exp_components
 
 let is_component_enabled ~component =

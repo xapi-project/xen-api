@@ -30,7 +30,11 @@ let device_already_renamed =
 
 (* If devices have already been renamed, then interface_order is None,
    since the order is now reflected in their names. *)
-let initial_interface_order = if device_already_renamed then None else Some []
+let initial_interface_order =
+  if device_already_renamed then
+    None
+  else
+    Some []
 
 let empty_config =
   {default_config with interface_order= initial_interface_order}
@@ -111,12 +115,12 @@ let read_management_conf interface_order =
     let args =
       Astring.String.cuts ~empty:false ~sep:"\n" (String.trim management_conf)
       |> List.filter_map (fun s ->
-             match Astring.String.cut ~sep:"=" s with
-             | Some (_, "") | None ->
-                 None
-             | Some (k, v) ->
-                 Some (k, Astring.String.trim ~drop:(( = ) '\'') v)
-         )
+          match Astring.String.cut ~sep:"=" s with
+          | Some (_, "") | None ->
+              None
+          | Some (k, v) ->
+              Some (k, Astring.String.trim ~drop:(( = ) '\'') v)
+      )
     in
     debug "Firstboot file management.conf has: %s"
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) args)) ;
@@ -141,7 +145,12 @@ let read_management_conf interface_order =
       match interface_order with
       | Some order ->
           List.find_map
-            (fun x -> if x.name = device then Some x.position else None)
+            (fun x ->
+              if x.name = device then
+                Some x.position
+              else
+                None
+            )
             order
       | None ->
           get_index_from_ethx device
@@ -293,7 +302,12 @@ let convert_configuration cfg =
         `Assoc
           (List.map
              (fun (k, v) ->
-               let v = if k = "ipv4_routes" then convert_ipv4_routes v else v in
+               let v =
+                 if k = "ipv4_routes" then
+                   convert_ipv4_routes v
+                 else
+                   v
+               in
                (k, v)
              )
              l

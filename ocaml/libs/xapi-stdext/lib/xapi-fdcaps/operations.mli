@@ -76,8 +76,7 @@ val with_fd2 : 'a t * 'b t -> ('a t * 'b t -> 'c) -> 'c
 
 module Syntax : sig
   val ( let@ ) : ('a -> 'b) -> 'a -> 'b
-  (** [let@ fd = with_fd t in ... use fd] *)
-end
+  (** [let@ fd = with_fd t in ... use fd] *) end
 
 (** {1 {!mod:Unix} wrappers} *)
 
@@ -296,6 +295,4 @@ val repeat_write : ('a, string) operation -> ('a, string) operation
 
 (**/**)
 
-module For_test : sig
-  val unsafe_fd_exn : _ t -> Unix.file_descr
-end
+module For_test : sig val unsafe_fd_exn : _ t -> Unix.file_descr end

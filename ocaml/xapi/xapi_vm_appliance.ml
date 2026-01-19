@@ -56,7 +56,10 @@ let group_vms_by_order ~__context vms =
     (fun map vm ->
       let order = Db.VM.get_order ~__context ~self:vm in
       let existing =
-        if Int64Map.mem order map then Int64Map.find order map else []
+        if Int64Map.mem order map then
+          Int64Map.find order map
+        else
+          []
       in
       Int64Map.add order (vm :: existing) map
     )
@@ -66,7 +69,12 @@ let group_vms_by_order ~__context vms =
 (* VMs with the same boot order. *)
 let create_action_list ~__context start vms =
   let order_map = group_vms_by_order ~__context vms in
-  (if start then List.rev else fun x -> x)
+  ( if start then
+      List.rev
+    else
+      fun x ->
+    x
+  )
     (Int64Map.fold (fun _ vms groups -> vms :: groups) order_map [])
 
 (* Run the given operation on all VMs in the list, and record the tasks created. *)
@@ -137,7 +145,12 @@ let start ~__context ~self ~paused =
           Client.Async.VM.start ~rpc ~session_id ~vm ~start_paused:paused
             ~force:false
         )
-    ; required_state= (if paused then `Paused else `Running)
+    ; required_state=
+        ( if paused then
+            `Paused
+          else
+            `Running
+        )
     }
   in
   perform_operation ~__context ~self ~operation ~ascending_priority:true
@@ -192,10 +205,10 @@ let get_SRs_required_for_recovery ~__context ~self ~session_to =
   Db.VM_appliance.get_VMs ~__context ~self
   |> List.to_seq
   |> Seq.flat_map (fun vm ->
-         Xapi_vm_helpers.get_SRs_required_for_recovery ~__context ~self:vm
-           ~session_to
-         |> List.to_seq
-     )
+      Xapi_vm_helpers.get_SRs_required_for_recovery ~__context ~self:vm
+        ~session_to
+      |> List.to_seq
+  )
   |> Xapi_vm_helpers.SRSet.of_seq
   |> Xapi_vm_helpers.SRSet.elements
 

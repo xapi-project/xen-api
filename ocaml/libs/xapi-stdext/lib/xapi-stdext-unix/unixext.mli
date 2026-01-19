@@ -126,7 +126,12 @@ exception Process_still_alive
 
 val kill_and_wait : ?signal:int -> ?timeout:float -> int -> unit
 
-val proxy : Unix.file_descr -> Unix.file_descr -> unit
+val proxy :
+     ?should_close:(bytes * int * int -> bool)
+  -> ?poll_timeout:int
+  -> Unix.file_descr
+  -> Unix.file_descr
+  -> unit
 
 val really_read : Unix.file_descr -> bytes -> int -> int -> unit
 
@@ -295,8 +300,7 @@ module Daemon : sig
         (* The main process ID (PID) of the service, in case the service
            manager did not fork off the process itself. *)
       | Watchdog
-    (* Tells the service manager to update the watchdog timestamp. *)
-  end
+    (* Tells the service manager to update the watchdog timestamp. *) end
 
   val systemd_notify : State.t -> bool
   (** [systemd_notify state] informs systemd about changed

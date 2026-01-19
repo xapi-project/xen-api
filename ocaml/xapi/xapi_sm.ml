@@ -96,8 +96,8 @@ let remove_valid_features_from_pending ~__context ~self valid_features =
   let new_pending_feature =
     Db.SM.get_host_pending_features ~__context ~self
     |> List.map (fun (h, pending_features) ->
-           (h, Listext.List.set_difference pending_features valid_features)
-       )
+        (h, Listext.List.set_difference pending_features valid_features)
+    )
   in
   Db.SM.set_host_pending_features ~__context ~self ~value:new_pending_feature
 
@@ -123,8 +123,7 @@ let update_from_query_result ~__context (self, r) q_result =
     info "%s Registering SM plugin %s (version %s)" __FUNCTION__
       (String.lowercase_ascii q_result.driver)
       q_result.version ;
-    if r.API.sM_type <> _type then
-      Db.SM.set_type ~__context ~self ~value:_type ;
+    if r.API.sM_type <> _type then Db.SM.set_type ~__context ~self ~value:_type ;
     if r.API.sM_name_label <> q_result.name then
       Db.SM.set_name_label ~__context ~self ~value:q_result.name ;
     if r.API.sM_name_description <> q_result.description then

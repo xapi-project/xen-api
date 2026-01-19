@@ -29,9 +29,7 @@ val with_thread_associated :
 val with_thread_named : string -> ('a -> 'b) -> 'a -> 'b
 (** Do an action with a name associated with the current thread *)
 
-module type BRAND = sig
-  val name : string
-end
+module type BRAND = sig val name : string end
 
 val gettimestring : unit -> string
 (** The current time of day in a format suitable for logging *)

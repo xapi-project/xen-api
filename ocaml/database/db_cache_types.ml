@@ -70,9 +70,7 @@ module StringMap = struct
   let add key v t = add (Share.merge key) v t
 end
 
-module type VAL = sig
-  type t
-end
+module type VAL = sig type t end
 
 module type MAP = sig
   type t
@@ -152,7 +150,10 @@ functor
     let fold_over_recent since f t initial =
       StringMap.fold
         (fun x y z ->
-          if y.stat.Stat.modified > since then f x y.stat y.v z else z
+          if y.stat.Stat.modified > since then
+            f x y.stat y.v z
+          else
+            z
         )
         t initial
   end
@@ -275,7 +276,10 @@ module Table = struct
             else
               acc
           in
-          if deleted <= since then new_acc else loop xs new_acc
+          if deleted <= since then
+            new_acc
+          else
+            loop xs new_acc
       | [] ->
           acc
     in
@@ -523,7 +527,12 @@ end
 (* Helper functions to deal with Sets and Maps *)
 let add_to_set key t =
   let t = Schema.Value.Unsafe_cast.set t in
-  Schema.Value.Set (if List.mem key t then t else key :: t)
+  Schema.Value.Set
+    ( if List.mem key t then
+        t
+      else
+        key :: t
+    )
 
 let remove_from_set key t =
   let t = Schema.Value.Unsafe_cast.set t in
@@ -704,15 +713,14 @@ let add_row tblname objref newval db =
   let g = db.Database.manifest.Manifest.generation_count in
   db
   |> Database.update_keymap (fun m ->
-         if Row.mem Db_names.uuid newval then
-           KeyMap.add_unique tblname Db_names.uuid
-             (Uuid
-                (Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid newval))
-             )
-             (tblname, objref) m
-         else
-           m
-     )
+      if Row.mem Db_names.uuid newval then
+        KeyMap.add_unique tblname Db_names.uuid
+          (Uuid (Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid newval))
+          )
+          (tblname, objref) m
+      else
+        m
+  )
   |> Database.update_keymap
        (KeyMap.add_unique tblname Db_names.ref (Ref objref) (tblname, objref))
   |> ((fun _ -> newval)
@@ -731,8 +739,8 @@ let remove_row tblname objref db =
   let g = db.Database.manifest.Manifest.generation_count in
   db
   |> Database.update_keymap (fun m ->
-         match uuid with Some u -> KeyMap.remove (Uuid u) m | None -> m
-     )
+      match uuid with Some u -> KeyMap.remove (Uuid u) m | None -> m
+  )
   |> Database.update_keymap (KeyMap.remove (Ref objref))
   |> update_many_to_many g tblname objref remove_from_set
   (* Update foreign (Set(Ref _)) fields *)

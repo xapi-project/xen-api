@@ -19,8 +19,7 @@ module W3CBaggage : sig
     val make : string -> t
 
     val to_string : t -> string
-  end
-end
+  end end
 
 type endpoint = Bugtool | Url of Uri.t
 
@@ -51,8 +50,7 @@ module Status : sig
 end
 
 module SpanEvent : sig
-  type t = {name: string; time: float; attributes: string Attributes.t}
-end
+  type t = {name: string; time: float; attributes: string Attributes.t} end
 
 module Span_id : sig
   type t

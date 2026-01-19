@@ -85,7 +85,12 @@ module Make (T : Floatable) = struct
     Bytes.set t.line 1 spinner.(t.spin_index) ;
     t.spin_index <- (t.spin_index + 1) mod Array.length spinner ;
     for i = 0 to w - 1 do
-      Bytes.set t.line (prefix + i) (if i = w - 1 then '>' else '#')
+      Bytes.set t.line (prefix + i)
+        ( if i = w - 1 then
+            '>'
+          else
+            '#'
+        )
     done ;
     let percent = Printf.sprintf "%3d" (percent t) in
     String.blit percent 0 t.line (t.width - 19) 3 ;

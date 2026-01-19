@@ -138,7 +138,10 @@ let handle_sigchld comms_sock args pid _signum =
 let run state comms_sock fd_sock fd_sock_path =
   let rec inner state =
     let state = handle_comms comms_sock fd_sock state in
-    if state.finished then state else inner state
+    if state.finished then
+      state
+    else
+      inner state
   in
 
   try

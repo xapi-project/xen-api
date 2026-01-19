@@ -74,16 +74,16 @@ let proxy (fd : Lwt_unix.file_descr) addr protocol =
   let open LwtWsIteratee in
   let open Lwt_support in
   ( match protocol with
-  | "hixie76" ->
-      Logs_lwt.debug (fun m -> m "Old-style (hixie76) protocol") >>= fun () ->
-      Lwt.return (wsframe_old, wsunframe_old)
-  | "hybi10" ->
-      Logs_lwt.debug (fun m -> m "New-style (hybi10) protocol") >>= fun () ->
-      Lwt.return (wsframe, wsunframe)
-  | _ ->
-      Logs_lwt.warn (fun m -> m "Unknown protocol, fallback to hybi10")
-      >>= fun () -> Lwt.return (wsframe, wsunframe)
-  )
+    | "hixie76" ->
+        Logs_lwt.debug (fun m -> m "Old-style (hixie76) protocol") >>= fun () ->
+        Lwt.return (wsframe_old, wsunframe_old)
+    | "hybi10" ->
+        Logs_lwt.debug (fun m -> m "New-style (hybi10) protocol") >>= fun () ->
+        Lwt.return (wsframe, wsunframe)
+    | _ ->
+        Logs_lwt.warn (fun m -> m "Unknown protocol, fallback to hybi10")
+        >>= fun () -> Lwt.return (wsframe, wsunframe)
+    )
   >>= fun (frame, unframe) ->
   with_open_connection_fd addr ~callback:(fun localfd ->
       let session_id = Uuidx.(to_string (make ())) in

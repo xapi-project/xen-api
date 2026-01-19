@@ -15,8 +15,7 @@
 let test_basic () =
   let open Ezxenstore_core.Xenstore in
   let result = with_xs (fun xs -> xs.write "/foo" "bar" ; xs.read "/foo") in
-  if result <> "bar" then
-    Alcotest.failf "Bad xenstore reply: %S" result
+  if result <> "bar" then Alcotest.failf "Bad xenstore reply: %S" result
 
 let test_watch_within_timeout () =
   let open Ezxenstore_core in

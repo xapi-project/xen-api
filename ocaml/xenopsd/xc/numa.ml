@@ -37,7 +37,10 @@ let human_readable_bytes quantity =
         let quotient = Int64.div q 1024L in
         let modulus = Int64.rem q 1024L in
         let acc =
-          if Int64.equal modulus 0L then acc else print pre modulus :: acc
+          if Int64.equal modulus 0L then
+            acc
+          else
+            print pre modulus :: acc
         in
         loop acc quotient prefs
   in
@@ -71,8 +74,7 @@ let diff c old cur =
   for i = 0 to Int.min (Array.length old) (Array.length cur) - 1 do
     let {memfree= a_free; _}, {memfree= b_free; _} = (old.(i), cur.(i)) in
     if a_free <> b_free then (
-      if not !changed_yet then
-        changed_yet := true ;
+      if not !changed_yet then changed_yet := true ;
       let free = human_readable_bytes b_free in
       let updown = print_diff_mem a_free b_free in
       Logs.app (fun m ->

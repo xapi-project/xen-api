@@ -20,7 +20,10 @@ let get_extra_data_sources_flag =
   let counter = ref 0 in
   fun () ->
     let result = match !counter / 8 with 0 -> false | _ -> true in
-    if !counter >= 15 then counter := 0 else incr counter ;
+    if !counter >= 15 then
+      counter := 0
+    else
+      incr counter ;
     result
 
 let generate_time_data_source () =

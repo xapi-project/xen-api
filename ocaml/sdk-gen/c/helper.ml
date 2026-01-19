@@ -15,8 +15,7 @@ let rec formatted_wrap formatter s =
 
   if String.length prespace < String.length preeol then (
     Format.fprintf formatter "%s@ " prespace ;
-    if String.length postspace > 0 then
-      formatted_wrap formatter postspace
+    if String.length postspace > 0 then formatted_wrap formatter postspace
   ) else if String.length posteol > 0 then (
     Format.fprintf formatter "%s@\n" preeol ;
     formatted_wrap formatter posteol
@@ -46,8 +45,7 @@ let comment doc ?(indent = 0) s =
   Format.pp_set_margin formatter 76 ;
   Format.fprintf formatter "%s" indent_str ;
   Format.fprintf formatter "/*" ;
-  if doc then
-    Format.fprintf formatter "*" ;
+  if doc then Format.fprintf formatter "*" ;
   Format.fprintf formatter "\n" ;
   Format.fprintf formatter "%s" indent_str ;
   Format.fprintf formatter " * " ;

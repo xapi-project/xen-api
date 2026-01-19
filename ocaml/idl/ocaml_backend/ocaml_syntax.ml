@@ -130,7 +130,14 @@ module Module = struct
     | _, _ ->
         let e = function
           | Let y ->
-              Let.items_of ~prefix:(if x.letrec then "and" else "let") y
+              Let.items_of
+                ~prefix:
+                  ( if x.letrec then
+                      "and"
+                    else
+                      "let"
+                  )
+                y
           | Module x ->
               items_of x
           | Type x ->
@@ -152,7 +159,11 @@ module Module = struct
           List.concat
             [
               List.map (fun x -> Line x) x.preamble
-            ; (if x.letrec then [Line "let rec __unused () = ()"] else [])
+            ; ( if x.letrec then
+                  [Line "let rec __unused () = ()"]
+                else
+                  []
+              )
             ; List.concat_map e x.elements
             ; List.map (fun x -> Line x) x.postamble
             ]

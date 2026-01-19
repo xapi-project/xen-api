@@ -12,9 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module type SIZE = sig
-  val n : unit -> int
-end
+module type SIZE = sig val n : unit -> int end
 
 module Make (Size : SIZE) = struct
   module Semaphore = Semaphore.Counting
@@ -56,7 +54,11 @@ module Batching = struct
     in
     {delay_initial; delay_before; delay_between}
 
-  let span_min a b = if Mtime.Span.is_shorter a ~than:b then a else b
+  let span_min a b =
+    if Mtime.Span.is_shorter a ~than:b then
+      a
+    else
+      b
 
   (** [perform_delay delay] calls {!val:Thread.delay} when [delay] is non-zero.
 

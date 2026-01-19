@@ -322,10 +322,10 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
     |> List.map (fun self -> (self, Db.VDI.get_record ~__context ~self))
     |> List.filter (fun (_, record) -> record.API.vDI_on_boot = `reset)
     |> List.filter_map (fun (reference, record) ->
-           Option.map
-             (fun offset -> (reference, offset))
-             (List.assoc_opt Vm_platform.timeoffset record.API.vDI_other_config)
-       )
+        Option.map
+          (fun offset -> (reference, offset))
+          (List.assoc_opt Vm_platform.timeoffset record.API.vDI_other_config)
+    )
   in
   match vdis_with_timeoffset_to_be_reset_on_boot with
   | [] ->
@@ -546,12 +546,12 @@ let list_net_sriov_vf_pcis ~__context ~vm =
   vm.API.vM_VIFs
   |> List.filter (fun self -> Db.VIF.get_currently_attached ~__context ~self)
   |> List.filter_map (fun vif ->
-         match backend_of_vif ~__context ~vif with
-         | Network.Sriov {domain; bus; dev; fn} ->
-             Some (domain, bus, dev, fn)
-         | _ ->
-             None
-     )
+      match backend_of_vif ~__context ~vif with
+      | Network.Sriov {domain; bus; dev; fn} ->
+          Some (domain, bus, dev, fn)
+      | _ ->
+          None
+  )
 
 module StringMap = Map.Make (String)
 
@@ -716,7 +716,12 @@ module MD = struct
     {
       id= (vm.API.vM_uuid, Device_number.to_linux_device device_number)
     ; position= Some device_number
-    ; mode= (if vbd.API.vBD_mode = `RO then ReadOnly else ReadWrite)
+    ; mode=
+        ( if vbd.API.vBD_mode = `RO then
+            ReadOnly
+          else
+            ReadWrite
+        )
     ; backend= backend_of_vbd vbd
     ; ty=
         ( match vbd.API.vBD_type with
@@ -831,7 +836,7 @@ module MD = struct
     let carrier =
       if !Xapi_globs.pass_through_pif_carrier then
         (* We need to reflect the carrier of the local PIF on the network (if any) *)
-        match pifs with
+          match pifs with
         | [] ->
             true (* Internal network; consider as "always up" *)
         | pif :: _ -> (
@@ -884,7 +889,10 @@ module MD = struct
           None
       | pif :: _ ->
           let vlan = Db.PIF.get_VLAN ~__context ~self:pif in
-          if vlan < 0L then None else Some vlan
+          if vlan < 0L then
+            None
+          else
+            Some vlan
     in
     {
       Vif.id= (vm.API.vM_uuid, vif.API.vIF_device)
@@ -1323,7 +1331,10 @@ module MD = struct
     in
     (* CA-55754: temporarily disable msitranslate when GPU is passed through. *)
     let pci_msitranslate =
-      if vm.API.vM_VGPUs <> [] then false else pci_msitranslate
+      if vm.API.vM_VGPUs <> [] then
+        false
+      else
+        pci_msitranslate
     in
     if
       List.assoc_opt "suppress-spurious-page-faults" vm.API.vM_other_config
@@ -1539,7 +1550,11 @@ module Xapi_cache = struct
       )
     in
     debug "xapi_cache:%s updating cache for %s"
-      (if updated then "" else " not")
+      ( if updated then
+          ""
+        else
+          " not"
+      )
       id ;
     updated
 
@@ -2149,8 +2164,7 @@ let update_vm_internal ~__context ~id ~self ~previous ~info ~localhost =
            should not be reset as there maybe a checkpoint is ongoing*)
         Xapi_vm_lifecycle.force_state_reset_keep_current_operations ~__context
           ~self ~value:power_state ;
-        if power_state = `Running then
-          create_guest_metrics_if_needed () ;
+        if power_state = `Running then create_guest_metrics_if_needed () ;
         if power_state = `Suspended || power_state = `Halted then (
           Xapi_network.detach_for_vm ~__context ~host:localhost ~vm:self ;
           Storage_access.reset ~__context ~vm:self
@@ -2479,6 +2493,40 @@ let update_vm_internal ~__context ~id ~self ~previous ~info ~localhost =
         error "Caught %s: while updating VM %s last_boot_CPU_flags"
           (Printexc.to_string e) id
     ) ;
+  different
+    (fun x -> x.Vm.numa_optimised)
+    Fun.id
+    (fun opt ->
+      let metrics = Db.VM.get_metrics ~__context ~self in
+      debug "Updating VM %s NUMA optimised=%b" id opt ;
+      Db.VM_metrics.set_numa_optimised ~__context ~self:metrics ~value:opt
+    ) ;
+  different
+    (fun x -> x.Vm.numa_nodes)
+    Fun.id
+    (fun n ->
+      let metrics = Db.VM.get_metrics ~__context ~self in
+      debug "Updating VM %s NUMA nodes=%d" id n ;
+      Db.VM_metrics.set_numa_nodes ~__context ~self:metrics
+        ~value:(Int64.of_int n)
+    ) ;
+  different
+    (fun x -> x.Vm.numa_node_memory)
+    Fun.id
+    (fun assoc ->
+      let mib n = Int64.shift_left n 20 in
+      let assignment =
+        List.map
+          (fun (node, mem) -> Printf.sprintf "%d:%LdMiB" node (mib mem))
+          assoc
+        |> String.concat " "
+      in
+      let metrics = Db.VM.get_metrics ~__context ~self in
+      debug "Updating VM %s NUMA assignment [%s]" id assignment ;
+      Db.VM_metrics.set_numa_node_memory ~__context ~self:metrics
+        ~value:(List.map (fun (x, y) -> (Int64.of_int x, y)) assoc)
+    ) ;
+
   Xenops_cache.update_vm id info ;
   if !should_update_allowed_operations then
     Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -2899,12 +2947,12 @@ let update_vusb ~__context (id : string * string) =
             Db.VM.get_VUSBs ~__context ~self:vm
             |> List.map (fun self -> Db.VUSB.get_USB_group ~__context ~self)
             |> List.map (fun usb_group ->
-                   Helpers.get_first_pusb ~__context usb_group
-               )
+                Helpers.get_first_pusb ~__context usb_group
+            )
             |> List.map (fun self -> (self, Db.PUSB.get_record ~__context ~self))
             |> List.find (fun (_, pusbr) ->
-                   "vusb" ^ pusbr.API.pUSB_path = snd id
-               )
+                "vusb" ^ pusbr.API.pUSB_path = snd id
+            )
           in
           let usb_group = Db.PUSB.get_USB_group ~__context ~self:pusb in
           let vusb = Helpers.get_first_vusb ~__context usb_group in
@@ -3802,7 +3850,8 @@ let maybe_refresh_vm ~__context ~self =
     (* By calling with_events_suppressed we can guarentee that an refresh_vm
      * will be called with events enabled and therefore we get Xenopsd into a
      * consistent state with Xapi *)
-    Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ())
+    Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ()
+    )
   )
 
 let start ~__context ~self paused force =
@@ -3860,7 +3909,12 @@ let start ~__context ~self paused force =
         set_resident_on ~__context ~self ;
         (* set_resident_on syncs both xenopsd and with the xapi event mechanism *)
         check_power_state_is ~__context ~self
-          ~expected:(if paused then `Paused else `Running)
+          ~expected:
+            ( if paused then
+                `Paused
+              else
+                `Running
+            )
       with e ->
         error "Caught exception starting VM: %s" (string_of_exn e) ;
         set_resident_on ~__context ~self ;
@@ -3968,8 +4022,8 @@ let suspend ~__context ~self =
           Db.VM.get_VGPUs ~__context ~self
           |> List.map (fun self -> Db.VGPU.get_type ~__context ~self)
           |> List.map (fun self ->
-                 Db.VGPU_type.get_framebuffer_size ~__context ~self
-             )
+              Db.VGPU_type.get_framebuffer_size ~__context ~self
+          )
           |> List.fold_left Int64.add 0L
         in
         Int64.(ram |> add vgpu |> add 104857600L)
@@ -4079,7 +4133,12 @@ let resume ~__context ~self ~start_paused ~force:_ =
       XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi
   ) ;
   check_power_state_is ~__context ~self
-    ~expected:(if start_paused then `Paused else `Running)
+    ~expected:
+      ( if start_paused then
+          `Paused
+        else
+          `Running
+      )
 
 let s3suspend ~__context ~self =
   let@ __context = Context.with_tracing ~__context __FUNCTION__ in
@@ -4310,7 +4369,12 @@ let vif_set_pvs_proxy ~__context ~self creating =
   transform_xenops_exn ~__context ~vm queue_name (fun () ->
       assert_resident_on ~__context ~self:vm ;
       let vif = md_of_vif ~__context ~self in
-      let proxy = if creating then vif.Vif.pvs_proxy else None in
+      let proxy =
+        if creating then
+          vif.Vif.pvs_proxy
+        else
+          None
+      in
       info "xenops: VIF.set_pvs_proxy %s.%s" (fst vif.Vif.id) (snd vif.Vif.id) ;
       let dbg = Context.string_of_task_and_tracing __context in
       let module Client = (val make_client queue_name : XENOPS) in

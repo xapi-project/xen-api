@@ -30,5 +30,4 @@ type reader = {
 }
 
 module Make (T : TRANSPORT) : sig
-  val create : T.id_t -> Rrd_protocol.protocol -> reader
-end
+  val create : T.id_t -> Rrd_protocol.protocol -> reader end

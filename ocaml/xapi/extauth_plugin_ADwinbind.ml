@@ -102,14 +102,6 @@ let generic_error msg =
 
 let fail fmt = Printf.ksprintf generic_error fmt
 
-let is_samba_updated =
-  (* This is temporary workaround to be compatible for old and new samba, to decouple the merge of xapi and samba *)
-  let check_file = "/usr/lib64/samba/libxattr-tdb-private-samba.so" in
-  Sys.file_exists check_file
-
-let kerberos_opt =
-  match is_samba_updated with true -> [] | false -> ["--kerberos"]
-
 (* Global cache for netbios name to domain name mapping using atomic map for thread safety *)
 module StringMap = Map.Make (String)
 
@@ -424,7 +416,6 @@ module Ldap = struct
           ; kdc
           ; "--machine-pass"
           ]
-          @ kerberos_opt
           @ attrs
         in
         let stdout =
@@ -458,7 +449,6 @@ module Ldap = struct
     let query = Printf.sprintf "(|(sAMAccountName=%s)(name=%s))" name name in
     let args =
       ["ads"; "search"; "-d"; debug_level (); "--server"; kdc; "--machine-pass"]
-      @ kerberos_opt
       @ [query; key]
     in
     try
@@ -486,29 +476,29 @@ module Wbinfo = struct
     fun stderr ->
       get_regex_match stderr
       |> Option.map (fun code ->
-             (* see wbclient.h samba source code for this error list *)
-             match code with
-             | "WBC_ERR_AUTH_ERROR" ->
-                 Auth_failure code
-             | "WBC_ERR_NOT_IMPLEMENTED"
-             | "WBC_ERR_UNKNOWN_FAILURE"
-             | "WBC_ERR_NO_MEMORY"
-             | "WBC_ERR_INVALID_PARAM"
-             | "WBC_ERR_WINBIND_NOT_AVAILABLE"
-             | "WBC_ERR_DOMAIN_NOT_FOUND"
-             | "WBC_ERR_INVALID_RESPONSE"
-             | "WBC_ERR_NSS_ERROR"
-             | "WBC_ERR_PWD_CHANGE_FAILED" ->
-                 Auth_service_error (E_GENERIC, code)
-             | "WBC_ERR_INVALID_SID"
-             | "WBC_ERR_UNKNOWN_USER"
-             | "WBC_ERR_NOT_MAPPED"
-             | "WBC_ERR_UNKNOWN_GROUP" ->
-                 Not_found
-             | _ ->
-                 Auth_service_error
-                   (E_GENERIC, Printf.sprintf "unknown error code: %s" code)
-         )
+          (* see wbclient.h samba source code for this error list *)
+          match code with
+          | "WBC_ERR_AUTH_ERROR" ->
+              Auth_failure code
+          | "WBC_ERR_NOT_IMPLEMENTED"
+          | "WBC_ERR_UNKNOWN_FAILURE"
+          | "WBC_ERR_NO_MEMORY"
+          | "WBC_ERR_INVALID_PARAM"
+          | "WBC_ERR_WINBIND_NOT_AVAILABLE"
+          | "WBC_ERR_DOMAIN_NOT_FOUND"
+          | "WBC_ERR_INVALID_RESPONSE"
+          | "WBC_ERR_NSS_ERROR"
+          | "WBC_ERR_PWD_CHANGE_FAILED" ->
+              Auth_service_error (E_GENERIC, code)
+          | "WBC_ERR_INVALID_SID"
+          | "WBC_ERR_UNKNOWN_USER"
+          | "WBC_ERR_NOT_MAPPED"
+          | "WBC_ERR_UNKNOWN_GROUP" ->
+              Not_found
+          | _ ->
+              Auth_service_error
+                (E_GENERIC, Printf.sprintf "unknown error code: %s" code)
+      )
 
   let call_wbinfo (args : string list) : (string, exn) result =
     let generic_err () =
@@ -675,7 +665,12 @@ module Migrate_from_pbis = struct
    * to winbind database
    * This module just migrate necessary information to set to winbind configuration *)
   let range _ e step =
-    let rec aux n acc = if n >= e then acc else aux (n + step) (n :: acc) in
+    let rec aux n acc =
+      if n >= e then
+        acc
+      else
+        aux (n + step) (n :: acc)
+    in
     aux 0 [] |> List.rev
 
   let min_valid_pbis_value_length = String.length "X''"
@@ -746,7 +741,7 @@ end
 let kdcs_of_domain domain =
   try
     Helpers.call_script ~log_output:On_failure net_cmd
-      (["lookup"; "kdc"; domain; "-d"; debug_level ()] @ kerberos_opt)
+      ["lookup"; "kdc"; domain; "-d"; debug_level ()]
     (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
     |> String.split_on_char '\n'
     |> List.filter (fun x -> String.trim x <> "") (* Remove empty lines *)
@@ -760,9 +755,7 @@ let workgroup_from_server kdc =
   let key = "Pre-Win2k Domain" in
   try
     Helpers.call_script ~log_output:On_failure net_cmd
-      (["ads"; "lookup"; "-S"; KDC.server kdc; "-d"; debug_level ()]
-      @ kerberos_opt
-      )
+      ["ads"; "lookup"; "-S"; KDC.server kdc; "-d"; debug_level ()]
     |> Xapi_cmd_result.of_output ~sep:':' ~key
     |> Result.ok
   with _ ->
@@ -789,34 +782,18 @@ let config_winbind_daemon ~workgroup ~netbios_name ~domain =
   let smb_config = "/etc/samba/smb.conf" in
   let string_of_bool = function true -> "yes" | false -> "no" in
 
-  (*`allow kerberos auth fallback` depends on our internal samba patch,
-   * this patch disable fallback to ntlm by default and can be enabled
-   * Looks like upstream is doing something similar on master with
-   * configuration `weak_crypto`, check and replace the internal patch when
-   * upgrade to samba packages with this capacity *)
-  let allow_fallback =
-    string_of_bool !Xapi_globs.winbind_allow_kerberos_auth_fallback
-  in
   let scan_trusted_domains =
     string_of_bool !Xapi_globs.winbind_scan_trusted_domains
   in
-  let version_conf =
-    match is_samba_updated with
-    | false ->
-        [Printf.sprintf "allow kerberos auth fallback = %s" allow_fallback]
-    | true ->
+  ( match (workgroup, netbios_name, domain) with
+    | Some wkgroup, Some netbios, Some dom ->
         [
-          "client use kerberos = required"
+          "# autogenerated by xapi"
+        ; "[global]"
+        ; "client use kerberos = required"
         ; "sync machine password to keytab = \
            /etc/krb5.keytab:account_name:sync_etypes:sync_kvno:machine_password"
-        ]
-  in
-  ( match (workgroup, netbios_name, domain) with
-  | Some wkgroup, Some netbios, Some dom ->
-      ["# autogenerated by xapi"; "[global]"]
-      @ version_conf
-      @ [
-          "kerberos method = secrets and keytab"
+        ; "kerberos method = secrets and keytab"
         ; Printf.sprintf "realm = %s" dom
         ; "security = ADS"
         ; "template shell = /bin/bash"
@@ -840,9 +817,9 @@ let config_winbind_daemon ~workgroup ~netbios_name ~domain =
         ; Printf.sprintf "log level = %s" (debug_level ())
         ; "" (* Empty line at the end *)
         ]
-  | _ ->
-      ["# autogenerated by xapi"; "[global]"; "" (* Empty line at the end *)]
-  )
+    | _ ->
+        ["# autogenerated by xapi"; "[global]"; "" (* Empty line at the end *)]
+    )
   |> String.concat "\n"
   |> Xapi_stdext_unix.Unixext.write_string_to_file smb_config
 
@@ -917,9 +894,7 @@ let clear_machine_account ~service_name = function
   | Some u, Some p -> (
       (* Disable machine account in DC *)
       let env = [|Printf.sprintf "PASSWD=%s" p|] in
-      let args =
-        ["ads"; "leave"; "-U"; u; "-d"; debug_level ()] @ kerberos_opt
-      in
+      let args = ["ads"; "leave"; "-U"; u; "-d"; debug_level ()] in
       try
         Helpers.call_script ~env net_cmd args |> ignore ;
         debug "Succeed to clear the machine account for domain %s" service_name
@@ -1140,9 +1115,7 @@ module RotateMachinePassword = struct
   let stop_rotate () = Scheduler.remove_from_queue task_name
 end
 
-module type LocalHostTag = sig
-  val local_ip : string
-end
+module type LocalHostTag = sig val local_ip : string end
 
 module HostsConfTagIPv4 : LocalHostTag = struct let local_ip = "127.0.0.1" end
 
@@ -1565,23 +1538,19 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
 
     let args =
       [
-        [
-          "ads"
-        ; "join"
-        ; service_name
-        ; "-U"
-        ; user
-        ; "-n"
-        ; netbios_name
-        ; "-d"
-        ; debug_level ()
-        ; "--no-dns-updates"
-        ]
-        @ kerberos_opt
-      ; ou_param
-      ; dns_hostname_option
+        "ads"
+      ; "join"
+      ; service_name
+      ; "-U"
+      ; user
+      ; "-n"
+      ; netbios_name
+      ; "-d"
+      ; debug_level ()
+      ; "--no-dns-updates"
       ]
-      |> List.concat
+      @ ou_param
+      @ dns_hostname_option
     in
     debug "Joining domain %s with user %s netbios_name %s" service_name user
       netbios_name ;

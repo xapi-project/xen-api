@@ -82,12 +82,10 @@ let _ =
       api
   in
 
-  if !markdown_mode then
-    Markdown_backend.all api ;
+  if !markdown_mode then Markdown_backend.all api ;
 
   if !dirname <> "" then Unix.chdir !dirname ;
-  if !dot_mode then
-    List.iter print_endline (Dot_backend.of_objs api) ;
+  if !dot_mode then List.iter print_endline (Dot_backend.of_objs api) ;
 
   if !dtd_mode then
     let api =

@@ -391,65 +391,65 @@ module LivePatch = struct
   let of_xml livepatches =
     livepatches
     |> List.filter_map (function
-         | Xml.Element ("livepatch", attrs, _) -> (
-           match initial_record attrs with
-           | None ->
-               None
-           | Some lp -> (
-             match
-               ( List.assoc_opt "base-buildid" attrs
-               , List.assoc_opt "base" attrs
-               , List.assoc_opt "to" attrs
-               )
-             with
-             | Some base_build_id, Some base_vr, Some to_vr -> (
-                 let open Rresult.R.Infix in
-                 ( Ok {lp with base_build_id} >>= fun lp ->
-                   ( try
-                       let v, r = version_release_of_string base_vr in
-                       Ok {lp with base_version= v; base_release= r}
-                     with e ->
-                       let msg =
-                         Printf.sprintf "%s: %s in 'base' of livepatch"
-                           (ExnHelper.string_of_exn e)
-                           base_vr
-                       in
-                       Error msg
-                   )
-                   >>= fun lp ->
-                   try
-                     let v, r = version_release_of_string to_vr in
-                     Ok {lp with to_version= v; to_release= r}
-                   with e ->
-                     let msg =
-                       Printf.sprintf "%s: %s in 'to' of livepatch"
-                         (ExnHelper.string_of_exn e)
-                         to_vr
-                     in
-                     Error msg
-                 )
-                 |> function
-                 | Ok lp -> (
-                   try assert_valid lp ; Some lp with _ -> None
-                 )
-                 | Error msg ->
-                     warn "Can't parse livepatch: %s" msg ;
-                     None
-               )
-             | _ ->
-                 let s =
-                   attrs
-                   |> List.map (fun (k, v) -> k ^ "=" ^ v)
-                   |> Astring.String.concat ~sep:";"
-                 in
-                 warn "Can't parse livepatch from attributes: %s" s ;
-                 None
-           )
-         )
-         | _ ->
-             warn "Unexpected child in livepatches" ;
-             None
-         )
+      | Xml.Element ("livepatch", attrs, _) -> (
+        match initial_record attrs with
+        | None ->
+            None
+        | Some lp -> (
+          match
+            ( List.assoc_opt "base-buildid" attrs
+            , List.assoc_opt "base" attrs
+            , List.assoc_opt "to" attrs
+            )
+          with
+          | Some base_build_id, Some base_vr, Some to_vr -> (
+              let open Rresult.R.Infix in
+              ( Ok {lp with base_build_id} >>= fun lp ->
+                ( try
+                    let v, r = version_release_of_string base_vr in
+                    Ok {lp with base_version= v; base_release= r}
+                  with e ->
+                    let msg =
+                      Printf.sprintf "%s: %s in 'base' of livepatch"
+                        (ExnHelper.string_of_exn e)
+                        base_vr
+                    in
+                    Error msg
+                )
+                >>= fun lp ->
+                try
+                  let v, r = version_release_of_string to_vr in
+                  Ok {lp with to_version= v; to_release= r}
+                with e ->
+                  let msg =
+                    Printf.sprintf "%s: %s in 'to' of livepatch"
+                      (ExnHelper.string_of_exn e)
+                      to_vr
+                  in
+                  Error msg
+              )
+              |> function
+              | Ok lp -> (
+                try assert_valid lp ; Some lp with _ -> None
+              )
+              | Error msg ->
+                  warn "Can't parse livepatch: %s" msg ;
+                  None
+            )
+          | _ ->
+              let s =
+                attrs
+                |> List.map (fun (k, v) -> k ^ "=" ^ v)
+                |> Astring.String.concat ~sep:";"
+              in
+              warn "Can't parse livepatch from attributes: %s" s ;
+              None
+        )
+      )
+      | _ ->
+          warn "Unexpected child in livepatches" ;
+          None
+      )
 end
 
 module Severity = struct

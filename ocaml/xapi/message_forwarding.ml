@@ -225,7 +225,10 @@ let choose_pbds_for_sr ~consider_unplugged_pbds ~__context ~self () =
       all_pbds
   in
   let pbds_to_consider =
-    if consider_unplugged_pbds then all_pbds else plugged_pbds
+    if consider_unplugged_pbds then
+      all_pbds
+    else
+      plugged_pbds
   in
   let pbds = PBDSet.of_list pbds_to_consider in
   let pbd_candidates =
@@ -298,7 +301,7 @@ let loadbalance_host_operation ~__context ~hosts ~doc ~op
   finally
     (fun () -> f choice)
     (* Make sure to clean up at the end *)
-      (fun () ->
+    (fun () ->
       try
         Db.Host.remove_from_current_operations ~__context ~self:choice
           ~key:task_id ;
@@ -326,7 +329,10 @@ functor
         debug
           "Lost connection with slave during call (expected). Waiting for \
            slave to come up again." ;
-        let time_between_retries = 1. (* seconds *) in
+        let time_between_retries =
+          1.
+          (* seconds *)
+        in
         let num_retries = int_of_float (timeout /. time_between_retries) in
         let rec poll i =
           match i with
@@ -814,14 +820,14 @@ functor
          * this must be best effort - once an eject has begun we cannot rollback *)
         other
         |> List.iter (fun h ->
-               try do_op_on ~local_fn ~__context ~host:h ~remote_fn
-               with e ->
-                 D.warn
-                   "Pool.eject: while ejecting host=%s, we failed to clean up \
-                    on host=%s. ignoring error: %s"
-                   (Ref.short_string_of host) (Ref.short_string_of h)
-                   (Printexc.to_string e)
-           ) ;
+            try do_op_on ~local_fn ~__context ~host:h ~remote_fn
+            with e ->
+              D.warn
+                "Pool.eject: while ejecting host=%s, we failed to clean up on \
+                 host=%s. ignoring error: %s"
+                (Ref.short_string_of host) (Ref.short_string_of h)
+                (Printexc.to_string e)
+        ) ;
         (* finally clean up on master *)
         do_op_on ~local_fn ~__context ~host:master ~remote_fn
 
@@ -1027,10 +1033,10 @@ functor
             done ;
             all_hosts
             |> List.iter (fun host ->
-                   do_op_on ~local_fn ~__context ~host ~remote_fn ;
-                   debug "Pool.enable_tls_verification enabling on host %s"
-                     (Ref.string_of host)
-               ) ;
+                do_op_on ~local_fn ~__context ~host ~remote_fn ;
+                debug "Pool.enable_tls_verification enabling on host %s"
+                  (Ref.string_of host)
+            ) ;
             Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true ;
             debug "Enabling TLS verification for Work Load Balancing (WLB)" ;
             Db.Pool.set_wlb_verify_cert ~__context ~self ~value:true ;
@@ -1061,7 +1067,11 @@ functor
            %s"
           (pool_uuid ~__context self)
           (string_of_bool force)
-          (if token = "" then "" else "(token filtered)")
+          ( if token = "" then
+              ""
+            else
+              "(token filtered)"
+          )
           token_id ;
         Local.Pool.sync_updates ~__context ~self ~force ~token ~token_id
 
@@ -1088,8 +1098,16 @@ functor
            %s; password = %s"
           (pool_uuid ~__context self)
           url
-          (if username = "" then "" else "(username filtered)")
-          (if password = "" then "" else "(password filtered)") ;
+          ( if username = "" then
+              ""
+            else
+              "(username filtered)"
+          )
+          ( if password = "" then
+              ""
+            else
+              "(password filtered)"
+          ) ;
         Local.Pool.configure_repository_proxy ~__context ~self ~url ~username
           ~password
 
@@ -1400,12 +1418,12 @@ functor
         debug "%s VM=%s" __FUNCTION__ (Ref.string_of vm) ;
         Db.VM.get_VIFs ~__context ~self:vm
         |> List.iter (fun vif ->
-               let vf = Db.VIF.get_reserved_pci ~__context ~self:vif in
-               Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null ;
-               if Db.is_valid_ref __context vf then
-                 Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf
-                   ~value:Ref.null
-           )
+            let vf = Db.VIF.get_reserved_pci ~__context ~self:vif in
+            Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null ;
+            if Db.is_valid_ref __context vf then
+              Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf
+                ~value:Ref.null
+        )
 
       let clear_reservations ~__context ~vm =
         debug "%s VM=%s" __FUNCTION__ (Ref.string_of vm) ;
@@ -1415,23 +1433,23 @@ functor
         (* vgpu *)
         Db.VM.get_VGPUs ~__context ~self:vm
         |> List.iter (fun vgpu ->
-               Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
-                 ~value:Ref.null
-           ) ;
+            Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
+              ~value:Ref.null
+        ) ;
         (* pcis *)
         Db.PCI.get_refs_where ~__context
           ~expr:
             (Eq (Field "scheduled_to_be_attached_to", Literal (Ref.string_of vm))
             )
         |> List.iter (function
-             | pci when pci <> Ref.null ->
-                 debug "%s: clearing reservation of PCI %s for VM %s"
-                   __FUNCTION__ (Ref.string_of pci) (Ref.string_of vm) ;
-                 Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci
-                   ~value:Ref.null
-             | _ ->
-                 ()
-             )
+          | pci when pci <> Ref.null ->
+              debug "%s: clearing reservation of PCI %s for VM %s" __FUNCTION__
+                (Ref.string_of pci) (Ref.string_of vm) ;
+              Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci
+                ~value:Ref.null
+          | _ ->
+              ()
+          )
 
       (* Notes on memory checking/reservation logic:
          When computing the hosts free memory we consider all VMs resident_on (ie running
@@ -1864,7 +1882,10 @@ functor
                   []
             in
             let hosts =
-              if possible_hosts = [] then [localhost] else possible_hosts
+              if possible_hosts = [] then
+                [localhost]
+              else
+                possible_hosts
             in
             loadbalance_host_operation ~__context ~hosts ~doc:"VM.provision"
               ~op:`provision (fun host ->
@@ -3295,7 +3316,11 @@ functor
       (* Call never forwarded *)
       let propose_new_master ~__context ~address ~manual =
         info "Host.propose_new_master: type = '%s'; host address = '%s'"
-          (if manual then "manual" else "automatic")
+          ( if manual then
+              "manual"
+            else
+              "automatic"
+          )
           address ;
         Local.Host.propose_new_master ~__context ~address ~manual
 
@@ -3338,7 +3363,10 @@ functor
          * Consider the operation successful if management flag was set on the PIF we're working with. Since the slave
          * sets this flag after bringing up the management interface, this is a good indication of success. *)
         let success () =
-          if Db.PIF.get_management ~__context ~self:pif then Some () else None
+          if Db.PIF.get_management ~__context ~self:pif then
+            Some ()
+          else
+            None
         in
         let local_fn = Local.Host.management_reconfigure ~pif in
         let remote_fn = Client.Host.management_reconfigure ~pif in
@@ -3796,7 +3824,10 @@ functor
       let _success ~__context () =
         let task = Context.get_task_id __context in
         let progress = Db.Task.get_progress ~__context ~self:task in
-        if progress = 1. then Some () else None
+        if progress = 1. then
+          Some ()
+        else
+          None
 
       let install_server_certificate ~__context ~host ~certificate ~private_key
           ~certificate_chain =
@@ -4912,14 +4943,14 @@ functor
             pbds
             |> List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
             |> List.iter (fun host ->
-                   try do_op_on ~local_fn ~__context ~host ~remote_fn
-                   with
-                   | Api_errors.Server_error (reason, _)
-                   when reason = Api_errors.host_offline
-                   ->
-                     ()
-                   (* allow an offline host to continue the operation *)
-               )
+                try do_op_on ~local_fn ~__context ~host ~remote_fn
+                with
+                | Api_errors.Server_error (reason, _)
+                when reason = Api_errors.host_offline
+                ->
+                  ()
+                (* allow an offline host to continue the operation *)
+            )
 
       let set_virtual_allocation ~__context ~self ~value =
         Sm.assert_session_has_internal_sr_access ~__context ~sr:self ;
@@ -5027,7 +5058,11 @@ functor
         let is_internal_scan =
           Db.Session.get_pool ~__context ~self:(Context.get_session_id __context)
         in
-        (if is_internal_scan then debug else info)
+        ( if is_internal_scan then
+            debug
+          else
+            info
+        )
           "SR.scan: SR = '%s'" (sr_uuid ~__context sr) ;
         let local_fn = Local.SR.scan ~sr in
         let remote_fn = Client.SR.scan ~sr in
@@ -5905,8 +5940,7 @@ functor
           pbd_host = master_host
         in
         with_unplug_locks ~__context ~sr ~pbd:self (fun () ->
-            if is_master_pbd then
-              Xapi_sr.maybe_copy_sr_rrds ~__context ~sr ;
+            if is_master_pbd then Xapi_sr.maybe_copy_sr_rrds ~__context ~sr ;
             forward_pbd_op ~local_fn ~__context ~self ~remote_fn
         )
     end
@@ -6411,9 +6445,9 @@ functor
         let remote_fn = Client.Cluster.pool_resync ~self in
         hosts
         |> List.iter (fun host ->
-               do_op_on ~local_fn ~__context ~host ~remote_fn ;
-               debug "Cluster.pool_resync for host %s" (Ref.string_of host)
-           )
+            do_op_on ~local_fn ~__context ~host ~remote_fn ;
+            debug "Cluster.pool_resync for host %s" (Ref.string_of host)
+        )
 
       let cstack_sync ~__context ~self =
         info "Cluster.cstack_sync cluster %s" (Ref.string_of self) ;
@@ -6667,9 +6701,9 @@ functor
         in
         Xapi_observer.observed_hosts_of ~__context hosts
         |> List.iter (fun host ->
-               let remote_fn = Client.Observer.register ~self ~host in
-               do_op_on ~__context ~host ~local_fn ~remote_fn
-           ) ;
+            let remote_fn = Client.Observer.register ~self ~host in
+            do_op_on ~__context ~host ~local_fn ~remote_fn
+        ) ;
         self
 
       let register ~__context ~self ~host =
@@ -6693,9 +6727,9 @@ functor
         in
         Xapi_observer.observed_hosts_of ~__context hosts
         |> List.iter (fun host ->
-               let remote_fn = Client.Observer.unregister ~self ~host in
-               do_op_on ~__context ~host ~local_fn ~remote_fn
-           ) ;
+            let remote_fn = Client.Observer.unregister ~self ~host in
+            do_op_on ~__context ~host ~local_fn ~remote_fn
+        ) ;
         Local.Observer.destroy ~__context ~self
 
       let set_hosts ~__context ~self ~value =

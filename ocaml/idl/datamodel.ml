@@ -7460,6 +7460,16 @@ module VM_metrics = struct
             "current_domain_type"
             "The current domain type of the VM (for running,suspended, or \
              paused VMs). The last-known domain type for halted VMs."
+        ; field ~qualifier:StaticRO ~ty:Bool ~default_value:(Some (VBool false))
+            ~lifecycle:[] "numa_optimised" "If the VM is optimised for NUMA"
+        ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 0L))
+            ~lifecycle:[] "numa_nodes"
+            "number of NUMA nodes of the host the VM is using"
+        ; field ~qualifier:DynamicRO
+            ~ty:(Map (Int, Int))
+            ~default_value:(Some (VMap [])) ~lifecycle:[] "numa_node_memory"
+            "mapping a NUMA node (int) to an amount of memory (bytes) in that \
+             node."
         ]
       ()
 end
@@ -11196,8 +11206,8 @@ let all_lifecycles =
   let map_with f ls = List.to_seq ls |> Seq.concat_map f |> StringMap.of_seq in
   Dm_api.objects_of_api all_api
   |> map_with (fun {name; obj_lifecycle= {state; _}; messages; contents; _} ->
-         let msg_states = map_with get_msg_state messages in
-         let fld_states = map_with (get_content_states name) contents in
-         let fld_states = StringMap.add "_ref" state fld_states in
-         Seq.return (name, {obj_state= state; msg_states; fld_states})
-     )
+      let msg_states = map_with get_msg_state messages in
+      let fld_states = map_with (get_content_states name) contents in
+      let fld_states = StringMap.add "_ref" state fld_states in
+      Seq.return (name, {obj_state= state; msg_states; fld_states})
+  )

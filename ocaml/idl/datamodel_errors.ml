@@ -1059,7 +1059,7 @@ let _ =
     ~doc:"The VDI mirroring cannot be performed" () ;
   error Api_errors.too_many_storage_migrates ["number"]
     ~doc:"You reached the maximal number of concurrently migrating VMs." () ;
-  error Api_errors.sr_does_not_support_migration ["sr"]
+  error Api_errors.sr_does_not_support_migration ["sr"; "capabilities"]
     ~doc:"Cannot migrate a VDI to or from an SR that doesn't support migration."
     () ;
   error Api_errors.vm_failed_shutdown_ack ["vm"]

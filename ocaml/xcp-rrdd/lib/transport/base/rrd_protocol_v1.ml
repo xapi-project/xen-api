@@ -105,8 +105,7 @@ let make_payload_reader () =
   let last_checksum = ref "" in
   fun cs ->
     let header = Cstruct.to_string cs ~off:0 ~len:header_bytes in
-    if header <> default_header then
-      raise Invalid_header_string ;
+    if header <> default_header then raise Invalid_header_string ;
     let len =
       let length_str =
         "0x" ^ Cstruct.to_string cs ~off:length_start ~len:length_bytes

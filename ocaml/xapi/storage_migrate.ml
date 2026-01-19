@@ -318,21 +318,19 @@ let post_deactivate_hook ~sr ~vdi ~dp:_ =
   let id = State.mirror_id_of (sr, vdi) in
   State.find_active_local_mirror id
   |> Option.iter (fun r ->
-         let verify_dest =
-           Option.fold ~none:false
-             ~some:(fun ri -> ri.verify_dest)
-             r.remote_info
-         in
-         let (module Remote) = get_remote_backend r.url verify_dest in
-         debug "Calling receive_finalize3" ;
-         log_and_ignore_exn (fun () ->
-             MigrateRemote.receive_finalize3 ~dbg:"Mirror-cleanup" ~mirror_id:id
-               ~sr ~url:r.url ~verify_dest
-         ) ;
-         debug "Finished calling receive_finalize3" ;
-         State.remove_local_mirror id ;
-         debug "Removed active local mirror: %s" id
-     )
+      let verify_dest =
+        Option.fold ~none:false ~some:(fun ri -> ri.verify_dest) r.remote_info
+      in
+      let (module Remote) = get_remote_backend r.url verify_dest in
+      debug "Calling receive_finalize3" ;
+      log_and_ignore_exn (fun () ->
+          MigrateRemote.receive_finalize3 ~dbg:"Mirror-cleanup" ~mirror_id:id
+            ~sr ~url:r.url ~verify_dest
+      ) ;
+      debug "Finished calling receive_finalize3" ;
+      State.remove_local_mirror id ;
+      debug "Removed active local mirror: %s" id
+  )
 
 let nbd_handler req s ?(vm = "0") sr vdi dp =
   debug "%s: vm=%s sr=%s vdi=%s dp=%s" __FUNCTION__ vm sr vdi dp ;

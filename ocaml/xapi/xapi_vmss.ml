@@ -165,9 +165,8 @@ let set_type ~__context ~self ~value =
     Pool_features.assert_enabled ~__context ~f:Features.VSS ;
     Db.VMSS.get_VMs ~__context ~self
     |> List.iter (fun vm ->
-           Xapi_vm_helpers.assert_vm_supports_quiesce_snapshot ~__context
-             ~self:vm
-       )
+        Xapi_vm_helpers.assert_vm_supports_quiesce_snapshot ~__context ~self:vm
+    )
   ) ;
   Db.VMSS.set_type ~__context ~self ~value
 
