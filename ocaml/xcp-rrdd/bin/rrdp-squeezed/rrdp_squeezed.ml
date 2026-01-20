@@ -254,12 +254,8 @@ let free_other uuid free =
 
 let dss_numa_info xc dom uuid domid =
   try
-
     let host_nr_nodes = Xenctrlext.(get_handle () |> get_nr_nodes) in
-    let vm_nodes =
-
-      Xenctrl.domain_get_numa_info_node_pages xc domid
-    in
+    let vm_nodes = Xenctrl.domain_get_numa_info_node_pages xc domid in
     let dss_memory_numa_nodes_of_vm (dss, nr_nodes_used_by_vm)
         (node_id, tot_pages_per_node) =
       (*
@@ -279,8 +275,13 @@ let dss_numa_info xc dom uuid domid =
               ~min:0.0 ~ty:Rrd.Gauge ~default:false ()
           )
           :: dss
-        (* remember the number of nodes used by vm *)
-        , nr_nodes_used_by_vm + if is_node_used_by_vm then 1 else 0
+          (* remember the number of nodes used by vm *)
+        , nr_nodes_used_by_vm
+          +
+          if is_node_used_by_vm then
+            1
+          else
+            0
         )
       else
         (dss, nr_nodes_used_by_vm)
@@ -294,7 +295,7 @@ let dss_numa_info xc dom uuid domid =
           ~value:(Rrd.VT_Int64 (Int64.of_int nr_nodes_used_by_vm))
           ~min:0.0 ~ty:Rrd.Gauge ~default:false ()
       )
-      :: (List.rev dss)
+      :: List.rev dss
     in
     vm_nodes.Xenctrl.tot_pages_per_node
     |> Array.mapi (fun i x -> (i, x))
