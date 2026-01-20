@@ -159,6 +159,29 @@ let test_dnf_apply_upgrades =
     )
   ]
 
+let test_dnf_apply_group_upgrades =
+  [
+    ( "<null>"
+    , `Quick
+    , check
+        {
+          cmd= !Xapi_globs.dnf_cmd
+        ; params=
+            [
+              "-y"
+            ; "--disablerepo=*"
+            ; "--enablerepo=testrepo1,testrepo2"
+            ; "group"
+            ; "upgrade"
+            ; "*"
+            ]
+        }
+        (Pkg_mgr.Dnf_cmd.apply_group_upgrade
+           ~repositories:["testrepo1"; "testrepo2"]
+        )
+    )
+  ]
+
 let test_yum_repo_query_installed =
   [
     ( "<null>"
@@ -286,6 +309,29 @@ let test_yum_apply_upgrades =
     )
   ]
 
+let test_yum_apply_group_upgrades =
+  [
+    ( "<null>"
+    , `Quick
+    , check
+        {
+          cmd= !Xapi_globs.yum_cmd
+        ; params=
+            [
+              "-y"
+            ; "--disablerepo=*"
+            ; "--enablerepo=testrepo1,testrepo2"
+            ; "group"
+            ; "upgrade"
+            ; "*"
+            ]
+        }
+        (Pkg_mgr.Yum_cmd.apply_group_upgrade
+           ~repositories:["testrepo1"; "testrepo2"]
+        )
+    )
+  ]
+
 let test_yum_repo_query_updates =
   [
     ( "<null>"
@@ -320,6 +366,7 @@ let tests =
   ; ("test_dnf_cofig_repo", test_dnf_config_repo)
   ; ("test_dnf_sync_repo", test_dnf_sync_repo)
   ; ("test_dnf_apply_upgrades", test_dnf_apply_upgrades)
+  ; ("test_dnf_apply_group_upgrades", test_dnf_apply_group_upgrades)
   ; ("test_yum_repo_query_installed", test_yum_repo_query_installed)
   ; ("test_yum_clean_all_cache", test_yum_clean_all_cache)
   ; ("test_yum_clean_repo_cache", test_yum_clean_repo_cache)
@@ -327,6 +374,7 @@ let tests =
   ; ("test_yum_cofig_repo", test_yum_config_repo)
   ; ("test_yum_sync_repo", test_yum_sync_repo)
   ; ("test_yum_apply_upgrades", test_yum_apply_upgrades)
+  ; ("test_yum_apply_group_upgrades", test_yum_apply_group_upgrades)
   ; ("test_yum_repo_query_updates", test_yum_repo_query_updates)
   ]
 

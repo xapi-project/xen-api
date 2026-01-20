@@ -679,8 +679,15 @@ let get_pool_updates_in_json ~__context ~hosts =
 let apply ~__context ~host =
   (* This function runs on member host *)
   with_local_repositories ~__context (fun repositories ->
-      let Pkg_mgr.{cmd; params} = Pkgs.apply_upgrade ~repositories in
-      try ignore (Helpers.call_script cmd params)
+      let upgrade () =
+        let Pkg_mgr.{cmd; params} = Pkgs.apply_upgrade ~repositories in
+        ignore (Helpers.call_script cmd params)
+      in
+      let group_upgrade () =
+        let Pkg_mgr.{cmd; params} = Pkgs.apply_group_upgrade ~repositories in
+        ignore (Helpers.call_script cmd params)
+      in
+      try upgrade () ; group_upgrade ()
       with e ->
         let host' = Ref.string_of host in
         error "Failed to apply updates on host ref='%s': %s" host'
