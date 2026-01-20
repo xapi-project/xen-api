@@ -40,11 +40,11 @@ let get_index_from_ethx = Network_config.get_index_from_ethx
 let sort_based_on_ethx () =
   Sysfs.list ()
   |> List.filter_map (fun name ->
-         if Sysfs.is_physical name then
-           get_index_from_ethx name |> Option.map (fun i -> (name, i))
-         else
-           None
-     )
+      if Sysfs.is_physical name then
+        get_index_from_ethx name |> Option.map (fun i -> (name, i))
+      else
+        None
+  )
 
 let read_previous_inventory previous_inventory =
   try
@@ -88,7 +88,10 @@ let changed_interfaces_after_upgrade interface_order =
     (fun (name, pos) ->
       List.find_opt (fun dev -> dev.position = pos) interface_order |> function
       | Some dev ->
-          if dev.name <> name then Some (name, dev.name) else None
+          if dev.name <> name then
+            Some (name, dev.name)
+          else
+            None
       | None ->
           error "Can't find previous interface %s in sorted interfaces" name ;
           None
@@ -132,8 +135,7 @@ let update_changes last_config changed_interfaces =
     let new_name =
       List.assoc_opt name changed_interfaces |> Option.value ~default:name
     in
-    if name <> new_name then
-      debug "Renaming %s to %s" name new_name ;
+    if name <> new_name then debug "Renaming %s to %s" name new_name ;
     new_name
   in
   let update_port (port, port_conf) =
@@ -212,6 +214,7 @@ let reset_state () =
           ) ;
         None
   in
+  Inventory.reread_inventory () ;
   config := Network_config.read_management_conf reset_order
 
 let set_gateway_interface _dbg name =
@@ -270,17 +273,29 @@ module Sriov = struct
       | _ ->
           false
     in
-    if supported then ["sriov"] else []
+    if supported then
+      ["sriov"]
+    else
+      []
 
   let config_sriov ~enable dev =
-    let op = if enable then "enable" else "disable" in
+    let op =
+      if enable then
+        "enable"
+      else
+        "disable"
+    in
     let open Rresult.R.Infix in
     Sysfs.get_driver_name_err dev >>= fun driver ->
     let config = Modprobe.get_config_from_comments driver in
     match Modprobe.get_vf_param config with
     | Some vf_param ->
         debug "%s SR-IOV on a device: %s via modprobe" op dev ;
-        (if enable then Modprobe.get_maxvfs driver config else Ok 0)
+        ( if enable then
+            Modprobe.get_maxvfs driver config
+          else
+            Ok 0
+        )
         >>= fun numvfs ->
         (* CA-287340: Even if the current numvfs equals to the target numvfs, it
            is still needed to update SR-IOV modprobe config file, as the SR-IOV
@@ -471,8 +486,7 @@ module Interface = struct
         match conf with
         | None4 ->
             if List.mem name (Sysfs.list ()) then (
-              if Dhclient.is_running name then
-                ignore (Dhclient.stop name) ;
+              if Dhclient.is_running name then ignore (Dhclient.stop name) ;
               Ip.flush_ip_addr name
             )
         | DHCP4 ->
@@ -837,7 +851,11 @@ module Interface = struct
     Debug.with_thread_associated dbg
       (fun () ->
         debug "Making interface %s %spersistent" name
-          (if value then "" else "non-") ;
+          ( if value then
+              ""
+            else
+              "non-"
+          ) ;
         update_config name {(get_config name) with persistent_i= value}
       )
       ()
@@ -878,8 +896,17 @@ module Interface = struct
         in
         debug "** Configuring the following interfaces: %s%s"
           (String.concat ", " (List.map (fun (name, _) -> name) config))
-          (if conservative then " (best effort)" else "") ;
-        let exec f = if conservative then try f () with _ -> () else f () in
+          ( if conservative then
+              " (best effort)"
+            else
+              ""
+          ) ;
+        let exec f =
+          if conservative then
+            try f () with _ -> ()
+          else
+            f ()
+        in
         List.iter
           (function
             | ( name
@@ -1402,8 +1429,7 @@ module Bridge = struct
             Interface.bring_up () dbg ~name:iface ;
             ignore (Ovs.create_port iface bridge)
         | _ ->
-            if bond_mac = None then
-              warn "No MAC address specified for the bond" ;
+            if bond_mac = None then warn "No MAC address specified for the bond" ;
             ignore
               (Ovs.create_bond ?mac:bond_mac name interfaces bridge
                  bond_properties
@@ -1562,7 +1588,12 @@ module Bridge = struct
   let set_persistent dbg name value =
     Debug.with_thread_associated dbg
       (fun () ->
-        debug "Making bridge %s %spersistent" name (if value then "" else "non-") ;
+        debug "Making bridge %s %spersistent" name
+          ( if value then
+              ""
+            else
+              "non-"
+          ) ;
         update_config name {(get_config name) with persistent_b= value}
       )
       ()
@@ -1618,10 +1649,19 @@ module Bridge = struct
             config
         in
         let config = List.sort vlans_go_last config in
-        let exec f = if conservative then try f () with _ -> () else f () in
+        let exec f =
+          if conservative then
+            try f () with _ -> ()
+          else
+            f ()
+        in
         debug "** Configuring the following bridges: %s%s"
           (String.concat ", " (List.map (fun (name, _) -> name) config))
-          (if conservative then " (best effort)" else "") ;
+          ( if conservative then
+              " (best effort)"
+            else
+              ""
+          ) ;
         List.iter
           (function
             | ( bridge_name
@@ -1736,8 +1776,7 @@ let on_startup () =
         (* the following is best-effort *)
         read_config () ;
         remove_centos_config () ;
-        if !backend_kind = Openvswitch then
-          Ovs.set_max_idle 5000 ;
+        if !backend_kind = Openvswitch then Ovs.set_max_idle 5000 ;
         Bridge.make_config dbg true !config.bridge_config ;
         Interface.make_config dbg true !config.interface_config ;
         (* If there is still a network.dbcache file, move it out of the way. *)

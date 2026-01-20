@@ -60,9 +60,9 @@ let get_server_cert path =
       let* host_cert =
         X509.Certificate.decode_pem cert.GP.host_cert
         |> R.reword_error (fun (`Msg msg) ->
-               D.info {|Failed to decode certificate because "%s"|} msg ;
-               `Msg (server_certificate_invalid, [])
-           )
+            D.info {|Failed to decode certificate because "%s"|} msg ;
+            `Msg (server_certificate_invalid, [])
+        )
       in
       Ok host_cert
 

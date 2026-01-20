@@ -43,21 +43,22 @@ let operation_requires_side_effect ({msg_tag= tag; _} as msg) =
       msg.DT.msg_force_custom
       (* this flag always forces msg into custom_actions.ml *)
     with
-  | None ->
-      false
-  | Some mode -> (
-      if mode = RW then
-        true (*RW=force both setters and getters into custom_actions *)
-      else (*{Static/Dynamic}RO=force only getters into custom_actions *)
-        match msg with
-        | {msg_tag= FromField ((Setter | Add | Remove), _); _} ->
-            false
-        | {msg_tag= FromObject (Make | Delete); _} ->
-            false
-        | _ ->
-            true
+    | None ->
+        false
+    | Some mode -> (
+        if mode = RW then
+          true
+        (*RW=force both setters and getters into custom_actions *)
+        else (*{Static/Dynamic}RO=force only getters into custom_actions *)
+          match msg with
+          | {msg_tag= FromField ((Setter | Add | Remove), _); _} ->
+              false
+          | {msg_tag= FromObject (Make | Delete); _} ->
+              false
+          | _ ->
+              true
+      )
     )
-  )
   ||
   match tag with
   | FromField (Setter, fld) ->

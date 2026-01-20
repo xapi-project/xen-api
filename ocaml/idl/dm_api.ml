@@ -53,7 +53,10 @@ let get_field_by_name api ~objname ~fieldname:name =
         Some field
     | Namespace (_, sub) :: rest ->
         let result = contents sub in
-        if result = None then contents rest else result
+        if result = None then
+          contents rest
+        else
+          result
     | _ :: rest ->
         contents rest
     | [] ->
@@ -81,7 +84,10 @@ let filter_field (pred : field -> bool) (system : obj list) =
   (* NB using lists rather than options - maybe change later? *)
   let rec content = function
     | Field field as x ->
-        if pred field then [x] else []
+        if pred field then
+          [x]
+        else
+          []
     | Namespace (name, contents) ->
         [Namespace (name, List.concat_map content contents)]
   in
@@ -96,7 +102,10 @@ let filter_field (pred : field -> bool) (system : obj list) =
   in
   let rec fixpoint f x =
     let result = f x in
-    if result = x then x else fixpoint f result
+    if result = x then
+      x
+    else
+      fixpoint f result
   in
   let obj x =
     {
@@ -369,6 +378,7 @@ let check api emergency_calls =
   let are_in_vsn_order ps =
     let release_lt x y = release_leq x y && x <> y in
     let in_since releases =
+      let last = code_name_of_release latest_release in
       (* been in since the lowest of releases *)
       List.fold_left
         (fun sofar r ->
@@ -376,10 +386,12 @@ let check api emergency_calls =
           | "closed" ->
               sofar (* closed is not a real release, so skip it *)
           | r ->
-              if release_lt r sofar then r else sofar
+              if release_lt r sofar then
+                r
+              else
+                sofar
         )
-        (Xapi_stdext_std.Listext.List.last release_order |> code_name_of_release)
-        releases
+        last releases
     in
     let rec check_vsns max_release_sofar ps =
       match ps with

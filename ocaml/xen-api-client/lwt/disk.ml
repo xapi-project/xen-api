@@ -30,7 +30,14 @@ let uri ~pool ~authentication ~vdi =
           )
   in
   let port =
-    match Uri.port pool with Some x -> x | None -> if ssl then 443 else 80
+    match Uri.port pool with
+    | Some x ->
+        x
+    | None ->
+        if ssl then
+          443
+        else
+          80
   in
   let query = [("vdi", [API.Ref.string_of vdi])] in
   let userinfo =
@@ -99,7 +106,12 @@ let start_upload ~chunked ~uri =
   let module Response = Response.Make (Cohttp_io_with_channel) in
   let headers = Header.init () in
   let k, v = Cookie.Cookie_hdr.serialize [("chunked", "true")] in
-  let headers = if chunked then Header.add headers k v else headers in
+  let headers =
+    if chunked then
+      Header.add headers k v
+    else
+      headers
+  in
   let headers =
     match Uri.userinfo uri with
     | None ->

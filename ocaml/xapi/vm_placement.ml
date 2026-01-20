@@ -151,11 +151,9 @@ let take_nth n list =
     r outside the range 0 ≤ r < 1. *)
 let generate_list_index generate_value list =
   let length = List.length list in
-  if length = 0 then
-    raise (Invalid_argument "list") ;
+  if length = 0 then raise (Invalid_argument "list") ;
   let value = generate_value () in
-  if value < 0.0 || value >= 1.0 then
-    raise (Invalid_argument "generate_value") ;
+  if value < 0.0 || value >= 1.0 then raise (Invalid_argument "generate_value") ;
   int_of_float (float_of_int length *. value)
 
 (** Evaluates the given function [generate_random_value], capable of generating
@@ -209,7 +207,10 @@ let bias_away_from_pool_master :
     host_category -> master_bias:bool -> host_category =
  fun host_category ~master_bias host ->
   let value = host_category host in
-  if host.HSS.is_pool_master && master_bias then (value -- 1L) // 2L else value
+  if host.HSS.is_pool_master && master_bias then
+    (value -- 1L) // 2L
+  else
+    value
 
 (** The {b definite} host category. Includes:
     {ul

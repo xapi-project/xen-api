@@ -3,7 +3,7 @@
 set -e
 
 list-hd () {
-  N=253
+  N=244
   LIST_HD=$(git grep -r --count 'List.hd' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$LIST_HD" -eq "$N" ]; then
     echo "OK counted $LIST_HD List.hd usages"
@@ -25,7 +25,7 @@ verify-cert () {
 }
 
 mli-files () {
-  N=459
+  N=457
   X="ocaml/tests"
   X+="|ocaml/quicktest"
   X+="|ocaml/message-switch/core_test"

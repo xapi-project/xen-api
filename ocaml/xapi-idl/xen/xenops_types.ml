@@ -208,6 +208,9 @@ module Vm = struct
     ; nested_virt: bool  (** true means VM uses nested virtualisation *)
     ; domain_type: domain_type
     ; featureset: string
+    ; numa_optimised: bool
+    ; numa_nodes: int (* count *)
+    ; numa_node_memory: (int * int64) list (* node * bytes *)
   }
   [@@deriving rpcty, sexp]
 end

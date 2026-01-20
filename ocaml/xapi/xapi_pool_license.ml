@@ -55,7 +55,10 @@ let get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int =
   let pool_expiry =
     List.filter_map
       (fun (edition, expiry) ->
-        if edition = pool_edition then Some expiry else None
+        if edition = pool_edition then
+          Some expiry
+        else
+          None
       )
       all_editions_with_expiry
     |> List.sort compare_dates

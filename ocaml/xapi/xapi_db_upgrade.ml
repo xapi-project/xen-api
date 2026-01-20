@@ -649,19 +649,19 @@ let upgrade_recommendations_for_gpu_passthru =
                   then (
                     Xmlm.output o
                       (`El_start
-                        ( ("", name)
-                        , [
-                            (("", "field"), "allow-gpu-passthrough")
-                          ; (("", "value"), "1")
-                          ]
-                        )
-                        ) ;
+                         ( ("", name)
+                         , [
+                             (("", "field"), "allow-gpu-passthrough")
+                           ; (("", "value"), "1")
+                           ]
+                         )
+                      ) ;
                     Xmlm.output o
                       (`El_start
-                        ( ("", name)
-                        , [(("", "field"), "allow-vgpu"); (("", "value"), "0")]
-                        )
-                        ) ;
+                         ( ("", name)
+                         , [(("", "field"), "allow-vgpu"); (("", "value"), "0")]
+                         )
+                      ) ;
                     updated := true
                   ) else
                     Xmlm.output o el ;
@@ -669,7 +669,10 @@ let upgrade_recommendations_for_gpu_passthru =
               | el ->
                   Xmlm.output o el ;
                   if el = `El_end then
-                    if depth = 1 then () else pull i o (depth - 1)
+                    if depth = 1 then
+                      ()
+                    else
+                      pull i o (depth - 1)
                   else
                     pull i o depth
             in
@@ -741,25 +744,23 @@ let upgrade_vm_platform_device_model =
       (fun ~__context ->
         Db.VM.get_all ~__context
         |> List.iter (fun vm ->
-               (* update VM record *)
-               let domain_type = Db.VM.get_domain_type ~__context ~self:vm in
-               let platform = Db.VM.get_platform ~__context ~self:vm in
-               let is_a_template =
-                 Db.VM.get_is_a_template ~__context ~self:vm
-               in
-               let platform' =
-                 Xapi_vm_helpers.ensure_device_model_profile_present ~__context
-                   ~domain_type ~is_a_template platform
-               in
-               Db.VM.set_platform ~__context ~self:vm ~value:platform' ;
-               (* update snapshot meta data *)
-               Db.VM.get_snapshot_metadata ~__context ~self:vm
-               |> string_to_assoc
-               |> upgrade_metadata ~__context domain_type
-               |> assoc_to_string
-               |> fun value ->
-               Db.VM.set_snapshot_metadata ~__context ~self:vm ~value
-           )
+            (* update VM record *)
+            let domain_type = Db.VM.get_domain_type ~__context ~self:vm in
+            let platform = Db.VM.get_platform ~__context ~self:vm in
+            let is_a_template = Db.VM.get_is_a_template ~__context ~self:vm in
+            let platform' =
+              Xapi_vm_helpers.ensure_device_model_profile_present ~__context
+                ~domain_type ~is_a_template platform
+            in
+            Db.VM.set_platform ~__context ~self:vm ~value:platform' ;
+            (* update snapshot meta data *)
+            Db.VM.get_snapshot_metadata ~__context ~self:vm
+            |> string_to_assoc
+            |> upgrade_metadata ~__context domain_type
+            |> assoc_to_string
+            |> fun value ->
+            Db.VM.set_snapshot_metadata ~__context ~self:vm ~value
+        )
       )
   }
 
@@ -801,15 +802,15 @@ let upgrade_cluster_timeouts =
       (fun ~__context ->
         Db.Cluster.get_all ~__context
         |> List.iter (fun self ->
-               let update_milliseconds getter setter =
-                 let value = getter ~__context ~self /. 1000. in
-                 setter ~__context ~self ~value
-               in
-               update_milliseconds Db.Cluster.get_token_timeout
-                 Db.Cluster.set_token_timeout ;
-               update_milliseconds Db.Cluster.get_token_timeout_coefficient
-                 Db.Cluster.set_token_timeout_coefficient
-           )
+            let update_milliseconds getter setter =
+              let value = getter ~__context ~self /. 1000. in
+              setter ~__context ~self ~value
+            in
+            update_milliseconds Db.Cluster.get_token_timeout
+              Db.Cluster.set_token_timeout ;
+            update_milliseconds Db.Cluster.get_token_timeout_coefficient
+              Db.Cluster.set_token_timeout_coefficient
+        )
       )
   }
 
@@ -821,13 +822,13 @@ let upgrade_secrets =
       (fun ~__context ->
         Db.PBD.get_all ~__context
         |> List.iter (fun self ->
-               let dconf = Db.PBD.get_device_config ~__context ~self in
-               let new_dconf =
-                 Xapi_secret.move_passwds_to_secrets ~__context dconf
-               in
-               if dconf <> new_dconf then
-                 Db.PBD.set_device_config ~__context ~self ~value:new_dconf
-           )
+            let dconf = Db.PBD.get_device_config ~__context ~self in
+            let new_dconf =
+              Xapi_secret.move_passwds_to_secrets ~__context dconf
+            in
+            if dconf <> new_dconf then
+              Db.PBD.set_device_config ~__context ~self ~value:new_dconf
+        )
       )
   }
 
@@ -841,8 +842,8 @@ let remove_legacy_ssl_support =
       (fun ~__context ->
         Db.Host.get_all ~__context
         |> List.iter (fun self ->
-               Db.Host.set_ssl_legacy ~__context ~self ~value:false
-           )
+            Db.Host.set_ssl_legacy ~__context ~self ~value:false
+        )
       )
   }
 
@@ -882,25 +883,25 @@ let upgrade_update_guidance =
       (fun ~__context ->
         Db.Host.get_all ~__context
         |> List.iter (fun self ->
-               if
-                 List.mem `reboot_host_on_livepatch_failure
-                   (Db.Host.get_pending_guidances ~__context ~self)
-               then (
-                 Db.Host.add_pending_guidances_recommended ~__context ~self
-                   ~value:`reboot_host_on_kernel_livepatch_failure ;
-                 Db.Host.add_pending_guidances_recommended ~__context ~self
-                   ~value:`reboot_host_on_xen_livepatch_failure ;
-                 Db.Host.remove_pending_guidances ~__context ~self
-                   ~value:`reboot_host_on_livepatch_failure
-               ) ;
-               List.iter
-                 (fun g ->
-                   Db.Host.add_pending_guidances_recommended ~__context ~self
-                     ~value:g
-                 )
-                 (Db.Host.get_pending_guidances ~__context ~self) ;
-               Db.Host.set_pending_guidances ~__context ~self ~value:[]
-           )
+            if
+              List.mem `reboot_host_on_livepatch_failure
+                (Db.Host.get_pending_guidances ~__context ~self)
+            then (
+              Db.Host.add_pending_guidances_recommended ~__context ~self
+                ~value:`reboot_host_on_kernel_livepatch_failure ;
+              Db.Host.add_pending_guidances_recommended ~__context ~self
+                ~value:`reboot_host_on_xen_livepatch_failure ;
+              Db.Host.remove_pending_guidances ~__context ~self
+                ~value:`reboot_host_on_livepatch_failure
+            ) ;
+            List.iter
+              (fun g ->
+                Db.Host.add_pending_guidances_recommended ~__context ~self
+                  ~value:g
+              )
+              (Db.Host.get_pending_guidances ~__context ~self) ;
+            Db.Host.set_pending_guidances ~__context ~self ~value:[]
+        )
       )
   }
 

@@ -96,7 +96,10 @@ module VMSetBiosStrings = Generic.MakeStateful (struct
   let update_list dl nl =
     List.map
       (fun (k, v) ->
-        if List.mem_assoc k nl then (k, List.assoc k nl) else (k, v)
+        if List.mem_assoc k nl then
+          (k, List.assoc k nl)
+        else
+          (k, v)
       )
       dl
 

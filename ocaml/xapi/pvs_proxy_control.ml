@@ -105,20 +105,20 @@ module State = struct
     with_xs (fun xs ->
         xs.Xs.directory (root // site_uuid)
         |> List.filter_map (fun vif_uuid ->
-               try
-                 let dir = root // site_uuid // vif_uuid in
-                 let state = of_string (xs.Xs.read (dir // _state)) in
-                 if state = Starting || state = Started then
-                   let proxy_uuid = xs.Xs.read (dir // _proxy_uuid) in
-                   let vif = Db.VIF.get_by_uuid ~__context ~uuid:vif_uuid in
-                   let proxy =
-                     Db.PVS_proxy.get_by_uuid ~__context ~uuid:proxy_uuid
-                   in
-                   Some (vif, proxy)
-                 else
-                   None
-               with _ -> None
-           )
+            try
+              let dir = root // site_uuid // vif_uuid in
+              let state = of_string (xs.Xs.read (dir // _state)) in
+              if state = Starting || state = Started then
+                let proxy_uuid = xs.Xs.read (dir // _proxy_uuid) in
+                let vif = Db.VIF.get_by_uuid ~__context ~uuid:vif_uuid in
+                let proxy =
+                  Db.PVS_proxy.get_by_uuid ~__context ~uuid:proxy_uuid
+                in
+                Some (vif, proxy)
+              else
+                None
+            with _ -> None
+        )
     )
 end
 

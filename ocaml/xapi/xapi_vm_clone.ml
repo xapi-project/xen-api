@@ -204,7 +204,8 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
         if vbd_r.API.vBD_empty then
           (Ref.null, false)
         else if vbd_r.API.vBD_type = `CD then
-          (vbd_r.API.vBD_VDI, false) (* don't delete the original CD *)
+          (vbd_r.API.vBD_VDI, false)
+        (* don't delete the original CD *)
         else
           ( clone_single_vdi ~progress:(done_so_far, size, total) rpc session_id
               disk_op ~__context vbd_r.API.vBD_VDI driver_params
@@ -340,7 +341,12 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     ~is_a_template:(is_a_snapshot || all.Db_actions.vM_is_a_template)
     ~is_default_template:false (* remove default template if it is there *)
     ~is_a_snapshot
-    ~snapshot_of:(if is_a_snapshot then vm else Ref.null)
+    ~snapshot_of:
+      ( if is_a_snapshot then
+          vm
+        else
+          Ref.null
+      )
     ~snapshot_time:
       ( if is_a_snapshot then
           Date.now ()

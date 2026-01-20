@@ -87,9 +87,10 @@ end = struct
       ~max_header_length:!Xapi_globs.max_header_length_tcp
       ~conn_limit:!Xapi_globs.conn_limit_tcp Xapi_http.server socket ;
     management_servers := socket :: !management_servers ;
+    (* NB if we synchronously bring up the management interface on a master
+          with a blank database this can fail. This is ok because the database
+          will be synchronised later *)
     if Pool_role.is_master () && addr = None then
-      (* NB if we synchronously bring up the management interface on a master with a blank
-         database this can fail... this is ok because the database will be synchronised later *)
       Server_helpers.exec_with_new_task "refreshing consoles" (fun __context ->
           Dbsync_master.set_master_ip ~__context ;
           Helpers.update_getty () ;
@@ -108,8 +109,7 @@ end = struct
     | _, Any ->
         stop () ; start ~__context ()
     | Local old_addresses, Local new_addresses ->
-        if not (Addresses.subset old_addresses new_addresses) then
-          stop () ;
+        if not (Addresses.subset old_addresses new_addresses) then stop () ;
         let to_start = Addresses.diff new_addresses old_addresses in
         Addresses.iter (fun addr -> start ~__context ~addr ()) to_start
     | _, Local addresses ->

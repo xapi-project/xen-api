@@ -117,9 +117,21 @@ let one fds x =
   in
   Forkhelpers.waitpid_fail_if_bad_exit
     (Forkhelpers.safe_close_and_exec
-       (if x.stdin then Some fd else None)
-       (if x.stdout then Some fd else None)
-       (if x.stderr then Some fd else None)
+       ( if x.stdin then
+           Some fd
+         else
+           None
+       )
+       ( if x.stdout then
+           Some fd
+         else
+           None
+       )
+       ( if x.stderr then
+           Some fd
+         else
+           None
+       )
        table exe args
     )
 
@@ -171,8 +183,7 @@ let test_notimeout () =
   with e -> fail "Failed with unexpected exception: %s" (Printexc.to_string e)
 
 let expect expected s =
-  if s <> expected ^ "\n" then
-    fail "output %s expected %s" s expected
+  if s <> expected ^ "\n" then fail "output %s expected %s" s expected
 
 let test_exitcode () =
   let run_expect cmd expected =
@@ -223,7 +234,12 @@ let test_internal_failure_error () =
      file descriptor with some closed one before *)
   let rec waste_fds num =
     let fd = Unix.openfile "/dev/null" [Unix.O_WRONLY] 0o0 in
-    let ret = if num = 0 then fd else waste_fds (num - 1) in
+    let ret =
+      if num = 0 then
+        fd
+      else
+        waste_fds (num - 1)
+    in
     Unix.close fd ; ret
   in
   let fd = waste_fds 20 in
@@ -302,7 +318,12 @@ let test_syslog with_stderr =
   let out = syslog_line ic in
   expect expected_out out ;
   let err = syslog_line ic in
-  let expected = if with_stderr then expected_err else "XXX" in
+  let expected =
+    if with_stderr then
+      expected_err
+    else
+      "XXX"
+  in
   expect expected err ;
   Unix.kill child Sys.sigint ;
   Unix.waitpid [] child |> ignore ;

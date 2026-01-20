@@ -328,8 +328,7 @@ let start ~__context ~vm ~start_paused ~force =
   in
   if sriov_networks <> [] then
     Pool_features.assert_enabled ~__context ~f:Features.Network_sriov ;
-  if not force then
-    assert_memory_constraints ~__context ~vm vmr.API.vM_platform ;
+  if not force then assert_memory_constraints ~__context ~vm vmr.API.vM_platform ;
   (* Check to see if we're using any restricted platform kvs. This raises
      	   an exception if so *)
   Vm_platform.check_restricted_flags ~__context vmr.API.vM_platform ;
@@ -531,18 +530,17 @@ let suspend ~__context ~vm =
   |> List.filter (fun vgpu -> Db.is_valid_ref __context vgpu)
   |> List.map (fun self -> (self, Db.VGPU.get_resident_on ~__context ~self))
   |> List.iter (fun (vgpu, pgpu) ->
-         debug "VM.suspend checking vgpu/pgpu support for suspend: %s/%s"
-           (Ref.string_of vgpu) (Ref.string_of pgpu) ;
-         try
-           Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm
-             ~__context ~vm ~host ~vgpu ~pgpu ()
-         with
-         | Api_errors.Server_error (e, params)
-         when e = Api_errors.vgpu_destination_incompatible
-         ->
-           raise
-             Api_errors.(Server_error (vgpu_suspension_not_supported, params))
-     ) ;
+      debug "VM.suspend checking vgpu/pgpu support for suspend: %s/%s"
+        (Ref.string_of vgpu) (Ref.string_of pgpu) ;
+      try
+        Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm
+          ~__context ~vm ~host ~vgpu ~pgpu ()
+      with
+      | Api_errors.Server_error (e, params)
+      when e = Api_errors.vgpu_destination_incompatible
+      ->
+        raise Api_errors.(Server_error (vgpu_suspension_not_supported, params))
+  ) ;
 
   Xapi_gpumon.update_vgpu_metadata ~__context ~vm ;
   Xapi_xenops.suspend ~__context ~self:vm ;
@@ -607,22 +605,48 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
   and metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
   let vCPUs_utilisation = [(0L, 0.)] in
   let suspended = power_state = `Suspended in
-  let current_domain_type = if suspended then domain_type else `unspecified in
+  let current_domain_type =
+    if suspended then
+      domain_type
+    else
+      `unspecified
+  in
   Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
     ~memory_actual:0L ~vCPUs_number:0L ~vCPUs_utilisation ~vCPUs_CPU:[]
     ~vCPUs_params:[] ~vCPUs_flags:[] ~state:[] ~start_time:Date.epoch
     ~install_time:Date.epoch ~last_updated:Date.epoch ~other_config:[]
-    ~hvm:false ~nested_virt:false ~nomigrate:false ~current_domain_type ;
+    ~hvm:false ~nested_virt:false ~nomigrate:false ~current_domain_type
+    ~numa_optimised:false ~numa_nodes:0L ~numa_node_memory:[] ;
   let domain_type =
     if domain_type = `unspecified then
       derive_domain_type ~hVM_boot_policy
     else
       domain_type
   in
-  let _last_booted_record = if suspended then last_booted_record else "" in
-  let _last_boot_CPU_flags = if suspended then last_boot_CPU_flags else [] in
-  let _power_state = if suspended then `Suspended else `Halted in
-  let _suspend_VDI = if suspended then suspend_VDI else Ref.null in
+  let _last_booted_record =
+    if suspended then
+      last_booted_record
+    else
+      ""
+  in
+  let _last_boot_CPU_flags =
+    if suspended then
+      last_boot_CPU_flags
+    else
+      []
+  in
+  let _power_state =
+    if suspended then
+      `Suspended
+    else
+      `Halted
+  in
+  let _suspend_VDI =
+    if suspended then
+      suspend_VDI
+    else
+      Ref.null
+  in
   if
     suspended
     && (_last_boot_CPU_flags = []
@@ -932,7 +956,11 @@ let wait_memory_target_live ~__context ~self =
       "memory_actual = %Ld; memory_target = %Ld; difference = %Ld %s tolerance \
        (%Ld)"
       memory_actual_bytes memory_target_bytes difference_bytes
-      (if difference_bytes <= tolerance_bytes then "<=" else ">")
+      ( if difference_bytes <= tolerance_bytes then
+          "<="
+        else
+          ">"
+      )
       tolerance_bytes ;
     if difference_bytes <= tolerance_bytes then
       (* The memory target has been reached: use the most *)
@@ -1102,10 +1130,7 @@ let record_call_plugin_latest vm =
       (* First do a round of GC *)
       let to_gc = ref [] in
       Hashtbl.iter
-        (fun v t ->
-          if Int64.sub now t > interval then
-            to_gc := v :: !to_gc
-        )
+        (fun v t -> if Int64.sub now t > interval then to_gc := v :: !to_gc)
         call_plugin_latest ;
       List.iter (Hashtbl.remove call_plugin_latest) !to_gc ;
       (* Then calculate the schedule *)
@@ -1224,7 +1249,15 @@ let csvm ~__context ~vm =
 let maximise_memory ~__context ~self ~total ~approximate =
   let r = Db.VM.get_record ~__context ~self in
   let r =
-    {r with API.vM_VCPUs_max= (if approximate then 64L else r.API.vM_VCPUs_max)}
+    {
+      r with
+      API.vM_VCPUs_max=
+        ( if approximate then
+            64L
+          else
+            r.API.vM_VCPUs_max
+        )
+    }
   in
   (* Need to find the maximum input value to this function so that it still evaluates
      	   to true *)
@@ -1264,7 +1297,10 @@ let set_bios_strings ~__context ~self ~value =
   let bios_strings =
     List.map
       (fun (k, v) ->
-        if List.mem_assoc k value then (k, List.assoc k value) else (k, v)
+        if List.mem_assoc k value then
+          (k, List.assoc k value)
+        else
+          (k, v)
       )
       Constants.generic_bios_strings
   in

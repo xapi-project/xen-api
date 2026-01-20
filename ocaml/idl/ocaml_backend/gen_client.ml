@@ -84,7 +84,10 @@ let client_api ~sync api =
       ~message:(fun msg -> DU.on_client_side msg && objfilter msg api)
       api
   in
-  if sync then api else Dm_api.filter_by ~message:has_async api
+  if sync then
+    api
+  else
+    Dm_api.filter_by ~message:has_async api
 
 (* Client constructor takes all object fields which are StaticRO or RW *)
 let ctor_fields (obj : obj) =
@@ -113,7 +116,12 @@ let args_of_message_with_default ?(expand_record = true) (obj : obj)
     | p ->
         [(of_param p, p.param_default)]
   in
-  let session = if msg.msg_session then [(session, None)] else [] in
+  let session =
+    if msg.msg_session then
+      [(session, None)]
+    else
+      []
+  in
   List.concat (session :: List.map arg_of_param msg.msg_params)
 
 (* Compute a message parameter list from a message suitable for the client (only!) *)
@@ -134,7 +142,12 @@ let gen_module api : O.Module.t =
            sprintf "~%s:%s.%s" arg _value fld
          in
          let all = List.map binding fields in
-         let all = if x.msg_session then "~session_id" :: all else all in
+         let all =
+           if x.msg_session then
+             "~session_id" :: all
+           else
+             all
+         in
          O.Let.make
            ~name:(x.msg_name ^ "_from_record")
            ~params:(_rpc :: args_of_message ~expand_record:false obj x)
@@ -235,7 +248,11 @@ let gen_module api : O.Module.t =
       ~body:
         (List.map to_rpc args
         @ [
-            (if is_ctor then ctor_record else "")
+            ( if is_ctor then
+                ctor_record
+              else
+                ""
+            )
           ; ( if (not is_ctor) && rightmost_arg_default then
                 (* Skip specifying arguments which are equal to their default
                    values. This way, when a newer client talks to an older

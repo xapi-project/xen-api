@@ -90,7 +90,8 @@ functor
 
     let string_of_checkpoint x =
       Rpcmarshal.marshal checkpoint.Rpc.Types.ty x |> Jsonrpc.to_string
-      |> (* remove leading and trailing '"' *)
+      |>
+      (* remove leading and trailing '"' *)
       fun s -> String.sub s 1 (String.length s - 2)
 
     let checkpoint_of_string s =
@@ -117,46 +118,46 @@ functor
           Impl.save_checkpoint (string_of_checkpoint Accept_new_pool_secret) ;
           master :: members
           |> iter_break (fun host ->
-                 try
-                   Impl.tell_accept_new_pool_secret pool_secrets host ;
-                   Ok ()
-                 with e ->
-                   D.error
-                     "failed while telling host to accept new pool secret. \
-                      error= %s"
-                     (Printexc.to_string e) ;
-                   Error (Failed_during_accept_new_pool_secret, host)
-             )
+              try
+                Impl.tell_accept_new_pool_secret pool_secrets host ;
+                Ok ()
+              with e ->
+                D.error
+                  "failed while telling host to accept new pool secret. error= \
+                   %s"
+                  (Printexc.to_string e) ;
+                Error (Failed_during_accept_new_pool_secret, host)
+          )
           >>= fun () ->
           (go [@tailcall]) pool_secrets master members Send_new_pool_secret
       | Send_new_pool_secret ->
           Impl.save_checkpoint (string_of_checkpoint Send_new_pool_secret) ;
           master :: members
           |> iter_break (fun host ->
-                 try
-                   Impl.tell_send_new_pool_secret pool_secrets host ;
-                   Ok ()
-                 with e ->
-                   D.error
-                     "failed while telling hosts to send new pool secret. \
-                      error= %s"
-                     (Printexc.to_string e) ;
-                   Error (Failed_during_send_new_pool_secret, host)
-             )
+              try
+                Impl.tell_send_new_pool_secret pool_secrets host ;
+                Ok ()
+              with e ->
+                D.error
+                  "failed while telling hosts to send new pool secret. error= \
+                   %s"
+                  (Printexc.to_string e) ;
+                Error (Failed_during_send_new_pool_secret, host)
+          )
           >>= fun () ->
           (go [@tailcall]) pool_secrets master members Cleanup_members
       | Cleanup_members ->
           Impl.save_checkpoint (string_of_checkpoint Cleanup_members) ;
           members
           |> iter_break (fun member ->
-                 try
-                   Impl.tell_cleanup_old_pool_secret pool_secrets member ;
-                   Ok ()
-                 with e ->
-                   D.error "failed while telling hosts to cleanup. error= %s"
-                     (Printexc.to_string e) ;
-                   Error (Failed_during_cleanup, member)
-             )
+              try
+                Impl.tell_cleanup_old_pool_secret pool_secrets member ;
+                Ok ()
+              with e ->
+                D.error "failed while telling hosts to cleanup. error= %s"
+                  (Printexc.to_string e) ;
+                Error (Failed_during_cleanup, member)
+          )
           >>= fun () ->
           (go [@tailcall]) pool_secrets master members Cleanup_master
       | Cleanup_master -> (
@@ -227,8 +228,7 @@ end = struct
       let old_backup, new_backup = read_backups () in
       SecretString.(equal old_backup old_ps && equal new_backup new_ps)
     in
-    if not do_backups_match then
-      Helpers.internal_error "backups don't match"
+    if not do_backups_match then Helpers.internal_error "backups don't match"
 
   let no_backups () =
     if do_backups_exist () then
@@ -283,9 +283,7 @@ let cleanup_internal ~additional_files_to_remove ~old_ps ~new_ps =
 
 module Impl =
 functor
-  (Ctx : sig
-     val __context : Context.t
-   end)
+  (Ctx : sig val __context : Context.t end)
   ->
   struct
     open Ctx
@@ -451,8 +449,7 @@ let start =
     in
     let assert_no_ha () =
       let is_ha_enabled = Db.Pool.get_ha_enabled ~__context ~self in
-      if is_ha_enabled then
-        raise Api_errors.(Server_error (ha_is_enabled, []))
+      if is_ha_enabled then raise Api_errors.(Server_error (ha_is_enabled, []))
     in
     let assert_all_hosts_alive () =
       let live_hosts = Helpers.get_live_hosts ~__context |> HostSet.of_list in

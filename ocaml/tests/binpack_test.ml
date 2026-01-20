@@ -45,8 +45,7 @@ let check_plan config dead_hosts plan =
   let memory_remaining = account config.hosts config.vms plan in
   (*    List.iter (fun mem -> Printf.printf "%Ld\n" mem) free; *)
   (* No host should be overcommitted: *)
-  if List.exists (fun (_, x) -> x < 0L) memory_remaining then
-    raise BadPlan ;
+  if List.exists (fun (_, x) -> x < 0L) memory_remaining then raise BadPlan ;
   (* All failed VMs should be restarted: *)
   let failed_vms = get_failed_vms config dead_hosts in
   if List.length failed_vms > List.length plan then raise BadPlan
@@ -92,7 +91,11 @@ let prove_plan_is_possible_via_counterexample_search
   Printf.printf "Trying %d (out of %Ld) combinations %s\n"
     (List.length combinations_to_try)
     total_combinations
-    (if exhaustive then "(EXHAUSTIVE)" else "") ;
+    ( if exhaustive then
+        "(EXHAUSTIVE)"
+      else
+        ""
+    ) ;
   List.iter
     (fun dead_hosts ->
       let failed_vms = get_failed_vms config dead_hosts in
@@ -183,7 +186,11 @@ let try_possible_cases () =
     Printf.printf
       "Failed to prove that plan is always possible -- might be ok still\n"
 
-let int_of_heuristic h = if h.name = approximate_bin_pack.name then 0 else 1
+let int_of_heuristic h =
+  if h.name = approximate_bin_pack.name then
+    0
+  else
+    1
 
 let check_planning_performance filename n' r' i =
   let file = open_out filename in

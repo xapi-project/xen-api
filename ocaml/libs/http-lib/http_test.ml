@@ -147,8 +147,7 @@ module Radix = struct
        	   the right key *)
     List.iter
       (fun x ->
-        if longest_prefix x t <> Some x then
-          failwith (Printf.sprintf "x = %s" x)
+        if longest_prefix x t <> Some x then failwith (Printf.sprintf "x = %s" x)
       )
       test_strings
 
@@ -156,8 +155,7 @@ module Radix = struct
     let open Radix_tree in
     let t = a_radix_tree in
     let all = fold (fun k _ acc -> k :: acc) [] t in
-    if List.length all <> List.length test_strings then
-      failwith "fold"
+    if List.length all <> List.length test_strings then failwith "fold"
 
   let tests = [("1", `Quick, test_radix_tree1); ("2", `Quick, test_radix_tree2)]
 end
@@ -280,16 +278,23 @@ module Header = struct
     assert (List.length test_cases = 8) ;
     test_cases
     |> List.iter (fun (frame, proxy, header) ->
-           with_fd (mk_header_string ~frame ~proxy ~header) (fun fd ->
-               let actual_frame, actual_header, actual_proxy =
-                 Http.read_http_request_header ~read_timeout:None
-                   ~total_timeout:None ~max_length:None fd
-               in
-               assert (actual_frame = frame) ;
-               assert (actual_header = header) ;
-               assert (actual_proxy = if proxy then Some proxy_str else None)
-           )
-       )
+        with_fd (mk_header_string ~frame ~proxy ~header) (fun fd ->
+            let actual_frame, actual_header, actual_proxy =
+              Http.read_http_request_header ~read_timeout:None
+                ~total_timeout:None ~max_length:None fd
+            in
+            assert (actual_frame = frame) ;
+            assert (actual_header = header) ;
+            assert (
+              actual_proxy
+              =
+              if proxy then
+                Some proxy_str
+              else
+                None
+            )
+        )
+    )
 
   let tests = [("read http header", `Quick, test_read_http_request_header)]
 end

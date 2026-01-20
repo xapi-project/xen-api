@@ -69,9 +69,7 @@ let response_of_fd_exn_slow fd =
   let line = input_line_fd fd in
   let bits = Astring.String.fields ~empty:false line in
   (* We just ignore the initial "FRAME xxxxx" *)
-  let bits =
-    if bits <> [] && List.hd bits = "FRAME" then List.tl bits else bits
-  in
+  let bits = match bits with "FRAME" :: bits -> bits | _ -> bits in
   match bits with
   | http_version :: code :: rest ->
       let version =
@@ -173,7 +171,8 @@ let response_of_fd_exn fd =
                )
              )
            | _ ->
-               (true, res) (* end of headers? *)
+               (true, res)
+         (* end of headers? *)
        )
        (false, empty)
        (Astring.String.cuts ~sep:"\n" buf)

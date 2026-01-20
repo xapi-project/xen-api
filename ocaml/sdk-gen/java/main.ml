@@ -72,7 +72,10 @@ let class_case x =
 let keywords = [("public", "_public")]
 
 let keyword_map s =
-  if List.mem_assoc s keywords then List.assoc s keywords else s
+  if List.mem_assoc s keywords then
+    List.assoc s keywords
+  else
+    s
 
 let camel_case s =
   let ss = Astring.String.cuts ~sep:"_" s |> List.map transform in
@@ -604,7 +607,12 @@ let get_message_formatted_parameters parameters message =
           )
         ; ("name_camel", `String name_camel)
         ; ( "description"
-          , `String (if description = "" then "No description" else description)
+          , `String
+              ( if description = "" then
+                  "No description"
+                else
+                  description
+              )
           )
         ; ("publish_info", `String publish_info)
         ]

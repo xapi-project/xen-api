@@ -69,7 +69,10 @@ let compare (a : 'a t) (b : 'a t) =
       String.compare a b
   | Dummy (a1, a2), Dummy (b1, b2) ->
       let c = String.compare a1 b1 in
-      if c = 0 then String.compare a2 b2 else c
+      if c = 0 then
+        String.compare a2 b2
+      else
+        c
   | Other a, Other b ->
       String.compare a b
   | Null, Null ->

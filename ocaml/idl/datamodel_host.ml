@@ -1209,6 +1209,52 @@ let license_remove =
        to the unlicensed edition"
     ~allowed_roles:_R_POOL_OP ()
 
+let host_ntp_mode =
+  Enum
+    ( "host_ntp_mode"
+    , [
+        ("DHCP", "Using NTP servers assigned by DHCP to sync time")
+      ; ("Custom", "Using custom NTP servers configured by user to sync time")
+      ; ("Factory", "Using built-in NTP servers to sync time")
+      ; ("Disabled", "NTP is disabled on the host")
+      ]
+    )
+
+let host_numa_affinity_policy =
+  Enum
+    ( "host_numa_affinity_policy"
+    , [
+        ("any", "VMs are spread across all available NUMA nodes")
+      ; ( "best_effort"
+        , "VMs are placed on the smallest number of NUMA nodes that they fit \
+           using soft-pinning, but the policy doesn't guarantee a balanced \
+           placement, falling back to the 'any' policy."
+        )
+      ; ( "default_policy"
+        , "Use the NUMA affinity policy that is the default for the current \
+           version"
+        )
+      ]
+    )
+
+let latest_synced_updates_applied_state =
+  Enum
+    ( "latest_synced_updates_applied_state"
+    , [
+        ( "yes"
+        , "The host is up to date with the latest updates synced from remote \
+           CDN"
+        )
+      ; ( "no"
+        , "The host is outdated with the latest updates synced from remote CDN"
+        )
+      ; ( "unknown"
+        , "If the host is up to date with the latest updates synced from \
+           remote CDN is unknown"
+        )
+      ]
+    )
+
 let create_params =
   [
     {
@@ -1395,8 +1441,88 @@ let create_params =
       param_type= Map (String, String)
     ; param_name= "software_version"
     ; param_doc= "Information about the software versions on the host"
-    ; param_release= numbered_release "25.32.0-next"
+    ; param_release= numbered_release "25.33.0"
     ; param_default= Some (VMap [])
+    }
+  ; {
+      param_type= Bool
+    ; param_name= "https_only"
+    ; param_doc=
+        "updates firewall to open or close port 80 depending on the value"
+    ; param_release= numbered_release "25.39.0"
+    ; param_default= Some (VBool false)
+    }
+  ; {
+      param_type= String
+    ; param_name= "max_cstate"
+    ; param_doc=
+        "The maximum C-state that the host is allowed to enter, \"\" means \
+         unlimited; \"N\" means limit to CN; \"N,M\" means limit to CN with \
+         max sub cstate M."
+    ; param_release= numbered_release "26.0.0"
+    ; param_default= Some (VString "")
+    }
+  ; {
+      param_type= host_ntp_mode
+    ; param_name= "ntp_mode"
+    ; param_doc=
+        "Indicates NTP servers are assigned by DHCP, or configured by user, or \
+         the factory servers, or NTP is disabled"
+    ; param_release= numbered_release "26.0.0"
+    ; param_default= Some (VEnum "Factory")
+    }
+  ; {
+      param_type= Set String
+    ; param_name= "ntp_custom_servers"
+    ; param_doc=
+        "Custom NTP servers configured by users, used in Custom NTP mode"
+    ; param_release= numbered_release "26.0.0"
+    ; param_default= Some (VSet [])
+    }
+  ; {
+      param_type= String
+    ; param_name= "timezone"
+    ; param_doc=
+        "The time zone identifier as defined in the IANA Time Zone Database"
+    ; param_release= numbered_release "26.0.0"
+    ; param_default= Some (VString "UTC")
+    }
+  ; {
+      param_type= host_numa_affinity_policy
+    ; param_name= "numa_affinity_policy"
+    ; param_doc= "NUMA-aware VM memory and vCPU placement policy"
+    ; param_release= numbered_release "26.0.0"
+    ; param_default= Some (VEnum "default_policy")
+    }
+  ; {
+      param_type= latest_synced_updates_applied_state
+    ; param_name= "latest_synced_updates_applied"
+    ; param_doc=
+        "Default as 'unknown', 'yes' if the host is up to date with updates \
+         synced from remote CDN, otherwise 'no'"
+    ; param_release= numbered_release "26.0.0"
+    ; param_default= Some (VSet [])
+    }
+  ; {
+      param_type= Set update_guidances
+    ; param_name= "pending_guidances_full"
+    ; param_doc=
+        "The set of pending full guidances after applying updates, which a \
+         user should follow to make some updates, e.g. specific hardware \
+         drivers or CPU features, fully effective, but the 'average user' \
+         doesn't need to"
+    ; param_release= numbered_release "26.0.0"
+    ; param_default= Some (VSet [])
+    }
+  ; {
+      param_type= Set update_guidances
+    ; param_name= "pending_guidances_recommended"
+    ; param_doc=
+        "The set of pending recommended guidances after applying updates, \
+         which most users should follow to make the updates effective, but if \
+         not followed, will not cause a failure"
+    ; param_release= numbered_release "26.0.0"
+    ; param_default= Some (VSet [])
     }
   ]
 
@@ -1416,6 +1542,7 @@ let create =
            --console_idle_timeout --ssh_auto_mode options to allow them to be \
            configured for new host"
         )
+      ; (Changed, "25.38.0-next", "Added --https_only to disable http")
       ]
     ~versioned_params:create_params ~doc:"Create a new host record"
     ~result:(Ref _host, "Reference to the newly created host object.")
@@ -2302,23 +2429,6 @@ let cleanup_pool_secret =
       ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ~hide_from_docs:true ()
 
-let host_numa_affinity_policy =
-  Enum
-    ( "host_numa_affinity_policy"
-    , [
-        ("any", "VMs are spread across all available NUMA nodes")
-      ; ( "best_effort"
-        , "VMs are placed on the smallest number of NUMA nodes that they fit \
-           using soft-pinning, but the policy doesn't guarantee a balanced \
-           placement, falling back to the 'any' policy."
-        )
-      ; ( "default_policy"
-        , "Use the NUMA affinity policy that is the default for the current \
-           version"
-        )
-      ]
-    )
-
 let set_numa_affinity_policy =
   call ~name:"set_numa_affinity_policy" ~lifecycle:[]
     ~doc:"Set VM placement NUMA affinity policy"
@@ -2526,24 +2636,6 @@ let update_firewalld_service_status =
        status."
     ~allowed_roles:_R_POOL_OP ()
 
-let latest_synced_updates_applied_state =
-  Enum
-    ( "latest_synced_updates_applied_state"
-    , [
-        ( "yes"
-        , "The host is up to date with the latest updates synced from remote \
-           CDN"
-        )
-      ; ( "no"
-        , "The host is outdated with the latest updates synced from remote CDN"
-        )
-      ; ( "unknown"
-        , "If the host is up to date with the latest updates synced from \
-           remote CDN is unknown"
-        )
-      ]
-    )
-
 let get_tracked_user_agents =
   call ~name:"get_tracked_user_agents" ~lifecycle:[]
     ~doc:
@@ -2559,6 +2651,97 @@ let get_tracked_user_agents =
          this host"
       )
     ()
+
+let set_max_cstate =
+  call ~name:"set_max_cstate" ~lifecycle:[]
+    ~doc:
+      "Sets xen's max-cstate on a host. See: \
+       https://xenbits.xen.org/docs/unstable/misc/xen-command-line.html#max_cstate-x86. \
+       \"\" means unlimited; \"N\" means limit to CN; \"N,M\" means limit to \
+       CN with max sub cstate M. Note: Only C0, C1, unlimited are supported \
+       currently."
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (String, "value", "The max_cstate to apply to a host")
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let set_ntp_mode =
+  call ~name:"set_ntp_mode" ~lifecycle:[] ~doc:"Set the NTP mode for the host"
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (host_ntp_mode, "value", "The NTP mode to set")
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let set_ntp_custom_servers =
+  call ~name:"set_ntp_custom_servers" ~lifecycle:[]
+    ~doc:"Set the custom NTP servers for the host"
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (Set String, "value", "The set of custom NTP servers to configure")
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let get_ntp_servers_status =
+  call ~name:"get_ntp_servers_status" ~lifecycle:[]
+    ~doc:"Get the NTP servers status on the host"
+    ~params:[(Ref _host, "self", "The host")]
+    ~result:
+      ( Map (String, String)
+      , "The map of NTP server to its status, status may be \
+         synced/combined/uncombined/error/variable/unreachable/unknown"
+      )
+    ~allowed_roles:_R_READ_ONLY ()
+
+let set_timezone =
+  call ~name:"set_timezone" ~lifecycle:[] ~doc:"Set the host's timezone."
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; ( String
+        , "value"
+        , "The time zone identifier as defined in the IANA Time Zone Database"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let list_timezones =
+  call ~name:"list_timezones" ~lifecycle:[]
+    ~doc:"List all available timezones on the host."
+    ~params:[(Ref _host, "self", "The host")]
+    ~result:(Set String, "The set of available timezones on the host")
+    ~allowed_roles:_R_READ_ONLY ()
+
+let get_ntp_synchronized =
+  call ~name:"get_ntp_synchronized" ~lifecycle:[]
+    ~doc:
+      "Returns true if the system clock on the host is synchronized with the \
+       NTP servers."
+    ~params:[(Ref _host, "self", "The host")]
+    ~result:
+      ( Bool
+      , "true if the system clock on the host is synchronized with the NTP \
+         servers."
+      )
+    ~allowed_roles:_R_READ_ONLY ()
+
+let set_servertime =
+  call ~name:"set_servertime" ~lifecycle:[]
+    ~doc:"Set the host's system clock when NTP is disabled."
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; ( DateTime
+        , "value"
+        , "A date/time to be set. When a timezone offset is missing, UTC is \
+           assumed."
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
 
 (** Hosts *)
 let t =
@@ -2706,6 +2889,14 @@ let t =
       ; set_ssh_auto_mode
       ; get_tracked_user_agents
       ; update_firewalld_service_status
+      ; set_max_cstate
+      ; set_ntp_mode
+      ; set_ntp_custom_servers
+      ; get_ntp_servers_status
+      ; set_timezone
+      ; list_timezones
+      ; get_ntp_synchronized
+      ; set_servertime
       ]
     ~contents:
       ([
@@ -3165,9 +3356,24 @@ let t =
             ~default_value:(Some (VBool Constants.default_ssh_auto_mode))
             "ssh_auto_mode"
             "Reflects whether SSH auto mode is enabled for the host"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
+            ~default_value:(Some (VString "")) "max_cstate"
+            "The maximum C-state that the host is allowed to enter, \"\" means \
+             unlimited; \"N\" means limit to CN; \"N,M\" means limit to CN \
+             with max sub cstate M."
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "secure_boot"
             "Whether the host has booted in secure boot mode"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:host_ntp_mode
+            ~default_value:(Some (VEnum "Factory")) "ntp_mode"
+            "Indicates NTP servers are assigned by DHCP, or configured by \
+             user, or the factory servers, or NTP is disabled"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set String)
+            ~default_value:(Some (VSet [])) "ntp_custom_servers"
+            "Custom NTP servers configured by users, used in Custom NTP mode"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
+            ~default_value:(Some (VString "UTC")) "timezone"
+            "The time zone identifier as defined in the IANA Time Zone Database"
         ]
       )
     ()

@@ -89,9 +89,7 @@ end
 
 module Process =
 functor
-  (N : sig
-     val name : string
-   end)
+  (N : sig val name : string end)
   ->
   struct
     module D = Debug.Make (struct let name = N.name end)

@@ -64,24 +64,32 @@ let network_stats ~__context ~host:_ ~params =
   |> List.filter meth
   |> List.filter uri
   |> List.map (fun (m, uri, stats) ->
-         List.concat
-           [
-             (if has_param "method" then [Http.string_of_method_t m] else [])
-           ; (if has_param "uri" then [uri] else [])
-           ; ( if has_param "requests" then
-                 [string_of_int stats.Http_svr.Stats.n_requests]
-               else
-                 []
-             )
-           ; ( if has_param "connections" then
-                 [string_of_int stats.Http_svr.Stats.n_connections]
-               else
-                 []
-             )
-           ; ( if has_param "framed" then
-                 [string_of_int stats.Http_svr.Stats.n_framed]
-               else
-                 []
-             )
-           ]
-     )
+      List.concat
+        [
+          ( if has_param "method" then
+              [Http.string_of_method_t m]
+            else
+              []
+          )
+        ; ( if has_param "uri" then
+              [uri]
+            else
+              []
+          )
+        ; ( if has_param "requests" then
+              [string_of_int stats.Http_svr.Stats.n_requests]
+            else
+              []
+          )
+        ; ( if has_param "connections" then
+              [string_of_int stats.Http_svr.Stats.n_connections]
+            else
+              []
+          )
+        ; ( if has_param "framed" then
+              [string_of_int stats.Http_svr.Stats.n_framed]
+            else
+              []
+          )
+        ]
+  )

@@ -48,9 +48,24 @@ module Ip = struct
   (** [succ ip] returns the "next" address after [ip] *)
   let succ (a, b, c, d) =
     let a, b, c, d = (a, b, c, d + 1) in
-    let a, b, c, d = if d < 256 then (a, b, c, d) else (a, b, c + 1, 0) in
-    let a, b, c, d = if c < 256 then (a, b, c, d) else (a, b + 1, 0, d) in
-    let a, b, c, d = if b < 256 then (a, b, c, d) else (a + 1, 0, c, d) in
+    let a, b, c, d =
+      if d < 256 then
+        (a, b, c, d)
+      else
+        (a, b, c + 1, 0)
+    in
+    let a, b, c, d =
+      if c < 256 then
+        (a, b, c, d)
+      else
+        (a, b + 1, 0, d)
+    in
+    let a, b, c, d =
+      if b < 256 then
+        (a, b, c, d)
+      else
+        (a + 1, 0, c, d)
+    in
     check (a, b, c, d)
 
   (** [gt a b] returns true iff [a] is later than [b] in the sequence *)
@@ -180,8 +195,20 @@ module Udhcpd_conf = struct
       with Not_found -> false
     in
     let config_list =
-      (skel :: interface :: subnet :: (if include_gw then [router] else []))
-      @ (if include_pxe then [pxe] else [])
+      skel
+      :: interface
+      :: subnet
+      ::
+      ( if include_gw then
+          [router]
+        else
+          []
+      )
+      @ ( if include_pxe then
+            [pxe]
+          else
+            []
+        )
       @ leases
     in
     String.concat "\n" config_list

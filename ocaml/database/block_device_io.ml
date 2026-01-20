@@ -518,7 +518,10 @@ let action_writedb block_dev_fd client datasock target_response_time =
     (* If there's space, write some ASCII NULs over the next few bytes so that we trample on any data which may already exist on the block device *)
     let remaining_space = remaining_space - min_space_needed in
     let trample_size =
-      if size_size > remaining_space then remaining_space else size_size
+      if size_size > remaining_space then
+        remaining_space
+      else
+        size_size
     in
     Unixext.time_limited_write block_dev_fd trample_size
       (Bytes.make trample_size '\000')
@@ -606,7 +609,10 @@ let action_writedelta block_dev_fd client _datasock target_response_time =
     (* If there's space, write some ASCII NULs over the next few bytes so that we trample on any data which may already exist on the block device *)
     let available_space = available_space - str_len in
     let trample_size =
-      if size_size > available_space then available_space else size_size
+      if size_size > available_space then
+        available_space
+      else
+        size_size
     in
     let str = Bytes.concat Bytes.empty [str; Bytes.make trample_size '\000'] in
     (* Write the delta *)

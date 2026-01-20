@@ -100,7 +100,12 @@ let timeouts = Gen.oneofa [|0.0; 0.001; 0.1; 0.3|]
 
 let delay_of_size total_delay size =
   let open Gen in
-  let* every_bytes = if size = 0 then return 1 else 1 -- size in
+  let* every_bytes =
+    if size = 0 then
+      return 1
+    else
+      1 -- size
+  in
   let chunks = max 1 (size / every_bytes) in
   let duration = total_delay /. float_of_int chunks in
   if duration < 1e-6 then
@@ -115,7 +120,12 @@ let t =
   let* total_delay = total_delays
   and* size = sizes
   and* kind = fst testable_file_kind in
-  let size = if kind = Unix.S_BLK then 512 else size in
+  let size =
+    if kind = Unix.S_BLK then
+      512
+    else
+      size
+  in
   let* delay = delay_of_size total_delay size in
   (* see observations.ml, we can't easily change size afterwards *)
   return @@ make ~delay_read:delay ~delay_write:delay ~size kind
@@ -194,7 +204,15 @@ let has_immediate_timeout = function
 let select_fd_spec =
   let open Gen in
   let+ kind = fst testable_file_kind and+ wait = timeouts in
-  {kind; wait= (if has_immediate_timeout kind then 0. else wait)}
+  {
+    kind
+  ; wait=
+      ( if has_immediate_timeout kind then
+          0.
+        else
+          wait
+      )
+  }
 
 let select_fd_spec_list = file_list select_fd_spec
 

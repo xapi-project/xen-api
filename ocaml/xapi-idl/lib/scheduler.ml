@@ -171,8 +171,7 @@ module Delay = struct
     with_lock t.m (fun () ->
         let handle =
           one_shot_f s seconds "Delay.wait" (fun () ->
-              if t.state = None then
-                t.state <- Some Timedout ;
+              if t.state = None then t.state <- Some Timedout ;
               Condition.broadcast t.c
           )
         in

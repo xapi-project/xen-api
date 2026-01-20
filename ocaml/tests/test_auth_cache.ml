@@ -152,8 +152,7 @@ let test_cache_eviction () =
     let entry' = (change user, change password, change session) in
     insert cache entry' ;
     (* Check that old entry has been evicted. *)
-    if is_cached cache entry then
-      failwith "Old entry should have been evicted" ;
+    if is_cached cache entry then failwith "Old entry should have been evicted" ;
     if not (is_cached cache entry') then
       failwith "Failed to cache an entry when at capacity"
   in

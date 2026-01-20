@@ -106,6 +106,8 @@ type domctl_create_config = Xenctrl.domctl_create_config = {
   ; max_grant_frames: int
   ; max_maptrack_frames: int
   ; max_grant_version: int
+  ; altp2m_opts: int32
+  ; vmtrace_buf_kb: int32
   ; cpupool_id: int32
   ; arch: arch_domainconfig
 }
@@ -292,9 +294,18 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
   (* Both PV and HVM may be compiled out of Xen.  HVM may be unavailable
      because of hardware support or firmware/Xen settings. *)
   assert_capability
-    (if hvm then CAP_HVM else CAP_PV)
+    ( if hvm then
+        CAP_HVM
+      else
+        CAP_PV
+    )
     ~on_error:(fun () ->
-      sprintf "Guest type %s unavailable" (if hvm then "HVM" else "PV")
+      sprintf "Guest type %s unavailable"
+        ( if hvm then
+            "HVM"
+          else
+            "PV"
+        )
     ) ;
 
   let get_platform_key ~key ~default check =
@@ -336,10 +347,18 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
       (* HAP depends on 2nd Gen VT-x/SVM, or firmware/Xen settings.  Shadow
          may be compiled out. *)
       assert_capability
-        (if hap then CAP_HAP else CAP_Shadow)
+        ( if hap then
+            CAP_HAP
+          else
+            CAP_Shadow
+        )
         ~on_error:(fun () ->
           sprintf "Guest paging mode %s unavailable"
-            (if hap then "HAP" else "Shadow")
+            ( if hap then
+                "HAP"
+              else
+                "Shadow"
+            )
         ) ;
 
       hap
@@ -355,11 +374,31 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
   let vpmu = get_platform_key ~key:"vpmu" ~default:false (fun _ -> Ok ()) in
 
   info "VM = %s; Creating %s%s%s%s%s" (Uuidx.to_string uuid)
-    (if hvm then "HVM" else "PV")
-    (if hap then " HAP" else "")
-    (if iommu then " IOMMU" else "")
-    (if nested_virt then " NESTEDVIRT" else "")
-    (if vpmu then " VPMU" else "") ;
+    ( if hvm then
+        "HVM"
+      else
+        "PV"
+    )
+    ( if hap then
+        " HAP"
+      else
+        ""
+    )
+    ( if iommu then
+        " IOMMU"
+      else
+        ""
+    )
+    ( if nested_virt then
+        " NESTEDVIRT"
+      else
+        ""
+    )
+    ( if vpmu then
+        " VPMU"
+      else
+        ""
+    ) ;
 
   let config =
     {
@@ -373,7 +412,12 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
         ; (nested_virt, CDF_NESTED_VIRT)
         ; (vpmu, CDF_VPMU)
         ]
-        |> List.filter_map (fun (cond, flag) -> if cond then Some flag else None)
+        |> List.filter_map (fun (cond, flag) ->
+            if cond then
+              Some flag
+            else
+              None
+        )
     ; iommu_opts=
         ( match no_sharept with
         | true ->
@@ -462,7 +506,13 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
             *)
         )
     ; max_grant_version=
-        (if List.mem CAP_Gnttab_v2 host_info.capabilities then 2 else 1)
+        ( if List.mem CAP_Gnttab_v2 host_info.capabilities then
+            2
+          else
+            1
+        )
+    ; altp2m_opts= 0l
+    ; vmtrace_buf_kb= 0l
     ; cpupool_id= 0l
     ; arch= domain_config
     }
@@ -471,7 +521,10 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
     (rpc_of arch_domainconfig domain_config |> Jsonrpc.to_string) ;
   let domid = Xenctrl.domain_create xc config in
   let name =
-    if vm_info.name <> "" then vm_info.name else sprintf "Domain-%d" domid
+    if vm_info.name <> "" then
+      vm_info.name
+    else
+      sprintf "Domain-%d" domid
   in
   try
     let dom_path = xs.Xs.getdomainpath domid in
@@ -540,7 +593,10 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
             try List.assoc "netscaler" vm_info.platformdata = "XSI-254"
             with Not_found -> false
           in
-          if xsi_254 then [] else device_dirs
+          if xsi_254 then
+            []
+          else
+            device_dirs
         in
         (* create read/write nodes for the guest to use. XSI-254: disable
            creation of empty device entries in the domain hierarchy upon
@@ -568,11 +624,14 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
     xs.Xs.writev dom_path (filtered_xsdata vm_info.xsdata) ;
     xs.Xs.writev (dom_path ^ "/platform") vm_info.platformdata ;
     xs.Xs.writev (dom_path ^ "/bios-strings") vm_info.bios_strings ;
-    if vm_info.is_uefi then
-      xs.Xs.write (dom_path ^ "/hvmloader/bios") "ovmf" ;
+    if vm_info.is_uefi then xs.Xs.write (dom_path ^ "/hvmloader/bios") "ovmf" ;
     xs.Xs.write
       (dom_path ^ "/hvmloader/pci/xen-platform-pci-bar-uc")
-      (if !Xenopsd.xen_platform_pci_bar_uc then "1" else "0") ;
+      ( if !Xenopsd.xen_platform_pci_bar_uc then
+          "1"
+        else
+          "0"
+      ) ;
     (* If a toolstack sees a domain which it should own in this state then the
        domain is not completely setup and should be shutdown. *)
     xs.Xs.write (dom_path ^ "/action-request") "poweroff" ;
@@ -582,7 +641,11 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
     xs.Xs.write (dom_path ^ "/control/platform-feature-xs_reset_watches") "1" ;
     xs.Xs.write
       (dom_path ^ "/control/has-vendor-device")
-      (if vm_info.has_vendor_device then "1" else "0") ;
+      ( if vm_info.has_vendor_device then
+          "1"
+        else
+          "0"
+      ) ;
     (* CA-30811: let the linux guest agent easily determine if this is a fresh
        domain even if the domid hasn't changed (consider cross-host migrate) *)
     xs.Xs.write (dom_path ^ "/unique-domain-id") Uuidx.(to_string (make ())) ;
@@ -908,8 +971,18 @@ let numa_hierarchy =
   lazy
     (let xcext = get_handle () in
      let distances = (numainfo xcext).distances in
-     let cpu_to_node = cputopoinfo xcext |> Array.map (fun t -> t.node) in
-     NUMA.make ~distances ~cpu_to_node
+     let topoinfo = cputopoinfo xcext in
+     let core t = t.core and node t = t.node in
+     let cpu_to_node = topoinfo |> Array.map node
+     and node_cores =
+       let module IntSet = Set.Make (Int) in
+       let a = Array.make (Array.length distances) IntSet.empty in
+       Array.iter
+         (fun t -> a.(node t) <- IntSet.add (core t) a.(node t))
+         topoinfo ;
+       Array.map IntSet.cardinal a
+     in
+     NUMA.make ~distances ~cpu_to_node ~node_cores
     )
 
 let numa_mutex = Mutex.create ()
@@ -935,40 +1008,48 @@ let set_affinity = function
   | Xenops_server.Soft ->
       Xenctrlext.vcpu_setaffinity_soft
 
-let numa_placement domid ~vcpus ~memory affinity =
+let numa_placement domid ~vcpus ~cores ~memory affinity =
   let open Xenctrlext in
   let open Topology in
   with_lock numa_mutex (fun () ->
       let ( let* ) = Option.bind in
       let xcext = get_handle () in
       let* host = Lazy.force numa_hierarchy in
-      let numa_meminfo = (numainfo xcext).memory |> Array.to_list in
+      let numa_meminfo = (numainfo xcext).memory |> Array.to_seq in
       let nodes =
-        ListLabels.map2
-          (NUMA.nodes host |> List.of_seq)
-          numa_meminfo
-          ~f:(fun node m -> NUMA.resource host node ~memory:m.memfree)
+        Seq.map2
+          (fun node m -> NUMA.resource host node ~memory:m.memfree)
+          (NUMA.nodes host) numa_meminfo
       in
-      let vm = NUMARequest.make ~memory ~vcpus in
+      let vm = NUMARequest.make ~memory ~vcpus ~cores in
       let nodea =
         match !numa_resources with
         | None ->
-            Array.of_list nodes
+            Array.of_seq nodes
         | Some a ->
-            Array.map2 NUMAResource.min_memory (Array.of_list nodes) a
+            Array.map2 NUMAResource.min_memory (Array.of_seq nodes) a
       in
       numa_resources := Some nodea ;
-      let memory_plan =
+      let cpu_affinity, memory_plan =
         match Softaffinity.plan ~vm host nodea with
         | None ->
             D.debug "NUMA-aware placement failed for domid %d" domid ;
-            []
+            (None, [])
         | Some (cpu_affinity, mem_plan) ->
+            (Some cpu_affinity, mem_plan)
+      in
+      let set_vcpu_affinity = function
+        | None ->
+            D.debug "%s: not setting vcpu affinity for domain %d" __FUNCTION__
+              domid
+        | Some cpu_affinity ->
+            D.debug "%s: setting vcpu affinity for domain %d: %s" __FUNCTION__
+              domid
+              (Fmt.to_to_string CPUSet.pp_dump cpu_affinity) ;
             let cpus = CPUSet.to_mask cpu_affinity in
             for i = 0 to vcpus - 1 do
               set_affinity affinity xcext domid i cpus
-            done ;
-            mem_plan
+            done
       in
       (* Xen only allows a single node when using memory claims, or none at all. *)
       let* numa_node, node =
@@ -984,12 +1065,17 @@ let numa_placement domid ~vcpus ~memory affinity =
       in
       let nr_pages = Int64.div memory 4096L |> Int64.to_int in
       try
+        D.debug "NUMAClaim domid %d: local claim on node %d: %d pages" domid
+          node nr_pages ;
         Xenctrlext.domain_claim_pages xcext domid ~numa_node nr_pages ;
+        set_vcpu_affinity cpu_affinity ;
         Some (node, memory)
       with
       | Xenctrlext.Not_available ->
           (* Xen does not provide the interface to claim pages from a single NUMA
              node, ignore the error and continue. *)
+          D.debug "NUMAClaim domid %d: local claim not available" domid ;
+          set_vcpu_affinity cpu_affinity ;
           None
       | Xenctrlext.Unix_error (errno, _) ->
           D.info
@@ -1063,33 +1149,34 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
       result
     in
     ( match hard_affinity with
-    | [] ->
-        []
-    | m :: ms ->
-        (* Treat the first as the template for the rest *)
-        let all_vcpus = List.init vcpus Fun.id in
-        let defaults = List.map (fun _ -> m) all_vcpus in
-        Xapi_stdext_std.Listext.List.take vcpus ((m :: ms) @ defaults)
-    )
+      | [] ->
+          []
+      | m :: ms ->
+          (* Treat the first as the template for the rest *)
+          let all_vcpus = List.init vcpus Fun.id in
+          let defaults = List.map (fun _ -> m) all_vcpus in
+          Xapi_stdext_std.Listext.List.take vcpus ((m :: ms) @ defaults)
+      )
     |> List.iteri (fun vcpu mask ->
-           Xenctrlext.vcpu_setaffinity_hard xcext domid vcpu (bitmap mask)
-       )
+        Xenctrlext.vcpu_setaffinity_hard xcext domid vcpu (bitmap mask)
+    )
   in
   apply_hard_vcpu_map () ;
   let node_placement =
     match !Xenops_server.numa_placement with
     | Any ->
         None
-    | (Best_effort | Best_effort_hard) as pin ->
+    | (Best_effort | Best_effort_hard | Prio_mem_only) as pin ->
         log_reraise (Printf.sprintf "NUMA placement") (fun () ->
             if hard_affinity <> [] then (
               D.debug "VM has hard affinity set, skipping NUMA optimization" ;
               None
             ) else
-              let affinity =
-                Xenops_server.affinity_of_numa_affinity_policy pin
+              let affinity = Xenops_server.affinity_of_numa_affinity_policy pin
+              and cores =
+                Xenops_server.cores_of_numa_affinity_policy pin ~vcpus
               in
-              numa_placement domid ~vcpus
+              numa_placement domid ~vcpus ~cores
                 ~memory:(Int64.mul memory.xen_max_mib 1048576L)
                 affinity
               |> Option.map fst
@@ -1129,11 +1216,11 @@ let xenguest_args_base ~domid ~store_port ~store_domid ~console_port
 let xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port
     ~console_domid ~memory ~kernel ~vgpus ~numa_placement =
   ["-mode"; "hvm_build"; "-image"; kernel]
-  @ (vgpus |> function
-     | Xenops_interface.Vgpu.{implementation= Nvidia _; _} :: _ ->
-         ["-vgpu"]
-     | _ ->
-         []
+  @ ( vgpus |> function
+      | Xenops_interface.Vgpu.{implementation= Nvidia _; _} :: _ ->
+          ["-vgpu"]
+      | _ ->
+          []
     )
   @ xenguest_args_base ~domid ~store_port ~store_domid ~console_port
       ~console_domid ~memory ~numa_placement
@@ -1260,7 +1347,12 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
   let vcpus = info.vcpus in
   let kernel = info.kernel in
   let hard_affinity = info.hard_affinity in
-  let force_arg = if force then ["--force"] else [] in
+  let force_arg =
+    if force then
+      ["--force"]
+    else
+      []
+  in
   assert_file_is_readable kernel ;
   (* Convert memory configuration values into the correct units. *)
   let static_max_mib = Memory.mib_of_kib_used static_max_kib in
@@ -1321,7 +1413,10 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
         (store_mfn, store_port, console_mfn, console_port, [], `pv)
     | BuildPVH {cmdline; pv_shim; modules; shadow_multiplier; video_mib} ->
         let full_config =
-          if pv_shim then Memory.PVinPVH.full_config else Memory.HVM.full_config
+          if pv_shim then
+            Memory.PVinPVH.full_config
+          else
+            Memory.HVM.full_config
         in
         let memory =
           full_config static_max_mib video_mib target_mib vcpus
@@ -1352,6 +1447,19 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
   let local_stuff = console_keys console_port console_mfn in
   build_post ~xc ~xs ~target_mib ~static_max_mib domid domain_type store_mfn
     store_port local_stuff vm_stuff
+
+let resume_post ~xc:_ ~xs domid =
+  let dom_path = xs.Xs.getdomainpath domid in
+  let store_mfn_s = xs.Xs.read (dom_path ^ "/store/ring-ref") in
+  let store_mfn = Nativeint.of_string store_mfn_s in
+  let store_port = int_of_string (xs.Xs.read (dom_path ^ "/store/port")) in
+  xs.Xs.introduce domid store_mfn store_port
+
+let resume (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~domain_type
+    domid =
+  Xenctrl.domain_resume_fast xc domid ;
+  resume_post ~xc ~xs domid ;
+  if domain_type = `hvm then Device.Dm.resume task ~xs ~qemu_domid domid
 
 type suspend_flag = Live | Debug
 
@@ -1750,7 +1858,10 @@ let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~timeoffset ~extras
         (memory, [], `pv)
     | BuildPVH {pv_shim; shadow_multiplier; _} ->
         let full_config =
-          if pv_shim then Memory.PVinPVH.full_config else Memory.HVM.full_config
+          if pv_shim then
+            Memory.PVinPVH.full_config
+          else
+            Memory.HVM.full_config
         in
         let memory =
           full_config static_max_mib video_mib target_mib vcpus
@@ -2059,7 +2170,15 @@ let vcpu_affinity_set ~xc domid vcpu cpumap =
   debug "VM = %s; domid = %d; vcpu_affinity_set %d <- %s" (Uuidx.to_string uuid)
     domid vcpu
     (String.concat ""
-       (List.map (fun b -> if b then "1" else "0") (Array.to_list cpumap))
+       (List.map
+          (fun b ->
+            if b then
+              "1"
+            else
+              "0"
+          )
+          (Array.to_list cpumap)
+       )
     ) ;
   Xenctrl.vcpu_affinity_set xc domid vcpu cpumap
 

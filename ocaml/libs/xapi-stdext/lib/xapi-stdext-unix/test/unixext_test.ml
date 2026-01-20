@@ -17,8 +17,7 @@ let expect_amount ~expected observation =
 
 let skip_blk = function
   | Unix.S_BLK ->
-      if Unix.geteuid () <> 0 then
-        QCheck2.assume_fail ()
+      if Unix.geteuid () <> 0 then QCheck2.assume_fail ()
   | _ ->
       ()
 
@@ -168,8 +167,7 @@ let test_time_limited_read =
 let test_proxy =
   let gen = Generate.t and print = Generate.print in
   Test.make ~count:20 ~name:__FUNCTION__ ~print gen @@ fun behaviour ->
-  if behaviour.kind <> Unix.S_SOCK then
-    QCheck2.assume_fail () ;
+  if behaviour.kind <> Unix.S_SOCK then QCheck2.assume_fail () ;
   let test wrapped_fd =
     let buf = String.init behaviour.size (fun i -> Char.chr (i mod 255)) in
     let fd = Xapi_fdcaps.Operations.For_test.unsafe_fd_exn wrapped_fd in

@@ -176,7 +176,14 @@ let update_allowed_operations ~__context ~self : unit =
   let all = Db.VIF.get_record_internal ~__context ~self in
   let valid = valid_operations ~__context all self in
   let keys =
-    Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid []
+    Hashtbl.fold
+      (fun k v acc ->
+        if v = None then
+          k :: acc
+        else
+          acc
+      )
+      valid []
   in
   Db.VIF.set_allowed_operations ~__context ~self ~value:keys
 
@@ -285,8 +292,8 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
       let all_vifs_with_devices =
         Db.VM.get_VIFs ~__context ~self:vM
         |> List.map (fun self ->
-               (self, int_of_string (Db.VIF.get_device ~__context ~self))
-           )
+            (self, int_of_string (Db.VIF.get_device ~__context ~self))
+        )
       in
       let new_device = int_of_string device in
       if List.exists (fun (_, d) -> d = new_device) all_vifs_with_devices then
@@ -301,7 +308,12 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
       | hd :: tl ->
           let min_vif, min_device =
             List.fold_left
-              (fun ((_, d) as v) ((_, d') as v') -> if d' < d then v' else v)
+              (fun ((_, d) as v) ((_, d') as v') ->
+                if d' < d then
+                  v'
+                else
+                  v
+              )
               hd tl
           in
           let vm_has_pvs_proxy =
@@ -373,7 +385,8 @@ let copy ~__context ~vm ~preserve_mac_address vif =
         ( if preserve_mac_address then
             all.API.vIF_MAC
           else
-            "" (* leave blank = generate new mac from vm random seed *)
+            ""
+          (* leave blank = generate new mac from vm random seed *)
         )
       ~mTU:all.API.vIF_MTU ~other_config:all.API.vIF_other_config
       ~qos_algorithm_type:all.API.vIF_qos_algorithm_type

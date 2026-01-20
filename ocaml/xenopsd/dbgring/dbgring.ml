@@ -88,10 +88,8 @@ let _ =
     req_cons req_prod (rsp_cons - ring_size) (rsp_prod - ring_size) ;
   Printf.printf "==== requests ====\n" ;
   for i = 0 to (sz / 64) - 1 do
-    if i = ring_size / 64 then
-      Printf.printf "==== replied ====\n" ;
-    if i = 2 * ring_size / 64 then
-      Printf.printf "==== other ====\n" ;
+    if i = ring_size / 64 then Printf.printf "==== replied ====\n" ;
+    if i = 2 * ring_size / 64 then Printf.printf "==== other ====\n" ;
     let x = String.sub ss (i * 128) 128 in
     Printf.printf "%.4d " (i * 64) ;
     for j = 0 to (128 / 4) - 1 do

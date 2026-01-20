@@ -64,9 +64,9 @@ let get_my_physical_pifs_with_position ~__context =
          )
       )
   |> List.filter_map (fun (pif_ref, pif_rec) ->
-         Xapi_pif_helpers.get_pif_position ~__context ~pif_rec
-         |> Option.map (fun position -> (pif_ref, pif_rec, position))
-     )
+      Xapi_pif_helpers.get_pif_position ~__context ~pif_rec
+      |> Option.map (fun position -> (pif_ref, pif_rec, position))
+  )
 
 (** Copy Bonds from master *)
 let copy_bonds_from_master ~__context () =
@@ -111,8 +111,8 @@ let copy_bonds_from_master ~__context () =
           let pif_rec = Db.PIF.get_record ~__context ~self in
           Xapi_pif_helpers.get_pif_position ~__context ~pif_rec
           |> Option.map (fun position ->
-                 (self, pif_rec.API.pIF_MAC, pif_rec.API.pIF_device, position)
-             )
+              (self, pif_rec.API.pIF_MAC, pif_rec.API.pIF_device, position)
+          )
         )
         bond.API.bond_slaves
     in

@@ -70,6 +70,8 @@ let pvinpvh_xen_cmdline = ref "pv-shim console=xen"
 
 let numa_placement_compat = ref true
 
+let numa_best_effort_prio_mem_only = ref false
+
 (* O(N^2) operations, until we get a xenstore cache, so use a small number here *)
 let vm_guest_agent_xenstore_quota = ref 128
 
@@ -243,7 +245,13 @@ let options =
     )
   ; ( "action-after-qemu-crash"
     , Arg.String
-        (fun x -> action_after_qemu_crash := if x = "" then None else Some x)
+        (fun x ->
+          action_after_qemu_crash :=
+            if x = "" then
+              None
+            else
+              Some x
+        )
     , (fun () -> match !action_after_qemu_crash with None -> "" | Some x -> x)
     , "Action to take for VMs if QEMU crashes or dies unexpectedly: pause, \
        poweroff. Otherwise, no action (default)."
@@ -262,6 +270,13 @@ let options =
     , Arg.Bool (fun x -> numa_placement_compat := x)
     , (fun () -> string_of_bool !numa_placement_compat)
     , "NUMA-aware placement of VMs (deprecated, use XAPI setting)"
+    )
+  ; ( "numa-best-effort-prio-mem-only"
+    , Arg.Bool (fun x -> numa_best_effort_prio_mem_only := x)
+    , (fun () -> string_of_bool !numa_best_effort_prio_mem_only)
+    , "Revert to the previous 'best effort' NUMA policy, where we only \
+       filtered NUMA nodes based on available memory. Only use if there are \
+       issues with the new best effort policy"
     )
   ; ( "pci-quarantine"
     , Arg.Bool (fun b -> pci_quarantine := b)
@@ -364,12 +379,12 @@ let rpc_fn call =
         let span_parent =
           kv_list
           |> List.find_map (function
-               | "debug_info", Rpc.String debug_info ->
-                   let di = debug_info |> Debug_info.of_string in
-                   di.tracing
-               | _ ->
-                   None
-               )
+            | "debug_info", Rpc.String debug_info ->
+                let di = debug_info |> Debug_info.of_string in
+                di.tracing
+            | _ ->
+                None
+            )
         in
         (call, call_name, span_parent)
     | call_name, _ ->

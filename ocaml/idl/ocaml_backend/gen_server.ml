@@ -38,7 +38,11 @@ let from_rpc ?(ignore = false) arg =
   let binding = O.string_of_param arg in
   let converter = O.type_of_param arg in
   Printf.sprintf "let %s%s = %s_of_rpc %s_rpc in"
-    (if ignore then "_" else "")
+    ( if ignore then
+        "_"
+      else
+        ""
+    )
     binding converter binding
 
 let debug msg args =
@@ -339,7 +343,11 @@ let operation (obj : obj) (x : message) =
             ^ impl_fn
             ^ "))) in"
           ; "let supports_async = "
-            ^ (if has_async then "true" else "false")
+            ^ ( if has_async then
+                  "true"
+                else
+                  "false"
+              )
             ^ " in"
           ; "let generate_task_for = "
             ^ string_of_bool (not (List.mem obj.name DM.no_task_id_for))
@@ -371,7 +379,11 @@ let operation (obj : obj) (x : message) =
               "let resp = Server_helpers.do_dispatch %s %s supports_async \
                __call local_op marshaller fd http_req __label __sync_ty \
                generate_task_for in"
-              (if x.msg_session then "~session_id" else "")
+              ( if x.msg_session then
+                  "~session_id"
+                else
+                  ""
+              )
               ( if Gen_empty_custom.operation_requires_side_effect x then
                   "~forward_op"
                 else
@@ -414,7 +426,11 @@ let operation (obj : obj) (x : message) =
   ^ string_of_int (List.length msg_params_without_default_values)
   ^ "\""
   ^ " (string_of_int ((List.length __params) - "
-  ^ (if x.msg_session then "1" else "0")
+  ^ ( if x.msg_session then
+        "1"
+      else
+        "0"
+    )
   ^ "))\n"
   ^ "        end"
 

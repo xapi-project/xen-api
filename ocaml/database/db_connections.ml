@@ -45,7 +45,10 @@ let choose connections =
         List.fold_left
           (fun (g, c) c' ->
             let g' = Parse_db_conf.generation_read c' in
-            if g' > g then (g', c') else (g, c)
+            if g' > g then
+              (g', c')
+            else
+              (g, c)
           )
           (Parse_db_conf.generation_read c, c)
           cs
@@ -54,7 +57,12 @@ let choose connections =
         most_recent.Parse_db_conf.path gen ;
       Some most_recent
 
-let preferred_write_db () = List.hd (Db_conn_store.read_db_connections ())
+let preferred_write_db () =
+  match Db_conn_store.read_db_connections () with
+  | [] ->
+      raise Db_exn.Db_not_initialized
+  | x :: _ ->
+      x
 
 (* !!! FIX ME *)
 
@@ -75,14 +83,17 @@ let pre_exit_hook () =
   R.debug "Closed all active redo logs."
 
 (* The connection flushing calls each lock the connection they're flushing to.
-   The backend flush calls have to do enough locking (i.e. with the db_lock) to ensure that they
-   flush a consistent snapshot. Backends must also ensure that they do not hold the global db_lock
-   whilst they are writing to non-local storage.
+   The backend flush calls have to do enough locking (i.e. with the db_lock) to
+   ensure that they flush a consistent snapshot. Backends must also ensure that
+   they do not hold the global db_lock whilst they are writing to non-local
+   storage.
 *)
 let flush_dirty_and_maybe_exit dbconn exit_spec =
   Db_conn_store.with_db_conn_lock dbconn (fun () ->
-      (* if we're being told to shutdown by signal handler then flush every connection
-         	  - the rationale is that we're not sure which db connections will be available on next restart *)
+      (* if we're being told to shutdown by signal handler then flush every
+         connection
+          - the rationale is that we're not sure which db connections will be
+            available on next restart *)
       ( if !exit_on_next_flush then
           let (_ : bool) = Backend_xml.flush_dirty dbconn in
           let refcount = dec_and_read_db_flush_thread_refcount () in

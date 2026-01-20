@@ -120,10 +120,10 @@ let generate_state_dss state_kind =
   try
     list_package states states_by_cpu
     |> List.mapi (fun cpu_id times ->
-           List.mapi
-             (fun state_id time -> gen_pm_ds state_kind cpu_id state_id time)
-             times
-       )
+        List.mapi
+          (fun state_id time -> gen_pm_ds state_kind cpu_id state_id time)
+          times
+    )
     |> List.concat
   with _ -> []
 

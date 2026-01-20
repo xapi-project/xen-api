@@ -32,7 +32,10 @@ let register ~__context =
   let sync_func () = Xapi_sync.do_sync () in
   let sync_delay =
     (* 10 mins if fist point there - to ensure rrd sync happens first *)
-    if Xapi_fist.reduce_blob_sync_interval () then 60.0 *. 10.0 else 7200.
+    if Xapi_fist.reduce_blob_sync_interval () then
+      60.0 *. 10.0
+    else
+      7200.
   in
   (* Heartbeat to show the queue is still running - will be more useful when there's less logging! *)
   let hb_timer = 3600.0 in
@@ -61,7 +64,10 @@ let register ~__context =
     )
   in
   let rrdbackup_delay =
-    if Xapi_fist.reduce_rrd_backup_interval () then 60.0 *. 6.0 else 3600.0
+    if Xapi_fist.reduce_rrd_backup_interval () then
+      60.0 *. 6.0
+    else
+      3600.0
   in
   let session_revalidation_func () =
     Server_helpers.exec_with_new_task "session_revalidation_func"

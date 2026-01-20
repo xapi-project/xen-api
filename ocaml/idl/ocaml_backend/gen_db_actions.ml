@@ -178,7 +178,11 @@ let string_to_dm tys : O.Module.t =
           "fun m -> map " ^ kf ^ " " ^ vf ^ " m"
       | DT.Ref t ->
           "fun x -> (Ref.of_"
-          ^ (if t = "session" then "secret_" else "")
+          ^ ( if t = "session" then
+                "secret_"
+              else
+                ""
+            )
           ^ "string x : "
           ^ OU.ocaml_of_ty ty
           ^ ")"
@@ -497,7 +501,11 @@ let db_action api : O.Module.t =
           ; Printf.sprintf
               "List.map (fun (ref,(__regular_fields,__set_refs)) -> \
                Ref.of_%sstring ref, %s ~__regular_fields ~__set_refs) records"
-              (if obj.DT.name = "session" then "secret_" else "")
+              ( if obj.DT.name = "session" then
+                  "secret_"
+                else
+                  ""
+              )
               conversion_fn
           ]
         )
@@ -513,7 +521,11 @@ let db_action api : O.Module.t =
              (%s.get_record ~__context ~self:(Ref.of_%sstring self))))"
             (OU.ocaml_of_record_name obj.DT.name)
             (OU.ocaml_of_obj_name obj.DT.name)
-            (if obj.DT.name = "session" then "secret_" else "")
+            ( if obj.DT.name = "session" then
+                "secret_"
+              else
+                ""
+            )
         ]
       ()
   in

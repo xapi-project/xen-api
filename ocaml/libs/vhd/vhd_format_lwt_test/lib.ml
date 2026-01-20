@@ -96,12 +96,12 @@ let check_written_sectors t expected =
     | (x, data) :: xs ->
         Vhd_IO.read_sector t x y >>= fun empty ->
         ( match empty with
-        | false ->
-            fail (Failure "read empty sector, expected data")
-        | true ->
-            Alcotest.check cstruct ~pos:__POS__ "" data y ;
-            return ()
-        )
+          | false ->
+              fail (Failure "read empty sector, expected data")
+          | true ->
+              Alcotest.check cstruct ~pos:__POS__ "" data y ;
+              return ()
+          )
         >>= fun () -> loop xs
   in
   loop expected

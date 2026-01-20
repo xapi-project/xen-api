@@ -614,7 +614,10 @@ module Spans = struct
               )
               spanlist
           in
-          if SpanMap.is_empty filtered then None else Some filtered
+          if SpanMap.is_empty filtered then
+            None
+          else
+            Some filtered
         )
         spans
 
@@ -782,7 +785,8 @@ module Tracer = struct
     in
     (* Do not start span if the TracerProvider is disabled *)
     if not t.enabled then
-      ok_none (* Do not start span if the max depth has been reached *)
+      ok_none
+    (* Do not start span if the max depth has been reached *)
     else if parent_depth >= Atomic.get Spans.max_depth then (
       let parent_trace_id =
         Option.fold ~none:"None"
@@ -812,28 +816,28 @@ module Tracer = struct
           span
           |> Spans.remove_from_spans
           |> Option.map (fun existing_span ->
-                 let old_context = Span.get_context existing_span in
-                 let parent_trace_context = Span.get_trace_context parent in
-                 let new_depth =
-                   TraceContext.baggage_depth_of parent_trace_context + 1
-                 in
-                 let new_context : SpanContext.t =
-                   let trace_context =
-                     TraceContext.(
-                       update_with_baggage depth_key (string_of_int new_depth)
-                         span.Span.context.trace_context
-                     )
-                   in
-                   SpanContext.context
-                     (SpanContext.trace_id_of_span_context parent.context)
-                     old_context.span_id
-                   |> SpanContext.with_trace_context trace_context
-                 in
-                 let updated_span = {existing_span with parent= Some parent} in
-                 let updated_span = {updated_span with context= new_context} in
-                 let () = Spans.add_to_spans ~span:updated_span in
-                 updated_span
-             )
+              let old_context = Span.get_context existing_span in
+              let parent_trace_context = Span.get_trace_context parent in
+              let new_depth =
+                TraceContext.baggage_depth_of parent_trace_context + 1
+              in
+              let new_context : SpanContext.t =
+                let trace_context =
+                  TraceContext.(
+                    update_with_baggage depth_key (string_of_int new_depth)
+                      span.Span.context.trace_context
+                  )
+                in
+                SpanContext.context
+                  (SpanContext.trace_id_of_span_context parent.context)
+                  old_context.span_id
+                |> SpanContext.with_trace_context trace_context
+              in
+              let updated_span = {existing_span with parent= Some parent} in
+              let updated_span = {updated_span with context= new_context} in
+              let () = Spans.add_to_spans ~span:updated_span in
+              updated_span
+          )
     else
       Some span
 
@@ -930,8 +934,8 @@ module EnvHelpers = struct
           |> SpanContext.context_of_span_context
           |> TraceContext.encode_baggage
           |> Option.fold ~none:[] ~some:(fun baggage ->
-                 [String.concat "=" [baggage_key; baggage]]
-             )
+              [String.concat "=" [baggage_key; baggage]]
+          )
         in
         let traceparent_env =
           span

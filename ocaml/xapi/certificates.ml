@@ -126,8 +126,7 @@ let raise_name_invalid kind n =
   raise_server_error [n] err
 
 let validate_name kind name =
-  if is_unsafe name then
-    raise_name_invalid kind name
+  if is_unsafe name then raise_name_invalid kind name
 
 let raise_already_exists kind n =
   let err =
@@ -291,8 +290,7 @@ let cert_perms kind =
 let host_install kind ~name ~cert =
   validate_name kind name ;
   let filename = library_filename kind name in
-  if Sys.file_exists filename then
-    raise_already_exists kind name ;
+  if Sys.file_exists filename then raise_already_exists kind name ;
   debug "Installing %s %s" (to_string kind) name ;
   try
     mkdir_cert_path kind ;

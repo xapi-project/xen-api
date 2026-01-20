@@ -180,4 +180,7 @@ let handler (req : Request.t) s _ =
         raise Api_errors.(Server_error (system_status_must_use_tar_on_oem, []))
   in
 
-  if list_capabilies then send_list () else send_file ()
+  if list_capabilies then
+    send_list ()
+  else
+    send_file ()

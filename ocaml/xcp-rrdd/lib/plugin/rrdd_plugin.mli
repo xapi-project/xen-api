@@ -86,11 +86,7 @@ module Reporter : sig
 end
 
 (** Functions useful for writing a single-purpose rrdd plugin daemon. *)
-module Process : functor
-  (_ : sig
-     val name : string
-   end)
-  -> sig
+module Process : functor (_ : sig val name : string end) -> sig
   module D : Debug.DEBUG
 
   val initialise : unit -> unit

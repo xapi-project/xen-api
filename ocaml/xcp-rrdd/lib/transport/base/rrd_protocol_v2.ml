@@ -224,8 +224,7 @@ let make_payload_reader () =
   fun cs ->
     (* Check the header string is present and correct. *)
     let header = Read.header cs in
-    if not (header = default_header) then
-      raise Invalid_header_string ;
+    if not (header = default_header) then raise Invalid_header_string ;
     (* Check that the data CRC has changed. Since the CRC'd data
        		 * includes the timestamp, this should change with every update. *)
     let data_crc = Read.data_crc cs in

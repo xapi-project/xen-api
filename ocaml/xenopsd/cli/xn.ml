@@ -192,7 +192,10 @@ let parse_pci vm_id (x, idx) =
           options
       in
       let bool_opt k opts =
-        if List.mem_assoc k opts then Some (List.assoc k opts = "1") else None
+        if List.mem_assoc k opts then
+          Some (List.assoc k opts = "1")
+        else
+          None
       in
       let open Xn_cfg_types in
       let msitranslate = bool_opt _msitranslate options in
@@ -300,7 +303,10 @@ let print_disk vbd =
 
 let print_vif vif =
   let mac =
-    if vif.Vif.mac = "" then "" else Printf.sprintf "mac=%s" vif.Vif.mac
+    if vif.Vif.mac = "" then
+      ""
+    else
+      Printf.sprintf "mac=%s" vif.Vif.mac
   in
   let bridge =
     match vif.Vif.backend with
@@ -339,7 +345,12 @@ let parse_vif vm_id (x, idx) =
   {
     Vif.id= (vm_id, string_of_int idx)
   ; position= idx
-  ; mac= (if List.mem_assoc _mac kvpairs then List.assoc _mac kvpairs else "")
+  ; mac=
+      ( if List.mem_assoc _mac kvpairs then
+          List.assoc _mac kvpairs
+        else
+          ""
+      )
   ; carrier= true
   ; mtu= 1500
   ; rate= None
@@ -423,8 +434,18 @@ let print_vm id =
   in
   let global_pci_opts =
     [
-      (_vm_pci_msitranslate, if vm_t.pci_msitranslate then "1" else "0")
-    ; (_vm_pci_power_mgmt, if vm_t.pci_power_mgmt then "1" else "0")
+      ( _vm_pci_msitranslate
+      , if vm_t.pci_msitranslate then
+          "1"
+        else
+          "0"
+      )
+    ; ( _vm_pci_power_mgmt
+      , if vm_t.pci_power_mgmt then
+          "1"
+        else
+          "0"
+      )
     ]
   in
   String.concat "\n"
@@ -436,7 +457,12 @@ let print_vm id =
 let canonicalise_filename x =
   try
     Unix.access x [Unix.R_OK] ;
-    Filename.(if is_relative x then concat (Unix.getcwd ()) x else x)
+    Filename.(
+      if is_relative x then
+        concat (Unix.getcwd ()) x
+      else
+        x
+    )
   with _ ->
     Printf.fprintf stderr "Cannot find file: %s\n%!" x ;
     exit 1
@@ -464,7 +490,12 @@ let add' _copts x () =
           in
           (* We need to have the disk information ready so we can set the PV
              indirect boot info in the VM record *)
-          let disks = if mem _disk then find _disk |> list string else [] in
+          let disks =
+            if mem _disk then
+              find _disk |> list string
+            else
+              []
+          in
           let disks = List.map parse_disk_info disks in
           let devices =
             List.rev
@@ -502,7 +533,11 @@ let add' _copts x () =
                               kernel=
                                 find _kernel |> string |> canonicalise_filename
                             ; cmdline=
-                                (if mem _root then find _root |> string else "")
+                                ( if mem _root then
+                                    find _root |> string
+                                  else
+                                    ""
+                                )
                             ; ramdisk=
                                 ( if mem _ramdisk then
                                     Some
@@ -542,7 +577,11 @@ let add' _copts x () =
                   ; pci_emulations= []
                   ; pci_passthrough= false
                   ; boot_order=
-                      (if mem _boot then find _boot |> string else "cd")
+                      ( if mem _boot then
+                          find _boot |> string
+                        else
+                          "cd"
+                      )
                   ; qemu_disk_cmdline= false
                   ; qemu_stubdom= false
                   ; firmware= Xenops_types.Vm.default_firmware
@@ -562,12 +601,25 @@ let add' _copts x () =
             else
               Uuidx.(to_string (make ()))
           in
-          let name = if mem _name then find _name |> string else uuid in
+          let name =
+            if mem _name then
+              find _name |> string
+            else
+              uuid
+          in
           let mib =
-            if mem _memory then find _memory |> int |> Int64.of_int else 64L
+            if mem _memory then
+              find _memory |> int |> Int64.of_int
+            else
+              64L
           in
           let bytes = Int64.mul 1024L (Int64.mul 1024L mib) in
-          let vcpus = if mem _vcpus then find _vcpus |> int else 1 in
+          let vcpus =
+            if mem _vcpus then
+              find _vcpus |> int
+            else
+              1
+          in
           let pci_msitranslate =
             if mem _vm_pci_msitranslate then
               find _vm_pci_msitranslate |> bool
@@ -624,14 +676,27 @@ let add' _copts x () =
           let (id : Vm.id) = Client.VM.add dbg vm in
           let one x = x |> vbd_of_disk_info id |> Client.VBD.add dbg in
           let (_ : Vbd.id list) = List.map one disks in
-          let vifs = if mem _vif then find _vif |> list string else [] in
+          let vifs =
+            if mem _vif then
+              find _vif |> list string
+            else
+              []
+          in
           let rec ints first last =
-            if first > last then [] else first :: ints (first + 1) last
+            if first > last then
+              []
+            else
+              first :: ints (first + 1) last
           in
           let vifs = List.combine vifs (ints 0 (List.length vifs - 1)) in
           let one x = x |> parse_vif id |> Client.VIF.add dbg in
           let (_ : Vif.id list) = List.map one vifs in
-          let pcis = if mem _pci then find _pci |> list string else [] in
+          let pcis =
+            if mem _pci then
+              find _pci |> list string
+            else
+              []
+          in
           let pcis = List.combine pcis (ints 0 (List.length pcis - 1)) in
           let one x = x |> parse_pci id |> Client.PCI.add dbg in
           let (_ : Pci.id list) = List.map one pcis in
@@ -700,7 +765,12 @@ let list_compact () =
   List.iter (Printf.printf "%s\n") lines
 
 let list copts =
-  diagnose_error (if copts.Common.verbose then list_verbose else list_compact)
+  diagnose_error
+    ( if copts.Common.verbose then
+        list_verbose
+      else
+        list_compact
+    )
 
 let diagnostics' () =
   Client.get_diagnostics dbg ()
@@ -872,6 +942,15 @@ let suspend _copts disk x =
   |> success_task ignore_task
 
 let suspend copts disk x = diagnose_error (need_vm (suspend copts disk) x)
+
+let fast_resume _copts x =
+  let open Vm in
+  let vm, _ = find_by_name x in
+  Client.VM.fast_resume dbg vm.id
+  |> wait_for_task dbg
+  |> success_task ignore_task
+
+let fast_resume copts x = diagnose_error (need_vm (fast_resume copts) x)
 
 let resume _copts disk x =
   (* We don't currently store where the suspend image is *)
@@ -1117,8 +1196,7 @@ let start' copts paused console x =
   |> success_task ignore_task ;
   if not paused then
     Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task ;
-  if console then
-    console_connect' copts x
+  if console then console_connect' copts x
 
 let start copts paused console x =
   diagnose_error (need_vm (start' copts paused console) x)

@@ -83,7 +83,12 @@ type key_type =
   | ReqValue of string
 
 let err field key value =
-  let msg = if key = "" then field else field ^ ":" ^ key in
+  let msg =
+    if key = "" then
+      field
+    else
+      field ^ ":" ^ key
+  in
   raise (Api_errors.Server_error (Api_errors.invalid_value, [msg; value]))
 
 let mem value range =
@@ -121,9 +126,15 @@ let assert_value ~field ~key ~attr ~value =
         vs ""
   | IntRange (min, max) ->
       let v = try int_of_string value with _ -> err value in
-      if v < min || v > max then err value else value
+      if v < min || v > max then
+        err value
+      else
+        value
   | ReqValue required_value ->
-      if value <> required_value then err value else value
+      if value <> required_value then
+        err value
+      else
+        value
   | String ->
       value
 
@@ -132,10 +143,7 @@ let with_ks ~kss ~fn =
   let corrected_values =
     List.filter (fun cv -> cv <> None) (List.map (fun ks -> fn field ks) kss)
   in
-  if corrected_values = [] then
-    []
-  else
-    match List.hd corrected_values with None -> [] | Some cv -> cv
+  match corrected_values with [] | None :: _ -> [] | Some cv :: _ -> cv
 
 let assert_req_values ~field ~ks ~vs =
   (* each required values in this ks must match the one in the vs map this key/value belongs to *)
@@ -158,7 +166,10 @@ let merge xs ys =
   let nys =
     List.map
       (fun (ky, vy) ->
-        if List.mem_assoc ky xs then (ky, List.assoc ky xs) else (ky, vy)
+        if List.mem_assoc ky xs then
+          (ky, List.assoc ky xs)
+        else
+          (ky, vy)
       )
       ys
   in
@@ -208,7 +219,10 @@ let assert_all_keys ~ty ~ks ~value ~db =
             let value =
               List.fold_right
                 (fun (k, v) acc ->
-                  if List.mem_assoc k ks then (k, v) :: acc else acc
+                  if List.mem_assoc k ks then
+                    (k, v) :: acc
+                  else
+                    acc
                 )
                 value []
             in

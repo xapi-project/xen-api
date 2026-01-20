@@ -501,6 +501,8 @@ let sr_full = add_error "SR_FULL"
 
 let sr_source_space_insufficient = add_error "SR_SOURCE_SPACE_INSUFFICIENT"
 
+let sr_suspend_space_insufficient = add_error "SR_SUSPEND_SPACE_INSUFFICIENT"
+
 let sr_has_pbd = add_error "SR_HAS_PBD"
 
 let sr_requires_upgrade = add_error "SR_REQUIRES_UPGRADE"
@@ -1438,3 +1440,8 @@ let tls_verification_not_enabled_in_pool =
   add_error "TLS_VERIFICATION_NOT_ENABLED_IN_POOL"
 
 let sysprep = add_error "SYSPREP"
+
+let invalid_ntp_config = add_error "INVALID_NTP_CONFIG"
+
+let not_allowed_when_ntp_is_enabled =
+  add_error "NOT_ALLOWED_WHEN_NTP_IS_ENABLED"

@@ -311,9 +311,9 @@ let unplug_all_pbds ~__context =
   (* best effort unplug of all PBDs *)
   get_locally_attached ~__context
   |> List.iter (fun pbd ->
-         let uuid = Db.PBD.get_uuid ~__context ~self:pbd in
-         TaskHelper.exn_if_cancelling ~__context ;
-         debug "Unplugging PBD %s" uuid ;
-         unplug ~__context ~self:pbd
-     ) ;
+      let uuid = Db.PBD.get_uuid ~__context ~self:pbd in
+      TaskHelper.exn_if_cancelling ~__context ;
+      debug "Unplugging PBD %s" uuid ;
+      unplug ~__context ~self:pbd
+  ) ;
   debug "Finished unplug_all_pbds"

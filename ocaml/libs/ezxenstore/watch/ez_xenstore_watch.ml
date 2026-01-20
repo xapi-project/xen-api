@@ -14,8 +14,7 @@
 
 module type DEBUG = sig
   val debug : ('a, unit, string, unit) format4 -> 'a
-  (** Debug function *)
-end
+  (** Debug function *) end
 
 module Make (Debug : DEBUG) = struct
   open Debug
@@ -110,7 +109,12 @@ module Make (Debug : DEBUG) = struct
       let list_different_domains a b =
         let c =
           IntMap.merge
-            (fun _ a b -> if domain_looks_different a b then Some () else None)
+            (fun _ a b ->
+              if domain_looks_different a b then
+                Some ()
+              else
+                None
+            )
             a b
         in
         List.map fst (IntMap.bindings c)

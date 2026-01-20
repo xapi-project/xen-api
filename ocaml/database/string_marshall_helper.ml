@@ -29,7 +29,10 @@ let ensure_utf8_xml string =
   prefix
 
 let ensure_nonempty s =
-  if String.length s = 0 then raise Db_exn.Empty_key_in_map else s
+  if String.length s = 0 then
+    raise Db_exn.Empty_key_in_map
+  else
+    s
 
 let set f ks =
   SExpr.string_of

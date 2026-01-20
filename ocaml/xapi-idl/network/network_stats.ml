@@ -91,7 +91,10 @@ module File_helpers = struct
         else
           Bytes.sub_string block 0 n
       in
-      if n = 0 then acc else fold (f acc s)
+      if n = 0 then
+        acc
+      else
+        fold (f acc s)
     in
     fold start
 

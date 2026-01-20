@@ -40,33 +40,32 @@ let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
   assert_gpgkey_path_is_valid gpgkey_path ;
   Db.Repository.get_all ~__context
   |> List.iter (fun ref ->
-         if
-           name_label = Db.Repository.get_name_label ~__context ~self:ref
-           || binary_url = Db.Repository.get_binary_url ~__context ~self:ref
-         then
-           raise
-             Api_errors.(
-               Server_error (repository_already_exists, [Ref.string_of ref])
-             )
-     ) ;
+      if
+        name_label = Db.Repository.get_name_label ~__context ~self:ref
+        || binary_url = Db.Repository.get_binary_url ~__context ~self:ref
+      then
+        raise
+          Api_errors.(
+            Server_error (repository_already_exists, [Ref.string_of ref])
+          )
+  ) ;
   create_repository_record ~__context ~name_label ~name_description ~binary_url
     ~source_url ~update ~gpgkey_path ~origin:`remote ~certificate:""
 
 let introduce_bundle ~__context ~name_label ~name_description =
   Db.Repository.get_all ~__context
   |> List.iter (fun ref ->
-         if name_label = Db.Repository.get_name_label ~__context ~self:ref then
-           raise
-             Api_errors.(
-               Server_error (repository_already_exists, [Ref.string_of ref])
-             ) ;
-         if Db.Repository.get_origin ~__context ~self:ref = `bundle then
-           raise
-             Api_errors.(
-               Server_error
-                 (bundle_repository_already_exists, [Ref.string_of ref])
-             )
-     ) ;
+      if name_label = Db.Repository.get_name_label ~__context ~self:ref then
+        raise
+          Api_errors.(
+            Server_error (repository_already_exists, [Ref.string_of ref])
+          ) ;
+      if Db.Repository.get_origin ~__context ~self:ref = `bundle then
+        raise
+          Api_errors.(
+            Server_error (bundle_repository_already_exists, [Ref.string_of ref])
+          )
+  ) ;
   create_repository_record ~__context ~name_label ~name_description
     ~binary_url:"" ~source_url:"" ~update:true ~gpgkey_path:"" ~origin:`bundle
     ~certificate:""
@@ -76,15 +75,15 @@ let introduce_remote_pool ~__context ~name_label ~name_description ~binary_url
   assert_remote_pool_url_is_valid ~url:binary_url ;
   Db.Repository.get_all ~__context
   |> List.iter (fun ref ->
-         if
-           name_label = Db.Repository.get_name_label ~__context ~self:ref
-           || binary_url = Db.Repository.get_binary_url ~__context ~self:ref
-         then
-           raise
-             Api_errors.(
-               Server_error (repository_already_exists, [Ref.string_of ref])
-             )
-     ) ;
+      if
+        name_label = Db.Repository.get_name_label ~__context ~self:ref
+        || binary_url = Db.Repository.get_binary_url ~__context ~self:ref
+      then
+        raise
+          Api_errors.(
+            Server_error (repository_already_exists, [Ref.string_of ref])
+          )
+  ) ;
   create_repository_record ~__context ~name_label ~name_description ~binary_url
     ~source_url:"" ~update:true ~gpgkey_path:"" ~origin:`remote_pool
     ~certificate
@@ -107,11 +106,11 @@ let cleanup_all_pool_repositories () =
     let prefix = !Xapi_globs.remote_repository_prefix ^ "-" in
     Sys.readdir !Xapi_globs.yum_repos_config_dir
     |> Array.iter (fun file ->
-           let open Astring.String in
-           if is_prefix ~affix:prefix file && is_suffix ~affix:".repo" file then
-             let path = Filename.concat !Xapi_globs.yum_repos_config_dir file in
-             Unixext.unlink_safe path
-       ) ;
+        let open Astring.String in
+        if is_prefix ~affix:prefix file && is_suffix ~affix:".repo" file then
+          let path = Filename.concat !Xapi_globs.yum_repos_config_dir file in
+          Unixext.unlink_safe path
+    ) ;
     Xapi_stdext_unix.Unixext.rm_rec !Xapi_globs.local_pool_repo_dir
   with e ->
     error "Failed to clean up all pool repositories: %s"
@@ -225,9 +224,12 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
       | s ->
           s
     in
-    let write_initial_yum_config ~binary_url =
-      write_yum_config ~source_url ~binary_url ~repo_gpgcheck:true ~gpgkey_path
-        ~repo_name
+    let proxy_config =
+      match use_proxy with true -> get_proxy_params ~__context | false -> []
+    in
+    let write_initial_yum_config ~proxy_config ~binary_url =
+      write_yum_config ~proxy_config ~source_url ~binary_url ~repo_gpgcheck:true
+        ~gpgkey_path ~repo_name
     in
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
@@ -256,7 +258,7 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
 
         with_sync_client_auth client_auth @@ fun client_auth ->
         with_sync_server_auth server_auth @@ fun binary_url' ->
-        write_initial_yum_config
+        write_initial_yum_config ~proxy_config
           ~binary_url:(Option.value binary_url' ~default:binary_url) ;
         clean_yum_cache repo_name ;
         (* Remove imported YUM repository GPG key *)
@@ -273,15 +275,10 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
           | None ->
               []
         in
-        let proxy_params =
-          match use_proxy with
-          | true ->
-              get_proxy_params ~__context
-          | false ->
-              []
-        in
-        auth_params @ proxy_params |> fun x ->
-        config_repo x ; make_cache () ; sync_repo ()
+        (* Proxy config is now written directly to repo file, so only pass
+         * auth_params to config_repo to avoid exposing credentials in
+         * command-line arguments which get logged by DNF5 *)
+        config_repo auth_params ; make_cache () ; sync_repo ()
       )
       (fun () ->
         (* Rewrite repo conf file as initial content to remove credential
@@ -295,7 +292,8 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
          *)
         match Pkgs.manager with
         | Yum ->
-            write_initial_yum_config ~binary_url
+            (* Write clean config without proxy credentials *)
+            write_initial_yum_config ~proxy_config:[] ~binary_url
         | Dnf ->
             Unixext.unlink_safe !Xapi_globs.dnf_repo_config_file
       ) ;
@@ -746,18 +744,18 @@ let apply_livepatches' ~__context ~host ~livepatches =
 let update_cache ~host ~failed_livepatches =
   Hashtbl.replace updates_in_cache host
     (`Assoc
-      [
-        ("updates", `List [])
-      ; ("accumulative_updates", `List [])
-      ; ( "livepatches"
-        , `List
-            (List.map
-               (fun (lp, _) -> `String (LivePatch.to_string lp))
-               failed_livepatches
-            )
-        )
-      ]
-      )
+       [
+         ("updates", `List [])
+       ; ("accumulative_updates", `List [])
+       ; ( "livepatches"
+         , `List
+             (List.map
+                (fun (lp, _) -> `String (LivePatch.to_string lp))
+                failed_livepatches
+             )
+         )
+       ]
+    )
 
 let maybe_set_restart_for_all_vms ~__context ~updates_of_hosts =
   let open Guidance in
@@ -787,9 +785,9 @@ let maybe_set_restart_for_all_vms ~__context ~updates_of_hosts =
     let vms =
       Db.VM.get_all ~__context
       |> List.filter (fun self ->
-             Db.VM.get_power_state ~__context ~self <> `Halted
-             && not (Db.VM.get_is_control_domain ~__context ~self)
-         )
+          Db.VM.get_power_state ~__context ~self <> `Halted
+          && not (Db.VM.get_is_control_domain ~__context ~self)
+      )
     in
     (* fold each guidance kind from all hosts *)
     updates_of_hosts
@@ -803,11 +801,11 @@ let maybe_set_restart_for_all_vms ~__context ~updates_of_hosts =
          )
          []
     |> List.iter (fun kind ->
-           (* set RestartVM for all VMs if it is presented from at least one host *)
-           debug "add RestartVM for all VMs' pending %s guidance list"
-             (kind_to_string kind) ;
-           add_restart_to_vms ~__context ~vms ~kind |> ignore
-       )
+        (* set RestartVM for all VMs if it is presented from at least one host *)
+        debug "add RestartVM for all VMs' pending %s guidance list"
+          (kind_to_string kind) ;
+        add_restart_to_vms ~__context ~vms ~kind |> ignore
+    )
 
 let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
     =

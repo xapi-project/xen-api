@@ -51,7 +51,12 @@ let () = Mirage_crypto_rng_unix.use_default ()
  the file at the end *)
 let write_certs path cert_gid pkcs12 =
   let f () =
-    ( UX.atomic_write_to_file path (if cert_gid >= 0 then 0o440 else 0o400)
+    ( UX.atomic_write_to_file path
+        ( if cert_gid >= 0 then
+            0o440
+          else
+            0o400
+        )
     @@ fun fd -> UX.really_write fd pkcs12 0 (String.length pkcs12)
     ) ;
     Unix.chown path (-1) cert_gid

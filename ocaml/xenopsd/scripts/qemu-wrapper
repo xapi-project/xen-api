@@ -65,16 +65,6 @@ def restrict_fsize():
     limit = 1024 * 1024
     setrlimit(RLIMIT_FSIZE, (limit, limit))
 
-def enable_core_dumps():
-
-    limit = 64 * 1024 * 1024
-    oldlimits = getrlimit(RLIMIT_CORE)
-    hardlimit = oldlimits[1]
-    if limit > hardlimit:
-        hardlimit = limit
-        setrlimit(RLIMIT_CORE, (limit, hardlimit))
-        return limit
-
 def xenstore_read(path):
     return xenstore.read("", path)
 
@@ -116,9 +106,6 @@ def prepare_exec():
         except IOError as e:
             print("Warning: writing pid to '%s' cgroup.procs file: %s" \
                 % (cgroup_slice, e))
-
-    core_dump_limit = enable_core_dumps()
-    print("core dump limit: %d" % core_dump_limit)
 
     if not file_serial:
         restrict_fsize()

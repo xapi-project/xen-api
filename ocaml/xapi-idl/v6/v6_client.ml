@@ -26,7 +26,10 @@ let retry_econnrefused f =
     | Some x ->
         x
     | None ->
-        if retry then loop false else raise (V6_error V6d_failure)
+        if retry then
+          loop false
+        else
+          raise (V6_error V6d_failure)
   in
   loop true
 

@@ -103,7 +103,12 @@ let intra_pool_connection_args_of_ip ip : connection_args =
 (* Uses session_id in HTTP query (no pool secret). *)
 (* Certificate verification for intra-pool remotes only. *)
 let connection_args_of_uri ~verify_dest uri : connection_args =
-  let verify_cert = if verify_dest then Stunnel_client.pool () else None in
+  let verify_cert =
+    if verify_dest then
+      Stunnel_client.pool ()
+    else
+      None
+  in
   let url = Http.Url.of_string uri in
   {url; pool_secret= None; verify_cert}
 

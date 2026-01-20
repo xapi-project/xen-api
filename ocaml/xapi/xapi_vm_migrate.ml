@@ -160,19 +160,25 @@ end))
 
 open Storage_interface
 
+let supported_on ~ops sr sr_features =
+  let open Smint.Feature in
+  let missing =
+    List.filter (fun op -> not (has_capability op sr_features)) ops
+  in
+  if missing <> [] then
+    let missing = List.map capability_to_string missing |> String.concat ";" in
+    let msg = [Ref.string_of sr; missing] in
+    raise Api_errors.(Server_error (sr_does_not_support_migration, msg))
+
 let assert_sr_support_operations ~__context ~vdi_map ~remote ~local_ops
     ~remote_ops =
   let op_supported_on_source_sr vdi ops =
-    let open Smint.Feature in
-    (* Check VDIs must not be present on SR which doesn't have required capability *)
+    (* Check VDIs must not be present on SR which doesn't have required
+       capability *)
     let source_sr = Db.VDI.get_SR ~__context ~self:vdi in
     let sr_record = Db.SR.get_record_internal ~__context ~self:source_sr in
     let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
-    if not (List.for_all (fun op -> has_capability op sr_features) ops) then
-      raise
-        (Api_errors.Server_error
-           (Api_errors.sr_does_not_support_migration, [Ref.string_of source_sr])
-        )
+    supported_on ~ops source_sr sr_features
   in
   let op_supported_on_dest_sr sr ops sm_record remote =
     let open Smint.Feature in
@@ -187,11 +193,7 @@ let assert_sr_support_operations ~__context ~vdi_map ~remote ~local_ops
       | _ ->
           []
     in
-    if not (List.for_all (fun op -> has_capability op sm_features) ops) then
-      raise
-        (Api_errors.Server_error
-           (Api_errors.sr_does_not_support_migration, [Ref.string_of sr])
-        )
+    supported_on ~ops sr sm_features
   in
   let is_sr_matching local_vdi_ref remote_sr_ref =
     let source_sr_ref = Db.VDI.get_SR ~__context ~self:local_vdi_ref in
@@ -212,9 +214,9 @@ let assert_sr_support_operations ~__context ~vdi_map ~remote ~local_ops
   in
   List.filter (fun (vdi, sr) -> not (is_sr_matching vdi sr)) vdi_map
   |> List.iter (fun (vdi, sr) ->
-         op_supported_on_source_sr vdi local_ops ;
-         op_supported_on_dest_sr sr remote_ops sm_record remote
-     )
+      op_supported_on_source_sr vdi local_ops ;
+      op_supported_on_dest_sr sr remote_ops sm_record remote
+  )
 
 (** Check that none of the VDIs that are mapped to a different SR have CBT
     or encryption enabled. This function must be called with the complete
@@ -375,8 +377,7 @@ let pool_migrate ~__context ~vm ~host ~options =
   let dbg = Context.string_of_task __context in
   let localhost = Helpers.get_localhost ~__context in
   let localhost_migration = host = localhost in
-  if localhost_migration then
-    info "This is a localhost migration" ;
+  if localhost_migration then info "This is a localhost migration" ;
   let open Xapi_xenops_queue in
   let queue_name = queue_of_vm ~__context ~self:vm in
   let module XenopsAPI = (val make_client queue_name : XENOPS) in
@@ -414,12 +415,12 @@ let pool_migrate ~__context ~vm ~host ~options =
    * the vgpu <-> pgpu mapping. *)
   Db.VM.get_VGPUs ~__context ~self:vm
   |> List.map (fun vgpu ->
-         (vgpu, Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu)
-     )
+      (vgpu, Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu)
+  )
   |> List.iter (fun (vgpu, pgpu) ->
-         Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm
-           ~__context ~vm ~host ~vgpu ~pgpu ()
-     ) ;
+      Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context
+        ~vm ~host ~vgpu ~pgpu ()
+  ) ;
   Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid
     (fun () ->
       try
@@ -492,6 +493,7 @@ let pool_migrate_complete ~__context ~vm ~host:_ =
   if Xapi_xenops.vm_exists_in_xenopsd queue_name dbg id then (
     remove_stale_pcis ~__context ~vm ;
     Xapi_xenops.set_resident_on ~__context ~self:vm ;
+    Xapi_xenops.Events_from_xenopsd.wait queue_name dbg id () ;
     Xapi_xenops.add_caches id ;
     Xapi_xenops.refresh_vm ~__context ~self:vm ;
     Monitor_dbcalls_cache.clear_cache_for_vm ~vm_uuid:id
@@ -947,7 +949,11 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
   let with_new_dp cont =
     let dp =
       Printf.sprintf
-        (if vconf.do_mirror then "mirror_%s" else "copy_%s")
+        ( if vconf.do_mirror then
+            "mirror_%s"
+          else
+            "copy_%s"
+        )
         vconf.dp
     in
     try cont dp
@@ -1081,7 +1087,11 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
     so_far := Int64.add !so_far vconf.size ;
     debug "Local VDI %s %s to %s"
       (Storage_interface.Vdi.string_of vconf.location)
-      (if vconf.do_mirror then "mirrored" else "copied")
+      ( if vconf.do_mirror then
+          "mirrored"
+        else
+          "copied"
+      )
       (Storage_interface.Vdi.string_of remote_vdi) ;
     (mirror_id, remote_vdi)
   in
@@ -1341,7 +1351,10 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
       XenAPI.Host.get_suspend_image_sr ~rpc:remote.rpc
         ~session_id:remote.session ~self:remote.dest_host
     in
-    if pool_suspend_SR <> Ref.null then pool_suspend_SR else host_suspend_SR
+    if pool_suspend_SR <> Ref.null then
+      pool_suspend_SR
+    else
+      host_suspend_SR
   in
   (* Resolve placement of unspecified VDIs here - unspecified VDIs that
             are 'snapshot_of' a specified VDI go to the same place. suspend VDIs
@@ -1595,7 +1608,10 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
                 infer_vgpu_map ~__context ~remote new_vm
               in
               let verify_cert =
-                if is_intra_pool then Stunnel_client.pool () else None
+                if is_intra_pool then
+                  Stunnel_client.pool ()
+                else
+                  None
               in
               let dbg = Context.string_of_task __context in
               migrate_with_retry ~__context ~queue_name ~dbg ~vm_uuid
@@ -1722,18 +1738,18 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
     if (not is_intra_pool) && Db.is_valid_ref __context vm then
       List.map (fun self -> Db.VM.get_uuid ~__context ~self) vm_and_snapshots
       |> List.iter (fun uuid ->
-             try
-               let vm_ref =
-                 XenAPI.VM.get_by_uuid ~rpc:remote.rpc
-                   ~session_id:remote.session ~uuid
-               in
-               info "Destroying stale VM uuid=%s on destination host" uuid ;
-               XenAPI.VM.destroy ~rpc:remote.rpc ~session_id:remote.session
-                 ~self:vm_ref
-             with e ->
-               error "Caught %s while destroying VM uuid=%s on destination host"
-                 (Printexc.to_string e) uuid
-         ) ;
+          try
+            let vm_ref =
+              XenAPI.VM.get_by_uuid ~rpc:remote.rpc ~session_id:remote.session
+                ~uuid
+            in
+            info "Destroying stale VM uuid=%s on destination host" uuid ;
+            XenAPI.VM.destroy ~rpc:remote.rpc ~session_id:remote.session
+              ~self:vm_ref
+          with e ->
+            error "Caught %s while destroying VM uuid=%s on destination host"
+              (Printexc.to_string e) uuid
+      ) ;
     let task = Context.get_task_id __context in
     let oc = Db.Task.get_other_config ~__context ~self:task in
     if List.mem_assoc "mirror_failed" oc then (

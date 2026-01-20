@@ -250,25 +250,25 @@ let stream_nbd _common c s prezeroed ~export ?(progress = no_progress_bar) () =
   fold_left
     (fun (sector, work_done) x ->
       ( match x with
-      | `Sectors data -> (
-          Client.write server (Int64.mul sector 512L) [data] >>= function
-          | Ok () ->
-              return Int64.(of_int (Cstruct.length data))
-          | Error _e ->
-              fail (Failure "Got error from NBD library")
+        | `Sectors data -> (
+            Client.write server (Int64.mul sector 512L) [data] >>= function
+            | Ok () ->
+                return Int64.(of_int (Cstruct.length data))
+            | Error _e ->
+                fail (Failure "Got error from NBD library")
+          )
+        | `Empty _n ->
+            (* must be prezeroed *)
+            assert prezeroed ;
+            return 0L
+        | _ ->
+            fail
+              (Failure
+                 (Printf.sprintf "unexpected stream element: %s"
+                    (Vhd_format.Element.to_string x)
+                 )
+              )
         )
-      | `Empty _n ->
-          (* must be prezeroed *)
-          assert prezeroed ;
-          return 0L
-      | _ ->
-          fail
-            (Failure
-               (Printf.sprintf "unexpected stream element: %s"
-                  (Vhd_format.Element.to_string x)
-               )
-            )
-      )
       >>= fun work ->
       let sector = Int64.add sector (Vhd_format.Element.len x) in
       let work_done = Int64.add work_done work in
@@ -300,24 +300,24 @@ let stream_chunked _common c s prezeroed _ ?(progress = no_progress_bar) () =
   fold_left
     (fun (sector, work_done) x ->
       ( match x with
-      | `Sectors data ->
-          let t = Chunked.make ~sector ~size:512L data in
-          Chunked.marshal header t ;
-          c.Channels.really_write header >>= fun () ->
-          c.Channels.really_write data >>= fun () ->
-          return Int64.(of_int (Cstruct.length data))
-      | `Empty _n ->
-          (* must be prezeroed *)
-          assert prezeroed ;
-          return 0L
-      | _ ->
-          fail
-            (Failure
-               (Printf.sprintf "unexpected stream element: %s"
-                  (Vhd_format.Element.to_string x)
-               )
-            )
-      )
+        | `Sectors data ->
+            let t = Chunked.make ~sector ~size:512L data in
+            Chunked.marshal header t ;
+            c.Channels.really_write header >>= fun () ->
+            c.Channels.really_write data >>= fun () ->
+            return Int64.(of_int (Cstruct.length data))
+        | `Empty _n ->
+            (* must be prezeroed *)
+            assert prezeroed ;
+            return 0L
+        | _ ->
+            fail
+              (Failure
+                 (Printf.sprintf "unexpected stream element: %s"
+                    (Vhd_format.Element.to_string x)
+                 )
+              )
+        )
       >>= fun work ->
       let sector = Int64.add sector (Vhd_format.Element.len x) in
       let work_done = Int64.add work_done work in
@@ -349,22 +349,22 @@ let stream_raw _common c s prezeroed _ ?(progress = no_progress_bar) () =
   fold_left
     (fun work_done x ->
       ( match x with
-      | `Copy (fd, sector_start, sector_len) ->
-          let fd = Vhd_format_lwt.IO.to_file_descr fd in
-          Lwt_unix.LargeFile.lseek fd
-            (Int64.mul 512L sector_start)
-            Unix.SEEK_SET
-          >>= fun (_ : int64) ->
-          c.Channels.copy_from fd (Int64.mul 512L sector_len)
-      | `Sectors data ->
-          c.Channels.really_write data >>= fun () ->
-          return Int64.(of_int (Cstruct.length data))
-      | `Empty n ->
-          (* must be prezeroed *)
-          c.Channels.skip Int64.(mul n 512L) >>= fun () ->
-          assert prezeroed ;
-          return 0L
-      )
+        | `Copy (fd, sector_start, sector_len) ->
+            let fd = Vhd_format_lwt.IO.to_file_descr fd in
+            Lwt_unix.LargeFile.lseek fd
+              (Int64.mul 512L sector_start)
+              Unix.SEEK_SET
+            >>= fun (_ : int64) ->
+            c.Channels.copy_from fd (Int64.mul 512L sector_len)
+        | `Sectors data ->
+            c.Channels.really_write data >>= fun () ->
+            return Int64.(of_int (Cstruct.length data))
+        | `Empty n ->
+            (* must be prezeroed *)
+            c.Channels.skip Int64.(mul n 512L) >>= fun () ->
+            assert prezeroed ;
+            return 0L
+        )
       >>= fun work ->
       let work_done = Int64.add work_done work in
       p work_done ; return work_done
@@ -446,7 +446,9 @@ let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
     let rest = Cstruct.shift data this_block_len in
     (* If we've hit the end of a block then output the hash *)
     ( if nr_bytes_remaining = 0 then
-        match state.header with
+        match
+          state.header
+        with
         | Some hdr ->
             c.Channels.really_write (Tar.Header.zero_padding hdr) >>= fun () ->
             let hash = Sha1.(to_hex (finalize state.ctx)) in
@@ -525,18 +527,18 @@ let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
   fold_left
     (fun state x ->
       ( match x with
-      | `Sectors data ->
-          input state data
-      | `Empty n ->
-          empty state Int64.(mul n 512L)
-      | _ ->
-          fail
-            (Failure
-               (Printf.sprintf "unexpected stream element: %s"
-                  (Vhd_format.Element.to_string x)
-               )
-            )
-      )
+        | `Sectors data ->
+            input state data
+        | `Empty n ->
+            empty state Int64.(mul n 512L)
+        | _ ->
+            fail
+              (Failure
+                 (Printf.sprintf "unexpected stream element: %s"
+                    (Vhd_format.Element.to_string x)
+                 )
+              )
+        )
       >>= fun state ->
       let work = Int64.mul (E.len x) 512L in
       let work_done = Int64.add state.work_done work in
@@ -635,25 +637,25 @@ let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix
           fail (Failure "failed to unmarshal header")
       | Some hdr ->
           ( match expected_prefix with
-          | None ->
-              return (Filename.basename hdr.Tar.Header.file_name)
-          | Some p ->
-              if not (startswith p hdr.Tar.Header.file_name) then
-                fail
-                  (Failure
-                     (Printf.sprintf "expected filename prefix %s, got %s" p
-                        hdr.Tar.Header.file_name
-                     )
-                  )
-              else
-                let p_len = String.length p in
-                let file_name_len = String.length hdr.Tar.Header.file_name in
-                let filename =
-                  String.sub hdr.Tar.Header.file_name p_len
-                    (file_name_len - p_len)
-                in
-                return (Filename.basename filename)
-          )
+            | None ->
+                return (Filename.basename hdr.Tar.Header.file_name)
+            | Some p ->
+                if not (startswith p hdr.Tar.Header.file_name) then
+                  fail
+                    (Failure
+                       (Printf.sprintf "expected filename prefix %s, got %s" p
+                          hdr.Tar.Header.file_name
+                       )
+                    )
+                else
+                  let p_len = String.length p in
+                  let file_name_len = String.length hdr.Tar.Header.file_name in
+                  let filename =
+                    String.sub hdr.Tar.Header.file_name p_len
+                      (file_name_len - p_len)
+                  in
+                  return (Filename.basename filename)
+            )
           >>= fun filename ->
           let zero =
             Cstruct.sub header 0 (Tar.Header.compute_zero_padding_length hdr)
@@ -860,12 +862,12 @@ let make_stream common source relative_to source_format destination_format =
         Vhd_IO.close t >>= fun () ->
         Vhd_format_lwt.IO.openfile raw false >>= fun raw ->
         ( match relative_to with
-        | None ->
-            return None
-        | Some f ->
-            Vhd_IO.openchain ~path f false >>= fun t ->
-            Vhd_IO.close t >>= fun () -> return (Some t)
-        )
+          | None ->
+              return None
+          | Some f ->
+              Vhd_IO.openchain ~path f false >>= fun t ->
+              Vhd_IO.close t >>= fun () -> return (Some t)
+          )
         >>= fun from -> Hybrid_input.raw ?from raw t
     | _ ->
         fail
@@ -885,12 +887,12 @@ let make_stream common source relative_to source_format destination_format =
         Vhd_IO.close t >>= fun () ->
         Vhd_format_lwt.IO.openfile raw false >>= fun raw ->
         ( match relative_to with
-        | None ->
-            return None
-        | Some f ->
-            Vhd_IO.openchain ~path f false >>= fun t ->
-            Vhd_IO.close t >>= fun () -> return (Some t)
-        )
+          | None ->
+              return None
+          | Some f ->
+              Vhd_IO.openchain ~path f false >>= fun t ->
+              Vhd_IO.close t >>= fun () -> return (Some t)
+          )
         >>= fun from -> Hybrid_input.vhd ?from raw t
     | _ ->
         fail
@@ -906,22 +908,22 @@ let make_stream common source relative_to source_format destination_format =
       retry common 3 (fun () -> Vhd_IO.openchain ~path source false)
       >>= fun t ->
       ( match relative_to with
-      | None ->
-          return None
-      | Some f ->
-          Vhd_IO.openchain ~path f false >>= fun t -> return (Some t)
-      )
+        | None ->
+            return None
+        | Some f ->
+            Vhd_IO.openchain ~path f false >>= fun t -> return (Some t)
+        )
       >>= fun from -> Vhd_input.vhd ?from t
   | "vhd", "raw" ->
       let path = common.path @ [Filename.dirname source] in
       retry common 3 (fun () -> Vhd_IO.openchain ~path source false)
       >>= fun t ->
       ( match relative_to with
-      | None ->
-          return None
-      | Some f ->
-          Vhd_IO.openchain ~path f false >>= fun t -> return (Some t)
-      )
+        | None ->
+            return None
+        | Some f ->
+            Vhd_IO.openchain ~path f false >>= fun t -> return (Some t)
+        )
       >>= fun from -> Vhd_input.raw ?from t
   | "raw", "vhd" ->
       let source =
@@ -976,113 +978,115 @@ let write_stream common s destination destination_protocol prezeroed progress
   endpoint_of_string destination >>= fun endpoint ->
   let use_ssl = match endpoint with Https _ -> true | _ -> false in
   ( match endpoint with
-  | File path ->
-      Lwt_unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o0644 >>= fun fd ->
-      Channels.of_seekable_fd fd >>= fun c ->
-      return (c, [NoProtocol; Human; Tar])
-  | Null ->
-      Lwt_unix.openfile "/dev/null" [Unix.O_RDWR] 0o0 >>= fun fd ->
-      Channels.of_raw_fd fd >>= fun c -> return (c, [NoProtocol; Human; Tar])
-  | Stdout ->
-      Channels.of_raw_fd Lwt_unix.stdout >>= fun c ->
-      return (c, [NoProtocol; Human; Tar])
-  | File_descr fd ->
-      Channels.of_raw_fd fd >>= fun c ->
-      return (c, [dummy_nbd; NoProtocol; Chunked; Human; Tar])
-  | Sockaddr sockaddr ->
-      let sock = socket sockaddr in
-      Lwt.catch
-        (fun () -> Lwt_unix.connect sock sockaddr)
-        (fun e -> Lwt_unix.close sock >>= fun () -> Lwt.fail e)
-      >>= fun () ->
-      Channels.of_raw_fd sock >>= fun c ->
-      return (c, [dummy_nbd; NoProtocol; Chunked; Human; Tar])
-  | Https uri' | Http uri' -> (
-      (* TODO: https is not currently implemented *)
-      let port =
-        match Uri.port uri' with
-        | None ->
-            if use_ssl then 443 else 80
-        | Some port ->
-            port
-      in
-      let host =
-        match Uri.host uri' with
-        | None ->
-            failwith "Please supply a host in the URI"
-        | Some host ->
-            host
-      in
-      let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" Fun.id in
-      Lwt_unix.getaddrinfo host (string_of_int port) [] >>= fun he ->
-      if he = [] then raise Not_found ;
-      let sockaddr = (List.hd he).Unix.ai_addr in
-      let sock = socket sockaddr in
-      Lwt.catch
-        (fun () -> Lwt_unix.connect sock sockaddr)
-        (fun e -> Lwt_unix.close sock >>= fun () -> Lwt.fail e)
-      >>= fun () ->
-      let open Cohttp in
-      ( if use_ssl then
-          Channels.of_ssl_fd sock good_ciphersuites verify_cert
-        else
-          Channels.of_raw_fd sock
-      )
-      >>= fun c ->
-      let module Request = Request.Make (Cohttp_io_with_channels) in
-      let module Response = Response.Make (Cohttp_io_with_channels) in
-      let headers = Header.init () in
-      let k, v = Cookie.Cookie_hdr.serialize [("chunked", "true")] in
-      let headers = Header.add headers k v in
-      let headers =
-        match Uri.userinfo uri' with
-        | None ->
-            headers
-        | Some x -> (
-          match split ~limit:2 ~sep:':' x with
-          | [user; pass] ->
-              let b = Cohttp.Auth.string_of_credential (`Basic (user, pass)) in
-              Header.add headers "authorization" b
-          | _ ->
-              Printf.fprintf stderr
-                "I don't know how to handle authentication for this URI.\n\
-                \ Try scheme://user:password@host/path\n" ;
-              exit 1
-        )
-      in
-      let request =
-        Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers uri'
-      in
-      Request.write (fun _ -> return ()) request c >>= fun () ->
-      Response.read (Cohttp_io_with_channels.make_input c) >>= fun r ->
-      match r with
-      | `Invalid x ->
-          fail (Failure (Printf.sprintf "Invalid HTTP response: %s" x))
-      | `Eof ->
-          fail (Failure "EOF while parsing HTTP response")
-      | `Ok x ->
-          let code = Code.code_of_status (Cohttp.Response.status x) in
-          if Code.is_success code then
-            let advertises_nbd =
-              let headers = Header.to_list (Cohttp.Response.headers x) in
-              let headers =
-                List.map
-                  (fun (x, y) ->
-                    (String.lowercase_ascii x, String.lowercase_ascii y)
-                  )
-                  headers
-              in
-              let te = "transfer-encoding" in
-              List.mem_assoc te headers && List.assoc te headers = "nbd"
-            in
-            if advertises_nbd then
-              return (c, [dummy_nbd])
-            else
-              return (c, [Chunked; NoProtocol])
+    | File path ->
+        Lwt_unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o0644 >>= fun fd ->
+        Channels.of_seekable_fd fd >>= fun c ->
+        return (c, [NoProtocol; Human; Tar])
+    | Null ->
+        Lwt_unix.openfile "/dev/null" [Unix.O_RDWR] 0o0 >>= fun fd ->
+        Channels.of_raw_fd fd >>= fun c -> return (c, [NoProtocol; Human; Tar])
+    | Stdout ->
+        Channels.of_raw_fd Lwt_unix.stdout >>= fun c ->
+        return (c, [NoProtocol; Human; Tar])
+    | File_descr fd ->
+        Channels.of_raw_fd fd >>= fun c ->
+        return (c, [dummy_nbd; NoProtocol; Chunked; Human; Tar])
+    | Sockaddr sockaddr ->
+        let sock = socket sockaddr in
+        Lwt.catch
+          (fun () -> Lwt_unix.connect sock sockaddr)
+          (fun e -> Lwt_unix.close sock >>= fun () -> Lwt.fail e)
+        >>= fun () ->
+        Channels.of_raw_fd sock >>= fun c ->
+        return (c, [dummy_nbd; NoProtocol; Chunked; Human; Tar])
+    | Https uri' | Http uri' -> (
+        (* TODO: https is not currently implemented *)
+        let port =
+          match Uri.port uri' with
+          | None ->
+              if use_ssl then 443 else 80
+          | Some port ->
+              port
+        in
+        let host =
+          match Uri.host uri' with
+          | None ->
+              failwith "Please supply a host in the URI"
+          | Some host ->
+              host
+        in
+        let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" Fun.id in
+        Lwt_unix.getaddrinfo host (string_of_int port) [] >>= fun he ->
+        if he = [] then raise Not_found ;
+        let sockaddr = (List.hd he).Unix.ai_addr in
+        let sock = socket sockaddr in
+        Lwt.catch
+          (fun () -> Lwt_unix.connect sock sockaddr)
+          (fun e -> Lwt_unix.close sock >>= fun () -> Lwt.fail e)
+        >>= fun () ->
+        let open Cohttp in
+        ( if use_ssl then
+            Channels.of_ssl_fd sock good_ciphersuites verify_cert
           else
-            fail (Failure (Code.reason_phrase_of_code code))
+            Channels.of_raw_fd sock
+        )
+        >>= fun c ->
+        let module Request = Request.Make (Cohttp_io_with_channels) in
+        let module Response = Response.Make (Cohttp_io_with_channels) in
+        let headers = Header.init () in
+        let k, v = Cookie.Cookie_hdr.serialize [("chunked", "true")] in
+        let headers = Header.add headers k v in
+        let headers =
+          match Uri.userinfo uri' with
+          | None ->
+              headers
+          | Some x -> (
+            match split ~limit:2 ~sep:':' x with
+            | [user; pass] ->
+                let b =
+                  Cohttp.Auth.string_of_credential (`Basic (user, pass))
+                in
+                Header.add headers "authorization" b
+            | _ ->
+                Printf.fprintf stderr
+                  "I don't know how to handle authentication for this URI.\n\
+                  \ Try scheme://user:password@host/path\n" ;
+                exit 1
+          )
+        in
+        let request =
+          Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers uri'
+        in
+        Request.write (fun _ -> return ()) request c >>= fun () ->
+        Response.read (Cohttp_io_with_channels.make_input c) >>= fun r ->
+        match r with
+        | `Invalid x ->
+            fail (Failure (Printf.sprintf "Invalid HTTP response: %s" x))
+        | `Eof ->
+            fail (Failure "EOF while parsing HTTP response")
+        | `Ok x ->
+            let code = Code.code_of_status (Cohttp.Response.status x) in
+            if Code.is_success code then
+              let advertises_nbd =
+                let headers = Header.to_list (Cohttp.Response.headers x) in
+                let headers =
+                  List.map
+                    (fun (x, y) ->
+                      (String.lowercase_ascii x, String.lowercase_ascii y)
+                    )
+                    headers
+                in
+                let te = "transfer-encoding" in
+                List.mem_assoc te headers && List.assoc te headers = "nbd"
+              in
+              if advertises_nbd then
+                return (c, [dummy_nbd])
+              else
+                return (c, [Chunked; NoProtocol])
+            else
+              fail (Failure (Code.reason_phrase_of_code code))
+      )
     )
-  )
   >>= fun (c, possible_protocols) ->
   let destination_protocol =
     match destination_protocol with
@@ -1108,17 +1112,17 @@ let write_stream common s destination destination_protocol prezeroed progress
   else
     let start = Unix.gettimeofday () in
     ( match destination_protocol with
-    | Nbd export ->
-        stream_nbd common c s prezeroed ~export ~progress ()
-    | Human ->
-        stream_human common c s prezeroed tar_filename_prefix ~progress ()
-    | Chunked ->
-        stream_chunked common c s prezeroed tar_filename_prefix ~progress ()
-    | Tar ->
-        stream_tar common c s prezeroed tar_filename_prefix ~progress ()
-    | NoProtocol ->
-        stream_raw common c s prezeroed tar_filename_prefix ~progress ()
-    )
+      | Nbd export ->
+          stream_nbd common c s prezeroed ~export ~progress ()
+      | Human ->
+          stream_human common c s prezeroed tar_filename_prefix ~progress ()
+      | Chunked ->
+          stream_chunked common c s prezeroed tar_filename_prefix ~progress ()
+      | Tar ->
+          stream_tar common c s prezeroed tar_filename_prefix ~progress ()
+      | NoProtocol ->
+          stream_raw common c s prezeroed tar_filename_prefix ~progress ()
+      )
     >>= fun p ->
     c.Channels.close () >>= fun () ->
     match p with
@@ -1163,6 +1167,14 @@ let stream_t common args ?(progress = no_progress_bar) () =
     args.StreamCommon.destination_protocol args.StreamCommon.prezeroed progress
     args.StreamCommon.tar_filename_prefix args.StreamCommon.good_ciphersuites
     args.StreamCommon.verify_cert
+
+let read_headers common source =
+  let path = [Filename.dirname source] in
+  let thread =
+    retry common 3 (fun () -> Vhd_IO.openchain ~path source false) >>= fun t ->
+    Vhd_IO.close t >>= fun () -> Hybrid_input.blocks_json t
+  in
+  Lwt_main.run thread ; `Ok ()
 
 let stream common args =
   try
@@ -1213,32 +1225,32 @@ let serve_nbd_to_raw common size c dest _ _ _ _ =
         if common.Common.debug then
           Printf.fprintf stderr "%s\n%!" (Request.to_string request) ;
         ( match request.Request.ty with
-        | Command.Write ->
-            inblocks
-              (fun offset subblock ->
-                c.Channels.really_read subblock >>= fun () ->
-                Vhd_format_lwt.IO.really_write dest offset subblock
-              )
-              request
-            >>= fun () ->
-            Reply.marshal rep
-              {Reply.error= Ok (); handle= request.Request.handle} ;
-            c.Channels.really_write rep
-        | Command.Read ->
-            Reply.marshal rep
-              {Reply.error= Ok (); handle= request.Request.handle} ;
-            c.Channels.really_write rep >>= fun () ->
-            inblocks
-              (fun offset subblock ->
-                Vhd_format_lwt.IO.really_read dest offset subblock >>= fun () ->
-                c.Channels.really_write subblock
-              )
-              request
-        | _ ->
-            Reply.marshal rep
-              {Reply.error= Error `EPERM; handle= request.Request.handle} ;
-            c.Channels.really_write rep
-        )
+          | Command.Write ->
+              inblocks
+                (fun offset subblock ->
+                  c.Channels.really_read subblock >>= fun () ->
+                  Vhd_format_lwt.IO.really_write dest offset subblock
+                )
+                request
+              >>= fun () ->
+              Reply.marshal rep
+                {Reply.error= Ok (); handle= request.Request.handle} ;
+              c.Channels.really_write rep
+          | Command.Read ->
+              Reply.marshal rep
+                {Reply.error= Ok (); handle= request.Request.handle} ;
+              c.Channels.really_write rep >>= fun () ->
+              inblocks
+                (fun offset subblock ->
+                  Vhd_format_lwt.IO.really_read dest offset subblock
+                  >>= fun () -> c.Channels.really_write subblock
+                )
+                request
+          | _ ->
+              Reply.marshal rep
+                {Reply.error= Error `EPERM; handle= request.Request.handle} ;
+              c.Channels.really_write rep
+          )
         >>= fun () -> serve_requests ()
   in
   serve_requests ()
@@ -1353,63 +1365,63 @@ let serve common_options source source_fd source_format source_protocol
     let thread =
       endpoint_of_string destination >>= fun destination_endpoint ->
       ( match source_fd with
-      | None ->
-          endpoint_of_string source
-      | Some fd ->
-          return
-            (File_descr (Lwt_unix.of_unix_file_descr (file_descr_of_int fd)))
-      )
+        | None ->
+            endpoint_of_string source
+        | Some fd ->
+            return
+              (File_descr (Lwt_unix.of_unix_file_descr (file_descr_of_int fd)))
+        )
       >>= fun source_endpoint ->
       ( match source_endpoint with
-      | File_descr fd ->
-          Channels.of_raw_fd fd >>= fun c -> return c
-      | Sockaddr s ->
-          let sock = socket s in
-          Lwt_unix.bind sock s >>= fun () ->
-          Lwt_unix.setsockopt sock Unix.SO_REUSEADDR true ;
-          Lwt_unix.listen sock 1 ;
-          Lwt_unix.accept sock >>= fun (fd, _) ->
-          Channels.of_raw_fd fd >>= fun c -> return c
-      | File path ->
-          let fd = Vhd_format_lwt.File.openfile path false 0 in
-          Channels.of_raw_fd (Lwt_unix.of_unix_file_descr fd)
-      | _ ->
-          failwith
-            (Printf.sprintf "Not implemented: serving from source %s" source)
-      )
+        | File_descr fd ->
+            Channels.of_raw_fd fd >>= fun c -> return c
+        | Sockaddr s ->
+            let sock = socket s in
+            Lwt_unix.bind sock s >>= fun () ->
+            Lwt_unix.setsockopt sock Unix.SO_REUSEADDR true ;
+            Lwt_unix.listen sock 1 ;
+            Lwt_unix.accept sock >>= fun (fd, _) ->
+            Channels.of_raw_fd fd >>= fun c -> return c
+        | File path ->
+            let fd = Vhd_format_lwt.File.openfile path false 0 in
+            Channels.of_raw_fd (Lwt_unix.of_unix_file_descr fd)
+        | _ ->
+            failwith
+              (Printf.sprintf "Not implemented: serving from source %s" source)
+        )
       >>= fun source_sock ->
       ( match destination_endpoint with
-      | File path ->
-          ( if not (Sys.file_exists path) then
-              Lwt_unix.openfile path [Unix.O_CREAT; Unix.O_RDONLY] 0o0644
-              >>= fun fd -> Lwt_unix.close fd
-            else
-              return ()
-          )
-          >>= fun () ->
-          Vhd_format_lwt.IO.openfile path true >>= fun fd ->
-          let size =
-            match destination_size with
-            | None ->
-                Vhd_format_lwt.File.get_file_size path
-            | Some x ->
-                x
-          in
-          if size = 0L then
-            fail
-              (Failure
-                 "Non-zero size required (either a pre-existing destination \
-                  file or specified via --destination-size on the command \
-                  line)"
-              )
-          else
-            return (fd, size)
-      | _ ->
-          failwith
-            (Printf.sprintf "Not implemented: writing to destination %s"
-               destination
+        | File path ->
+            ( if not (Sys.file_exists path) then
+                Lwt_unix.openfile path [Unix.O_CREAT; Unix.O_RDONLY] 0o0644
+                >>= fun fd -> Lwt_unix.close fd
+              else
+                return ()
             )
-      )
+            >>= fun () ->
+            Vhd_format_lwt.IO.openfile path true >>= fun fd ->
+            let size =
+              match destination_size with
+              | None ->
+                  Vhd_format_lwt.File.get_file_size path
+              | Some x ->
+                  x
+            in
+            if size = 0L then
+              fail
+                (Failure
+                   "Non-zero size required (either a pre-existing destination \
+                    file or specified via --destination-size on the command \
+                    line)"
+                )
+            else
+              return (fd, size)
+        | _ ->
+            failwith
+              (Printf.sprintf "Not implemented: writing to destination %s"
+                 destination
+              )
+        )
       >>= fun (destination_fd, size) ->
       let fn =
         match (source_format, source_protocol) with

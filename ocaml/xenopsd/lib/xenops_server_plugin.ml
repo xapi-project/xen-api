@@ -159,6 +159,8 @@ module type S = sig
       -> string list
       -> unit
 
+    val resume : Xenops_task.task_handle -> Vm.t -> unit
+
     val s3suspend : Xenops_task.task_handle -> Vm.t -> unit
 
     val s3resume : Xenops_task.task_handle -> Vm.t -> unit
@@ -292,10 +294,7 @@ module type S = sig
   end
 
   module UPDATES : sig
-    val get : Updates.id option -> int option -> Updates.get_result
-  end
+    val get : Updates.id option -> int option -> Updates.get_result end
 
-  module DEBUG : sig
-    val trigger : string -> string list -> unit
-  end
+  module DEBUG : sig val trigger : string -> string list -> unit end
 end

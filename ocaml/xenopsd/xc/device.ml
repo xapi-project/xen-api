@@ -260,11 +260,11 @@ module Generic = struct
     (* qemu-dp does not delete the hotplug status key *)
     backend_closed ~xs x
     |> Watch.map (fun _ ->
-           debug "Backend closed for %s, deleting hotplug-status"
-             (string_of_device x) ;
-           (* deleting this key causes the udev rule to fire *)
-           safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x)
-       )
+        debug "Backend closed for %s, deleting hotplug-status"
+          (string_of_device x) ;
+        (* deleting this key causes the udev rule to fire *)
+        safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x)
+    )
 
   let clean_shutdown_wait (task : Xenops_task.task_handle) ~xs
       ~ignore_transients (x : device) =
@@ -285,7 +285,10 @@ module Generic = struct
       let qdisk_or_9pfs = is_qdisk_or_9pfs x in
       debug "Device.unplug_watch %s, disk=%b" (string_of_device x) qdisk_or_9pfs ;
       let backend_watch =
-        if qdisk_or_9pfs then [((), on_backend_closed_unplug ~xs x)] else []
+        if qdisk_or_9pfs then
+          [((), on_backend_closed_unplug ~xs x)]
+        else
+          []
       in
       let frontend_gone =
         ( ()
@@ -300,14 +303,22 @@ module Generic = struct
     let error = Watch.map (fun _ -> ()) (error_watch ~xs x) in
     if
       cancellable_watch cancel [frontend_closed; unplug]
-        (if ignore_transients then [] else [error])
+        ( if ignore_transients then
+            []
+          else
+            [error]
+        )
         task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
     then (
       safe_rm ~xs (frontend_rw_path_of_device ~xs x) ;
       safe_rm ~xs (frontend_ro_path_of_device ~xs x) ;
       if
         cancellable_watch cancel [unplug]
-          (if ignore_transients then [] else [error])
+          ( if ignore_transients then
+              []
+            else
+              [error]
+          )
           task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
       then
         rm_device_state ~xs x
@@ -458,7 +469,12 @@ module Vbd_Common = struct
 
   (** Request either a clean or hard shutdown *)
   let request_shutdown ~xs (x : device) (force : bool) =
-    let request = if force then "force" else "normal" in
+    let request =
+      if force then
+        "force"
+      else
+        "normal"
+    in
     debug "Device.Vbd.request_shutdown %s %s" (string_of_device x) request ;
     let backend_path = backend_path_of_device ~xs x in
     let request_path = backend_shutdown_request_path_of_device ~xs x in
@@ -487,7 +503,11 @@ module Vbd_Common = struct
     in
     if
       cancellable_watch (Device x) [shutdown_done]
-        (if ignore_transients then [] else [error])
+        ( if ignore_transients then
+            []
+          else
+            [error]
+        )
         task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
     then (
       debug "Device.Vbd.shutdown_common: shutdown-done appeared" ;
@@ -593,7 +613,12 @@ module Vbd_Common = struct
     in
     let next = List.fold_left max 0 disks + 1 in
     let open Device_number in
-    let bus_type = if hvm && next < 4 then Ide else Xen in
+    let bus_type =
+      if hvm && next < 4 then
+        Ide
+      else
+        Xen
+    in
     match make bus_type ~disk:next ~partition:0 with
     | Some x ->
         x
@@ -670,7 +695,12 @@ module Vbd_Common = struct
       ; (* Prevents the backend hotplug scripts from running if the frontend
            disconnects. This allows the xenbus connection to re-establish itself *)
         ("online", "1")
-      ; ("removable", if x.unpluggable then "1" else "0")
+      ; ( "removable"
+        , if x.unpluggable then
+            "1"
+          else
+            "0"
+        )
       ; ("state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising))
       ; ("dev", to_linux_device device_number)
       ; ("type", backendty_of_physty x.phystype)
@@ -868,7 +898,12 @@ module Vif = struct
       ; ("state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising))
       ; ("handle", string_of_int devid)
       ; ("mac", mac)
-      ; ("disconnect", if carrier then "0" else "1")
+      ; ( "disconnect"
+        , if carrier then
+            "0"
+          else
+            "1"
+        )
       ]
       @ front_options
       @ front_mtu
@@ -930,7 +965,12 @@ module Vif = struct
   let set_carrier ~xs (x : device) carrier =
     debug "Device.Vif.set_carrier %s <- %b" (string_of_device x) carrier ;
     let disconnect_path = disconnect_path_of_device ~xs x in
-    xs.Xs.write disconnect_path (if carrier then "0" else "1")
+    xs.Xs.write disconnect_path
+      ( if carrier then
+          "0"
+        else
+          "1"
+      )
 
   let release (task : Xenops_task.task_handle) ~xc ~xs (x : device) =
     debug "Device.Vif.release %s" (string_of_device x) ;
@@ -1037,7 +1077,12 @@ end
 module Vcpu_Common = struct
   let add ~xs ~devid domid online =
     let path = sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
-    xs.Xs.write path (if online then "online" else "offline")
+    xs.Xs.write path
+      ( if online then
+          "online"
+        else
+          "offline"
+      )
 
   let set = add
 
@@ -1287,8 +1332,7 @@ module PCI = struct
                 )
               )
             in
-            if i = _proc_pci_rom_resource then
-              enable_rom scan_start ;
+            if i = _proc_pci_rom_resource then enable_rom scan_start ;
             Xenctrl.domain_iomem_permission xc domid scan_start scan_size true
         )
     in
@@ -1543,7 +1587,14 @@ module PCI = struct
           let gpu_info = Unixext.string_of_file gpu_info_file in
           (* Work around due to PCI ID formatting inconsistency. *)
           let devstr2 =
-            String.mapi (fun i c -> if i = 7 then '.' else c) devstr
+            String.mapi
+              (fun i c ->
+                if i = 7 then
+                  '.'
+                else
+                  c
+              )
+              devstr
           in
           if
             false
@@ -1805,7 +1856,11 @@ module Vusb = struct
           ; "-p"
           ; string_of_int pid
           ]
-        ; (if privileged then ["-r"] else [])
+        ; ( if privileged then
+              ["-r"]
+            else
+              []
+          )
         ]
     in
     exec_usb_reset_script argv
@@ -1933,8 +1988,7 @@ end
 
 module Serial : sig
   val update_xenstore :
-    xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> unit
-end = struct
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> unit end = struct
   let tty_prefix = "pty:"
 
   let tty_path domid = Printf.sprintf "/local/domain/%d/serial/0/tty" domid
@@ -2208,11 +2262,11 @@ module Dm_Common = struct
         ; (info.pci_passthrough |> function false -> [] | true -> ["-priv"])
         ; List.rev info.extras
           |> List.concat_map (function
-               | k, None ->
-                   ["-" ^ k]
-               | k, Some v ->
-                   ["-" ^ k; v]
-               )
+            | k, None ->
+                ["-" ^ k]
+            | k, Some v ->
+                ["-" ^ k; v]
+            )
         ; (info.monitor |> function None -> [] | Some x -> ["-monitor"; x])
         ; ["-pidfile"; Service.Qemu.pidfile_path domid]
         ]
@@ -2233,17 +2287,17 @@ module Dm_Common = struct
           packets. *)
       xs.Xs.directory root
       |> List.concat_map (fun domid ->
-             let path = Printf.sprintf "%s/%s/device/vgpu" root domid in
-             try List.map (fun x -> path // x) (xs.Xs.directory path)
-             with Xs_protocol.Enoent _ -> []
-         )
+          let path = Printf.sprintf "%s/%s/device/vgpu" root domid in
+          try List.map (fun x -> path // x) (xs.Xs.directory path)
+          with Xs_protocol.Enoent _ -> []
+      )
       |> List.exists (fun vgpu ->
-             try
-               let path = Printf.sprintf "%s/pf" vgpu in
-               let pf = xs.Xs.read path in
-               pf = physical_function
-             with Xs_protocol.Enoent _ -> false
-         )
+          try
+            let path = Printf.sprintf "%s/pf" vgpu in
+            let pf = xs.Xs.read path in
+            pf = physical_function
+          with Xs_protocol.Enoent _ -> false
+      )
     with Xs_protocol.Enoent _ -> false
 
   let call_gimtool args =
@@ -2313,7 +2367,11 @@ module Dm_Common = struct
         (List.concat
            [
              [sprintf "file=%s" file; "if=none"; sprintf "id=%s" id]
-           ; (if file <> "" then ["auto-read-only=off"] else [])
+           ; ( if file <> "" then
+                 ["auto-read-only=off"]
+               else
+                 []
+             )
            ; Media.readonly_of media
            ; Media.format_of media file
            ]
@@ -2328,7 +2386,11 @@ module Dm_Common = struct
              ; sprintf "bus=ide.%d" (index / 2)
              ; sprintf "unit=%d" (index mod 2)
              ]
-           ; (if trad_compat then Media.lba_of media else [])
+           ; ( if trad_compat then
+                 Media.lba_of media
+               else
+                 []
+             )
            ]
         )
     ]
@@ -2346,7 +2408,11 @@ module Dm_Common = struct
          ; sprintf "file=%s" file
          ; sprintf "media=%s" (Media.to_string media)
          ]
-        @ (if file <> "" then ["auto-read-only=off"] else [])
+        @ ( if file <> "" then
+              ["auto-read-only=off"]
+            else
+              []
+          )
         @ Media.format_of media file
         )
     ; "-device"
@@ -2401,9 +2467,7 @@ module Backend = struct
   module type Intf = sig
     (** Vgpu functions that use the dispatcher to choose between different
             profile and device-model backends *)
-    module Vgpu : sig
-      val device : index:int -> int option
-    end
+    module Vgpu : sig val device : index:int -> int option end
 
     (** Vbd functions that use the dispatcher to choose between different
             profile backends *)
@@ -2585,8 +2649,7 @@ module Backend = struct
       val extra_args : string list
     end
 
-    module Firmware : sig
-      val supported : Xenops_types.Vm.firmware_type -> bool
+    module Firmware : sig val supported : Xenops_types.Vm.firmware_type -> bool
     end
 
     module XenPV : sig
@@ -2595,28 +2658,23 @@ module Backend = struct
         -> domid:int
         -> Dm_Common.info
         -> nics:(string * string * int) list
-        -> int
-    end
+        -> int end
 
     module XenPlatform : sig
       val device :
            xs:Ezxenstore_core.Xenstore.Xs.xsh
         -> domid:int
         -> info:Dm_Common.info
-        -> string list
-    end
+        -> string list end
 
-    module VGPU : sig
-      val device : index:int -> int option
-    end
+    module VGPU : sig val device : index:int -> int option end
 
     module PCI : sig
       val assign_guest :
            xs:Ezxenstore_core.Xenstore.Xs.xsh
         -> index:int
         -> host:Pci.address
-        -> Pci.address option
-    end
+        -> Pci.address option end
 
     val extra_qemu_args : nic_type:string -> string list
 
@@ -2774,7 +2832,7 @@ module Backend = struct
         ]
 
       (* 4 and 5 are NICs, and we can only have two, 6 is platform *)
-      let extra_args = ["-device"; "nvme,serial=nvme0,id=nvme0,addr=7"]
+      let extra_args = ["-device"; "nvme,serial=nvme0,mdts=9,id=nvme0,addr=7"]
     end
 
     module XenPV = struct let addr ~xs:_ ~domid:_ _ ~nics:_ = 6 end
@@ -2983,27 +3041,27 @@ module Backend = struct
         try
           ignore
           @@ Polly.wait m 10 forever (fun _ fd events ->
-                 Lookup.domid_of fd >>= fun domid ->
-                 Lookup.channel_of domid >>= fun c ->
-                 let qmp = Qmp_protocol.to_fd c in
-                 if Polly.Events.(test events inp) then (
-                   match Readln.read qmp with
-                   | Readln.Ok msgs ->
-                       List.iter (process domid) msgs
-                   | Readln.Error msg ->
-                       error "domain-%d: %s, close QMP socket" domid msg ;
-                       Readln.free qmp ;
-                       remove domid
-                   | Readln.EOF ->
-                       debug "domain-%d: end of file, close QMP socket" domid ;
-                       Readln.free qmp ;
-                       remove domid
-                 ) else (
-                   debug "EPOLL error on domain-%d, close QMP socket" domid ;
-                   Readln.free qmp ;
-                   remove domid
-                 )
-             )
+              Lookup.domid_of fd >>= fun domid ->
+              Lookup.channel_of domid >>= fun c ->
+              let qmp = Qmp_protocol.to_fd c in
+              if Polly.Events.(test events inp) then (
+                match Readln.read qmp with
+                | Readln.Ok msgs ->
+                    List.iter (process domid) msgs
+                | Readln.Error msg ->
+                    error "domain-%d: %s, close QMP socket" domid msg ;
+                    Readln.free qmp ;
+                    remove domid
+                | Readln.EOF ->
+                    debug "domain-%d: end of file, close QMP socket" domid ;
+                    Readln.free qmp ;
+                    remove domid
+              ) else (
+                debug "EPOLL error on domain-%d, close QMP socket" domid ;
+                Readln.free qmp ;
+                remove domid
+              )
+          )
         with e -> debug_exn "Exception in QMP_Event_thread: %s" e
       done
   end
@@ -3333,8 +3391,8 @@ module Backend = struct
               let devs =
                 devices
                 |> List.concat_map (fun (x, y) ->
-                       ["-device"; sprintf "usb-%s,port=%d" x y]
-                   )
+                    ["-device"; sprintf "usb-%s,port=%d" x y]
+                )
               in
               "-usb" :: devs
         in
@@ -3393,11 +3451,11 @@ module Backend = struct
         let qmp =
           ["libxl"; "event"]
           |> List.concat_map (fun x ->
-                 [
-                   "-qmp"
-                 ; sprintf "unix:/var/run/xen/qmp-%s-%d,server,nowait" x domid
-                 ]
-             )
+              [
+                "-qmp"
+              ; sprintf "unix:/var/run/xen/qmp-%s-%d,server,nowait" x domid
+              ]
+          )
         in
         let pv_device addr =
           try
@@ -3437,11 +3495,11 @@ module Backend = struct
               ]
             ; ["-S"]
             ; Config.extra_qemu_args ~nic_type
-            ; (info.Dm_Common.parallel |> function
-               | None ->
-                   ["-parallel"; "null"]
-               | Some x ->
-                   ["-parallel"; x]
+            ; ( info.Dm_Common.parallel |> function
+                | None ->
+                    ["-parallel"; "null"]
+                | Some x ->
+                    ["-parallel"; x]
               )
             ; qmp
             ; Config.XenPlatform.device ~xs ~domid ~info

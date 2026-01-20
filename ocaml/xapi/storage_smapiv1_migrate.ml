@@ -106,18 +106,16 @@ let tapdisk_of_attach_info (backend : Storage_interface.backend) =
   match (blockdevices, nbds) with
   | blockdevice :: _, _ -> (
       let path = blockdevice.Storage_interface.path in
-      try
-        match Tapctl.of_device (Tapctl.create ()) path with
-        | tapdev, _, _ ->
-            Some tapdev
-      with
-      | Tapctl.Not_blktap ->
+      match Tapctl.of_device (Tapctl.create ()) path with
+      | Some (tapdev, _, _) ->
+          Some tapdev
+      | exception Tapctl.Not_blktap ->
           D.debug "Device %s is not controlled by blktap" path ;
           None
-      | Tapctl.Not_a_device ->
+      | exception Tapctl.Not_a_device ->
           D.debug "%s is not a device" path ;
           None
-      | _ ->
+      | (exception _) | None ->
           D.debug "Device %s has an unknown driver" path ;
           None
     )
@@ -255,7 +253,10 @@ module Copy = struct
               with_activated_disk ~dbg ~sr ~vdi:(Some vdi) ~dp:leaf_dp ~vm
                 (fun src ->
                   let verify_cert =
-                    if verify_dest then Stunnel_client.pool () else None
+                    if verify_dest then
+                      Stunnel_client.pool ()
+                    else
+                      None
                   in
                   let dd =
                     Sparse_dd_wrapper.start
@@ -295,8 +296,8 @@ module Copy = struct
       perform_cleanup_actions !on_fail ;
       raise e
 
-  (** [copy_into_sr] does not requires a dest vdi to be provided, instead, it will 
-  find the nearest vdi on the [dest] sr, and if there is no such vdi, it will 
+  (** [copy_into_sr] does not requires a dest vdi to be provided, instead, it will
+  find the nearest vdi on the [dest] sr, and if there is no such vdi, it will
   create one. *)
   let copy_into_sr ~task ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest =
     D.debug "copy sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
@@ -420,7 +421,12 @@ let mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~live_vm ~mirror_id ~url
       ~query:(Http.Url.get_query_params dest_url)
       ~version:"1.0" ~user_agent:"smapiv2" Http.Put uri
   in
-  let verify_cert = if verify_dest then Stunnel_client.pool () else None in
+  let verify_cert =
+    if verify_dest then
+      Stunnel_client.pool ()
+    else
+      None
+  in
   let transport = Xmlrpc_client.transport_of_url ~verify_cert dest_url in
   D.debug "Searching for data path: %s" dp ;
   let attach_info = Local.DP.attach_info dbg sr vdi dp mirror_vm in
@@ -768,7 +774,8 @@ module MIRROR : SMAPIv2_MIRROR = struct
         SMAPI.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
         (* On SMAPIv3, compose would have removed the now invalid dummy vdi, so
            there is no need to destroy it anymore, while this is necessary on SMAPIv1 SRs. *)
-        D.log_and_ignore_exn (fun () -> SMAPI.VDI.destroy dbg r.sr r.dummy_vdi) ;
+        D.log_and_ignore_exn (fun () -> SMAPI.VDI.destroy dbg r.sr r.dummy_vdi
+        ) ;
         SMAPI.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
       )
       recv_state ;
@@ -818,50 +825,48 @@ module MIRROR : SMAPIv2_MIRROR = struct
     let start = Mtime_clock.counter () in
     State.find_active_local_mirror id
     |> Option.iter (fun s ->
-           (* We used to pause here and then check the nbd_mirror_failed key. Now, we poll
-              					   until the number of outstanding requests has gone to zero, then check the
-              					   status. This avoids confusing the backend (CA-128460) *)
-           try
-             match s.tapdev with
-             | None ->
-                 ()
-             | Some tapdev ->
-                 let open Tapctl in
-                 let ctx = create () in
-                 let rec wait () =
-                   let elapsed = Mtime_clock.count start in
-                   if Mtime.Span.compare elapsed reqs_outstanding_timeout > 0
-                   then
-                     raise (Timeout elapsed) ;
-                   let st = stats ctx tapdev in
-                   if st.Stats.reqs_outstanding > 0 then (
-                     Thread.delay 1.0 ; wait ()
-                   ) else
-                     (st, elapsed)
-                 in
-                 let st, elapsed = wait () in
-                 D.debug "Got final stats after waiting %a" pp_time elapsed ;
-                 if st.Stats.nbd_mirror_failed = 1 then (
-                   D.error "tapdisk reports mirroring failed" ;
-                   s.failed <- true
-                 ) ;
-                 Option.iter
-                   (fun id -> Scheduler.cancel scheduler id)
-                   s.watchdog
-           with
-           | Timeout elapsed ->
-               D.error
-                 "Timeout out after %a waiting for tapdisk to complete all \
-                  outstanding requests while migrating vdi %s of domain %s"
-                 pp_time elapsed (s_of_vdi vdi) (s_of_vm s.live_vm) ;
-               s.failed <- true
-           | e ->
-               D.error
-                 "Caught exception while finally checking mirror state: %s \
-                  when migrating vdi %s of domain %s"
-                 (Printexc.to_string e) (s_of_vdi vdi) (s_of_vm s.live_vm) ;
-               s.failed <- true
-       )
+        (* We used to pause here and then check the nbd_mirror_failed key.
+              Now, we poll until the number of outstanding requests has gone to
+              zero, then check the status. This avoids confusing the backend
+              (CA-128460) *)
+        try
+          match s.tapdev with
+          | None ->
+              ()
+          | Some tapdev ->
+              let open Tapctl in
+              let ctx = create () in
+              let rec wait () =
+                let elapsed = Mtime_clock.count start in
+                if Mtime.Span.compare elapsed reqs_outstanding_timeout > 0 then
+                  raise (Timeout elapsed) ;
+                let st = stats ctx tapdev in
+                if st.Stats.reqs_outstanding > 0 then (
+                  Thread.delay 1.0 ; wait ()
+                ) else
+                  (st, elapsed)
+              in
+              let st, elapsed = wait () in
+              D.debug "Got final stats after waiting %a" pp_time elapsed ;
+              if st.Stats.nbd_mirror_failed = 1 then (
+                D.error "tapdisk reports mirroring failed" ;
+                s.failed <- true
+              ) ;
+              Option.iter (fun id -> Scheduler.cancel scheduler id) s.watchdog
+        with
+        | Timeout elapsed ->
+            D.error
+              "Timeout out after %a waiting for tapdisk to complete all \
+               outstanding requests while migrating vdi %s of domain %s"
+              pp_time elapsed (s_of_vdi vdi) (s_of_vm s.live_vm) ;
+            s.failed <- true
+        | e ->
+            D.error
+              "Caught exception while finally checking mirror state: %s when \
+               migrating vdi %s of domain %s"
+              (Printexc.to_string e) (s_of_vdi vdi) (s_of_vm s.live_vm) ;
+            s.failed <- true
+    )
 
   let has_mirror_failed _ctx ~dbg:_ ~mirror_id ~sr:_ =
     match State.find_active_local_mirror mirror_id with

@@ -139,8 +139,7 @@ let init () =
 
 let operate_on_db_task ~__context f =
   let@ __context = Context.with_tracing ~__context __FUNCTION__ in
-  if Context.task_in_database __context then
-    f (Context.get_task_id __context)
+  if Context.task_in_database __context then f (Context.get_task_id __context)
 
 let set_description ~__context value =
   let@ __context = Context.with_tracing ~__context __FUNCTION__ in
@@ -242,8 +241,7 @@ let raise_cancelled ~__context =
 
 let exn_if_cancelling ~__context =
   let@ __context = Context.with_tracing ~__context __FUNCTION__ in
-  if is_cancelling ~__context then
-    raise_cancelled ~__context
+  if is_cancelling ~__context then raise_cancelled ~__context
 
 let cancel_this ~__context ~self =
   let@ () = finally_complete_tracing __context in

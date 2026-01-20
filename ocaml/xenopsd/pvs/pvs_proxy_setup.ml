@@ -97,7 +97,10 @@ let rec exists p = function
       ok false
   | x :: xs ->
       let* res = p x in
-      if res then ok true else exists p xs
+      if res then
+        ok true
+      else
+        exists p xs
 
 (** open [path] to be consumed by [f] for scanning with Scanf *)
 let scanning path f =
@@ -663,4 +666,8 @@ let main () =
   D.info "%s %s" this CLI.build ;
   C.Cmd.eval CLI.cmd
 
-let () = if !Sys.interactive then () else main () |> exit
+let () =
+  if !Sys.interactive then
+    ()
+  else
+    main () |> exit

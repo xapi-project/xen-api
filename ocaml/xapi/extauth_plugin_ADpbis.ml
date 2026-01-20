@@ -358,7 +358,10 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           in
           let errmsg = List.hd revlines in
           let errcodeline =
-            if List.length revlines > 1 then List.nth revlines 1 else errmsg
+            if List.length revlines > 1 then
+              List.nth revlines 1
+            else
+              errmsg
           in
           let errcode =
             List.hd
@@ -684,7 +687,10 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       Bytes.unsafe_to_string defensive_copy
     in
     let get_value name ls =
-      if List.mem_assoc name ls then List.assoc name ls else ""
+      if List.mem_assoc name ls then
+        List.assoc name ls
+      else
+        ""
     in
     let infolist = pbis_get_all_byid subject_identifier in
     let subject_is_group = get_value "Uid" infolist = "" in
@@ -760,7 +766,12 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
         (List.length subject_sid_membership_list)
         subject_name subject_identifier
         (List.fold_left
-           (fun p pp -> if p = "" then pp else p ^ "," ^ pp)
+           (fun p pp ->
+             if p = "" then
+               pp
+             else
+               p ^ "," ^ pp
+           )
            "" subject_sid_membership_list
         ) ;
       subject_sid_membership_list

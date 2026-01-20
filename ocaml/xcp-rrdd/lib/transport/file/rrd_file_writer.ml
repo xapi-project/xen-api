@@ -48,8 +48,7 @@ module File = struct
   (** This assumes there's no limit to the size of file which can be used. *)
   let get_allocator cstruct =
     let alloc_cstruct size =
-      if size > Cstruct.length cstruct then
-        failwith "not enough memory" ;
+      if size > Cstruct.length cstruct then failwith "not enough memory" ;
       cstruct
     in
     alloc_cstruct

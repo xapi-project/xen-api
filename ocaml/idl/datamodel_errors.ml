@@ -1059,7 +1059,7 @@ let _ =
     ~doc:"The VDI mirroring cannot be performed" () ;
   error Api_errors.too_many_storage_migrates ["number"]
     ~doc:"You reached the maximal number of concurrently migrating VMs." () ;
-  error Api_errors.sr_does_not_support_migration ["sr"]
+  error Api_errors.sr_does_not_support_migration ["sr"; "capabilities"]
     ~doc:"Cannot migrate a VDI to or from an SR that doesn't support migration."
     () ;
   error Api_errors.vm_failed_shutdown_ack ["vm"]
@@ -1115,6 +1115,11 @@ let _ =
     ~doc:
       "The source SR does not have sufficient temporary space available to \
        proceed the operation."
+    () ;
+  error Api_errors.sr_suspend_space_insufficient ["sr"]
+    ~doc:
+      "The suspend SR does not have sufficient free space to store the VM \
+       suspend image required to complete a snapshot with memory."
     () ;
   error Api_errors.pbd_exists ["sr"; "host"; "pbd"]
     ~doc:"A PBD already exists connecting the SR to the server." () ;
@@ -2061,6 +2066,12 @@ let _ =
 
   error Api_errors.sysprep ["vm"; "message"]
     ~doc:"VM.sysprep error with details in the message" () ;
+
+  error Api_errors.invalid_ntp_config ["reason"]
+    ~doc:"The NTP configuration is invalid." () ;
+
+  error Api_errors.not_allowed_when_ntp_is_enabled ["host"]
+    ~doc:"The operation is not allowed on the host when the NTP is enabled." () ;
 
   message
     (fst Api_messages.ha_pool_overcommitted)

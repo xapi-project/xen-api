@@ -79,8 +79,7 @@ let split_host_port url =
     if url.[0] = '[' then (
       (* IPv6 *)
       let host_end = String.rindex url ']' in
-      if url.[host_end + 1] <> ':' then
-        raise_url_invalid url ;
+      if url.[host_end + 1] <> ':' then raise_url_invalid url ;
       let host = String.sub url 1 (host_end - 1) in
       let port =
         String.sub url (host_end + 2) (String.length url - host_end - 2)
@@ -111,8 +110,7 @@ let assert_wlb_enabled ~__context =
   let pool = Helpers.get_pool ~__context in
   assert_wlb_licensed ~__context ;
   assert_wlb_initialized ~__context ;
-  if not (Db.Pool.get_wlb_enabled ~__context ~self:pool) then
-    raise_disabled ()
+  if not (Db.Pool.get_wlb_enabled ~__context ~self:pool) then raise_disabled ()
 
 (* when other calls use wlb to enhance their decision making process they need to know if it is available or whether they should use another algorithm *)
 let check_wlb_enabled ~__context =
@@ -262,7 +260,8 @@ let parse_result_code meth xml_data response initial_error enable_log =
            "After failing to retrieve valid response, an error codecould not \
             be found. Some data is missing or corrupt.\n\
             Attempt retrieve valid response: (%s)\n\
-            Attempt to retrieve error code: (%s)" initial_error error
+            Attempt to retrieve error code: (%s)"
+           initial_error error
         )
         ( if enable_log then
             response
@@ -656,7 +655,8 @@ let get_opt_recommendations ~__context =
           []
     in
     if is_childless inner_xml then
-      ([], "") (*No recommendations to give. *)
+      ([], "")
+    (*No recommendations to give. *)
     else
       match descend_and_match ["Recommendations"] inner_xml with
       | Xml.Element (_, _, children) ->

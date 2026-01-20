@@ -72,4 +72,8 @@ let main =
     C.Cmd.(info "xapi-gzip" ~doc ~man:help)
     C.Term.(const compress $ decompress)
 
-let () = if !Sys.interactive then () else exit @@ C.Cmd.eval main
+let () =
+  if !Sys.interactive then
+    ()
+  else
+    exit @@ C.Cmd.eval main

@@ -25,7 +25,10 @@ let rec role_idx = function
   | _, [] ->
       -1
   | e1, e2 :: xs ->
-      if e1 = e2 then 0 else 1 + role_idx (e1, xs)
+      if e1 = e2 then
+        0
+      else
+        1 + role_idx (e1, xs)
 
 let internal_role_local_root = "_local_root_"
 
@@ -62,7 +65,14 @@ let hash2uuid str =
 let replace_char str c1 c2 =
   let buf = Bytes.of_string str in
   (*defensive copy*)
-  String.iteri (fun i _ -> if str.[i] = c1 then Bytes.set buf i c2 else ()) str ;
+  String.iteri
+    (fun i _ ->
+      if str.[i] = c1 then
+        Bytes.set buf i c2
+      else
+        ()
+    )
+    str ;
   Bytes.unsafe_to_string buf
 
 let role_uuid name = Option.get (hash2uuid name)

@@ -346,8 +346,7 @@ let sender rpc session_id (delay, msg, queue) =
             proceed (Queue.pop queue)
           done ;
           (* if an intersting alert had been proceeded, then commit our changes to the msg buffer *)
-          if !interesting_alert then
-            Buffer.add_buffer msg tmp
+          if !interesting_alert then Buffer.add_buffer msg tmp
         )
     ) ;
     if Buffer.length msg <> 0 then (

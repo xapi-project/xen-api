@@ -100,9 +100,19 @@ let superstate states =
   if states = [] then
     Detached
   else if activated then
-    Activated (if rw then RW else RO)
+    Activated
+      ( if rw then
+          RW
+        else
+          RO
+      )
   else
-    Attached (if rw then RW else RO)
+    Attached
+      ( if rw then
+          RW
+        else
+          RO
+      )
 
 exception No_operation of state * state
 

@@ -137,7 +137,10 @@ let field_lookup recs name =
 let safe_get_field x =
   try x.get () with
   | Api_errors.Server_error (s, _) as e ->
-      if s = Api_errors.handle_invalid then "<invalid reference>" else raise e
+      if s = Api_errors.handle_invalid then
+        "<invalid reference>"
+      else
+        raise e
   | e ->
       raise e
 
@@ -224,7 +227,10 @@ let get_consistent_field_or_default ~rpc ~session_id ~getter ~transform ~default
                 `Value (getter ~rpc ~session_id ~self:host |> transform)
             | `Value v ->
                 let current = getter ~rpc ~session_id ~self:host |> transform in
-                if v = current then `Value v else `Inconsistent
+                if v = current then
+                  `Value v
+                else
+                  `Inconsistent
           )
           `NotSet hosts
       in
@@ -1340,7 +1346,10 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"vswitch-controller" ~hidden:true
           ~get:(fun () ->
             let r = (x ()).API.pool_vswitch_controller in
-            if r = "" then "<not set>" else r
+            if r = "" then
+              "<not set>"
+            else
+              r
           )
           ()
       ; make_field ~name:"restrictions"
@@ -1455,8 +1464,8 @@ let pool_record rpc session_id pool =
           ~get:(fun () ->
             Client.Host.get_all ~rpc ~session_id
             |> List.map (fun h ->
-                   Client.Host.get_https_only ~rpc ~session_id ~self:h
-               )
+                Client.Host.get_https_only ~rpc ~session_id ~self:h
+            )
             |> List.fold_left ( && ) true
             |> string_of_bool
           )
@@ -1593,6 +1602,22 @@ let pool_record rpc session_id pool =
           ~set:(fun value ->
             Client.Pool.set_ssh_auto_mode ~rpc ~session_id ~self:pool
               ~value:(safe_bool_of_string "ssh-auto-mode" value)
+          )
+          ()
+      ; make_field ~name:"limit-console-sessions"
+          ~get:(fun () -> string_of_bool (x ()).API.pool_limit_console_sessions)
+          ~set:(fun x ->
+            Client.Pool.set_limit_console_sessions ~rpc ~session_id ~self:pool
+              ~value:(safe_bool_of_string "limit-console-sessions" x)
+          )
+          ()
+      ; make_field ~name:"vm-console-idle-timeout"
+          ~get:(fun () ->
+            (x ()).API.pool_vm_console_idle_timeout |> Int64.to_string
+          )
+          ~set:(fun x ->
+            Client.Pool.set_vm_console_idle_timeout ~rpc ~session_id ~self:pool
+              ~value:(safe_i64_of_string "vm-console-idle-timeout" x)
           )
           ()
       ]
@@ -2156,6 +2181,40 @@ let vm_record rpc session_id vm =
           )
           ~get_map:(fun () -> (x ()).API.vM_platform)
           ()
+      ; make_field ~name:"numa-optimised"
+          ~get:(fun () ->
+            Option.fold ~none:"false"
+              ~some:(fun m -> string_of_bool m.API.vM_metrics_numa_optimised)
+              (xm ())
+          )
+          ()
+      ; make_field ~name:"numa-nodes"
+          ~get:(fun () ->
+            Option.fold ~none:"0"
+              ~some:(fun m -> Int64.to_string m.API.vM_metrics_numa_nodes)
+              (xm ())
+          )
+          ()
+      ; make_field ~name:"numa-node-memory"
+          ~get:(fun () ->
+            Option.fold ~none:"[]"
+              ~some:(fun m ->
+                map_and_concat
+                  (fun (x, y) -> Printf.sprintf "%Li: %Li" x y)
+                  m.API.vM_metrics_numa_node_memory
+              )
+              (xm ())
+          )
+          ~get_map:(fun () ->
+            Option.fold ~none:[]
+              ~some:(fun m ->
+                List.map
+                  (fun (x, y) -> (Int64.to_string x, Int64.to_string y))
+                  m.API.vM_metrics_numa_node_memory
+              )
+              (xm ())
+          )
+          ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
             map_and_concat Record_util.vm_operation_to_string
@@ -2611,8 +2670,8 @@ let vm_record rpc session_id vm =
               let value =
                 get_words ',' x
                 |> List.map (fun uuid ->
-                       Client.VM_group.get_by_uuid ~rpc ~session_id ~uuid
-                   )
+                    Client.VM_group.get_by_uuid ~rpc ~session_id ~uuid
+                )
               in
               Client.VM.set_groups ~rpc ~session_id ~self:vm ~value
           )
@@ -3393,8 +3452,41 @@ let host_record rpc session_id host =
               ~value:(safe_bool_of_string "ssh-auto-mode" value)
           )
           ()
+      ; make_field ~name:"max-cstate"
+          ~get:(fun () -> (x ()).API.host_max_cstate)
+          ~set:(fun value ->
+            Client.Host.set_max_cstate ~rpc ~session_id ~self:host ~value
+          )
+          ()
       ; make_field ~name:"secure-boot"
           ~get:(fun () -> string_of_bool (x ()).API.host_secure_boot)
+          ()
+      ; make_field ~name:"ntp-mode"
+          ~get:(fun () ->
+            Record_util.host_ntp_mode_to_string (x ()).API.host_ntp_mode
+          )
+          ~set:(fun value ->
+            Client.Host.set_ntp_mode ~rpc ~session_id ~self:host
+              ~value:(Record_util.host_ntp_mode_of_string value)
+          )
+          ()
+      ; make_field ~name:"ntp-custom-servers"
+          ~get:(fun () -> concat_with_comma (x ()).API.host_ntp_custom_servers)
+          ~get_set:(fun () -> (x ()).API.host_ntp_custom_servers)
+          ~set:(fun value ->
+            Client.Host.set_ntp_custom_servers ~rpc ~session_id ~self:host
+              ~value:
+                (String.split_on_char ',' value
+                |> List.map String.trim
+                |> List.filter (( <> ) "")
+                )
+          )
+          ()
+      ; make_field ~name:"timezone"
+          ~get:(fun () -> (x ()).API.host_timezone)
+          ~set:(fun value ->
+            Client.Host.set_timezone ~rpc ~session_id ~self:host ~value
+          )
           ()
       ]
   }
@@ -5539,10 +5631,10 @@ let host_driver_record rpc session_id host_driver =
           )
           (Client.Host_driver.get_variants ~rpc ~session_id ~self:host_driver)
         |> List.stable_sort (fun (_, x) (_, y) ->
-               Float.compare x.API.driver_variant_priority
-                 y.API.driver_variant_priority
-               |> Int.neg
-           )
+            Float.compare x.API.driver_variant_priority
+              y.API.driver_variant_priority
+            |> Int.neg
+        )
       )
   in
 
@@ -5610,14 +5702,14 @@ let host_driver_record rpc session_id host_driver =
           ~get:(fun () ->
             xv ()
             |> List.map (fun (_, v) ->
-                   ( v.API.driver_variant_name
-                   , v.API.driver_variant_version
-                   , v.API.driver_variant_status
-                   )
-               )
+                ( v.API.driver_variant_name
+                , v.API.driver_variant_version
+                , v.API.driver_variant_status
+                )
+            )
             |> List.map (fun (name, _version, status) ->
-                   Printf.sprintf "%s=%s" name status
-               )
+                Printf.sprintf "%s=%s" name status
+            )
             |> String.concat "; "
           )
           ()
@@ -5635,11 +5727,11 @@ let host_driver_record rpc session_id host_driver =
           ~get:(fun () ->
             xv ()
             |> List.map (fun (_, v) ->
-                   ( v.API.driver_variant_name
-                   , v.API.driver_variant_version
-                   , v.API.driver_variant_hardware_present
-                   )
-               )
+                ( v.API.driver_variant_name
+                , v.API.driver_variant_version
+                , v.API.driver_variant_hardware_present
+                )
+            )
             |> List.filter (fun (_, _, status) -> status = true)
             |> map_and_concat (fun (name, _, _) -> name)
           )
@@ -5733,8 +5825,8 @@ let observer_record rpc session_id observer =
             let value =
               get_words ',' s
               |> List.map (fun uuid ->
-                     Client.Host.get_by_uuid ~rpc ~session_id ~uuid
-                 )
+                  Client.Host.get_by_uuid ~rpc ~session_id ~uuid
+              )
             in
             Client.Observer.set_hosts ~rpc ~session_id ~self:observer ~value
           )
@@ -5754,7 +5846,12 @@ let observer_record rpc session_id observer =
             let hosts =
               Client.Observer.get_hosts ~rpc ~session_id ~self:observer
             in
-            let value = if List.mem host hosts then hosts else host :: hosts in
+            let value =
+              if List.mem host hosts then
+                hosts
+              else
+                host :: hosts
+            in
             Client.Observer.set_hosts ~rpc ~session_id ~self:observer ~value
           )
           ()

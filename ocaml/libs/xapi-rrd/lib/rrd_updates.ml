@@ -228,11 +228,11 @@ let create_multi prefixandrrds start interval cfopt =
   let start =
     prefixandrrds
     |> List.map (fun (_, rrd) ->
-           if start < 0L then
-             Int64.(add start (of_float rrd.last_updated))
-           else
-             start
-       )
+        if start < 0L then
+          Int64.(add start (of_float rrd.last_updated))
+        else
+          start
+    )
     |> List.fold_left min Int64.max_int
   in
 

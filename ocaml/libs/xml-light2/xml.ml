@@ -44,8 +44,7 @@ let is_empty xml =
   let is_empty_string s =
     let is_empty = ref true in
     for i = 0 to String.length s - 1 do
-      if s.[i] <> '\n' && s.[i] <> ' ' && s.[i] <> '\t' then
-        is_empty := false
+      if s.[i] <> '\n' && s.[i] <> ' ' && s.[i] <> '\t' then is_empty := false
     done ;
     !is_empty
   in
@@ -155,25 +154,51 @@ let to_fct_fmt xml f =
     | Element (name, attrs, [PCData data]) ->
         let astr = str_of_attrs attrs in
         let on = fmt "%s<%s%s>" indent name astr in
-        let off = fmt "</%s>%s" name (if newl then "\n" else "") in
+        let off =
+          fmt "</%s>%s" name
+            ( if newl then
+                "\n"
+              else
+                ""
+            )
+        in
         f on ;
         f (esc_pcdata data) ;
         f off
     | Element (name, attrs, []) ->
         let astr = str_of_attrs attrs in
         let on =
-          fmt "%s<%s%s/>%s" indent name astr (if newl then "\n" else "")
+          fmt "%s<%s%s/>%s" indent name astr
+            ( if newl then
+                "\n"
+              else
+                ""
+            )
         in
         f on
     | Element (name, attrs, children) ->
         let astr = str_of_attrs attrs in
         let on = fmt "%s<%s%s>\n" indent name astr in
-        let off = fmt "%s</%s>%s" indent name (if newl then "\n" else "") in
+        let off =
+          fmt "%s</%s>%s" indent name
+            ( if newl then
+                "\n"
+              else
+                ""
+            )
+        in
         f on ;
         List.iter (fun child -> print true (indent ^ "  ") child) children ;
         f off
     | PCData data ->
-        f (esc_pcdata data ^ if newl then "\n" else "")
+        f
+          (esc_pcdata data
+          ^
+          if newl then
+            "\n"
+          else
+            ""
+          )
   in
   print false "" xml
 

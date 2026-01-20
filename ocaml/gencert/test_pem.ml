@@ -39,13 +39,12 @@ let case_of name test = (name, `Quick, fun () -> test (data_dir // name))
 let tests =
   Array.to_seq (Sys.readdir data_dir)
   |> Seq.filter_map (fun name ->
-         if String.starts_with ~prefix:"pass" name then
-           Some (case_of name passing)
-         else if String.starts_with ~prefix:"fail" name then
-           Some (case_of name failing)
-         else
-           Alcotest.failf "Found file in %s with unexpected name: %s" data_dir
-             name
-     )
+      if String.starts_with ~prefix:"pass" name then
+        Some (case_of name passing)
+      else if String.starts_with ~prefix:"fail" name then
+        Some (case_of name failing)
+      else
+        Alcotest.failf "Found file in %s with unexpected name: %s" data_dir name
+  )
 
 let all = List.of_seq tests

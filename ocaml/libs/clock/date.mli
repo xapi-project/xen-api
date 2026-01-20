@@ -86,3 +86,7 @@ val is_later : than:t -> t -> bool
 val diff : t -> t -> Ptime.Span.t
 (** [diff a b] returns the span of time corresponding to [a - b]. When [than]
     or [b] lack a timezone, UTC is assumed. *)
+
+val to_utc : t -> t option
+(** [to_utc a] returns [Some b] where [b] is equivalent to [a] but in UTC, if
+    [a] has a timezone offset [Some tz]. Otherwise, the return is [None]. *)

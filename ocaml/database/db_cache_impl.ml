@@ -68,8 +68,7 @@ let read_field t tblname fldname objref =
 let ensure_utf8_xml string =
   let length = String.length string in
   let prefix = Xapi_stdext_encodings.Utf8.XML.longest_valid_prefix string in
-  if length > String.length prefix then
-    warn "string truncated to: '%s'." prefix ;
+  if length > String.length prefix then warn "string truncated to: '%s'." prefix ;
   prefix
 
 let ensure_utf8_xml_and_share string = string |> ensure_utf8_xml |> Share.merge

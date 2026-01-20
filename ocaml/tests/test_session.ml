@@ -24,8 +24,8 @@ let make_ctx ~user_agent ~client_ip =
   let additional_headers =
     client_ip
     |> Option.fold ~none:[] ~some:(fun x ->
-           [("STUNNEL_PROXY", Printf.sprintf "TCP6 %s another_ip 443 80" x)]
-       )
+        [("STUNNEL_PROXY", Printf.sprintf "TCP6 %s another_ip 443 80" x)]
+    )
   in
   let rq = {Http.Request.empty with user_agent; additional_headers} in
   (* it doesn't matter which fd is used to here, we are just satisying the

@@ -213,9 +213,9 @@ end = struct
         Unixext.mkdir_rec pool_certs 0o700 ;
         certs
         |> List.iter (function {filename; content} ->
-               let fname = Filename.concat P.store_path filename in
-               redirect content ~fname
-               )
+            let fname = Filename.concat P.store_path filename in
+            redirect content ~fname
+            )
       with e ->
         (* on fail, try reset to previous cert state *)
         ( try mv ~src:pool_certs_bk ~dest:pool_certs
@@ -353,13 +353,12 @@ let local_exec = Worker.local_exec
 let collect_pool_certs ~__context ~rpc ~session_id ~map ~from_hosts =
   from_hosts
   |> List.map (fun host ->
-         let uuid = Db.Host.get_uuid ~__context ~self:host in
-         let cert =
-           Worker.remote_collect_cert HostPoolCertificate uuid host rpc
-             session_id
-         in
-         map cert
-     )
+      let uuid = Db.Host.get_uuid ~__context ~self:host in
+      let cert =
+        Worker.remote_collect_cert HostPoolCertificate uuid host rpc session_id
+      in
+      map cert
+  )
 
 let insert_at n x xs =
   (* insert_at 3 10 [1;2;3;4] = [1;2;3;10;4] *)
@@ -452,14 +451,13 @@ let ( (get_local_ca_certs : unit -> WireProtocol.certificate_file list)
     Sys.readdir path
     |> Array.to_list
     |> List.filter (fun x ->
-           Filename.check_suffix x "pem"
-           && not (Filename.check_suffix x "new.pem")
-       )
+        Filename.check_suffix x "pem" && not (Filename.check_suffix x "new.pem")
+    )
     |> List.map (fun filename ->
-           let path = Filename.concat path filename in
-           let content = string_of_file path in
-           WireProtocol.{filename; content}
-       )
+        let path = Filename.concat path filename in
+        let content = string_of_file path in
+        WireProtocol.{filename; content}
+    )
   in
   (g ApplianceProvider.store_path, g HostPoolProvider.store_path)
 
@@ -492,12 +490,12 @@ let am_i_missing_certs ~__context : bool =
       (fun ~__context ->
         Db.Certificate.get_all ~__context
         |> List.filter_map (fun self ->
-               match Db.Certificate.get_type ~__context ~self with
-               | `ca ->
-                   Some (Db.Certificate.get_name ~__context ~self)
-               | _ ->
-                   None
-           )
+            match Db.Certificate.get_type ~__context ~self with
+            | `ca ->
+                Some (Db.Certificate.get_name ~__context ~self)
+            | _ ->
+                None
+        )
       )
       ApplianceProvider.store_path ()
   in
@@ -534,25 +532,25 @@ let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
     Helpers.call_api_functions ~__context @@ fun rpc session_id ->
     secondary_hosts
     |> List.iter (fun host ->
-           try
-             Worker.remote_write_certs_fs HostPoolCertificate Merge
-               [joiner_certificate] host rpc session_id
-           with e ->
-             D.warn
-               "exchange_certificates_with_joiner: sending joiner cert to %s \
-                failed. ex: %s"
-               (Ref.short_string_of host) (Printexc.to_string e)
-       ) ;
+        try
+          Worker.remote_write_certs_fs HostPoolCertificate Merge
+            [joiner_certificate] host rpc session_id
+        with e ->
+          D.warn
+            "exchange_certificates_with_joiner: sending joiner cert to %s \
+             failed. ex: %s"
+            (Ref.short_string_of host) (Printexc.to_string e)
+    ) ;
 
     secondary_hosts
     |> List.iter (fun host ->
-           try Worker.remote_regen_bundle host rpc session_id
-           with e ->
-             D.warn
-               "exchange_certificates_with_joiner: failed to regen bundle on \
-                %s. ex: %s"
-               (Ref.short_string_of host) (Printexc.to_string e)
-       )
+        try Worker.remote_regen_bundle host rpc session_id
+        with e ->
+          D.warn
+            "exchange_certificates_with_joiner: failed to regen bundle on %s. \
+             ex: %s"
+            (Ref.short_string_of host) (Printexc.to_string e)
+    )
   in
   get_local_pool_certs () |> List.map WireProtocol.pair_of_certificate_file
 

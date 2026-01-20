@@ -60,8 +60,8 @@ let test_strongly_connected a b =
   if not (a_b <= 0 || b_a <= 0) then
     Crowbar.failf
       "Strongly connected (total) property failed. Expected a <= b\n\
-      \    or b <= a, but got: a %a b, b %a a" pp_compare_result a_b
-      pp_compare_result b_a
+      \    or b <= a, but got: a %a b, b %a a"
+      pp_compare_result a_b pp_compare_result b_a
 
 let test_strict_irreflexive a = Crowbar.check_eq (Ref.compare a a < 0) false
 

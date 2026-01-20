@@ -100,11 +100,11 @@ let render_converts destdir =
   let generate types of_json =
     types
     |> List.map (fun ty ->
-           let params = Convert.of_ty ty in
-           let template = Convert.template_of_convert params in
-           let json : Mustache.Json.t = of_json params in
-           render_template template json ()
-       )
+        let params = Convert.of_ty ty in
+        let template = Convert.template_of_convert params in
+        let json : Mustache.Json.t = of_json params in
+        render_template template json ()
+    )
     |> List.sort_uniq compare
     |> String.concat ""
   in

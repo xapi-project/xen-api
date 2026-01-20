@@ -110,7 +110,10 @@ let of_xml input =
         f ()
     | `El_end ->
         current_elt := "" ;
-        if Xmlm.eoi input then () else f ()
+        if Xmlm.eoi input then
+          ()
+        else
+          f ()
     | `Data dat ->
         ( match !current_elt with
         | "name" ->
@@ -163,7 +166,10 @@ let import_xml xml_in =
       | `El_start _ ->
           pull xml_in o (depth + 1)
       | `El_end ->
-          if depth = 1 then () else pull xml_in o (depth - 1)
+          if depth = 1 then
+            ()
+          else
+            pull xml_in o (depth - 1)
       | `Data _ ->
           pull xml_in o depth
       | `Dtd _ ->
@@ -450,7 +456,11 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
   (* Write the message to disk *)
   let gen = write ~__context ~_ref ~message in
   (* Return the message ref, or Ref.null if the message wasn't written *)
-  match gen with Some _ -> _ref | None -> Ref.null
+  match gen with
+  | Some _ ->
+      _ref
+  | None ->
+      Ref.null
 
 let deleted : (Xapi_database.Generation.t * API.ref_message) list ref =
   ref [(0L, Ref.null)]
@@ -517,7 +527,10 @@ let destroy ~__context ~self =
                   (fun () -> of_xml (Xmlm.make_input (`Channel ic)))
                   (fun () -> close_in ic)
               in
-              if _ref = self then true else false
+              if _ref = self then
+                true
+              else
+                false
             with _ -> false
           )
           allmsgs
@@ -585,7 +598,10 @@ let get_real_inner dir filter name_filter =
                 (fun () -> of_xml (Xmlm.make_input (`Channel ic)))
                 (fun () -> close_in ic)
             in
-            if filter msg then Some (gen, _ref, msg) else None
+            if filter msg then
+              Some (gen, _ref, msg)
+            else
+              None
           with _ -> None
         )
         messages

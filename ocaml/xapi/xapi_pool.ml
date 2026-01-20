@@ -139,34 +139,34 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
               ( match
                   Client.PIF.get_bond_master_of ~rpc ~session_id ~self:pif
                 with
-              | [] ->
-                  [pif]
-              | bonds ->
-                  List.concat_map
-                    (fun bond ->
-                      Client.Bond.get_slaves ~rpc ~session_id ~self:bond
-                    )
-                    bonds
+                | [] ->
+                    [pif]
+                | bonds ->
+                    List.concat_map
+                      (fun bond ->
+                        Client.Bond.get_slaves ~rpc ~session_id ~self:bond
+                      )
+                      bonds
+                )
+              |> List.map (fun self ->
+                  Client.PIF.get_network ~rpc ~session_id ~self
               )
               |> List.map (fun self ->
-                     Client.PIF.get_network ~rpc ~session_id ~self
-                 )
-              |> List.map (fun self ->
-                     Client.Network.get_bridge ~rpc ~session_id ~self
-                 )
+                  Client.Network.get_bridge ~rpc ~session_id ~self
+              )
             in
             match
               Db.Host.get_PIFs ~__context
                 ~self:(Helpers.get_localhost ~__context)
               |> List.filter (fun p ->
-                     List.exists
-                       (fun b ->
-                         let network = Db.PIF.get_network ~__context ~self:p in
-                         Db.Network.get_bridge ~__context ~self:network = b
-                       )
-                       clustering_bridges_in_pool
-                     && Db.PIF.get_IP ~__context ~self:p <> ""
-                 )
+                  List.exists
+                    (fun b ->
+                      let network = Db.PIF.get_network ~__context ~self:p in
+                      Db.Network.get_bridge ~__context ~self:network = b
+                    )
+                    clustering_bridges_in_pool
+                  && Db.PIF.get_IP ~__context ~self:p <> ""
+              )
             with
             | [_] ->
                 ()
@@ -243,7 +243,12 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         in
         let min_edition l =
           List.fold_left
-            (fun m e -> if edition_to_int e < edition_to_int m then e else m)
+            (fun m e ->
+              if edition_to_int e < edition_to_int m then
+                e
+              else
+                m
+            )
             (List.hd l) l
         in
         (* get pool edition: the "minimum" edition among all hosts *)
@@ -346,8 +351,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     let updates_on ~rpc ~session_id host =
       Client.Host.get_updates ~rpc ~session_id ~self:host
       |> List.map (fun self ->
-             Client.Pool_update.get_record ~rpc ~session_id ~self
-         )
+          Client.Pool_update.get_record ~rpc ~session_id ~self
+      )
       |> List.filter (fun upd -> upd.API.pool_update_enforce_homogeneity = true)
       |> List.map (fun upd -> upd.API.pool_update_uuid)
       |> S.of_list
@@ -771,15 +776,15 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       let my_nbdish =
         Db.Network.get_all ~__context
         |> List.concat_map (fun nwk ->
-               Db.Network.get_purpose ~__context ~self:nwk
-           )
+            Db.Network.get_purpose ~__context ~self:nwk
+        )
         |> List.find (function `nbd | `insecure_nbd -> true | _ -> false)
       in
       let remote_nbdish =
         Client.Network.get_all ~rpc ~session_id
         |> List.concat_map (fun nwk ->
-               Client.Network.get_purpose ~rpc ~session_id ~self:nwk
-           )
+            Client.Network.get_purpose ~rpc ~session_id ~self:nwk
+        )
         |> List.find (function `nbd | `insecure_nbd -> true | _ -> false)
       in
       if remote_nbdish <> my_nbdish then
@@ -859,10 +864,10 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       list
       |> List.to_seq
       |> Seq.map (fun (_, record) ->
-             ( record.API.certificate_name
-             , record.API.certificate_fingerprint_sha256
-             )
-         )
+          ( record.API.certificate_name
+          , record.API.certificate_fingerprint_sha256
+          )
+      )
       |> CertMap.of_seq
     in
     let remote_certs =
@@ -1033,6 +1038,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           create_or_get_sr_on_master __context rpc session_id
             (my_local_cache_sr, my_local_cache_sr_rec)
       in
+
       debug "Creating host object on master" ;
       let ref =
         Client.Host.create ~rpc ~session_id ~uuid:my_uuid
@@ -1060,6 +1066,16 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~ssh_auto_mode:host.API.host_ssh_auto_mode
           ~secure_boot:host.API.host_secure_boot
           ~software_version:host.API.host_software_version
+          ~https_only:host.API.host_https_only
+          ~max_cstate:host.API.host_max_cstate ~ntp_mode:host.API.host_ntp_mode
+          ~ntp_custom_servers:host.API.host_ntp_custom_servers
+          ~timezone:host.API.host_timezone
+          ~numa_affinity_policy:host.API.host_numa_affinity_policy
+          ~latest_synced_updates_applied:
+            host.API.host_latest_synced_updates_applied
+          ~pending_guidances_full:host.API.host_pending_guidances_full
+          ~pending_guidances_recommended:
+            host.API.host_pending_guidances_recommended
       in
       (* Copy other-config into newly created host record: *)
       no_exn
@@ -2011,12 +2027,12 @@ let eject_self ~__context ~host =
     unplug_pbds ~__context host ;
     Xapi_clustering.find_cluster_host ~__context ~host
     |> Option.iter (fun cluster_host ->
-           debug "Pool.eject: leaving cluster" ;
-           (* PBDs need to be unplugged first for this to succeed *)
-           Helpers.call_api_functions ~__context (fun rpc session_id ->
-               Client.Cluster_host.destroy ~rpc ~session_id ~self:cluster_host
-           )
-       ) ;
+        debug "Pool.eject: leaving cluster" ;
+        (* PBDs need to be unplugged first for this to succeed *)
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Cluster_host.destroy ~rpc ~session_id ~self:cluster_host
+        )
+    ) ;
     debug "Pool.eject: disabling external authentication in slave-to-be-ejected" ;
     (* disable the external authentication of this slave being ejected *)
     (* this call will return an exception if something goes wrong *)
@@ -2262,8 +2278,8 @@ let sync_database ~__context =
       let flushed_to_vdi =
         Db.Pool.get_ha_enabled ~__context ~self:pool
         && Xapi_database.Db_lock.with_lock (fun () ->
-               Xha_metadata_vdi.flush_database ~__context Xapi_ha.ha_redo_log
-           )
+            Xha_metadata_vdi.flush_database ~__context Xapi_ha.ha_redo_log
+        )
       in
       if flushed_to_vdi then
         debug "flushed database to metadata VDI: assuming this is sufficient."
@@ -2386,7 +2402,11 @@ let initial_auth ~__context = Xapi_globs.pool_secret ()
 let is_slave ~__context ~host:_ =
   let is_slave = not (Pool_role.is_master ()) in
   info "Pool.is_slave call received (I'm a %s)"
-    (if is_slave then "slave" else "master") ;
+    ( if is_slave then
+        "slave"
+      else
+        "master"
+    ) ;
   debug
     "About to kick the database connection to make sure it's still working..." ;
   let (_ : bool) =
@@ -2888,7 +2908,7 @@ let enable_external_auth ~__context ~pool:_ ~config ~service_name ~auth_type =
             if
               List.for_all
                 (*List.for_all goes through the list up to the point when the predicate fails, inclusive *)
-                  (fun h ->
+                (fun h ->
                   (* forward the call to the host in the pool *)
                   try
                     debug "trying to enable external authentication on host %s"
@@ -3057,8 +3077,9 @@ let disable_external_auth ~__context ~pool:_ ~config =
       let failedhosts_list =
         List.filter (fun (_, err, _) -> err <> "") host_msgs_list
       in
-      if failedhosts_list <> [] then ((* FAILED *)
-        match List.hd failedhosts_list with
+      if failedhosts_list <> [] then (
+        (* FAILED *)
+          match List.hd failedhosts_list with
         | host, err, msg ->
             debug
               "Failed to disable the external authentication of at least one \
@@ -3244,8 +3265,7 @@ let set_vswitch_controller ~__context ~address =
         Db.Pool.get_vswitch_controller ~__context ~self:pool
       in
       if current_address <> address then (
-        if address <> "" then
-          Helpers.assert_is_valid_ip `ipv4 "address" address ;
+        if address <> "" then Helpers.assert_is_valid_ip `ipv4 "address" address ;
         Db.Pool.set_vswitch_controller ~__context ~self:pool ~value:address ;
         let sdn_controllers = Db.SDN_controller.get_all ~__context in
         if sdn_controllers <> [] then
@@ -3550,7 +3570,10 @@ let alert_failed_login_attempts () =
 let perform ~local_fn ~__context ~host ~remote_fn =
   let rpc' _context hostname (task_opt : API.ref_task option) xml =
     let open Xmlrpc_client in
-    let verify_cert = Some Stunnel.pool (* verify! *) in
+    let verify_cert =
+      Some Stunnel.pool
+      (* verify! *)
+    in
     let task_id = Option.map Ref.string_of task_opt in
     let tracing = Context.set_client_span __context in
     let http = xmlrpc ?task_id ~version:"1.0" "/" in
@@ -3601,14 +3624,19 @@ let assert_single_repo_can_be_enabled ~__context ~repos =
   let origins =
     repos
     |> List.filter_map (fun repo ->
-           match Db.Repository.get_origin ~__context ~self:repo with
-           | (`bundle | `remote_pool) as origin ->
-               Some origin
-           | `remote ->
-               None
-       )
+        match Db.Repository.get_origin ~__context ~self:repo with
+        | (`bundle | `remote_pool) as origin ->
+            Some origin
+        | `remote ->
+            None
+    )
     |> List.fold_left
-         (fun acc origin -> if List.mem origin acc then acc else origin :: acc)
+         (fun acc origin ->
+           if List.mem origin acc then
+             acc
+           else
+             origin :: acc
+         )
          []
   in
   match (repos, origins) with
@@ -3705,15 +3733,15 @@ let sync_repos ~__context ~self ~repos ~force ~token ~token_id ~username
   let open Repository in
   repos
   |> List.iter (fun repo ->
-         if force then cleanup_pool_repo ~__context ~self:repo ;
-         let complete =
-           sync ~__context ~self:repo ~token ~token_id ~username ~password
-         in
-         (* Dnf and custom yum-utils sync all the metadata including updateinfo,
-          * Thus no need to re-create pool repository *)
-         if Pkgs.manager = Yum && complete = false then
-           create_pool_repository ~__context ~self:repo
-     ) ;
+      if force then cleanup_pool_repo ~__context ~self:repo ;
+      let complete =
+        sync ~__context ~self:repo ~token ~token_id ~username ~password
+      in
+      (* Dnf and custom yum-utils sync all the metadata including updateinfo,
+       * Thus no need to re-create pool repository *)
+      if Pkgs.manager = Yum && complete = false then
+        create_pool_repository ~__context ~self:repo
+  ) ;
   let checksum = set_available_updates ~__context in
   Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
   checksum
@@ -3965,8 +3993,7 @@ let reset_telemetry_uuid ~__context ~self =
   let uuid = Uuidx.to_string (Uuidx.make ()) in
   let ref = Xapi_secret.create ~__context ~value:uuid ~other_config:[] in
   Db.Pool.set_telemetry_uuid ~__context ~self ~value:ref ;
-  if old_ref <> Ref.null then
-    debug "Destroying old telemetry UUID" ;
+  if old_ref <> Ref.null then debug "Destroying old telemetry UUID" ;
   Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun _ ->
       Db.Secret.destroy ~__context ~self:old_ref
   )
@@ -4023,8 +4050,7 @@ let set_ext_auth_max_threads ~__context:_ ~self:_ ~value =
 
 let set_ext_auth_cache_enabled ~__context ~self ~value:enabled =
   Db.Pool.set_ext_auth_cache_enabled ~__context ~self ~value:enabled ;
-  if not enabled then
-    Xapi_session.clear_external_auth_cache ()
+  if not enabled then Xapi_session.clear_external_auth_cache ()
 
 let set_ext_auth_cache_size ~__context ~self ~value:capacity =
   if capacity < 0L then

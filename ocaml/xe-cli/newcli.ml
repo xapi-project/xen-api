@@ -34,7 +34,14 @@ let xapiport = ref None
 let traceparent = ref None
 
 let get_xapiport ssl =
-  match !xapiport with None -> if ssl then 443 else 80 | Some p -> p
+  match !xapiport with
+  | None ->
+      if ssl then
+        443
+      else
+        80
+  | Some p ->
+      p
 
 let xeusessl = ref true
 
@@ -270,7 +277,10 @@ let parse_args =
     | args -> (
       match parse_opt args with
       | Some (k, v, rest) ->
-          if set_keyword (k, v) then process_args rest else process_eql args
+          if set_keyword (k, v) then
+            process_args rest
+          else
+            process_eql args
       | None ->
           process_eql args
     )
@@ -478,14 +488,14 @@ let main_loop ifd ofd permitted_filenames =
       minor' major minor
   in
   debug "%s\n%!" msg ;
-  if major' <> major then
-    raise (Protocol_version_mismatch msg) ;
+  if major' <> major then raise (Protocol_version_mismatch msg) ;
   let with_heartbeat =
     (major' * 10) + minor' >= int_of_float (heartbeat_version *. 10.)
   in
   let heartbeat_fun =
     if with_heartbeat then
-      fun () -> marshal ofd (Response Wait)
+      fun () ->
+    marshal ofd (Response Wait)
     else
       ignore
   in

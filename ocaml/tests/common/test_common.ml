@@ -175,7 +175,7 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
     ?(last_software_update = Date.epoch) ?(last_update_hash = "")
     ?(ssh_enabled = true) ?(ssh_enabled_timeout = 0L) ?(ssh_expiry = Date.epoch)
     ?(console_idle_timeout = 0L) ?(ssh_auto_mode = false) ?(secure_boot = false)
-    () =
+    ?(https_only = false) () =
   let host =
     Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname
       ~address ~external_auth_type ~external_auth_service_name
@@ -184,6 +184,10 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
       ~last_update_hash ~ssh_enabled ~ssh_enabled_timeout ~ssh_expiry
       ~console_idle_timeout ~ssh_auto_mode ~secure_boot
       ~software_version:(Xapi_globs.software_version ())
+      ~https_only ~max_cstate:"" ~ntp_mode:`Factory ~ntp_custom_servers:[]
+      ~timezone:"UTC" ~numa_affinity_policy:`default_policy
+      ~latest_synced_updates_applied:`unknown ~pending_guidances_full:[]
+      ~pending_guidances_recommended:[]
   in
   Db.Host.set_cpu_info ~__context ~self:host ~value:default_cpu_info ;
   host
@@ -194,15 +198,14 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(external_auth_type = "") ?(external_auth_service_name = "")
     ?(external_auth_configuration = []) ?(license_params = [])
     ?(edition = "free") ?(license_server = []) ?(local_cache_sr = Ref.null)
-    ?(chipset_info = []) ?(ssl_legacy = false) () =
+    ?(chipset_info = []) ?(ssl_legacy = false) ?(https_only = false) () =
   let pool = Helpers.get_pool ~__context in
   let tls_verification_enabled =
     Db.Pool.get_tls_verification_enabled ~__context ~self:pool
   in
   Db.Host.create ~__context ~ref ~current_operations:[] ~allowed_operations:[]
     ~software_version:(Xapi_globs.software_version ())
-    ~https_only:false ~enabled:false
-    ~aPI_version_major:Datamodel_common.api_version_major
+    ~enabled:false ~aPI_version_major:Datamodel_common.api_version_major
     ~aPI_version_minor:Datamodel_common.api_version_minor
     ~aPI_version_vendor:Datamodel_common.api_version_vendor
     ~aPI_version_vendor_implementation:
@@ -224,7 +227,8 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~pending_guidances_recommended:[] ~pending_guidances_full:[]
     ~last_update_hash:"" ~ssh_enabled:true ~ssh_enabled_timeout:0L
     ~ssh_expiry:Date.epoch ~console_idle_timeout:0L ~ssh_auto_mode:false
-    ~secure_boot:false ;
+    ~secure_boot:false ~https_only ~max_cstate:"" ~ntp_mode:`Factory
+    ~ntp_custom_servers:[] ~timezone:"UTC" ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")
@@ -310,7 +314,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(last_update_sync = API.Date.epoch) ?(update_sync_frequency = `daily)
     ?(update_sync_day = 0L) ?(update_sync_enabled = false)
     ?(recommendations = []) ?(license_server = [])
-    ?(ha_reboot_vm_on_internal_shutdown = true) () =
+    ?(ha_reboot_vm_on_internal_shutdown = true)
+    ?(limit_console_sessions = false) ?(vm_console_idle_timeout = 0L) () =
   let pool_ref = Ref.make () in
   Db.Pool.create ~__context ~ref:pool_ref ~uuid:(make_uuid ()) ~name_label
     ~name_description ~master ~default_SR ~suspend_image_SR ~crash_dump_SR
@@ -331,7 +336,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~ext_auth_cache_enabled:false ~ext_auth_cache_size:50L
     ~ext_auth_cache_expiry:300L ~update_sync_frequency ~update_sync_day
     ~update_sync_enabled ~recommendations ~license_server
-    ~ha_reboot_vm_on_internal_shutdown ;
+    ~ha_reboot_vm_on_internal_shutdown ~limit_console_sessions
+    ~vm_console_idle_timeout ;
   pool_ref
 
 let default_sm_features =

@@ -20,8 +20,7 @@ let unescape_buf buf s =
     | c ->
         Buffer.add_char buf c ; false
   in
-  if Astring.String.fold_left aux false s then
-    Buffer.add_char buf '\\'
+  if Astring.String.fold_left aux false s then Buffer.add_char buf '\\'
 
 let is_escape_char = function '\\' | '\'' -> true | _ -> false
 

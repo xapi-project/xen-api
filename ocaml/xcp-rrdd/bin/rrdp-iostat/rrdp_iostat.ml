@@ -262,17 +262,17 @@ let refresh_phypath_to_sr_vdi () =
     try
       Sys.readdir path
       |> Array.iter (fun sruuid ->
-             let sr_dir = Printf.sprintf "%s/%s" path sruuid in
-             Sys.readdir sr_dir
-             |> Array.iter (fun vdi_entry ->
-                    (* in /dev/sm/phy vdi_entry __should__ be a vdiuuid
+          let sr_dir = Printf.sprintf "%s/%s" path sruuid in
+          Sys.readdir sr_dir
+          |> Array.iter (fun vdi_entry ->
+              (* in /dev/sm/phy vdi_entry __should__ be a vdiuuid
                        in /var/run/sr-mount vdi_entry might look like:
-                         - "$vdiuuid.vhd",
-                         - "$vdiuuid.vhdcache",
-                         -  ".*" *)
-                    f sruuid vdi_entry
-                )
-         )
+                       - "$vdiuuid.vhd",
+                       - "$vdiuuid.vhdcache",
+                       -  ".*" *)
+              f sruuid vdi_entry
+          )
+      )
     with e ->
       D.debug "refresh_phypath_to_sr_vdi: failed searching %s. error: %s" path
         (Printexc.to_string e)
@@ -311,20 +311,20 @@ let refresh_phypath_to_sr_vdi () =
   (* add any vhdcache files *)
   !extra_paths_to_search
   |> StringSet.iter (fun path ->
-         iter_sr_dirs path (fun sruuid vdi_entry ->
-             let vdiuuid =
-               try Some (Scanf.sscanf vdi_entry "%s@.vhdcache" Fun.id)
-               with _ -> None
-             in
-             match vdiuuid with
-             | None ->
-                 ()
-             | Some vdiuuid ->
-                 Hashtbl.replace phypath_to_sr_vdi
-                   (Printf.sprintf "%s/%s/%s" path sruuid vdi_entry)
-                   (sruuid, vdiuuid)
-         )
-     )
+      iter_sr_dirs path (fun sruuid vdi_entry ->
+          let vdiuuid =
+            try Some (Scanf.sscanf vdi_entry "%s@.vhdcache" Fun.id)
+            with _ -> None
+          in
+          match vdiuuid with
+          | None ->
+              ()
+          | Some vdiuuid ->
+              Hashtbl.replace phypath_to_sr_vdi
+                (Printf.sprintf "%s/%s/%s" path sruuid vdi_entry)
+                (sruuid, vdiuuid)
+      )
+  )
 
 (* Get a list of currently-active tapdisk processes as an assoc list from SR/VDI tuple
    to minor number. As a side-effect, this updates the VDI-to-VM in the process state,
@@ -446,7 +446,10 @@ let minor_of_tapdev_unsafe tapdev =
 let get_tapdevs () =
   List.fold_left
     (fun acc entry ->
-      if entry.[0] = 't' && entry.[1] = 'd' then entry :: acc else acc
+      if entry.[0] = 't' && entry.[1] = 'd' then
+        entry :: acc
+      else
+        acc
     )
     []
     (Utils.list_directory_unsafe "/sys/block")
@@ -630,7 +633,10 @@ module Stats_value = struct
           let last_stat =
             match last_stats with None -> 0L | Some s -> List.nth s n
           in
-          if stat >= last_stat then Int64.sub stat last_stat else stat
+          if stat >= last_stat then
+            Int64.sub stat last_stat
+          else
+            stat
         in
         {
           rd_bytes= stats_diff_get 13
@@ -870,7 +876,10 @@ module Iostats_value = struct
              )
         in
         let s3_latency_average =
-          if s3_count = 0L then 0. else to_float s3_usecs /. to_float s3_count
+          if s3_count = 0L then
+            0.
+          else
+            to_float s3_usecs /. to_float s3_count
         in
         (* refer to https://github.com/xenserver/xsiostat for the calculation below *)
         let avgqu_sz =

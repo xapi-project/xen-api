@@ -172,58 +172,52 @@ let generate_class cls =
             (cls
             |> Datamodel_utils.fields_of_obj
             |> List.sort (fun x y ->
-                   compare_case_ins
-                     (Datamodel_utils.wire_name_of_field x)
-                     (Datamodel_utils.wire_name_of_field y)
-               )
+                compare_case_ins
+                  (Datamodel_utils.wire_name_of_field x)
+                  (Datamodel_utils.wire_name_of_field y)
+            )
             |> List.map (fun field ->
-                   `O
-                     [
-                       ( "field_name"
-                       , `String
-                           (pad_right
-                              ("`"
-                              ^ Datamodel_utils.wire_name_of_field field
-                              ^ "`"
-                              )
-                              col_width_20
-                           )
-                       )
-                     ; ( "field_type"
-                       , `String
-                           (pad_right
-                              ("`" ^ of_ty_verbatim field.ty ^ "`")
-                              col_width_20
-                           )
-                       )
-                     ; ( "field_ctor"
-                       , `String
-                           (pad_right
-                              (string_of_qualifier field.qualifier)
-                              col_width_15
-                           )
-                       )
-                     ; ( "field_descr"
-                       , `String
-                           (pad_right
-                              (escape field.field_description)
-                              col_width_40
-                           )
-                       )
-                     ; ( "field_deprecated"
-                       , `Bool
-                           (field.lifecycle.state = Deprecated_s
-                           || cls.obj_lifecycle.state = Deprecated_s
-                           )
-                       )
-                     ; ( "field_removed"
-                       , `Bool
-                           (field.lifecycle.state = Removed_s
-                           || cls.obj_lifecycle.state = Removed_s
-                           )
-                       )
-                     ]
-               )
+                `O
+                  [
+                    ( "field_name"
+                    , `String
+                        (pad_right
+                           ("`" ^ Datamodel_utils.wire_name_of_field field ^ "`")
+                           col_width_20
+                        )
+                    )
+                  ; ( "field_type"
+                    , `String
+                        (pad_right
+                           ("`" ^ of_ty_verbatim field.ty ^ "`")
+                           col_width_20
+                        )
+                    )
+                  ; ( "field_ctor"
+                    , `String
+                        (pad_right
+                           (string_of_qualifier field.qualifier)
+                           col_width_15
+                        )
+                    )
+                  ; ( "field_descr"
+                    , `String
+                        (pad_right (escape field.field_description) col_width_40)
+                    )
+                  ; ( "field_deprecated"
+                    , `Bool
+                        (field.lifecycle.state = Deprecated_s
+                        || cls.obj_lifecycle.state = Deprecated_s
+                        )
+                    )
+                  ; ( "field_removed"
+                    , `Bool
+                        (field.lifecycle.state = Removed_s
+                        || cls.obj_lifecycle.state = Removed_s
+                        )
+                    )
+                  ]
+            )
             )
         )
       ; ("has_rpcs", `Bool (cls.messages <> []))
@@ -232,101 +226,96 @@ let generate_class cls =
             (cls.messages
             |> List.sort (fun x y -> compare_case_ins x.msg_name y.msg_name)
             |> List.map (fun msg ->
-                   let is_event_from =
-                     String.lowercase_ascii cls.name = "event"
-                     && String.lowercase_ascii msg.msg_name = "from"
-                   in
-                   let rpc_param_csv =
-                     msg.msg_params
-                     |> List.map (fun p ->
-                            of_ty_verbatim p.param_type ^ " " ^ p.param_name
+                let is_event_from =
+                  String.lowercase_ascii cls.name = "event"
+                  && String.lowercase_ascii msg.msg_name = "from"
+                in
+                let rpc_param_csv =
+                  msg.msg_params
+                  |> List.map (fun p ->
+                      of_ty_verbatim p.param_type ^ " " ^ p.param_name
+                  )
+                  |> String.concat ", "
+                in
+                let error_codes_csv =
+                  msg.msg_errors
+                  |> List.map (fun x -> sprintf "`%s`" x.err_name)
+                  |> String.concat ", "
+                in
+                let rbac x =
+                  match x.msg_allowed_roles with
+                  | Some y when y <> [] ->
+                      List.hd (List.rev y)
+                  | _ ->
+                      ""
+                in
+                `O
+                  [
+                    ("rpc_name_escaped", `String (escape msg.msg_name))
+                  ; ("rpc_name", `String msg.msg_name)
+                  ; ("rpc_descr", `String (escape msg.msg_doc))
+                  ; ("rpc_has_descr", `Bool (msg.msg_doc <> ""))
+                  ; ( "rpc_deprecated"
+                    , `Bool
+                        (msg.msg_lifecycle.state = Lifecycle.Deprecated_s
+                        || cls.obj_lifecycle.state = Deprecated_s
                         )
-                     |> String.concat ", "
-                   in
-                   let error_codes_csv =
-                     msg.msg_errors
-                     |> List.map (fun x -> sprintf "`%s`" x.err_name)
-                     |> String.concat ", "
-                   in
-                   let rbac x =
-                     match x.msg_allowed_roles with
-                     | Some y when y <> [] ->
-                         List.hd (List.rev y)
-                     | _ ->
-                         ""
-                   in
-                   `O
-                     [
-                       ("rpc_name_escaped", `String (escape msg.msg_name))
-                     ; ("rpc_name", `String msg.msg_name)
-                     ; ("rpc_descr", `String (escape msg.msg_doc))
-                     ; ("rpc_has_descr", `Bool (msg.msg_doc <> ""))
-                     ; ( "rpc_deprecated"
-                       , `Bool
-                           (msg.msg_lifecycle.state = Lifecycle.Deprecated_s
-                           || cls.obj_lifecycle.state = Deprecated_s
-                           )
-                       )
-                     ; ( "rpc_removed"
-                       , `Bool
-                           (msg.msg_lifecycle.state = Lifecycle.Removed_s
-                           || cls.obj_lifecycle.state = Removed_s
-                           )
-                       )
-                     ; ("returns_void", `Bool (msg.msg_result = None))
-                     ; ( "return_type"
-                       , `String
-                           ( if is_event_from then
-                               "event batch"
-                             else
-                               of_ty_opt_verbatim msg.msg_result
-                           )
-                       )
-                     ; ( "return_descr"
-                       , `String (escape (desc_of_ty_opt msg.msg_result))
-                       )
-                     ; ("rpc_param_csv", `String rpc_param_csv)
-                     ; ("has_rbac", `Bool (rbac msg <> ""))
-                     ; ("min_role", `String (rbac msg))
-                     ; ("session", `Bool msg.msg_session)
-                     ; ("has_rpc_params", `Bool (msg.msg_params <> []))
-                     ; ( "rpc_params"
-                       , `A
-                           (msg.msg_params
-                           |> List.map (fun p ->
-                                  `O
-                                    [
-                                      ( "param_name"
-                                      , `String
-                                          (pad_right
-                                             ("`" ^ p.param_name ^ "`")
-                                             col_width_30
-                                          )
-                                      )
-                                    ; ( "param_type"
-                                      , `String
-                                          (pad_right
-                                             ("`"
-                                             ^ of_ty_verbatim p.param_type
-                                             ^ "`"
-                                             )
-                                             col_width_30
-                                          )
-                                      )
-                                    ; ( "param_descr"
-                                      , `String
-                                          (pad_right (escape p.param_doc)
-                                             col_width_40
-                                          )
-                                      )
-                                    ]
-                              )
-                           )
-                       )
-                     ; ("has_error_codes", `Bool (msg.msg_errors <> []))
-                     ; ("error_codes_csv", `String error_codes_csv)
-                     ]
-               )
+                    )
+                  ; ( "rpc_removed"
+                    , `Bool
+                        (msg.msg_lifecycle.state = Lifecycle.Removed_s
+                        || cls.obj_lifecycle.state = Removed_s
+                        )
+                    )
+                  ; ("returns_void", `Bool (msg.msg_result = None))
+                  ; ( "return_type"
+                    , `String
+                        ( if is_event_from then
+                            "event batch"
+                          else
+                            of_ty_opt_verbatim msg.msg_result
+                        )
+                    )
+                  ; ( "return_descr"
+                    , `String (escape (desc_of_ty_opt msg.msg_result))
+                    )
+                  ; ("rpc_param_csv", `String rpc_param_csv)
+                  ; ("has_rbac", `Bool (rbac msg <> ""))
+                  ; ("min_role", `String (rbac msg))
+                  ; ("session", `Bool msg.msg_session)
+                  ; ("has_rpc_params", `Bool (msg.msg_params <> []))
+                  ; ( "rpc_params"
+                    , `A
+                        (msg.msg_params
+                        |> List.map (fun p ->
+                            `O
+                              [
+                                ( "param_name"
+                                , `String
+                                    (pad_right
+                                       ("`" ^ p.param_name ^ "`")
+                                       col_width_30
+                                    )
+                                )
+                              ; ( "param_type"
+                                , `String
+                                    (pad_right
+                                       ("`" ^ of_ty_verbatim p.param_type ^ "`")
+                                       col_width_30
+                                    )
+                                )
+                              ; ( "param_descr"
+                                , `String
+                                    (pad_right (escape p.param_doc) col_width_40)
+                                )
+                              ]
+                        )
+                        )
+                    )
+                  ; ("has_error_codes", `Bool (msg.msg_errors <> []))
+                  ; ("error_codes_csv", `String error_codes_csv)
+                  ]
+            )
             )
         )
       ]
@@ -363,24 +352,21 @@ let generate_types system =
                          , `A
                              (options
                              |> List.sort (fun (x, _) (y, _) ->
-                                    compare_case_ins x y
-                                )
+                                 compare_case_ins x y
+                             )
                              |> List.map (fun (n, c) ->
-                                    `O
-                                      [
-                                        ( "option_name"
-                                        , `String
-                                            (pad_right
-                                               ("`" ^ n ^ "`")
-                                               col_width_40
-                                            )
-                                        )
-                                      ; ( "option_descr"
-                                        , `String
-                                            (pad_right (escape c) col_width_40)
-                                        )
-                                      ]
-                                )
+                                 `O
+                                   [
+                                     ( "option_name"
+                                     , `String
+                                         (pad_right ("`" ^ n ^ "`") col_width_40)
+                                     )
+                                   ; ( "option_descr"
+                                     , `String
+                                         (pad_right (escape c) col_width_40)
+                                     )
+                                   ]
+                             )
                              )
                          )
                        ]

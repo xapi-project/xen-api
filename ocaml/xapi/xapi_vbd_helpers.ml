@@ -376,7 +376,14 @@ let update_allowed_operations ~__context ~self : unit =
     valid_operations ~expensive_sharing_checks:false ~__context all self
   in
   let keys =
-    Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid []
+    Hashtbl.fold
+      (fun k v acc ->
+        if v = None then
+          k :: acc
+        else
+          acc
+      )
+      valid []
   in
   Db.VBD.set_allowed_operations ~__context ~self ~value:keys
 

@@ -484,13 +484,13 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
   let all_ops =
     Xapi_globs.pre_ely_vdi_operations
     |> Xapi_globs.Vdi_operations_set.filter (function
-         | `blocked ->
-             false (* CA-260245 *)
-         | `force_unlock ->
-             false (* CA-281176 *)
-         | _ ->
-             true
-         )
+      | `blocked ->
+          false (* CA-260245 *)
+      | `force_unlock ->
+          false (* CA-281176 *)
+      | _ ->
+          true
+      )
   in
   let all = Db.VDI.get_record_internal ~__context ~self in
   let vbd_records =
@@ -736,7 +736,9 @@ let pool_introduce = internal_db_introduce
 let db_introduce = internal_db_introduce
 
 let db_forget ~__context ~vdi =
-  debug "db_forget uuid=%s" (Db.VDI.get_uuid ~__context ~self:vdi) ;
+  debug "db_forget uuid=%s ref=%s"
+    (Db.VDI.get_uuid ~__context ~self:vdi)
+    (Ref.string_of vdi) ;
   Db.VDI.destroy ~__context ~self:vdi
 
 let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type
@@ -886,28 +888,14 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
   let classes = [Printf.sprintf "VDI/%s" (Ref.string_of self)] in
   let next_token_and_vbds ~token ~timeout =
     let most_recent_vbds_field events =
-      (* We do not assume anything here about the order of the list of events we get. *)
-      let most_recent_snapshot =
-        let events_from_newest_to_oldest =
-          (* We need to sort the timestamp strings in decreasing order *)
-          List.sort
-            (fun e1 e2 -> Event_types.(-String.compare e1.ts e2.ts))
-            events
-        in
-        let snapshots_from_newest_to_oldest =
-          (* filter_map preserves the order of elements *)
-          List.filter_map
-            (fun event -> event.Event_types.snapshot)
-            events_from_newest_to_oldest
-        in
-        List.nth_opt snapshots_from_newest_to_oldest 0
-      in
-      Option.map
-        (fun snapshot ->
+      (* We need to sort the timestamp strings in decreasing order *)
+      List.sort (fun e1 e2 -> Event_types.(-String.compare e1.ts e2.ts)) events
+      |> List.filter_map (fun event -> event.Event_types.snapshot)
+      |> Xapi_stdext_std.Listext.List.head
+      |> Option.map (fun snapshot ->
           let vdi = API.vDI_t_of_rpc snapshot in
           vdi.API.vDI_VBDs
-        )
-        most_recent_snapshot
+      )
     in
     let from =
       let timeout = Scheduler.span_to_s timeout in
@@ -1039,8 +1027,8 @@ let destroy_and_data_destroy_common ~__context ~self
     Db.VM.get_refs_where ~__context
       ~expr:(Eq (Field "suspend_VDI", Literal (Ref.string_of self)))
     |> List.iter (fun self ->
-           Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null
-       )
+        Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null
+    )
 
 let destroy = destroy_and_data_destroy_common ~operation:`destroy
 
@@ -1153,7 +1141,7 @@ let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
         (* When creating a new VDI, clone as many properties of the
            original as we can. If we're not cloning a property, please
            explain why in a comment. *)
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Helpers.call_api_functions ~__context (fun rpc session_id ->
             let new_vdi =
               Client.VDI.create ~rpc ~session_id
                 ~name_label:src.API.vDI_name_label
@@ -1379,7 +1367,10 @@ let change_cbt_status ~__context ~self ~new_cbt_enabled ~caller_name =
       let rpc = Storage_access.rpc
     end)) in
     let call_f =
-      if new_cbt_enabled then C.VDI.enable_cbt else C.VDI.disable_cbt
+      if new_cbt_enabled then
+        C.VDI.enable_cbt
+      else
+        C.VDI.disable_cbt
     in
     Storage_utils.transform_storage_exn (fun () ->
         call_f (Ref.string_of task) sr' vdi'
@@ -1387,7 +1378,11 @@ let change_cbt_status ~__context ~self ~new_cbt_enabled ~caller_name =
     Db.VDI.set_cbt_enabled ~__context ~self ~value:new_cbt_enabled
   ) else
     debug "%s: Not doing anything, CBT is already %s" caller_name
-      (if new_cbt_enabled then "enabled" else "disabled")
+      ( if new_cbt_enabled then
+          "enabled"
+        else
+          "disabled"
+      )
 
 let enable_cbt ~__context ~self =
   Pool_features.assert_enabled ~__context ~f:Features.CBT ;
@@ -1403,7 +1398,11 @@ let set_cbt_enabled ~__context ~self ~value =
     update_allowed_operations ~__context ~self
   ) else
     debug "VDI.set_cbt_enabled: Not doing anything, CBT is already %s"
-      (if value then "enabled" else "disabled")
+      ( if value then
+          "enabled"
+        else
+          "disabled"
+      )
 
 let list_changed_blocks ~__context ~vdi_from ~vdi_to =
   let task = Context.get_task_id __context in
@@ -1453,10 +1452,10 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
   let nbd_networks =
     Db.Network.get_all ~__context
     |> Valid_ref_list.filter (fun nwk ->
-           (* Despite the singular name, Db.get_purpose returns a list. *)
-           Db.Network.get_purpose ~__context ~self:nwk
-           |> List.exists (fun p -> p = `nbd || p = `insecure_nbd)
-       )
+        (* Despite the singular name, Db.get_purpose returns a list. *)
+        Db.Network.get_purpose ~__context ~self:nwk
+        |> List.exists (fun p -> p = `nbd || p = `insecure_nbd)
+    )
   in
   let get_ips host =
     let get_ips pif =
@@ -1465,7 +1464,10 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
         Db.PIF.get_IPv6 ~__context ~self:pif |> List.filter not_empty
       in
       let v4_ip = Db.PIF.get_IP ~__context ~self:pif in
-      if not_empty v4_ip then v4_ip :: v6_ips else v6_ips
+      if not_empty v4_ip then
+        v4_ip :: v6_ips
+      else
+        v6_ips
     in
     let attached_pifs =
       Db.PIF.get_refs_where ~__context
@@ -1480,8 +1482,8 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
     let attached_nbd_pifs =
       attached_pifs
       |> List.filter (fun pif ->
-             List.mem (Db.PIF.get_network ~__context ~self:pif) nbd_networks
-         )
+          List.mem (Db.PIF.get_network ~__context ~self:pif) nbd_networks
+      )
     in
     attached_nbd_pifs |> Valid_ref_list.flat_map get_ips
   in
@@ -1490,64 +1492,65 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
   let exportname = Printf.sprintf "/%s?session_id=%s" vdi_uuid session_id in
   hosts_with_attached_pbds
   |> Valid_ref_list.flat_map (fun host ->
-         let ips = get_ips host in
-         (* Check if empty: avoid inter-host calls and other work if so. *)
-         if ips = [] then
-           []
-         else
-           let cert = get_server_certificate ~host in
-           let port = 10809L in
-           let module Host_set = X509.Host.Set in
-           let select_a_hostname = function
-             | set when Host_set.is_empty set ->
-                 Error
-                   (`Msg
-                     "Found no subject DNS names in this hosts's certificate."
-                     )
-             | set ->
-                 let strict_or_wildcard = function
-                   | `Strict, _ ->
-                       true
-                   | `Wildcard, _ ->
-                       false
-                 in
-                 (* select the first strict hostname, or a wildcard one otherwise *)
-                 let strict, wildcard =
-                   Host_set.partition strict_or_wildcard set
-                 in
-                 let hosts =
-                   if Host_set.is_empty strict then wildcard else strict
-                 in
-                 Ok (Host_set.min_elt hosts |> snd |> Domain_name.to_string)
-           in
-           let hosts = Certificates.hostnames_of_pem_cert cert in
-           let subject =
-             match Rresult.R.bind hosts select_a_hostname with
-             | Ok hostname ->
-                 hostname
-             | Error (`Msg e) ->
-                 error
-                   "get_nbd_info: failed to read subject from TLS certificate! \
-                    Falling back to Host.hostname. Error was %s"
-                   e ;
-                 Db.Host.get_hostname ~__context ~self:host
-           in
-           let template =
-             API.
-               {
-                 vdi_nbd_server_info_exportname= exportname
-               ; vdi_nbd_server_info_address= ""
-               ; vdi_nbd_server_info_port= port
-               ; vdi_nbd_server_info_cert= cert
-               ; vdi_nbd_server_info_subject= subject
-               }
-           in
+      let ips = get_ips host in
+      (* Check if empty: avoid inter-host calls and other work if so. *)
+      if ips = [] then
+        []
+      else
+        let cert = get_server_certificate ~host in
+        let port = 10809L in
+        let module Host_set = X509.Host.Set in
+        let select_a_hostname = function
+          | set when Host_set.is_empty set ->
+              Error
+                (`Msg "Found no subject DNS names in this hosts's certificate.")
+          | set ->
+              let strict_or_wildcard = function
+                | `Strict, _ ->
+                    true
+                | `Wildcard, _ ->
+                    false
+              in
+              (* select the first strict hostname, or a wildcard one otherwise *)
+              let strict, wildcard =
+                Host_set.partition strict_or_wildcard set
+              in
+              let hosts =
+                if Host_set.is_empty strict then
+                  wildcard
+                else
+                  strict
+              in
+              Ok (Host_set.min_elt hosts |> snd |> Domain_name.to_string)
+        in
+        let hosts = Certificates.hostnames_of_pem_cert cert in
+        let subject =
+          match Rresult.R.bind hosts select_a_hostname with
+          | Ok hostname ->
+              hostname
+          | Error (`Msg e) ->
+              error
+                "get_nbd_info: failed to read subject from TLS certificate! \
+                 Falling back to Host.hostname. Error was %s"
+                e ;
+              Db.Host.get_hostname ~__context ~self:host
+        in
+        let template =
+          API.
+            {
+              vdi_nbd_server_info_exportname= exportname
+            ; vdi_nbd_server_info_address= ""
+            ; vdi_nbd_server_info_port= port
+            ; vdi_nbd_server_info_cert= cert
+            ; vdi_nbd_server_info_subject= subject
+            }
+        in
 
-           ips
-           |> List.map (fun addr ->
-                  API.{template with vdi_nbd_server_info_address= addr}
-              )
-     )
+        ips
+        |> List.map (fun addr ->
+            API.{template with vdi_nbd_server_info_address= addr}
+        )
+  )
 
 let get_nbd_info ~__context ~self =
   let get_server_certificate ~host =

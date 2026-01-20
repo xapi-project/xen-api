@@ -47,7 +47,7 @@ val setup : unit -> unit
 
 (** {1 Static property tests} *)
 
-val as_readable : (([< readable] as 'a), 'b) make -> ([> readable], 'b) make
+val as_readable : ([< readable], 'b) make -> ([> readable], 'b) make
 (** [as_readable_opt t] returns [Some t] when [t] is readable, and [None] otherwise. *)
 
 val as_writable : ([< writable], 'b) make -> ([> writable], 'b) make
@@ -55,12 +55,10 @@ val as_writable : ([< writable], 'b) make -> ([> writable], 'b) make
 
 (** {1 Runtime property tests}  *)
 
-val as_readable_opt :
-  (([< rw] as 'a), 'b) make -> ([> readable], 'b) make option
+val as_readable_opt : ([< rw], 'b) make -> ([> readable], 'b) make option
 (** [as_readable_opt t] returns [Some t] when [t] is readable, and [None] otherwise. *)
 
-val as_writable_opt :
-  (([< rw] as 'a), 'b) make -> ([> writable], 'b) make option
+val as_writable_opt : ([< rw], 'b) make -> ([> writable], 'b) make option
 (** [as_writable_opt t] returns [Some t] when [t] is readable, and [None] otherwise. *)
 
 val as_spipe_opt : ('a, [< kind]) make -> ('a, [> espipe]) make option
@@ -78,8 +76,7 @@ val with_fd2 : 'a t * 'b t -> ('a t * 'b t -> 'c) -> 'c
 
 module Syntax : sig
   val ( let@ ) : ('a -> 'b) -> 'a -> 'b
-  (** [let@ fd = with_fd t in ... use fd] *)
-end
+  (** [let@ fd = with_fd t in ... use fd] *) end
 
 (** {1 {!mod:Unix} wrappers} *)
 
@@ -298,6 +295,4 @@ val repeat_write : ('a, string) operation -> ('a, string) operation
 
 (**/**)
 
-module For_test : sig
-  val unsafe_fd_exn : _ t -> Unix.file_descr
-end
+module For_test : sig val unsafe_fd_exn : _ t -> Unix.file_descr end
