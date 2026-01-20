@@ -252,10 +252,13 @@ let free_other uuid free =
         ~value:(Rrd.VT_Int64 free) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
     )
 
-let dss_numa_info xc dom uuid domid =
+let dss_numa_info uuid domid =
   try
-    let host_nr_nodes = Xenctrlext.(get_handle () |> get_nr_nodes) in
-    let vm_nodes = Xenctrl.domain_get_numa_info_node_pages xc domid in
+    let handle = Xenctrlext.get_handle () in
+    let host_nr_nodes = Xenctrlext.get_nr_nodes handle in
+    let vm_nodes =
+      Xenctrlext.DomainNuma.domain_get_numa_info_node_pages handle domid
+    in
     let dss_memory_numa_nodes_of_vm (dss, nr_nodes_used_by_vm)
         (node_id, tot_pages_per_node) =
       (*
@@ -297,7 +300,7 @@ let dss_numa_info xc dom uuid domid =
       )
       :: List.rev dss
     in
-    vm_nodes.Xenctrl.tot_pages_per_node
+    vm_nodes.Xenctrlext.DomainNuma.tot_pages_per_node
     |> Array.mapi (fun i x -> (i, x))
     |> Array.fold_left dss_memory_numa_nodes_of_vm ([], 0)
     |> dss_numa_nodes_of_vm
@@ -307,7 +310,7 @@ let dss_numa_info xc dom uuid domid =
 
 let get_list f = Option.to_list (f ())
 
-let generate_vm_sources xc domains =
+let generate_vm_sources domains =
   let metrics_of ((dom, uuid, domid), {target; free; _}) =
     let target () =
       Option.map
@@ -341,7 +344,7 @@ let generate_vm_sources xc domains =
             ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
         )
     in
-    let get_list_numa_info = dss_numa_info xc dom uuid domid in
+    let get_list_numa_info = dss_numa_info uuid domid in
     (* CA-34383: Memory updates from paused domains serve no useful purpose.
        During a migrate such updates can also cause undesirable
        discontinuities in the observed value of memory_actual. Hence, we
@@ -356,7 +359,7 @@ let generate_vm_sources xc domains =
 
 let generate_sources xc () =
   let domain_stats = get_domain_stats xc in
-  generate_host_sources xc domain_stats @ generate_vm_sources xc domain_stats
+  generate_host_sources xc domain_stats @ generate_vm_sources domain_stats
 
 (** The json-like serialization for 3 dss in dss_mem_vms takes 622 bytes. These
     bytes plus some overhead make 1024 bytes an upper bound. *)
