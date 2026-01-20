@@ -37,6 +37,9 @@ module type S = sig
 
   val get_updates_from_upgrade_dry_run : repositories:string list -> cmd_line
 
+  val get_updates_from_group_upgrade_dry_run :
+    repositories:string list -> cmd_line
+
   val is_obsoleted : pkg_name:string -> repositories:string list -> cmd_line
 
   val repoquery_updates : repositories:string list -> cmd_line
@@ -72,6 +75,8 @@ module type Args = sig
   val get_pkgs_from_updateinfo : Updateinfo.t -> string list -> string list
 
   val get_updates_from_upgrade_dry_run : string list -> string list
+
+  val get_updates_from_group_upgrade_dry_run : string list -> string list
 
   val is_obsoleted : string -> string list -> string list
 
@@ -127,6 +132,16 @@ module Common_args = struct
     ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
     ; "--assumeno"
     ; "upgrade"
+    ]
+
+  let get_updates_from_group_upgrade_dry_run repositories =
+    [
+      "--disablerepo=*"
+    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
+    ; "--assumeno"
+    ; "group"
+    ; "upgrade"
+    ; "*"
     ]
 
   let repoquery repositories =
@@ -192,6 +207,10 @@ module Yum_args : Args = struct
 
   let get_updates_from_upgrade_dry_run repositories =
     ["--quiet"] @ Common_args.get_updates_from_upgrade_dry_run repositories
+
+  let get_updates_from_group_upgrade_dry_run repositories =
+    ["--quiet"]
+    @ Common_args.get_updates_from_group_upgrade_dry_run repositories
 
   let is_obsoleted pkg_name repositories =
     ["--all"] @ Common_args.is_obsoleted pkg_name repositories @ ["--plugins"]
@@ -296,6 +315,12 @@ module Cmd_line (M : Args) : S = struct
 
   let get_updates_from_upgrade_dry_run ~repositories =
     {cmd= M.pkg_cmd; params= M.get_updates_from_upgrade_dry_run repositories}
+
+  let get_updates_from_group_upgrade_dry_run ~repositories =
+    {
+      cmd= M.pkg_cmd
+    ; params= M.get_updates_from_group_upgrade_dry_run repositories
+    }
 
   let is_obsoleted ~pkg_name ~repositories =
     {cmd= M.repoquery_cmd; params= M.is_obsoleted pkg_name repositories}
