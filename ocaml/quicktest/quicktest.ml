@@ -19,12 +19,38 @@ let qchecks =
   |> List.map @@ fun (name, test) ->
      (name, List.map QCheck_alcotest.(to_alcotest ~long:true) test)
 
+let setup_tty () =
+  let style_renderer =
+    if !Quicktest_args.use_colour then
+      (* use default style, auto-detect color support *)
+      None
+    else
+      (* never use color *)
+      Some `None
+  in
+  Fmt_tty.setup_std_outputs ?style_renderer ()
+
+let wrap f =
+  setup_tty () ;
+  let open Quicktest_trace in
+  Opentelemetry.Globals.service_name := "quicktest" ;
+  TeeBackend.with_default_setup () @@ fun () ->
+  Sys.catch_break true ;
+  () |> Debug.with_thread_associated "quicktest" @@ fun () -> Qt_filter.wrap f
+
 let () =
   Quicktest_args.parse () ;
-  Qt_filter.wrap (fun () ->
+  wrap (fun () ->
       let suite =
         [
-          ("Quicktest_example", Quicktest_example.tests ())
+          ( "Quicktest_vm_calibrate_cleanup0"
+          , Quicktest_vm_calibrate.tests_cleanup ()
+          )
+        ; ("Quicktest_vm_calibrate", Quicktest_vm_calibrate.tests ())
+        ; ( "Quicktest_vm_calibrate_cleanup1"
+          , Quicktest_vm_calibrate.tests_cleanup ()
+          )
+        ; ("Quicktest_example", Quicktest_example.tests ())
         ; ("Quicktest_message", Quicktest_message.tests ())
         ; ("xenstore", Quicktest_xenstore.tests ())
         ; ("cbt", Quicktest_cbt.tests ())
