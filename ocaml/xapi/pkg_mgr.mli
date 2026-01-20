@@ -67,6 +67,9 @@ module type S = sig
 
   val apply_upgrade : repositories:string list -> cmd_line
   (** Command line and arguments to apply upgrades from repos *)
+
+  val apply_group_upgrade : repositories:string list -> cmd_line
+  (** Command line and arguments to apply group upgrades from repos *)
 end
 
 (** Exposed only for unittest, do not use the modules directly

@@ -52,6 +52,8 @@ module type S = sig
   val sync_repo : repo_name:string -> cmd_line
 
   val apply_upgrade : repositories:string list -> cmd_line
+
+  val apply_group_upgrade : repositories:string list -> cmd_line
 end
 
 module type Args = sig
@@ -86,6 +88,8 @@ module type Args = sig
   val sync_repo : string -> string list
 
   val apply_upgrade : string list -> string list
+
+  val apply_group_upgrade : string list -> string list
 end
 
 let repoquery_sep = ":|"
@@ -160,6 +164,16 @@ module Common_args = struct
     ; "--disablerepo=*"
     ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
     ; "upgrade"
+    ]
+
+  let apply_group_upgrade repositories =
+    [
+      "-y"
+    ; "--disablerepo=*"
+    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
+    ; "group"
+    ; "upgrade"
+    ; "*"
     ]
 end
 
@@ -305,6 +319,9 @@ module Cmd_line (M : Args) : S = struct
 
   let apply_upgrade ~repositories =
     {cmd= M.pkg_cmd; params= M.apply_upgrade repositories}
+
+  let apply_group_upgrade ~repositories =
+    {cmd= M.pkg_cmd; params= M.apply_group_upgrade repositories}
 end
 
 module Yum_cmd = Cmd_line (Yum_args)
