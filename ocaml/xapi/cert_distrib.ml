@@ -33,7 +33,13 @@ module WireProtocol = struct
                    resolving conflicts by taking the incoming cert *)
   type conflict_resolution = Erase_old | Merge [@@deriving sexp]
 
-  type certificate = HostPoolCertificate | ApplianceCertificate
+  type purpose = string [@@deriving sexp]
+
+  type certificate =
+    | HostPoolCert
+    | LegacyRootCert
+    | RootCert of purpose list
+    | PinnedCert of purpose list
   [@@deriving sexp]
 
   type certificate_file = {filename: string; content: string} [@@deriving sexp]
@@ -141,11 +147,13 @@ end
 
 let string_of_file path = Unixext.read_lines ~path |> String.concat "\n"
 
-module ApplianceProvider = struct
-  let store_paths = [!Xapi_globs.trusted_certs_dir]
+module type TrustedStore = sig val store_paths : string list end
 
+module TrustedCertProvider (Store : TrustedStore) : CertificateProvider = struct
   let certificate_of_id_content filename content =
     WireProtocol.{filename; content}
+
+  let store_paths = Store.store_paths
 
   let read_certificate filename =
     let@ store_path = store_paths in
@@ -153,13 +161,35 @@ module ApplianceProvider = struct
     certificate_of_id_content filename content
 end
 
+module LegacyRootProvider = TrustedCertProvider (struct
+  let store_paths = [!Xapi_globs.trusted_certs_dir]
+end)
+
+let to_purposes = List.map Record_util.certificate_purpose_of_string
+
 let provider_of_certificate (typ : WireProtocol.certificate) :
     (module CertificateProvider) =
   match typ with
-  | HostPoolCertificate ->
+  | HostPoolCert ->
       (module HostPoolProvider : CertificateProvider)
-  | ApplianceCertificate ->
-      (module ApplianceProvider : CertificateProvider)
+  | LegacyRootCert ->
+      (module LegacyRootProvider : CertificateProvider)
+  | RootCert purposes ->
+      let store_paths =
+        Certificates.trusted_store_locations (Root (to_purposes purposes))
+        |> List.map (fun store -> store.Certificates.cert_dir)
+      in
+      (module TrustedCertProvider (struct let store_paths = store_paths end)
+      : CertificateProvider
+    )
+  | PinnedCert purposes ->
+      let store_paths =
+        Certificates.trusted_store_locations (Pinned (to_purposes purposes))
+        |> List.map (fun store -> store.Certificates.cert_dir)
+      in
+      (module TrustedCertProvider (struct let store_paths = store_paths end)
+      : CertificateProvider
+    )
 
 (* eventually the remote calls should probably become API calls in the datamodel
    but they remain here for quick development *)
@@ -365,7 +395,7 @@ let collect_pool_certs ~__context ~rpc ~session_id ~map ~from_hosts =
   |> List.map (fun host ->
       let uuid = Db.Host.get_uuid ~__context ~self:host in
       let cert =
-        Worker.remote_collect_cert HostPoolCertificate uuid host rpc session_id
+        Worker.remote_collect_cert HostPoolCert uuid host rpc session_id
       in
       map cert
   )
@@ -435,8 +465,8 @@ let exchange_certificates_in_pool ~__context =
           (fun host ->
             ( Printf.sprintf "send certs to %s" (Ref.short_string_of host)
             , fun () ->
-                Worker.remote_write_certs_fs HostPoolCertificate Erase_old certs
-                  host rpc session_id
+                Worker.remote_write_certs_fs HostPoolCert Erase_old certs host
+                  rpc session_id
             )
           )
           all_hosts
@@ -468,7 +498,7 @@ let list_certs path =
   )
 
 let get_local_ca_certs () : WireProtocol.certificate_file list =
-  let@ store_path = ApplianceProvider.store_paths in
+  let@ store_path = LegacyRootProvider.store_paths in
   list_certs store_path
 
 let get_local_pool_certs () : WireProtocol.certificate_file list =
@@ -502,7 +532,7 @@ let am_i_missing_certs ~__context : bool =
       store_path ()
   in
   let ca_certs_are_missing () =
-    let*? store_path = ApplianceProvider.store_paths in
+    let*? store_path = LegacyRootProvider.store_paths in
     local_is_missing_certificates
       (fun ~__context ->
         Db.Certificate.get_all ~__context
@@ -527,10 +557,10 @@ let copy_certs_to_host ~__context ~host =
        it's missing them... this is bad, but continuing anyway"
       (Ref.short_string_of host) ;
   Helpers.call_api_functions ~__context @@ fun rpc session_id ->
-  Worker.remote_write_certs_fs HostPoolCertificate Erase_old
-    (get_local_pool_certs ()) host rpc session_id ;
-  Worker.remote_write_certs_fs ApplianceCertificate Erase_old
-    (get_local_ca_certs ()) host rpc session_id ;
+  Worker.remote_write_certs_fs HostPoolCert Erase_old (get_local_pool_certs ())
+    host rpc session_id ;
+  Worker.remote_write_certs_fs LegacyRootCert Erase_old (get_local_ca_certs ())
+    host rpc session_id ;
   Worker.remote_regen_bundle host rpc session_id
 
 (* This function is called on the pool that is incorporating a new host *)
@@ -538,8 +568,7 @@ let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
   let joiner_certificate =
     HostPoolProvider.certificate_of_id_content uuid certificate
   in
-  Worker.local_write_cert_fs ~__context HostPoolCertificate Merge
-    [joiner_certificate] ;
+  Worker.local_write_cert_fs ~__context HostPoolCert Merge [joiner_certificate] ;
   Worker.local_regen_bundle ~__context ;
   let () =
     (* now that the primary host trusts the joiner, perform best effort
@@ -550,8 +579,8 @@ let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
     secondary_hosts
     |> List.iter (fun host ->
         try
-          Worker.remote_write_certs_fs HostPoolCertificate Merge
-            [joiner_certificate] host rpc session_id
+          Worker.remote_write_certs_fs HostPoolCert Merge [joiner_certificate]
+            host rpc session_id
         with e ->
           D.warn
             "exchange_certificates_with_joiner: sending joiner cert to %s \
@@ -574,11 +603,11 @@ let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
 (* This function is called on the host that is joining a pool *)
 let import_joining_pool_certs ~__context ~pool_certs =
   let pool_certs = List.map WireProtocol.certificate_file_of_pair pool_certs in
-  Worker.local_write_cert_fs ~__context HostPoolCertificate Merge pool_certs ;
+  Worker.local_write_cert_fs ~__context HostPoolCert Merge pool_certs ;
   Worker.local_regen_bundle ~__context
 
 let collect_ca_certs ~__context ~names =
-  Worker.local_collect_certs ApplianceCertificate ~__context names
+  Worker.local_collect_certs LegacyRootCert ~__context names
   |> List.map WireProtocol.pair_of_certificate_file
 
 (* This function is called on the pool that is incorporating a new host *)
@@ -595,8 +624,7 @@ let exchange_ca_certificates_with_joiner ~__context ~import ~export =
       )
       appliance_certs
   in
-  Worker.local_write_cert_fs ~__context ApplianceCertificate Merge
-    appliance_certs ;
+  Worker.local_write_cert_fs ~__context LegacyRootCert Merge appliance_certs ;
   Worker.local_regen_bundle ~__context ;
   List.iter
     (fun (name, cert) ->
@@ -613,8 +641,7 @@ let import_joining_pool_ca_certificates ~__context ~ca_certs =
   let appliance_certs =
     List.map WireProtocol.certificate_file_of_pair ca_certs
   in
-  Worker.local_write_cert_fs ~__context ApplianceCertificate Merge
-    appliance_certs ;
+  Worker.local_write_cert_fs ~__context LegacyRootCert Merge appliance_certs ;
   Worker.local_regen_bundle ~__context
 
 let distribute_new_host_cert ~__context ~host ~content =
@@ -624,8 +651,7 @@ let distribute_new_host_cert ~__context ~host ~content =
     WireProtocol.{filename= Printf.sprintf "%s.new.pem" uuid; content}
   in
   let job rpc session_id host =
-    Worker.remote_write_certs_fs HostPoolCertificate Merge [file] host rpc
-      session_id
+    Worker.remote_write_certs_fs HostPoolCert Merge [file] host rpc session_id
   in
   Helpers.call_api_functions ~__context @@ fun rpc session_id ->
   List.iter (fun host -> job rpc session_id host) hosts ;
