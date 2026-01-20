@@ -77,6 +77,10 @@ let vm_guest_agent_xenstore_quota = ref 128
 
 let vm_guest_agent_xenstore_quota_warn_interval = ref 3600
 
+let vm_suspend_timeout = ref 1200.
+
+let vm_suspend_ack_timeout = ref 30.
+
 let oxenstored_conf = ref "/etc/xen/oxenstored.conf"
 
 let for_each_line path f =
@@ -319,6 +323,17 @@ let options =
     , Arg.Bool (fun x -> Xenops_server.xenopsd_vbd_plug_unplug_legacy := x)
     , (fun () -> string_of_bool !Xenops_server.xenopsd_vbd_plug_unplug_legacy)
     , "False if we want to split the plug atomic into attach/activate"
+    )
+  ; ( "vm-suspend-timeout"
+    , Arg.Set_float vm_suspend_timeout
+    , (fun () -> string_of_float !vm_suspend_timeout)
+    , "Timeout in seconds for a VM to suspend after acknowledging a suspend \
+       request"
+    )
+  ; ( "vm-suspend-ack-timeout"
+    , Arg.Set_float vm_suspend_ack_timeout
+    , (fun () -> string_of_float !vm_suspend_ack_timeout)
+    , "Timeout in seconds for a VM to acknowledge a suspend request"
     )
   ]
 
