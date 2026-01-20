@@ -95,6 +95,12 @@ let remove_valid_features_from_pending ~__context ~self valid_features =
         (h, Listext.List.set_difference pending_features valid_features)
     )
   in
+  let new_pending_feature =
+    if List.for_all (fun (_, v) -> v = []) new_pending_feature then
+      []
+    else
+      new_pending_feature
+  in
   Db.SM.set_host_pending_features ~__context ~self ~value:new_pending_feature
 
 let update_from_query_result ~__context (self, r) q_result =
