@@ -678,6 +678,7 @@ CAMLprim value stub_xenctrlext_domain_claim_pages(value xch_val, value domid_val
         value numa_node_val, value nr_pages_val)
 {
         CAMLparam4(xch_val, domid_val, numa_node_val, nr_pages_val);
+#ifdef XEN_DOMCTL_NUMA_OP_GET_NODE_PAGES
         int retval, the_errno;
         xc_interface* xch = xch_of_val(xch_val);
         uint32_t domid = Int_val(domid_val);
@@ -694,6 +695,9 @@ CAMLprim value stub_xenctrlext_domain_claim_pages(value xch_val, value domid_val
                         "Error when trying to claim memory pages");
         }
         CAMLreturn(Val_unit);
+#else
+        raise_unix_errno_msg(ENOSYS, "xc_domain_claim_pages_node");
+#endif
 }
 
 #ifdef XEN_DOMCTL_NUMA_OP_GET_NODE_PAGES
