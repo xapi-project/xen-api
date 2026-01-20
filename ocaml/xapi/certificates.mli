@@ -70,6 +70,8 @@ val all_purposes : API.certificate_purpose list list
 
 type trusted_store = {cert_dir: string; bundle: (string * string) option}
 
+val trusted_store_locations : t_trusted -> trusted_store list
+
 (* Database manipulation *)
 
 module Db_util : sig
