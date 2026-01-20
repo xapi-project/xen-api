@@ -87,13 +87,17 @@ let dss_vcpus xc doms =
             | _ ->
                 [
                   ( Rrd.VM uuid
-                  , Ds.ds_make ~name:"numa_node_nonaffine_vcpus" ~units:"(fraction)"
+                  , Ds.ds_make ~name:"numa_node_nonaffine_vcpus"
+                      ~units:"(fraction)"
                       ~value:
                         (Rrd.VT_Float
-                           (Int64.to_float ri.Xenctrl.Runstateinfo.V2.nonaffine /. 1.0e9)
+                           (Int64.to_float ri.Xenctrl.Runstateinfo.V2.nonaffine
+                           /. 1.0e9
+                           )
                         )
                       ~description:
-                        "Fraction of vCPU time running outside of vCPU soft-affinity"
+                        "Fraction of vCPU time running outside of vCPU \
+                         soft-affinity"
                       ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
                   )
                 ]
