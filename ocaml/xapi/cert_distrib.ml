@@ -103,8 +103,17 @@ let raise_internal ?e ?(details = "") msg : 'a =
   [msg; details; e] |> String.concat ". " |> D.error "%s" ;
   Helpers.internal_error "%s" msg
 
+let ( let@ ) l f =
+  match l with
+  | x :: _ ->
+      f x
+  | [] ->
+      raise_internal "Impossible: must not be empty"
+
+let ( let* ) l f = List.iter f l
+
 module type CertificateProvider = sig
-  val store_path : string
+  val store_paths : string list
 
   val read_certificate : string -> WireProtocol.certificate_file
 end
@@ -112,7 +121,7 @@ end
 module HostPoolProvider = struct
   let certificate_path = !Xapi_globs.server_cert_internal_path
 
-  let store_path = !Xapi_globs.trusted_pool_certs_dir
+  let store_paths = [!Xapi_globs.trusted_pool_certs_dir]
 
   let cert_fname_of_host_uuid uuid = uuid ^ ".pem"
 
@@ -133,12 +142,13 @@ end
 let string_of_file path = Unixext.read_lines ~path |> String.concat "\n"
 
 module ApplianceProvider = struct
-  let store_path = !Xapi_globs.trusted_certs_dir
+  let store_paths = [!Xapi_globs.trusted_certs_dir]
 
   let certificate_of_id_content filename content =
     WireProtocol.{filename; content}
 
   let read_certificate filename =
+    let@ store_path = store_paths in
     let content = string_of_file (Filename.concat store_path filename) in
     certificate_of_id_content filename content
 end
@@ -198,7 +208,7 @@ end = struct
   let write_certs_fs typ strategy certs =
     let open Helpers.FileSys in
     let module P = (val provider_of_certificate typ : CertificateProvider) in
-    let pool_certs = P.store_path in
+    let* pool_certs = P.store_paths in
     let pool_certs_bk = Printf.sprintf "%s.bk" pool_certs in
     let mv_or_cp = match strategy with Erase_old -> mv | Merge -> cpr in
     ( try
@@ -213,7 +223,7 @@ end = struct
         Unixext.mkdir_rec pool_certs 0o700 ;
         certs
         |> List.iter (function {filename; content} ->
-            let fname = Filename.concat P.store_path filename in
+            let fname = Filename.concat pool_certs filename in
             redirect content ~fname
             )
       with e ->
@@ -442,24 +452,28 @@ let exchange_certificates_in_pool ~__context =
   in
   operations |> maybe_insert_fist |> List.iter @@ fun (_, f) -> f ()
 
-let ( (get_local_ca_certs : unit -> WireProtocol.certificate_file list)
-    , (get_local_pool_certs : unit -> WireProtocol.certificate_file list) ) =
-  let g path () =
-    (* collects all certs in [path] ending in "pem". this is equivalent to the
-     * certs that would be put in a bundle, if update-ca-bundle.sh were to be
-     * executed on [path] *)
-    Sys.readdir path
-    |> Array.to_list
-    |> List.filter (fun x ->
-        Filename.check_suffix x "pem" && not (Filename.check_suffix x "new.pem")
-    )
-    |> List.map (fun filename ->
-        let path = Filename.concat path filename in
-        let content = string_of_file path in
-        WireProtocol.{filename; content}
-    )
-  in
-  (g ApplianceProvider.store_path, g HostPoolProvider.store_path)
+let list_certs path =
+  (* collects all certs in [path] ending in "pem". this is equivalent to the
+   * certs that would be put in a bundle, if update-ca-bundle.sh were to be
+   * executed on [path] *)
+  Sys.readdir path
+  |> Array.to_list
+  |> List.filter (fun x ->
+      Filename.check_suffix x "pem" && not (Filename.check_suffix x "new.pem")
+  )
+  |> List.map (fun filename ->
+      let path = Filename.concat path filename in
+      let content = string_of_file path in
+      WireProtocol.{filename; content}
+  )
+
+let get_local_ca_certs () : WireProtocol.certificate_file list =
+  let@ store_path = ApplianceProvider.store_paths in
+  list_certs store_path
+
+let get_local_pool_certs () : WireProtocol.certificate_file list =
+  let@ store_path = HostPoolProvider.store_paths in
+  list_certs store_path
 
 let am_i_missing_certs ~__context : bool =
   (* compare what's in the database with what's on my filesystem *)
@@ -476,16 +490,19 @@ let am_i_missing_certs ~__context : bool =
         (diff |> StringSet.elements |> String.concat "; ") ;
     not in_sync_with_remote
   in
+  let ( let*? ) l f = List.exists f l in
   let pool_certs_are_missing () =
+    let*? store_path = HostPoolProvider.store_paths in
     local_is_missing_certificates
       (fun ~__context ->
         Db.Host.get_all ~__context
         |> List.map (fun self -> Db.Host.get_uuid ~__context ~self)
         |> List.map HostPoolProvider.cert_fname_of_host_uuid
       )
-      HostPoolProvider.store_path ()
+      store_path ()
   in
   let ca_certs_are_missing () =
+    let*? store_path = ApplianceProvider.store_paths in
     local_is_missing_certificates
       (fun ~__context ->
         Db.Certificate.get_all ~__context
@@ -497,7 +514,7 @@ let am_i_missing_certs ~__context : bool =
                 None
         )
       )
-      ApplianceProvider.store_path ()
+      store_path ()
   in
   pool_certs_are_missing () || ca_certs_are_missing ()
 
