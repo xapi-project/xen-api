@@ -9,10 +9,12 @@
     ezxenstore
     ezxenstore.watch
     fmt
+    fmt.tty
     forkexec
     http_lib
     mtime
     mtime.clock.os
+    cli_progress_bar
     quicktest_trace
     quicktest_trace_api
     quicktest_trace_rpc
