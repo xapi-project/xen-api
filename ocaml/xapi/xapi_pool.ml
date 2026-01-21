@@ -1583,7 +1583,8 @@ let certificate_install ~__context ~name ~cert =
     | Ok x ->
         x
   in
-  pool_install Root_legacy ~__context ~name ~cert ;
+  Certificates.host_install Root_legacy ~name ~cert ;
+  Cert_distrib.copy_certs_to_all ~__context ;
   let (_ : API.ref_Certificate), _ =
     Db_util.add_cert ~__context ~type':(`ca name) ~purpose:[] certificate
   in
@@ -1593,7 +1594,8 @@ let install_ca_certificate = certificate_install
 
 let uninstall_ca_certificate ~__context ~name ~force =
   let open Certificates in
-  pool_uninstall Root_legacy ~__context ~name ~force ;
+  host_uninstall Root_legacy ~name ~force ;
+  Cert_distrib.copy_certs_to_all ~__context ;
   Db_util.remove_ca_cert_by_name ~__context name
 
 let certificate_uninstall = uninstall_ca_certificate ~force:false
@@ -1603,13 +1605,21 @@ let certificate_list ~__context =
   Db_util.get_ca_certs ~__context
   |> List.map @@ fun self -> Db.Certificate.get_name ~__context ~self
 
-let crl_install = Certificates.(pool_install CRL)
+let crl_install ~__context ~name ~cert =
+  Certificates.host_install CRL ~name ~cert ;
+  Cert_distrib.copy_certs_to_all ~__context ;
+  ()
 
-let crl_uninstall = Certificates.(pool_uninstall CRL ~force:false)
+let crl_uninstall ~__context ~name =
+  Certificates.host_uninstall CRL ~name ~force:false ;
+  Cert_distrib.copy_certs_to_all ~__context ;
+  ()
 
 let crl_list ~__context = Certificates.(local_list CRL)
 
-let certificate_sync = Certificates.pool_sync
+let certificate_sync ~__context =
+  Cert_distrib.copy_certs_to_all ~__context ;
+  ()
 
 let join_common ~__context ~master_address ~master_username ~master_password
     ~force =
@@ -4241,7 +4251,8 @@ let install_trusted_certificate ~__context ~self:_ ~ca ~cert ~purpose =
     Db_util.add_cert ~__context ~type':cert_type ~purpose certificate
   in
   let name = Certificates.name_of_uuid uuid in
-  pool_install kind ~__context ~name ~cert ;
+  Certificates.host_install kind ~name ~cert ;
+  Cert_distrib.copy_certs_to_all ~__context ;
   ()
 
 let uninstall_trusted_certificate ~__context ~self:_ ~certificate =
@@ -4259,5 +4270,6 @@ let uninstall_trusted_certificate ~__context ~self:_ ~certificate =
   in
   let name = Certificates.name_of_uuid cert_rec.API.certificate_uuid in
   Db_util.remove_cert_by_ref ~__context certificate ;
-  pool_uninstall kind ~__context ~name ~force:true ;
+  Certificates.host_uninstall kind ~name ~force:true ;
+  Cert_distrib.copy_certs_to_all ~__context ;
   ()

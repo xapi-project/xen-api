@@ -45,8 +45,6 @@ val update_ca_bundle : unit -> unit
 
 val local_sync : unit -> unit
 
-val pool_sync : __context:Context.t -> unit
-
 (* Certificate installation to filesystem *)
 
 val install_server_certificate :
@@ -60,12 +58,6 @@ val host_install : t_trusted -> name:string -> cert:string -> unit
 
 val host_uninstall : t_trusted -> name:string -> force:bool -> unit
 
-val pool_install :
-  t_trusted -> __context:Context.t -> name:string -> cert:string -> unit
-
-val pool_uninstall :
-  t_trusted -> __context:Context.t -> name:string -> force:bool -> unit
-
 val name_of_uuid : string -> string
 
 val all_purposes : API.certificate_purpose list list
@@ -73,6 +65,8 @@ val all_purposes : API.certificate_purpose list list
 type trusted_store = {cert_dir: string; bundle_dir: string; bundle_name: string}
 
 val trusted_store_locations : t_trusted -> trusted_store list
+
+val sync_all_hosts : __context:Context.t -> API.ref_host list -> unit
 
 (* Database manipulation *)
 

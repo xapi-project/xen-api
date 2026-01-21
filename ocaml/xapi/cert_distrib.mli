@@ -26,6 +26,10 @@ val copy_certs_to_host : __context:Context.t -> host:API.ref_host -> unit
 (** [copy_certs_to_host ~__context ~host] collects all local certificates and
     installs them on [host] *)
 
+val copy_certs_to_all : __context:Context.t -> unit
+(** [copy_certs_to_all ~__context] collects all local certificates and
+    installs them on hosts except the coordinator. *)
+
 val exchange_certificates_with_joiner :
      __context:Context.t
   -> uuid:string
