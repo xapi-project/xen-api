@@ -37,6 +37,8 @@ type t_trusted =
 
 type category = [`Root_legacy | `CRL | `Root | `Pinned]
 
+let all_categories = [`Root_legacy; `CRL; `Root; `Pinned]
+
 let all_purposes = [] :: List.map (fun x -> [x]) API.certificate_purpose__all
 
 let all_trusted_kinds =
@@ -147,8 +149,6 @@ let rehash () =
       mkdir_cert_path kind ; rehash' cert_dir
     )
     all_trusted_kinds
-
-let update_ca_bundle () = Helpers.update_ca_bundle ()
 
 let to_string = function
   | Root_legacy ->
@@ -433,12 +433,38 @@ let local_sync () =
     warn "Exception rehashing certificates: %s" (ExnHelper.string_of_exn e) ;
     raise_library_corrupt ()
 
-let update_bundle kind cert_dir bundle_path =
-  match kind with
-  | Root_legacy | CRL ->
-      update_ca_bundle ()
-  | Root _ | Pinned _ ->
-      () (* TODO: implementation in the following commit *)
+let update_bundle =
+  let m = Mutex.create () in
+  fun kind cert_dir bundle_path ->
+    Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
+        match kind with
+        | CRL ->
+            ()
+        | Root_legacy | Root _ | Pinned _ ->
+            ignore
+              (Forkhelpers.execute_command_get_output
+                 "/opt/xensource/bin/update-ca-bundle.sh"
+                 [cert_dir; bundle_path]
+              )
+    )
+
+let update_all_bundles () =
+  let ( let* ) l f = List.iter f l in
+  let* category = all_categories in
+  let* purposes = all_purposes in
+  let kind =
+    match category with
+    | `Root_legacy ->
+        Root_legacy
+    | `CRL ->
+        CRL
+    | `Root ->
+        Root purposes
+    | `Pinned ->
+        Pinned purposes
+  in
+  let* store = trusted_store_locations kind in
+  update_bundle kind store.cert_dir (store.bundle_dir // store.bundle_name)
 
 let host_install kind ~name ~cert =
   validate_name kind name ;
@@ -467,7 +493,7 @@ let host_uninstall kind ~name ~force =
   if Sys.file_exists cert_path then (
     try
       Sys.remove cert_path ;
-      () (* TODO: implementation in the following commit *)
+      update_bundle kind cert_dir bundle_path
     with e ->
       warn "Exception uninstalling %s %s: %s" (to_string kind) name
         (ExnHelper.string_of_exn e) ;
