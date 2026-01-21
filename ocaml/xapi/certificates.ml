@@ -37,6 +37,8 @@ type t_trusted =
 
 type category = [`Root_legacy | `CRL | `Root | `Pinned]
 
+let all_categories = [`Root_legacy; `CRL; `Root; `Pinned]
+
 let all_purposes = [] :: List.map (fun x -> [x]) API.certificate_purpose__all
 
 let all_trusted_kinds =
@@ -140,7 +142,24 @@ let rehash path =
         ["rehash"; path]
       |> ignore
 
-let update_ca_bundle () = Helpers.update_ca_bundle ()
+let remove_empty_bundle bundle_path =
+  if Sys.file_exists bundle_path then
+    let s = Unix.stat bundle_path in
+    if s.Unix.st_size = 0 then Sys.remove bundle_path
+
+let local_sync' () =
+  List.iter
+    (fun kind ->
+      mkdir_cert_path kind ;
+      with_cert_store kind @@ fun ~cert_dir ~bundle ->
+      rehash cert_dir ;
+      Option.iter
+        (fun (bundle_dir, bundle_name) ->
+          remove_empty_bundle (bundle_dir // bundle_name)
+        )
+        bundle
+    )
+    all_trusted_kinds
 
 let to_string = function
   | Root_legacy ->
@@ -418,17 +437,45 @@ let local_list kind =
     (Array.to_list (Sys.readdir (library_path kind)))
 
 let local_sync () =
-  try rehash ()
+  try local_sync' ()
   with e ->
     warn "Exception rehashing certificates: %s" (ExnHelper.string_of_exn e) ;
     raise_library_corrupt ()
 
-let update_bundle kind cert_dir bundle_path =
-  match kind with
-  | Root_legacy | CRL ->
-      update_ca_bundle ()
-  | Root _ | Pinned _ ->
-      () (* TODO: implementation in the following commit *)
+let update_bundle =
+  let m = Mutex.create () in
+  fun cert_dir bundle_path ->
+    Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
+        ignore
+          (Forkhelpers.execute_command_get_output
+             "/opt/xensource/bin/update-ca-bundle.sh" [cert_dir; bundle_path]
+          ) ;
+        remove_empty_bundle bundle_path
+    )
+
+let update_all_bundles () =
+  (* Update bundle for pool *)
+  update_bundle !Xapi_globs.trusted_pool_certs_dir !Xapi_globs.pool_bundle_path ;
+  let ( let* ) l f = List.iter f l in
+  let* category = all_categories in
+  let* purposes = all_purposes in
+  let kind =
+    match category with
+    | `Root_legacy ->
+        Root_legacy
+    | `CRL ->
+        CRL
+    | `Root ->
+        Root purposes
+    | `Pinned ->
+        Pinned purposes
+  in
+  let* store = trusted_store_locations kind in
+  Option.iter
+    (fun (bundle_dir, bundle_name) ->
+      update_bundle store.cert_dir (bundle_dir // bundle_name)
+    )
+    store.bundle
 
 let host_install kind ~name ~cert =
   validate_name kind name ;
@@ -463,8 +510,12 @@ let host_uninstall kind ~name ~force =
   if Sys.file_exists cert_path then (
     try
       Sys.remove cert_path ;
-      rehash cert_dir ;
-      () (* TODO: implementation in the following commit *)
+      Option.iter
+        (fun (bundle_dir, bundle_name) ->
+          update_bundle cert_dir (bundle_dir // bundle_name)
+        )
+        bundle ;
+      rehash cert_dir
     with e ->
       warn "Exception uninstalling %s %s: %s" (to_string kind) name
         (ExnHelper.string_of_exn e) ;
