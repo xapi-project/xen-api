@@ -7089,7 +7089,7 @@ let host_disable_external_auth _printer rpc session_id params =
   let host_uuid = List.assoc "host-uuid" params in
   let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid:host_uuid in
   let config = read_map_params "config" params in
-  Client.Host.disable_external_auth ~rpc ~session_id ~host ~config
+  Client.Host.disable_external_auth ~rpc ~session_id ~host ~config ~force:true
 
 let host_refresh_pack_info _printer rpc session_id params =
   let host_uuid = List.assoc "host-uuid" params in
