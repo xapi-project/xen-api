@@ -12,17 +12,18 @@ module Impl = struct
       let* virtual_size, cluster_bits, _, data_cluster_map =
         Qcow_stream.start_stream_decode fd
       in
-      let clusters = Qcow_types.Cluster.Map.bindings data_cluster_map in
+      (* TODO: List.map becomes tail-recursive in OCaml 5.1, and could be used here instead *)
       let clusters =
-        List.map
-          (fun (_, virt_address) ->
+        data_cluster_map
+        |> Qcow_types.Cluster.Map.to_seq
+        |> Seq.map (fun (_, virt_address) ->
             let ( >> ) = Int64.shift_right_logical in
             let address =
               Int64.to_int (virt_address >> Int32.to_int cluster_bits)
             in
             `Int address
-          )
-          clusters
+        )
+        |> List.of_seq
       in
       let json =
         `Assoc
