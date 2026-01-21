@@ -475,15 +475,6 @@ let host_uninstall kind ~name ~force =
   else
     raise_does_not_exist kind name
 
-let get_cert kind name =
-  validate_name kind name ;
-  let filename = library_filename kind name in
-  try Unixext.string_of_file filename
-  with e ->
-    warn "Exception reading %s %s: %s" (to_string kind) name
-      (ExnHelper.string_of_exn e) ;
-    raise_corrupt kind name
-
 let sync_all_hosts ~__context hosts =
   let exn = ref None in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -495,86 +486,6 @@ let sync_all_hosts ~__context hosts =
         hosts
   ) ;
   match !exn with Some e -> raise e | None -> ()
-
-let sync_certs_crls kind list_func install_func uninstall_func ~__context
-    master_certs host =
-  Helpers.call_api_functions ~__context (fun rpc session_id ->
-      let host_certs = list_func rpc session_id host in
-      List.iter
-        (fun c ->
-          if not (List.mem c master_certs) then
-            uninstall_func rpc session_id host c
-        )
-        host_certs ;
-      List.iter
-        (fun c ->
-          if not (List.mem c host_certs) then
-            install_func rpc session_id host c (get_cert kind c)
-        )
-        master_certs
-  )
-
-let sync_certs kind ~__context master_certs host =
-  match kind with
-  | Root_legacy ->
-      sync_certs_crls Root_legacy
-        (fun rpc session_id host ->
-          Client.Host.certificate_list ~rpc ~session_id ~host
-        )
-        (fun rpc session_id host name cert ->
-          Client.Host.install_ca_certificate ~rpc ~session_id ~host ~name ~cert
-        )
-        (fun rpc session_id host name ->
-          Client.Host.uninstall_ca_certificate ~rpc ~session_id ~host ~name
-            ~force:false
-        )
-        ~__context master_certs host
-  | CRL ->
-      sync_certs_crls CRL
-        (fun rpc session_id host -> Client.Host.crl_list ~rpc ~session_id ~host)
-        (fun rpc session_id host name crl ->
-          Client.Host.crl_install ~rpc ~session_id ~host ~name ~crl
-        )
-        (fun rpc session_id host name ->
-          Client.Host.crl_uninstall ~rpc ~session_id ~host ~name
-        )
-        ~__context master_certs host
-  | Root _ | Pinned _ ->
-      ()
-
-let sync_certs_all_hosts kind ~__context master_certs hosts_but_master =
-  let exn = ref None in
-  List.iter
-    (fun host ->
-      try sync_certs kind ~__context master_certs host with e -> exn := Some e
-    )
-    hosts_but_master ;
-  match !exn with Some e -> raise e | None -> ()
-
-let pool_sync ~__context =
-  let hosts = Db.Host.get_all ~__context in
-  let master = Helpers.get_localhost ~__context in
-  let hosts_but_master = List.filter (fun h -> h <> master) hosts in
-  sync_all_hosts ~__context hosts ;
-  let master_certs = local_list Root_legacy in
-  let master_crls = local_list CRL in
-  sync_certs_all_hosts Root_legacy ~__context master_certs hosts_but_master ;
-  sync_certs_all_hosts CRL ~__context master_crls hosts_but_master
-
-let pool_install kind ~__context ~name ~cert =
-  host_install kind ~name ~cert ;
-  try pool_sync ~__context
-  with exn ->
-    ( try host_uninstall kind ~name ~force:false
-      with e ->
-        warn "Exception unwinding install of %s %s: %s" (to_string kind) name
-          (ExnHelper.string_of_exn e)
-    ) ;
-    raise exn
-
-let pool_uninstall kind ~__context ~name ~force =
-  host_uninstall kind ~name ~force ;
-  pool_sync ~__context
 
 (* Extracts the server certificate from the server certificate pem file.
    It strips the private key as well as the rest of the certificate chain. *)

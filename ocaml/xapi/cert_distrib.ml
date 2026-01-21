@@ -38,6 +38,7 @@ module WireProtocol = struct
   type certificate =
     | HostPoolCert
     | LegacyRootCert
+    | CRL
     | RootCert of purpose list
     | PinnedCert of purpose list
   [@@deriving sexp]
@@ -173,6 +174,10 @@ module LegacyRootProvider = TrustedCertProvider (struct
   let store_paths = [!Xapi_globs.trusted_certs_dir]
 end)
 
+module CRLProvider = TrustedCertProvider (struct
+  let store_paths = [Stunnel.crl_path]
+end)
+
 let to_purposes = List.map Record_util.certificate_purpose_of_string
 
 let provider_of_certificate (typ : WireProtocol.certificate) :
@@ -182,6 +187,8 @@ let provider_of_certificate (typ : WireProtocol.certificate) :
       (module HostPoolProvider : CertificateProvider)
   | LegacyRootCert ->
       (module LegacyRootProvider : CertificateProvider)
+  | CRL ->
+      (module CRLProvider : CertificateProvider)
   | RootCert purposes ->
       let store_paths =
         Certificates.trusted_store_locations (Root (to_purposes purposes))
@@ -517,6 +524,10 @@ let get_local_pool_certs () : WireProtocol.certificate_file list =
   let@ store_path = HostPoolProvider.store_paths in
   list_certs store_path
 
+let get_local_crls () : WireProtocol.certificate_file list =
+  let@ store_path = CRLProvider.store_paths in
+  list_certs store_path
+
 let list_all_trusted_cert_names category =
   let open Certificates in
   all_purposes
@@ -543,12 +554,8 @@ let trusted_certs_are_missing ~__context =
       let local = list_all_trusted_cert_names category in
       Db_util.get_trusted_certs ~__context db_type
       |> List.concat_map (fun (_, db_rec) ->
-          let fname = Certificates.name_of_uuid db_rec.API.certificate_uuid in
-          let typ =
-            db_rec.API.certificate_purpose
-            |> WireProtocol.type_of_category category
-          in
-          let module P = (val provider_of_certificate typ : CertificateProvider)
+          let fname, _typ, (module P : CertificateProvider) =
+            of_db_rec category db_rec
           in
           P.store_paths
           |> List.map (fun cert_dir ->
@@ -634,8 +641,27 @@ let copy_certs_to_host ~__context ~host =
     host rpc session_id ;
   Worker.remote_write_certs_fs LegacyRootCert Erase_old (get_local_ca_certs ())
     host rpc session_id ;
+  Worker.remote_write_certs_fs CRL Erase_old (get_local_crls ()) host rpc
+    session_id ;
   copy_trusted_certs_to_host ~__context host rpc session_id ;
   Worker.remote_regen_bundle host rpc session_id
+
+let copy_certs_to_all ~__context =
+  let hosts = Db.Host.get_all ~__context in
+  let master = Helpers.get_localhost ~__context in
+  let hosts_but_master = List.filter (fun h -> h <> master) hosts in
+  hosts_but_master
+  |> List.map (fun host ->
+      try
+        copy_certs_to_host ~__context ~host ;
+        Certificates.sync_all_hosts ~__context [host] ;
+        Ok ()
+      with e ->
+        let uuid = Db.Host.get_uuid ~__context ~self:host in
+        D.error "Failed to copy certs to host %s: %s" uuid (Printexc.to_string e) ;
+        Error e
+  )
+  |> List.iter (fun r -> match r with Error e -> raise e | Ok () -> ())
 
 (* This function is called on the pool that is incorporating a new host *)
 let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
