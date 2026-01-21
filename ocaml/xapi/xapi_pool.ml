@@ -1583,7 +1583,8 @@ let certificate_install ~__context ~name ~cert =
     | Ok x ->
         x
   in
-  pool_install Root_legacy ~__context ~name ~cert ;
+  Certificates.host_install Root_legacy ~name ~cert ;
+  Cert_distrib.copy_certs_to_all ~__context ;
   let (_ : API.ref_Certificate), _ =
     Db_util.add_cert ~__context ~type':(`ca name) ~purpose:[] certificate
   in
@@ -1593,7 +1594,8 @@ let install_ca_certificate = certificate_install
 
 let uninstall_ca_certificate ~__context ~name ~force =
   let open Certificates in
-  pool_uninstall Root_legacy ~__context ~name ~force ;
+  host_uninstall Root_legacy ~name ~force ;
+  Cert_distrib.copy_certs_to_all ~__context ;
   Db_util.remove_ca_cert_by_name ~__context name
 
 let certificate_uninstall = uninstall_ca_certificate ~force:false
@@ -1603,13 +1605,22 @@ let certificate_list ~__context =
   Db_util.get_ca_certs ~__context
   |> List.map @@ fun self -> Db.Certificate.get_name ~__context ~self
 
-let crl_install = Certificates.(pool_install CRL)
+let crl_install ~__context ~name ~cert =
+  Certificates.host_install CRL ~name ~cert ;
+  Cert_distrib.copy_certs_to_all ~__context ;
+  ()
 
-let crl_uninstall = Certificates.(pool_uninstall CRL ~force:false)
+let crl_uninstall ~__context ~name =
+  Certificates.host_uninstall CRL ~name ~force:false ;
+  Cert_distrib.copy_certs_to_all ~__context ;
+  ()
 
 let crl_list ~__context = Certificates.(local_list CRL)
 
-let certificate_sync = Certificates.pool_sync
+let certificate_sync ~__context =
+  Cert_distrib.copy_certs_to_all ~__context ;
+  Certificates.sync_all_hosts ~__context (Db.Host.get_all ~__context) ;
+  ()
 
 let install_trusted_certificate ~__context ~self:_ ~ca ~cert ~purpose =
   let open Certificates in

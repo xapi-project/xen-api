@@ -45,8 +45,6 @@ val update_ca_bundle : unit -> unit
 
 val local_sync : unit -> unit
 
-val pool_sync : __context:Context.t -> unit
-
 (* Certificate installation to filesystem *)
 
 val install_server_certificate :
@@ -59,12 +57,6 @@ val install_server_certificate :
 val host_install : t_trusted -> name:string -> cert:string -> unit
 
 val host_uninstall : t_trusted -> name:string -> force:bool -> unit
-
-val pool_install :
-  t_trusted -> __context:Context.t -> name:string -> cert:string -> unit
-
-val pool_uninstall :
-  t_trusted -> __context:Context.t -> name:string -> force:bool -> unit
 
 val name_of_uuid : string -> string
 
