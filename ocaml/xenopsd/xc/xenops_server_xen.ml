@@ -2859,7 +2859,9 @@ module VM = struct
                   not
                     ( with_tracing ~task
                         ~name:"VM_save_domain_suspend_callback_request_shutdown"
-                    @@ fun () -> request_shutdown task vm Suspend 30.
+                    @@ fun () ->
+                      request_shutdown task vm Suspend
+                        !Xenopsd.vm_suspend_ack_timeout
                     )
                 then
                   raise (Xenopsd_error Failed_to_acknowledge_suspend_request) ;
@@ -2870,14 +2872,25 @@ module VM = struct
                 | _ ->
                     ()
                 ) ;
+                let suspend_timeout = !Xenopsd.vm_suspend_timeout in
                 if
                   not
                     ( with_tracing ~task
                         ~name:"VM_save_domain_suspend_callback_wait_shutdown"
-                    @@ fun () -> wait_shutdown task vm Suspend 1200.
+                    @@ fun () ->
+                      debug
+                        "VM = %s; domid = %d; Waiting for domain to suspend \
+                         (timeout = %.0fs)"
+                        vm.Vm.id domid suspend_timeout ;
+                      wait_shutdown task vm Suspend suspend_timeout
                     )
                 then
-                  raise (Xenopsd_error (Failed_to_suspend (vm.Vm.id, 1200.)))
+                  raise
+                    (Xenopsd_error
+                       (Failed_to_suspend (vm.Vm.id, suspend_timeout))
+                    )
+                else
+                  debug "VM = %s; domid = %d; Domain suspended" vm.Vm.id domid
             ) ;
             (* Record the final memory usage of the domain so we know how much
                to allocate for the resume *)
