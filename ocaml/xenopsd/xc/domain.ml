@@ -778,8 +778,11 @@ let shutdown_wait_for_ack (t : Xenops_task.task_handle) ~timeout ~xc ~xs domid
     Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
   ) else (
     debug
-      "VM = %s; domid = %d; Waiting for domain to acknowledge shutdown request"
-      uuid domid ;
+      "VM = %s; domid = %d; Waiting for domain to acknowledge %s request \
+       (timeout = %.0fs)"
+      uuid domid
+      (string_of_shutdown_reason req)
+      timeout ;
     let path = control_shutdown ~xs domid in
     let cancel = Domain domid in
     if
@@ -788,8 +791,8 @@ let shutdown_wait_for_ack (t : Xenops_task.task_handle) ~timeout ~xc ~xs domid
         [Watch.key_to_disappear path]
         t ~xs ~timeout ()
     then
-      info "VM = %s; domid = %d; Domain acknowledged shutdown request" uuid
-        domid
+      info "VM = %s; domid = %d; Domain acknowledged %s request" uuid domid
+        (string_of_shutdown_reason req)
     else
       debug "VM = %s; domid = %d; Domain disappeared" uuid domid
   )
