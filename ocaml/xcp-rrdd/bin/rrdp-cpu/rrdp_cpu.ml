@@ -80,6 +80,28 @@ let dss_vcpus xc doms =
                   )
                 ]
           in
+          let nonaffine_vcpus_ds =
+            match ri.Xenctrl.Runstateinfo.V2.running with
+            | 0L ->
+                []
+            | _ ->
+                [
+                  ( Rrd.VM uuid
+                  , Ds.ds_make ~name:"numa_node_nonaffine_vcpus"
+                      ~units:"(fraction)"
+                      ~value:
+                        (Rrd.VT_Float
+                           (Int64.to_float ri.Xenctrl.Runstateinfo.V2.nonaffine
+                           /. 1.0e9
+                           )
+                        )
+                      ~description:
+                        "Fraction of vCPU time running outside of vCPU \
+                         soft-affinity"
+                      ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
+                  )
+                ]
+          in
           ( Rrd.VM uuid
           , Ds.ds_make ~name:"runstate_fullrun" ~units:"(fraction)"
               ~value:
@@ -172,6 +194,7 @@ let dss_vcpus xc doms =
              )
           :: dss
           @ runnable_vcpus_ds
+          @ nonaffine_vcpus_ds
         with _ -> dss
       in
       try cpus 0 dss with _ -> dss

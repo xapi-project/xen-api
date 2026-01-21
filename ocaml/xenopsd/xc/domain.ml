@@ -987,8 +987,6 @@ let numa_hierarchy =
 
 let numa_mutex = Mutex.create ()
 
-let numa_resources = ref None
-
 let numa_init () =
   let xcext = Xenctrlext.get_handle () in
   let host = Lazy.force numa_hierarchy in
@@ -1022,14 +1020,7 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
           (NUMA.nodes host) numa_meminfo
       in
       let vm = NUMARequest.make ~memory ~vcpus ~cores in
-      let nodea =
-        match !numa_resources with
-        | None ->
-            Array.of_seq nodes
-        | Some a ->
-            Array.map2 NUMAResource.min_memory (Array.of_seq nodes) a
-      in
-      numa_resources := Some nodea ;
+      let nodea = Array.of_seq nodes in
       let cpu_affinity, memory_plan =
         match Softaffinity.plan ~vm host nodea with
         | None ->
