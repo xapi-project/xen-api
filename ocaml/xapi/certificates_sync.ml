@@ -150,7 +150,7 @@ let eject_certs_from_fs_for ~__context host =
     match Sys.file_exists file with
     | true ->
         Sys.remove file ;
-        Certificates.update_ca_bundle () ;
+        Certificates.update_all_bundles () ;
         info "removed host certificate %s" file
     | false ->
         info "host %s has no certificate %s to remove" host_uuid file

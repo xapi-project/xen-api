@@ -126,6 +126,6 @@ let remove_stale_cert ~__context ~host ~type' =
     info "cleanup - renaming %s to %s" next pem ;
     Sys.rename pem bak ;
     Sys.rename next pem ;
-    Certificates.update_ca_bundle ()
+    Certificates.update_all_bundles ()
   ) else
     info "cleanup - no new cert %s found - skipping" next
