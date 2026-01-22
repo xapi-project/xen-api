@@ -460,3 +460,11 @@ val uninstall_trusted_certificate :
   -> self:API.ref_pool
   -> certificate:API.ref_Certificate
   -> unit
+
+val exchange_trusted_certificates_on_join :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> ca:bool
+  -> import:(string * string list) list
+  -> export:API.ref_Certificate list
+  -> (string * string list) list
