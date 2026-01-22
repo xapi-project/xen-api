@@ -218,6 +218,8 @@ module Memory_model (D : MEMORY_MODEL_DATA) = struct
     D.extra_internal_mib
     +++ D.extra_external_mib
     +++ shadow_mib static_max_mib vcpu_count multiplier
+    (* CA-423172: Xen uses some extra memory/vCPU *)
+    +++ mib_of_pages_used (38L *** Int64.of_int vcpu_count)
     +++ D.shim_mib static_max_mib
 
   let footprint_mib target_mib static_max_mib vcpu_count multiplier =
