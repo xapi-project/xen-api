@@ -13,18 +13,7 @@
  *)
 module D = Debug.Make (struct let name = "xapi_rate_limit" end)
 
-module Client_id = struct
-  type t = {user_agent: string; host_ip: string}
-
-  let compare a b =
-    match String.compare a.user_agent b.user_agent with
-    | 0 ->
-        String.compare a.host_ip b.host_ip
-    | n ->
-        n
-end
-
-module Bucket_table = Rate_limit.Bucket_table.Make (Client_id)
+module Bucket_table = Rate_limit.Bucket_table
 
 let bucket_table = Bucket_table.create ()
 
@@ -35,7 +24,7 @@ let create ~__context ~user_agent ~host_ip ~burst_size ~fill_rate =
         Server_error
           (invalid_value, ["Expected user_agent or host_ip to be nonempty"])
       ) ;
-  let client_id = Client_id.{user_agent; host_ip} in
+  let client_id = Bucket_table.Key.{user_agent; host_ip} in
   if Bucket_table.mem bucket_table ~client_id then
     raise
       Api_errors.(
@@ -70,7 +59,7 @@ let create ~__context ~user_agent ~host_ip ~burst_size ~fill_rate =
 let destroy ~__context ~self =
   let record = Db.Rate_limit.get_record ~__context ~self in
   let client_id =
-    Client_id.
+    Bucket_table.Key.
       {
         user_agent= record.rate_limit_user_agent
       ; host_ip= record.rate_limit_host_ip
@@ -83,7 +72,7 @@ let register ~__context =
   List.iter
     (fun (_, bucket) ->
       let client_id =
-        Client_id.
+        Bucket_table.Key.
           {
             user_agent= bucket.API.rate_limit_user_agent
           ; host_ip= bucket.API.rate_limit_host_ip
