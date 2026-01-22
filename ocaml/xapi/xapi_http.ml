@@ -360,8 +360,8 @@ let add_handler (name, handler) =
           handler ()
       | Some client_id ->
           debug "Rate limiting handler %s with user_agent %s host_ip %s" name
-            client_id.Xapi_rate_limit.Client_id.user_agent
-            client_id.Xapi_rate_limit.Client_id.host_ip ;
+            client_id.Rate_limit.Bucket_table.Key.user_agent
+            client_id.Rate_limit.Bucket_table.Key.host_ip ;
           Xapi_rate_limit.Bucket_table.submit Xapi_rate_limit.bucket_table
             ~client_id ~callback:handler Xapi_rate_limit.median_token_cost
   in
@@ -372,7 +372,8 @@ let add_handler (name, handler) =
       match (req.Http.Request.user_agent, client_info) with
       | Some user_agent, Some (_, ip) ->
           Some
-            Xapi_rate_limit.Client_id.{user_agent; host_ip= Ipaddr.to_string ip}
+            Rate_limit.Bucket_table.Key.
+              {user_agent; host_ip= Ipaddr.to_string ip}
       | _ ->
           None
     in

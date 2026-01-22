@@ -12,13 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Client_id : sig
-  type t = {user_agent: string; host_ip: string}
-
-  val compare : t -> t -> int
-end
-
-module Bucket_table : module type of Rate_limit.Bucket_table.Make (Client_id)
+module Bucket_table = Rate_limit.Bucket_table
 
 val bucket_table : Bucket_table.t
 
