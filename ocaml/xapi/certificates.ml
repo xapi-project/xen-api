@@ -552,3 +552,6 @@ let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key ~path =
       raise_server_error msg err
 
 let name_of_uuid uuid = Printf.sprintf "%s.pem" uuid
+
+let db_type_of_category category =
+  match category with `Root -> `ca | `Pinned -> `pinned

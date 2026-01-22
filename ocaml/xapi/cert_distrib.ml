@@ -498,6 +498,7 @@ let exchange_certificates_in_pool ~__context =
   operations |> maybe_insert_fist |> List.iter @@ fun (_, f) -> f ()
 
 let list_cert_names path =
+  Unixext.mkdir_rec path 0o700 ;
   Sys.readdir path
   |> Array.to_list
   |> List.filter (fun x ->
@@ -537,9 +538,6 @@ let list_all_trusted_cert_names category =
       |> List.map (fun cert_dir -> (cert_dir, list_cert_names cert_dir))
   )
 
-let db_type_of_category category =
-  match category with `Root -> `ca | `Pinned -> `pinned
-
 let of_db_rec category db_rec =
   let fname = Certificates.name_of_uuid db_rec.API.certificate_uuid in
   let typ =
@@ -573,20 +571,16 @@ let trusted_certs_are_missing ~__context =
 
 let copy_trusted_certs_to_host ~__context host rpc session_id =
   let open Certificates in
-  [`Root; `Pinned]
-  |> List.iter (fun category ->
-      let db_type = db_type_of_category category in
-      Db_util.get_trusted_certs ~__context db_type
-      |> List.iter (fun (_, db_rec) ->
-          let fname, typ, (module P : CertificateProvider) =
-            of_db_rec category db_rec
-          in
-          let cert =
-            let@ store_path = P.store_paths in
-            P.read_certificate (Filename.concat store_path fname)
-          in
-          Worker.remote_write_certs_fs typ Erase_old [cert] host rpc session_id
-      )
+  let* purposes = all_purposes in
+  let* category = [`Root; `Pinned] in
+  let typ = WireProtocol.type_of_category category purposes in
+  let module P = (val provider_of_certificate typ : CertificateProvider) in
+  P.store_paths
+  |> List.iter (fun cert_dir ->
+      let certs =
+        list_cert_names cert_dir |> Worker.local_collect_certs typ ~__context
+      in
+      Worker.remote_write_certs_fs typ Erase_old certs host rpc session_id
   )
 
 let am_i_missing_certs ~__context : bool =

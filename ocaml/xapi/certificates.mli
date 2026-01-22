@@ -68,6 +68,8 @@ val trusted_store_locations : t_trusted -> trusted_store list
 
 val sync_all_hosts : __context:Context.t -> API.ref_host list -> unit
 
+val db_type_of_category : [`Root | `Pinned] -> [`ca | `pinned]
+
 (* Database manipulation *)
 
 module Db_util : sig
