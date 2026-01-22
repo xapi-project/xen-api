@@ -27,25 +27,75 @@ type rate_limit_data = {
 module Key = struct
   type t = {user_agent: string; host_ip: string}
 
+  let equal a b = a.user_agent = b.user_agent && a.host_ip = b.host_ip
+
+  (** Empty string acts as wildcard, matching any value *)
+  let matches ~pattern ~target =
+    (pattern.user_agent = "" || pattern.user_agent = target.user_agent)
+    && (pattern.host_ip = "" || pattern.host_ip = target.host_ip)
+
+  (** Priority for matching: exact (0) > host_ip only (1) > user_agent only (2) *)
+  let compare_wildcard k =
+    ( if k.user_agent = "" then
+        2
+      else
+        0
+    )
+    +
+    if k.host_ip = "" then
+      1
+    else
+      0
+
+  let is_all_wildcard k = k.user_agent = "" && k.host_ip = ""
+
+  (** Total order: fewer wildcards first, then lexicographic by fields *)
   let compare a b =
-    match String.compare a.user_agent b.user_agent with
-    | 0 ->
-        String.compare a.host_ip b.host_ip
+    match compare (compare_wildcard a) (compare_wildcard b) with
+    | 0 -> (
+      match String.compare a.user_agent b.user_agent with
+      | 0 ->
+          String.compare a.host_ip b.host_ip
+      | n ->
+          n
+    )
     | n ->
         n
 end
 
-module KeyMap = Map.Make (Key)
+type cached_table = {
+    table: (Key.t * rate_limit_data) list
+  ; cache: (Key.t, rate_limit_data option) Lru.t
+}
 
-type t = rate_limit_data KeyMap.t Atomic.t
+type t = cached_table Atomic.t
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-let create () = Atomic.make KeyMap.empty
+let create () = Atomic.make {table= []; cache= Lru.create 100}
+
+(** Find the best matching entry for a client_id.
+    List is pre-sorted by Key.compare (most specific first), so first match wins.
+    Priority: exact match > host_ip specified > user_agent specified *)
+let find_match {table; cache} ~client_id =
+  let entry_opt = Lru.lookup cache client_id in
+  match entry_opt with
+  | Some result ->
+      result
+  | None ->
+      let result =
+        Option.map snd
+          (List.find_opt
+             (fun (key, _) -> Key.matches ~pattern:key ~target:client_id)
+             table
+          )
+      in
+      if Lru.add cache client_id result then Lru.trim cache ;
+      result
 
 let mem t ~client_id =
-  let map = Atomic.get t in
-  KeyMap.mem client_id map
+  let entries = Atomic.get t in
+  Option.is_some (find_match entries ~client_id)
 
 (* The worker thread is responsible for calling the callback when the token
    amount becomes available *)
@@ -75,75 +125,94 @@ let rec worker_loop ~bucket ~process_queue ~process_queue_lock
 (* TODO: Indicate failure reason - did we get invalid config or try to add an
    already present client_id? *)
 let add_bucket t ~client_id ~burst_size ~fill_rate =
-  let map = Atomic.get t in
-  if KeyMap.mem client_id map then
+  if Key.is_all_wildcard client_id then
     false
+  (* Reject keys with both fields empty *)
   else
-    match Token_bucket.create ~burst_size ~fill_rate with
-    | Some bucket ->
-        let process_queue = Queue.create () in
-        let process_queue_lock = Mutex.create () in
-        let worker_thread_cond = Condition.create () in
-        let should_terminate = ref false in
-        let worker_thread =
-          Thread.create
-            (fun () ->
-              worker_loop ~bucket ~process_queue ~process_queue_lock
-                ~worker_thread_cond ~should_terminate
-            )
-            ()
-        in
-        let data =
-          {
-            bucket
-          ; process_queue
-          ; process_queue_lock
-          ; worker_thread_cond
-          ; should_terminate
-          ; worker_thread
-          }
-        in
-        let updated_map = KeyMap.add client_id data map in
-        Atomic.set t updated_map ; true
-    | None ->
-        false
+    let {table; _} = Atomic.get t in
+    if List.exists (fun (key, _) -> Key.equal key client_id) table then
+      false
+    else
+      match Token_bucket.create ~burst_size ~fill_rate with
+      | Some bucket ->
+          let process_queue = Queue.create () in
+          let process_queue_lock = Mutex.create () in
+          let worker_thread_cond = Condition.create () in
+          let should_terminate = ref false in
+          let worker_thread =
+            Thread.create
+              (fun () ->
+                worker_loop ~bucket ~process_queue ~process_queue_lock
+                  ~worker_thread_cond ~should_terminate
+              )
+              ()
+          in
+          let data =
+            {
+              bucket
+            ; process_queue
+            ; process_queue_lock
+            ; worker_thread_cond
+            ; should_terminate
+            ; worker_thread
+            }
+          in
+          Atomic.set t
+            {
+              table=
+                List.sort
+                  (fun (k1, _) (k2, _) -> Key.compare k1 k2)
+                  ((client_id, data) :: table)
+            ; cache= Lru.create 100
+            } ;
+          true
+      | None ->
+          false
 
 let delete_bucket t ~client_id =
-  let map = Atomic.get t in
-  match KeyMap.find_opt client_id map with
+  let {table; _} = Atomic.get t in
+  match List.find_opt (fun (key, _) -> Key.equal key client_id) table with
   | None ->
       ()
-  | Some data ->
+  | Some (_, data) ->
       with_lock data.process_queue_lock (fun () ->
           data.should_terminate := true ;
           Condition.signal data.worker_thread_cond
       ) ;
       Thread.join data.worker_thread ;
-      Atomic.set t (KeyMap.remove client_id map)
+      Atomic.set t
+        {
+          table=
+            List.filter (fun (key, _) -> not (Key.equal key client_id)) table
+        ; cache= Lru.create 100
+        }
 
 let try_consume t ~client_id amount =
-  let map = Atomic.get t in
-  match KeyMap.find_opt client_id map with
+  let entries = Atomic.get t in
+  match find_match entries ~client_id with
   | None ->
       false
   | Some data ->
       Token_bucket.consume data.bucket amount
 
 let peek t ~client_id =
-  let map = Atomic.get t in
+  let entries = Atomic.get t in
   Option.map
-    (fun contents -> Token_bucket.peek contents.bucket)
-    (KeyMap.find_opt client_id map)
+    (fun data -> Token_bucket.peek data.bucket)
+    (find_match entries ~client_id)
 
 (* The callback should return quickly - if it is a longer task it is
    responsible for creating a thread to do the task *)
 let submit t ~client_id ~callback amount =
-  let map = Atomic.get t in
-  match KeyMap.find_opt client_id map with
+  let entries = Atomic.get t in
+  match find_match entries ~client_id with
   | None ->
       D.debug "Found no rate limited client_id, returning" ;
       callback ()
-  | Some {bucket; process_queue; process_queue_lock; worker_thread_cond; _} ->
+  | Some
+      ( {bucket; process_queue; process_queue_lock; worker_thread_cond; _} as
+        _data
+      ) ->
       let run_immediately =
         with_lock process_queue_lock (fun () ->
             let immediate =
@@ -158,8 +227,8 @@ let submit t ~client_id ~callback amount =
 
 (* Block and execute on the same thread *)
 let submit_sync t ~client_id ~callback amount =
-  let map = Atomic.get t in
-  match KeyMap.find_opt client_id map with
+  let entries = Atomic.get t in
+  match find_match entries ~client_id with
   | None ->
       callback ()
   | Some bucket_data -> (

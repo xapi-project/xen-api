@@ -428,6 +428,162 @@ let test_consume_during_delete_race () =
   done ;
   Alcotest.(check int) "No crashes during consume/delete race" 0 !errors
 
+(* Wildcard matching tests *)
+
+let test_wildcard_user_agent_matches_any () =
+  (* A bucket with empty user_agent field should match any user_agent header *)
+  let table = Bucket_table.create () in
+  let pattern = Bucket_table.Key.{user_agent= ""; host_ip= "192.168.1.1"} in
+  let _ =
+    Bucket_table.add_bucket table ~client_id:pattern ~burst_size:10.0
+      ~fill_rate:1.0
+  in
+  (* Should match any user_agent header value with same host_ip *)
+  let client1 = Bucket_table.Key.{user_agent= "curl"; host_ip= "192.168.1.1"} in
+  let client2 = Bucket_table.Key.{user_agent= "wget"; host_ip= "192.168.1.1"} in
+  let client3 = Bucket_table.Key.{user_agent= ""; host_ip= "192.168.1.1"} in
+  Alcotest.(check bool)
+    "wildcard user_agent matches curl" true
+    (Bucket_table.mem table ~client_id:client1) ;
+  Alcotest.(check bool)
+    "wildcard user_agent matches wget" true
+    (Bucket_table.mem table ~client_id:client2) ;
+  Alcotest.(check bool)
+    "wildcard user_agent matches empty" true
+    (Bucket_table.mem table ~client_id:client3) ;
+  (* Should not match different host_ip *)
+  let client_other =
+    Bucket_table.Key.{user_agent= "curl"; host_ip= "10.0.0.1"}
+  in
+  Alcotest.(check bool)
+    "{user_agent=curl, host_ip=10.0.0.1} does not match {user_agent=*, \
+     host_ip=192.168.1.1}"
+    false
+    (Bucket_table.mem table ~client_id:client_other)
+
+let test_wildcard_host_ip_matches_any () =
+  (* A bucket with empty host_ip should match any host_ip *)
+  let table = Bucket_table.create () in
+  let pattern = Bucket_table.Key.{user_agent= "curl"; host_ip= ""} in
+  let _ =
+    Bucket_table.add_bucket table ~client_id:pattern ~burst_size:10.0
+      ~fill_rate:1.0
+  in
+  (* Should match any host_ip with same user_agent header *)
+  let client1 = Bucket_table.Key.{user_agent= "curl"; host_ip= "192.168.1.1"} in
+  let client2 = Bucket_table.Key.{user_agent= "curl"; host_ip= "10.0.0.1"} in
+  let client3 = Bucket_table.Key.{user_agent= "curl"; host_ip= ""} in
+  Alcotest.(check bool)
+    "wildcard host_ip matches 192.168.1.1" true
+    (Bucket_table.mem table ~client_id:client1) ;
+  Alcotest.(check bool)
+    "wildcard host_ip matches 10.0.0.1" true
+    (Bucket_table.mem table ~client_id:client2) ;
+  Alcotest.(check bool)
+    "wildcard host_ip matches empty" true
+    (Bucket_table.mem table ~client_id:client3) ;
+  (* Should not match different user_agent header *)
+  let client_other =
+    Bucket_table.Key.{user_agent= "wget"; host_ip= "192.168.1.1"}
+  in
+  Alcotest.(check bool)
+    "wildcard does not match different user_agent" false
+    (Bucket_table.mem table ~client_id:client_other)
+
+let test_wildcard_match_priority_exact_first () =
+  (* Exact match should take priority over wildcards *)
+  let table = Bucket_table.create () in
+  let exact = Bucket_table.Key.{user_agent= "curl"; host_ip= "192.168.1.1"} in
+  let wildcard_ua = Bucket_table.Key.{user_agent= ""; host_ip= "192.168.1.1"} in
+  let wildcard_ip = Bucket_table.Key.{user_agent= "curl"; host_ip= ""} in
+  (* Add in reverse priority order to test sorting *)
+  let _ =
+    Bucket_table.add_bucket table ~client_id:wildcard_ua ~burst_size:5.0
+      ~fill_rate:1.0
+  in
+  let _ =
+    Bucket_table.add_bucket table ~client_id:wildcard_ip ~burst_size:15.0
+      ~fill_rate:1.0
+  in
+  let _ =
+    Bucket_table.add_bucket table ~client_id:exact ~burst_size:10.0
+      ~fill_rate:1.0
+  in
+  (* Lookup with exact key should return exact bucket (10.0), not wildcards *)
+  let client = Bucket_table.Key.{user_agent= "curl"; host_ip= "192.168.1.1"} in
+  Alcotest.(check (option (float 0.1)))
+    "exact match takes priority" (Some 10.0)
+    (Bucket_table.peek table ~client_id:client)
+
+let test_wildcard_match_priority_host_ip_over_user_agent () =
+  (* host_ip wildcard (user_agent specified) should match before
+     user_agent wildcard (host_ip specified) *)
+  let table = Bucket_table.create () in
+  let wildcard_ua = Bucket_table.Key.{user_agent= ""; host_ip= "192.168.1.1"} in
+  let wildcard_ip = Bucket_table.Key.{user_agent= "curl"; host_ip= ""} in
+  (* Add user_agent wildcard first *)
+  let _ =
+    Bucket_table.add_bucket table ~client_id:wildcard_ua ~burst_size:5.0
+      ~fill_rate:1.0
+  in
+  (* Add host_ip wildcard second *)
+  let _ =
+    Bucket_table.add_bucket table ~client_id:wildcard_ip ~burst_size:15.0
+      ~fill_rate:1.0
+  in
+  (* Lookup should prefer host_ip wildcard (15.0) over user_agent wildcard (5.0) *)
+  let client = Bucket_table.Key.{user_agent= "curl"; host_ip= "192.168.1.1"} in
+  Alcotest.(check (option (float 0.1)))
+    "host_ip wildcard takes priority over user_agent wildcard" (Some 15.0)
+    (Bucket_table.peek table ~client_id:client)
+
+let test_no_spurious_wildcard_matches () =
+  (* Ensure wildcards don't match when they shouldn't *)
+  let table = Bucket_table.create () in
+  let pattern1 =
+    Bucket_table.Key.{user_agent= "curl"; host_ip= "192.168.1.1"}
+  in
+  let pattern2 = Bucket_table.Key.{user_agent= "wget"; host_ip= ""} in
+  let _ =
+    Bucket_table.add_bucket table ~client_id:pattern1 ~burst_size:10.0
+      ~fill_rate:1.0
+  in
+  let _ =
+    Bucket_table.add_bucket table ~client_id:pattern2 ~burst_size:20.0
+      ~fill_rate:1.0
+  in
+  (* Client with different user_agent and host_ip should not match pattern1 *)
+  let client1 = Bucket_table.Key.{user_agent= "curl"; host_ip= "10.0.0.1"} in
+  Alcotest.(check bool)
+    "{user_agent=curl, host_ip=10.0.0.1} does not match {user_agent=curl, \
+     host_ip=192.168.1.1}"
+    false
+    (Bucket_table.mem table ~client_id:client1) ;
+  (* Client with matching user_agent but different host_ip should match pattern2 *)
+  let client2 = Bucket_table.Key.{user_agent= "wget"; host_ip= "10.0.0.1"} in
+  Alcotest.(check (option (float 0.1)))
+    "{user_agent=wget, host_ip=10.0.0.1} matches {user_agent=wget, host_ip=*} \
+     wildcard"
+    (Some 20.0)
+    (Bucket_table.peek table ~client_id:client2) ;
+  (* Client with no matching pattern *)
+  let client3 =
+    Bucket_table.Key.{user_agent= "firefox"; host_ip= "172.16.0.1"}
+  in
+  Alcotest.(check bool)
+    "{user_agent=firefox, host_ip=172.16.0.1} has no match" false
+    (Bucket_table.mem table ~client_id:client3)
+
+let test_reject_all_wildcard_key () =
+  (* Keys with both fields empty should be rejected *)
+  let table = Bucket_table.create () in
+  let all_wildcard = Bucket_table.Key.{user_agent= ""; host_ip= ""} in
+  let success =
+    Bucket_table.add_bucket table ~client_id:all_wildcard ~burst_size:10.0
+      ~fill_rate:1.0
+  in
+  Alcotest.(check bool) "all-wildcard key rejected" false success
+
 let test =
   [
     ("Create empty table", `Quick, test_create)
@@ -450,6 +606,21 @@ let test =
   ; ("Submit sync with queue", `Slow, test_submit_sync_with_queued_items)
   ; ("Concurrent add/delete stress", `Quick, test_concurrent_add_delete_stress)
   ; ("Consume during delete race", `Quick, test_consume_during_delete_race)
+  ; ( "Wildcard user_agent matches any"
+    , `Quick
+    , test_wildcard_user_agent_matches_any
+    )
+  ; ("Wildcard host_ip matches any", `Quick, test_wildcard_host_ip_matches_any)
+  ; ( "Wildcard priority: exact first"
+    , `Quick
+    , test_wildcard_match_priority_exact_first
+    )
+  ; ( "Wildcard priority: host_ip over user_agent"
+    , `Quick
+    , test_wildcard_match_priority_host_ip_over_user_agent
+    )
+  ; ("No spurious wildcard matches", `Quick, test_no_spurious_wildcard_matches)
+  ; ("Reject all-wildcard key", `Quick, test_reject_all_wildcard_key)
   ]
 
 let () = Alcotest.run "Bucket table library" [("Bucket table tests", test)]

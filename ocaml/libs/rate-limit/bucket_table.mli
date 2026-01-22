@@ -12,14 +12,22 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Functor to create a bucket table with a custom key type. *)
+(** Key type for bucket table lookups. Empty strings act as wildcards. *)
 module Key : sig
   type t = {user_agent: string; host_ip: string}
 
+  val equal : t -> t -> bool
+
+  val matches : pattern:t -> target:t -> bool
+  (** [matches ~pattern ~target] returns true if [pattern] matches [target].
+      Empty strings in [pattern] act as wildcards matching any value. *)
+
   val compare : t -> t -> int
+  (** Total order: fewer wildcards first, then lexicographic by fields. *)
 end
 
-(** Hash table mapping keys to their token buckets for rate limiting. *)
+(** List of entries mapping keys to their token buckets for rate limiting.
+    Lookups use wildcard matching with priority: exact > host_ip only > user_agent only. *)
 type t
 
 val create : unit -> t
@@ -28,12 +36,13 @@ val create : unit -> t
 val add_bucket :
   t -> client_id:Key.t -> burst_size:float -> fill_rate:float -> bool
 (** [add_bucket table ~client_id ~burst_size ~fill_rate] adds a token bucket
-    for the given client_id. Returns [false] if a bucket already exists, or if
-    the bucket configuration is invalid, e.g. negative/zero fill rate. *)
+    for the given client_id. Returns [false] if a bucket already exists, if
+    the bucket configuration is invalid (e.g. negative/zero fill rate), or if
+    client_id has both fields empty (all-wildcard keys are rejected). *)
 
 val mem : t -> client_id:Key.t -> bool
-(** [mem table ~client_id] returns whether [client_id] has an associated
-    token bucket in the bucket table *)
+(** [mem table ~client_id] returns whether [client_id] matches any entry
+    in the bucket table using wildcard matching. *)
 
 val peek : t -> client_id:Key.t -> float option
 (** [peek table ~client_id] returns the current token count for the client_id,
