@@ -1,4 +1,4 @@
 (tests
- (names test_token_bucket test_bucket_table)
+ (names test_token_bucket test_bucket_table test_lru)
  (package rate-limit)
  (libraries rate_limit alcotest qcheck-core qcheck-alcotest mtime mtime.clock.os fmt xapi-log threads.posix))
