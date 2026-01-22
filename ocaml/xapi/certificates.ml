@@ -268,6 +268,8 @@ let raise_library_corrupt () =
 module Db_util : sig
   type name = string
 
+  module PurposeSet : Set.S with type elt = API.certificate_purpose
+
   val add_cert :
        __context:Context.t
     -> type':

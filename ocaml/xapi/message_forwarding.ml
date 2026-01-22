@@ -1235,6 +1235,10 @@ functor
         Local.Pool.set_ssh_auto_mode ~__context ~self ~value
 
       let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs ~doc:"Pool.install_trusted_certificate"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
         info "Pool.install_trusted_certificate: pool='%s' ca='%b' purpose=[%s]"
           (pool_uuid ~__context self)
           ca
@@ -1245,10 +1249,30 @@ functor
           ~purpose
 
       let uninstall_trusted_certificate ~__context ~self ~certificate =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs ~doc:"Pool.uninstall_trusted_certificate"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
         info "Pool.uninstall_trusted_certificate: pool='%s' certificate='%s'"
           (pool_uuid ~__context self)
           (certificate_uuid ~__context certificate) ;
         Local.Pool.uninstall_trusted_certificate ~__context ~self ~certificate
+
+      let exchange_trusted_certificates_on_join ~__context ~self ~ca ~import
+          ~export =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs
+          ~doc:"Pool.exchange_trusted_certificates_on_join"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info
+          "Pool.exchange_trusted_certificates_on_join: pool='%s' ca=%b \
+           export=[%s]"
+          (pool_uuid ~__context self)
+          ca
+          (List.map (certificate_uuid ~__context) export |> String.concat ";") ;
+        Local.Pool.exchange_trusted_certificates_on_join ~__context ~self ~ca
+          ~import ~export
     end
 
     module VM = struct

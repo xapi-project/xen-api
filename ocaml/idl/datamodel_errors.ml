@@ -878,6 +878,13 @@ let _ =
       "The host joining the pool has different CA certificates from the pool \
        coordinator while using the same name, uninstall them and try again."
     () ;
+  error Api_errors.pool_joining_host_trusted_certificates_conflict
+    ["ref_in_pool"; "ref_on_host"]
+    ~doc:
+      "The joining host has a trusted certificate identical to one on the pool \
+       coordinator but with different purpose. Uninstall it then install it on \
+       the host again with the pool-compatible purpose, and try again."
+    () ;
   error Api_errors.pool_joining_sm_features_incompatible
     ["pool_sm_ref"; "candidate_sm_ref"]
     ~doc:

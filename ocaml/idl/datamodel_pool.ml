@@ -1655,6 +1655,30 @@ let uninstall_trusted_certificate =
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ~lifecycle:[] ()
 
+let trusted_certs = Map (String, Set String)
+
+let exchange_trusted_certificates_on_join =
+  call ~name:"exchange_trusted_certificates_on_join"
+    ~doc:
+      "Exchange the trusted TLS certificates which are referred by \
+       [certificates]."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; (Bool, "ca", "true for 'ca' or false for 'pinned'")
+      ; ( trusted_certs
+        , "import"
+        , "The trusted TLS certificates to be installed."
+        )
+      ; ( Set (Ref _certificate)
+        , "export"
+        , "The references of the trusted TLS certificates to be returned."
+        )
+      ]
+    ~result:(trusted_certs, "The contents of these trusted TLS certificates.")
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~hide_from_docs:true ~lifecycle:[] ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true
@@ -1756,6 +1780,7 @@ let t =
       ; set_ssh_auto_mode
       ; install_trusted_certificate
       ; uninstall_trusted_certificate
+      ; exchange_trusted_certificates_on_join
       ]
     ~contents:
       ([
