@@ -710,6 +710,42 @@ let collect_ca_certs ~__context ~names =
   Worker.local_collect_certs LegacyRootCert ~__context names
   |> List.map WireProtocol.pair_of_certificate_file
 
+module CertMap = Map.Make (String)
+
+let collect_trusted_certs ~__context ~ca ~certificates =
+  let certs_in_db =
+    let category =
+      if ca then
+        `Root
+      else
+        `Pinned
+    in
+    let db_type = Certificates.db_type_of_category category in
+    Certificates.Db_util.get_trusted_certs ~__context db_type
+    |> List.map (fun (ref, r) -> (Ref.string_of ref, (category, r)))
+    |> List.fold_left (fun acc (ref, x) -> CertMap.add ref x acc) CertMap.empty
+  in
+  certificates
+  |> List.concat_map (fun ref ->
+      let ref = Ref.string_of ref in
+      match CertMap.find_opt ref certs_in_db with
+      | Some (category, r) ->
+          let fname, typ, (module P : CertificateProvider) =
+            of_db_rec category r
+          in
+          Worker.local_collect_certs typ ~__context [fname]
+          |> List.map (fun WireProtocol.{content; _} ->
+              ( content
+              , List.map Record_util.certificate_purpose_to_string
+                  r.API.certificate_purpose
+              )
+          )
+      | None ->
+          D.error "%s: the certificate is not a trusted one with ca=%b."
+            __FUNCTION__ ca ;
+          raise Api_errors.(Server_error (not_trusted_certificate, [ref]))
+  )
+
 (* This function is called on the pool that is incorporating a new host *)
 let exchange_ca_certificates_with_joiner ~__context ~import ~export =
   let module C = Certificates in
