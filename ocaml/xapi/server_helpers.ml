@@ -185,7 +185,7 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
     let client_id_option =
       match (http_req.user_agent, Context.get_client_ip __context) with
       | Some user_agent, Some host_ip ->
-          Some Xapi_rate_limit.Client_id.{user_agent; host_ip}
+          Some Rate_limit.Bucket_table.Key.{user_agent; host_ip}
       | _ ->
           None
     in
@@ -215,8 +215,8 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
           D.debug
             "Bucket table: Expecting to consume %f tokens from user_agent %s \
              host_ip %s with available tokens %f in function %s"
-            token_cost client_id.Xapi_rate_limit.Client_id.user_agent
-            client_id.Xapi_rate_limit.Client_id.host_ip tokens __FUNCTION__ ;
+            token_cost client_id.Rate_limit.Bucket_table.Key.user_agent
+            client_id.Rate_limit.Bucket_table.Key.host_ip tokens __FUNCTION__ ;
           match sync_ty with
           | `Sync ->
               Xapi_rate_limit.Bucket_table.submit_sync
@@ -235,8 +235,8 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
         )
       | None ->
           D.debug "%s/%s not registered, not throttling"
-            client_id.Xapi_rate_limit.Client_id.user_agent
-            client_id.Xapi_rate_limit.Client_id.host_ip ;
+            client_id.Rate_limit.Bucket_table.Key.user_agent
+            client_id.Rate_limit.Bucket_table.Key.host_ip ;
           handle_request ()
     )
     | None ->
