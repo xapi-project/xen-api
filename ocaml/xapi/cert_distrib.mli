@@ -65,6 +65,12 @@ val collect_trusted_certs :
     [certificates]. When [ca] is true, the certificates are root CA, otherwise,
     they are pinned leaf certificates. *)
 
+val collect_crls :
+  __context:Context.t -> names:string list -> (string * string) list
+(** [collect_crls ~__context ~names] returns the (name, content) pairs of the
+    Certificate Revocation Lists (CRLs) installed in the pool referenced by
+    [names] which are filenames in dom0's filesystem on the coordinator. *)
+
 val exchange_ca_certificates_with_joiner :
      __context:Context.t
   -> import:(string * string) list

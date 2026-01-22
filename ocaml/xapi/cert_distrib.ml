@@ -746,6 +746,10 @@ let collect_trusted_certs ~__context ~ca ~certificates =
           raise Api_errors.(Server_error (not_trusted_certificate, [ref]))
   )
 
+let collect_crls ~__context ~names =
+  Worker.local_collect_certs CRL ~__context names
+  |> List.map WireProtocol.pair_of_certificate_file
+
 (* This function is called on the pool that is incorporating a new host *)
 let exchange_ca_certificates_with_joiner ~__context ~import ~export =
   let module C = Certificates in
