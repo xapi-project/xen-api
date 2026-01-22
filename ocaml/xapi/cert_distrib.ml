@@ -604,7 +604,7 @@ let am_i_missing_certs ~__context : bool =
         (diff |> StringSet.elements |> String.concat "; ") ;
     not in_sync_with_remote
   in
-  let ( let*? ) l f = List.map f l |> List.exists Fun.id in
+  let ( let*? ) l f = List.exists f l in
   let pool_certs_are_missing () =
     let*? store_path = HostPoolProvider.store_paths in
     local_is_missing_certificates
