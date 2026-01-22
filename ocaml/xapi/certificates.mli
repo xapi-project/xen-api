@@ -73,6 +73,8 @@ val db_type_of_category : [`Root | `Pinned] -> [`ca | `pinned]
 (* Database manipulation *)
 
 module Db_util : sig
+  module PurposeSet : Set.S with type elt = API.certificate_purpose
+
   val add_cert :
        __context:Context.t
     -> type':
