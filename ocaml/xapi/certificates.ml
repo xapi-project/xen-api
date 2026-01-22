@@ -402,7 +402,9 @@ end = struct
   let get_ca_certs ~__context =
     let expr =
       let open Xapi_database.Db_filter_types in
-      Eq (Field "type", Literal "ca")
+      let type' = Eq (Field "type", Literal "ca") in
+      let name = Not (Eq (Field "name", Literal "")) in
+      And (type', name)
     in
     Db.Certificate.get_refs_where ~__context ~expr
 

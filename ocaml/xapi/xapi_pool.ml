@@ -859,7 +859,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     *)
     let conflicting_names = ref [] in
     let module CertMap = Map.Make (String) in
-    let expr = {|field "type"="ca"|} in
+    let expr = {|field "type"="ca" and not (field "name"="")|} in
     let map_of_list list =
       list
       |> List.to_seq
@@ -4266,7 +4266,10 @@ let uninstall_trusted_certificate ~__context ~self:_ ~certificate =
     | `pinned ->
         Pinned purposes
     | _ ->
-        raise Api_errors.(Server_error (not_trusted_certificate, []))
+        raise
+          Api_errors.(
+            Server_error (not_trusted_certificate, [Ref.string_of certificate])
+          )
   in
   let name = Certificates.name_of_uuid cert_rec.API.certificate_uuid in
   Db_util.remove_cert_by_ref ~__context certificate ;

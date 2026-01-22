@@ -1706,7 +1706,7 @@ let _ =
     ~doc:"The provided intermediate certificates are not in a PEM-encoded X509."
     () ;
 
-  error Api_errors.not_trusted_certificate []
+  error Api_errors.not_trusted_certificate ["ref"]
     ~doc:"The provided certificate is not a trusted certificate." () ;
 
   error Api_errors.certificate_lacks_purpose []
