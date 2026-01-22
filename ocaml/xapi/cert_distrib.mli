@@ -55,6 +55,16 @@ val collect_ca_certs :
 (** [collect_ca_certs ~__context ~names] returns the ca certificates present
     in the filesystem with the filenames [names], ready to export. *)
 
+val collect_trusted_certs :
+     __context:Context.t
+  -> ca:bool
+  -> certificates:API.ref_Certificate list
+  -> (string * string list) list
+(** [collect_trusted_certs ~__context ~ca ~certificates] returns the
+    (content, purpose list) pairs of the trusted certificates referenced by the
+    [certificates]. When [ca] is true, the certificates are root CA, otherwise,
+    they are pinned leaf certificates. *)
+
 val exchange_ca_certificates_with_joiner :
      __context:Context.t
   -> import:(string * string) list
