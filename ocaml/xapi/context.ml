@@ -85,6 +85,8 @@ let task_in_database ctx = Ref.is_real ctx.task_id
 
 let get_origin ctx = string_of_origin ctx.origin
 
+let is_internal_origin ctx = ctx.origin = Internal
+
 let database_of x = x.database
 
 (** Calls coming in from the main unix socket are pre-authenticated.

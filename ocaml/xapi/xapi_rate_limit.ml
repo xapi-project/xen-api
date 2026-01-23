@@ -14,8 +14,17 @@
 module D = Debug.Make (struct let name = "xapi_rate_limit" end)
 
 module Bucket_table = Rate_limit.Bucket_table
+module Key = Rate_limit.Bucket_table.Key
 
 let bucket_table = Bucket_table.create ()
+
+let submit_sync ~client_id ~callback amount =
+  Bucket_table.submit_sync bucket_table ~client_id ~callback amount
+
+let submit ~client_id ~callback amount =
+  Bucket_table.submit bucket_table ~client_id ~callback amount
+
+let peek ~client_id = Bucket_table.peek bucket_table ~client_id
 
 let create ~__context ~user_agent ~host_ip ~burst_size ~fill_rate =
   if user_agent = "" && host_ip = "" then
@@ -24,7 +33,7 @@ let create ~__context ~user_agent ~host_ip ~burst_size ~fill_rate =
         Server_error
           (invalid_value, ["Expected user_agent or host_ip to be nonempty"])
       ) ;
-  let client_id = Bucket_table.Key.{user_agent; host_ip} in
+  let client_id = Key.{user_agent; host_ip} in
   if Bucket_table.mem bucket_table ~client_id then
     raise
       Api_errors.(
@@ -59,7 +68,7 @@ let create ~__context ~user_agent ~host_ip ~burst_size ~fill_rate =
 let destroy ~__context ~self =
   let record = Db.Rate_limit.get_record ~__context ~self in
   let client_id =
-    Bucket_table.Key.
+    Key.
       {
         user_agent= record.rate_limit_user_agent
       ; host_ip= record.rate_limit_host_ip
@@ -72,7 +81,7 @@ let register ~__context =
   List.iter
     (fun (_, bucket) ->
       let client_id =
-        Bucket_table.Key.
+        Key.
           {
             user_agent= bucket.API.rate_limit_user_agent
           ; host_ip= bucket.API.rate_limit_host_ip

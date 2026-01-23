@@ -12,9 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Bucket_table = Rate_limit.Bucket_table
+module Key = Rate_limit.Bucket_table.Key
 
-val bucket_table : Bucket_table.t
+val submit_sync : client_id:Key.t -> callback:(unit -> 'a) -> float -> 'a
+
+val submit : client_id:Key.t -> callback:(unit -> unit) -> float -> unit
+
+val peek : client_id:Key.t -> float option
 
 val get_token_cost : string -> float
 
