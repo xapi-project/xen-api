@@ -1083,7 +1083,7 @@ module Redirector = struct
     )
 
   module Dump = struct
-    type q = {tag: string; items: operation list} [@@deriving rpcty]
+    type q = {tag: string; items: string list} [@@deriving rpcty]
 
     type t = q list [@@deriving rpcty]
 
@@ -1097,7 +1097,7 @@ module Redirector = struct
                 ; items=
                     List.rev
                       (Queue.fold
-                         (fun acc (b, _) -> b :: acc)
+                         (fun acc b -> describe_item b :: acc)
                          [] (Queues.get t queue)
                       )
                 }
