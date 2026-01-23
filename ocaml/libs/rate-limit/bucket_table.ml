@@ -207,7 +207,6 @@ let submit t ~client_id ~callback amount =
   let entries = Atomic.get t in
   match find_match entries ~client_id with
   | None ->
-      D.debug "Found no rate limited client_id, returning" ;
       callback ()
   | Some
       ( {bucket; process_queue; process_queue_lock; worker_thread_cond; _} as
@@ -218,12 +217,18 @@ let submit t ~client_id ~callback amount =
             let immediate =
               Queue.is_empty process_queue && Token_bucket.consume bucket amount
             in
-            if not immediate then Queue.add (amount, callback) process_queue ;
-            Condition.signal worker_thread_cond ;
+            if not immediate then (
+              Queue.add (amount, callback) process_queue ;
+              Condition.signal worker_thread_cond
+            ) ;
             immediate
         )
       in
-      if run_immediately then callback ()
+      if run_immediately then
+        callback ()
+      else
+        D.debug "rate limiting sync call for user-agent: %s, host-ip: %s"
+          client_id.user_agent client_id.host_ip
 
 (* Block and execute on the same thread *)
 let submit_sync t ~client_id ~callback amount =
@@ -254,6 +259,8 @@ let submit_sync t ~client_id ~callback amount =
       | None ->
           callback ()
       | Some channel ->
+          D.debug "Rate limiting call from user-agent: %s, host-ip: %s"
+            client_id.user_agent client_id.host_ip ;
           Event.sync (Event.receive channel) ;
           callback ()
     )
