@@ -10,8 +10,7 @@ let make_rpc_with_user_agent user_agent =
   in
   fun xml ->
     Xmlrpc_client.XMLRPC_protocol.rpc ~srcstr:"quicktest" ~dststr:"xapi"
-      ~transport:(Unix Xapi_globs.unix_domain_socket)
-      ~http xml
+      ~transport:(Unix Xapi_globs.unix_domain_socket) ~http xml
 
 (* Test that rate limiting actually throttles requests.
    We create a rate limit with a small burst size and fill rate,
@@ -41,8 +40,7 @@ let rate_limit_test rpc session_id () =
       let actual_fill =
         Rate_limit.get_fill_rate ~rpc ~session_id ~self:rate_limit_ref
       in
-      Alcotest.(check (float 0.01))
-        "Burst size matches" burst_size actual_burst ;
+      Alcotest.(check (float 0.01)) "Burst size matches" burst_size actual_burst ;
       Alcotest.(check (float 0.01)) "Fill rate matches" fill_rate actual_fill ;
       (* Verify we can look it up by UUID *)
       let found_ref = Rate_limit.get_by_uuid ~rpc ~session_id ~uuid in
@@ -78,7 +76,9 @@ let rate_limit_throttling_test rpc session_id () =
       (* First call should be fast (uses burst token) *)
       let start1 = Mtime_clock.counter () in
       make_call () ;
-      let elapsed1 = Mtime.Span.to_float_ns (Mtime_clock.count start1) *. 1e-9 in
+      let elapsed1 =
+        Mtime.Span.to_float_ns (Mtime_clock.count start1) *. 1e-9
+      in
       Printf.printf "First call took %.3f seconds\n%!" elapsed1 ;
       (* Second call should be throttled - need to wait for token refill
          With 1 token/sec fill rate and ~0.0002 token cost for pool.get_all,
@@ -88,14 +88,19 @@ let rate_limit_throttling_test rpc session_id () =
       for _ = 1 to num_calls do
         make_call ()
       done ;
-      let elapsed2 = Mtime.Span.to_float_ns (Mtime_clock.count start2) *. 1e-9 in
-      Printf.printf "%d throttled calls took %.3f seconds\n%!" num_calls elapsed2 ;
+      let elapsed2 =
+        Mtime.Span.to_float_ns (Mtime_clock.count start2) *. 1e-9
+      in
+      Printf.printf "%d throttled calls took %.3f seconds\n%!" num_calls
+        elapsed2 ;
       (* Now compare with unthrottled calls using the regular rpc *)
       let start3 = Mtime_clock.counter () in
       for _ = 1 to num_calls do
         ignore (Client.Client.Pool.get_all ~rpc ~session_id)
       done ;
-      let elapsed3 = Mtime.Span.to_float_ns (Mtime_clock.count start3) *. 1e-9 in
+      let elapsed3 =
+        Mtime.Span.to_float_ns (Mtime_clock.count start3) *. 1e-9
+      in
       Printf.printf "%d unthrottled calls took %.3f seconds\n%!" num_calls
         elapsed3 ;
       (* The throttled calls should take noticeably longer than unthrottled.
@@ -106,9 +111,7 @@ let rate_limit_throttling_test rpc session_id () =
       Printf.printf "Throttle ratio: %.2f (throttled/unthrottled)\n%!"
         throttle_ratio ;
       (* Just verify the test ran - actual throttling depends on token costs *)
-      Alcotest.(check bool)
-        "Throttled calls completed" true
-        (elapsed2 > 0.0)
+      Alcotest.(check bool) "Throttled calls completed" true (elapsed2 > 0.0)
   )
 
 (* Test that duplicate rate limits are rejected *)
@@ -133,8 +136,7 @@ let rate_limit_duplicate_test rpc session_id () =
         with Api_errors.Server_error (code, _) ->
           code = Api_errors.map_duplicate_key
       in
-      Alcotest.(check bool)
-        "Duplicate rate limit rejected" true raised_error
+      Alcotest.(check bool) "Duplicate rate limit rejected" true raised_error
   )
 
 (* Test that invalid rate limits are rejected *)
