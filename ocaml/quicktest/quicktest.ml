@@ -44,6 +44,7 @@ let () =
         ; ("Quicktest_static_vdis", Quicktest_static_vdis.tests ())
         ; ("Quicktest_date", Quicktest_date.tests ())
         ; ("Quicktest_crypt_r", Quicktest_crypt_r.tests ())
+        ; ("Quicktest_rate_limit", Quicktest_rate_limit.tests ())
         ]
         @ ( if not !Quicktest_args.using_unix_domain_socket then
               [("http", Quicktest_http.tests)]
