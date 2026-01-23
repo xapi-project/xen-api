@@ -919,6 +919,37 @@ type item = operation * Xenops_task.task_handle
 
 let describe_item ((op, _) : item) = string_of_operation op
 
+module TaskDump = struct
+  type t = {
+      id: string
+    ; ctime: string
+    ; dbg: string
+    ; subtasks: (string * string) list
+  }
+  [@@deriving rpcty]
+
+  let rpc_of_t t = Rpcmarshal.marshal typ_of t
+
+  let t_of_rpc rpc = Rpcmarshal.unmarshal typ_of rpc
+
+  let of_task t =
+    let t' = Xenops_task.to_interface_task t in
+    {
+      id= t'.Task.id
+    ; ctime= t'.Task.ctime |> Clock.Date.of_unix_time |> Clock.Date.to_rfc3339
+    ; dbg= t'.Task.dbg
+    ; subtasks=
+        List.map
+          (fun (name, state) ->
+            (name, state |> rpc_of Task.state |> Jsonrpc.to_string)
+          )
+          t'.Task.subtasks
+        |> List.rev
+    }
+end
+
+let dump_task (_, handle) = TaskDump.(of_task handle |> rpc_of_t)
+
 module Redirector = struct
   type t = {queues: item Queues.t; mutex: Mutex.t}
 
@@ -1206,34 +1237,9 @@ module WorkerPool = struct
   let m = Mutex.create ()
 
   module Dump = struct
-    type task = {
-        id: string
-      ; ctime: string
-      ; dbg: string
-      ; subtasks: (string * string) list
-    }
-    [@@deriving rpcty]
-
-    let of_task t =
-      let t' = Xenops_task.to_interface_task t in
-      {
-        id= t'.Task.id
-      ; ctime= t'.Task.ctime |> Date.of_unix_time |> Date.to_rfc3339
-      ; dbg= t'.Task.dbg
-      ; subtasks=
-          List.map
-            (fun (name, state) ->
-              (name, state |> rpc_of Task.state |> Jsonrpc.to_string)
-            )
-            t'.Task.subtasks
-          |> List.rev
-      }
-
-    type w = {state: string; task: task option} [@@deriving rpcty]
+    type w = {state: string; task: rpc_t option} [@@deriving rpcty]
 
     type t = w list [@@deriving rpcty]
-
-    let dump_task (_, task) = of_task task
 
     let make () =
       with_lock m (fun () ->
@@ -4296,7 +4302,7 @@ module Diagnostics = struct
     ; workers: WorkerPool.Dump.t
     ; scheduler: rpc_t
     ; updates: rpc_t
-    ; tasks: WorkerPool.Dump.task list
+    ; tasks: TaskDump.t list
     ; vm_actions: (string * domain_action_request option) list
   }
   [@@deriving rpcty]
@@ -4308,7 +4314,7 @@ module Diagnostics = struct
     ; workers= WorkerPool.Dump.make ()
     ; scheduler= Scheduler.Dump.make scheduler |> Scheduler.Dump.rpc_of_dump
     ; updates= Updates.Dump.make updates |> Updates.Dump.rpc_of_dump
-    ; tasks= List.map WorkerPool.Dump.of_task (Xenops_task.list tasks)
+    ; tasks= List.map TaskDump.of_task (Xenops_task.list tasks)
     ; vm_actions=
         List.filter_map
           (fun id ->
