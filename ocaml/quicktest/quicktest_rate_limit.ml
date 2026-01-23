@@ -1,5 +1,3 @@
-(* Smoke test for rate limiting functionality *)
-
 module Rate_limit = Client.Client.Rate_limit
 module Pool = Client.Client.Pool
 
@@ -61,9 +59,7 @@ let rate_limit_throttling_test rpc session_id () =
       (* Throttled calls should take noticeably longer - at least 2x slower
          given the restrictive rate limit *)
       Alcotest.(check bool)
-        "Rate limiting causes observable slowdown"
-        true
-        (throttle_ratio > 2.0)
+        "Rate limiting causes observable slowdown" true (throttle_ratio > 2.0)
   )
 
 (* Test that invalid rate limits are rejected *)
