@@ -1273,6 +1273,17 @@ functor
           (List.map (certificate_uuid ~__context) export |> String.concat ";") ;
         Local.Pool.exchange_trusted_certificates_on_join ~__context ~self ~ca
           ~import ~export
+
+      let exchange_crls_on_join ~__context ~self ~import ~export =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`exchange_crls_on_join ~doc:"Pool.exchange_crls_on_join"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info "Pool.exchange_crls_on_join: pool='%s' import=[%s] export=[%s]"
+          (pool_uuid ~__context self)
+          (String.concat ";" (List.map fst import))
+          (String.concat ";" export) ;
+        Local.Pool.exchange_crls_on_join ~__context ~self ~import ~export
     end
 
     module VM = struct
