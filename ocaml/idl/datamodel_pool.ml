@@ -47,6 +47,9 @@ let operations =
            host"
         )
       ; ("eject", "Ejection of a host from the pool is under way")
+      ; ( "exchange_crls_on_join"
+        , "Indicates this pool is exchanging CRLs with a new joiner"
+        )
       ]
     )
 
@@ -1679,6 +1682,32 @@ let exchange_trusted_certificates_on_join =
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ~hide_from_docs:true ~lifecycle:[] ()
 
+let exchange_crls_on_join =
+  call ~name:"exchange_crls_on_join"
+    ~doc:
+      "Install the TLS CA-issued Certificate Revocation Lists (CRLs) provided \
+       in [import] and return the CRLs referenced by [export]."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( certs
+        , "import"
+        , "The TLS CA-issued Certificate Revocation Lists (CRLs) to be \
+           installed."
+        )
+      ; ( Set String
+        , "export"
+        , "The names of the installed TLS CA-issued Certificate Revocation \
+           Lists (CRLs) to be returned."
+        )
+      ]
+    ~result:
+      ( certs
+      , "The contents of the TLS CA-issued Certificate Revocation Lists (CRLs)."
+      )
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~hide_from_docs:true ~lifecycle:[] ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true
@@ -1781,6 +1810,7 @@ let t =
       ; install_trusted_certificate
       ; uninstall_trusted_certificate
       ; exchange_trusted_certificates_on_join
+      ; exchange_crls_on_join
       ]
     ~contents:
       ([

@@ -1789,6 +1789,10 @@ let exchange_trusted_certificates ~__context ~rpc ~session_id ~remote ~local =
     )
     [`ca; `pinned]
 
+let exchange_crls_on_join ~__context ~self:_ ~import ~export =
+  List.iter (fun (name, crl) -> crl_install ~__context ~name ~cert:crl) import ;
+  Cert_distrib.collect_crls ~__context ~names:export
+
 let exchange_legacy_ca_certificates ~__context ~rpc ~session_id ~remote ~local =
   let module CertSet = Set.Make (String) in
   let get_name = function _, {API.certificate_name; _} -> certificate_name in
@@ -1817,6 +1821,19 @@ let exchange_legacy_ca_certificates ~__context ~rpc ~session_id ~remote ~local =
   in
   Cert_distrib.import_joining_pool_ca_certificates ~__context
     ~ca_certs:downloaded_certs
+
+let exchange_crls ~__context ~rpc ~session_id =
+  let local_names = crl_list ~__context in
+  let local_crls = Cert_distrib.collect_crls ~__context ~names:local_names in
+  let remote_names = Client.Pool.crl_list ~rpc ~session_id in
+  let remote_crls =
+    Client.Pool.exchange_crls_on_join ~rpc ~session_id
+      ~self:(get_pool ~rpc ~session_id)
+      ~import:local_crls ~export:remote_names
+  in
+  List.iter
+    (fun (name, crl) -> crl_install ~__context ~name ~cert:crl)
+    remote_crls
 
 let join_common ~__context ~master_address ~master_username ~master_password
     ~force =
@@ -1911,6 +1928,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
       exchange_legacy_ca_certificates ~__context ~rpc ~session_id
         ~remote:remote_legacy ~local:local_legacy ;
       exchange_trusted_certificates ~__context ~rpc ~session_id ~remote ~local ;
+      exchange_crls ~__context ~rpc ~session_id ;
 
       (* get pool db from new master so I have a backup ready if we failover to me *)
       ( try

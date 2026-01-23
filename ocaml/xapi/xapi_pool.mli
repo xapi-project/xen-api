@@ -468,3 +468,10 @@ val exchange_trusted_certificates_on_join :
   -> import:(string * string list) list
   -> export:API.ref_Certificate list
   -> (string * string list) list
+
+val exchange_crls_on_join :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> import:API.string_to_string_map
+  -> export:string list
+  -> API.string_to_string_map
