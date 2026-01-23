@@ -3994,7 +3994,10 @@ let suspend ~__context ~self =
         in
         Int64.(ram |> add vgpu |> add 104857600L)
       in
-      let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm:self in
+      let suspend_SR =
+        Helpers.choose_suspend_sr ~__context ~vm:self
+          ~required_space:space_needed
+      in
       let sm_config =
         [
           (Constants._sm_vm_hint, id)
