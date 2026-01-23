@@ -3869,6 +3869,28 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "rate-limit-create"
+    , {
+        reqd= ["burst-size"; "fill-rate"]
+      ; optn= ["user-agent"; "host-ip"]
+      ; help=
+          "Add rate limiting to an XAPI client by identifying it via user \
+           agent, IP address, or both, and by configuring a refill rate \
+           (requests per second) and a burst size (maximum number of \
+           concurrent requests)."
+      ; implementation= No_fd Cli_operations.Rate_limit.create
+      ; flags= []
+      }
+    )
+  ; ( "rate-limit-destroy"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Destroy rate limiter"
+      ; implementation= No_fd Cli_operations.Rate_limit.destroy
+      ; flags= []
+      }
+    )
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t = Hashtbl.create 50

@@ -351,25 +351,43 @@ let add_handler (name, handler) =
       failwith (Printf.sprintf "Unregistered HTTP handler: %s" name)
   in
   let check_rbac = Rbac.is_rbac_enabled_for_http_action name in
-  let h req ic context =
-    let client =
-      Http_svr.(client_of_req_and_fd req ic |> Option.map string_of_client)
+  let rate_limit (client_id_opt : Xapi_rate_limit.Key.t option) handler () =
+    if List.mem name Datamodel.custom_rate_limit_http_actions then
+      handler ()
+    else
+      match client_id_opt with
+      | None ->
+          handler ()
+      | Some ({user_agent; host_ip} as client_id) ->
+          debug "Rate limiting handler %s with user_agent %s host_ip %s" name
+            user_agent host_ip ;
+          Xapi_rate_limit.submit ~client_id ~callback:handler
+            Xapi_rate_limit.median_token_cost
+  in
+  let h req ic () =
+    let client_info = Http_svr.client_of_req_and_fd req ic in
+    let client = Option.map Http_svr.string_of_client client_info in
+    let client_id =
+      match (req.Http.Request.user_agent, client_info) with
+      | Some user_agent, Some (_, ip) ->
+          Some Xapi_rate_limit.Key.{user_agent; host_ip= Ipaddr.to_string ip}
+      | _ ->
+          None
     in
+    let rate_limited_handler = rate_limit client_id (handler req ic) in
     Debug.with_thread_associated ?client name
       (fun () ->
         try
           if check_rbac then (
             try
               (* session and rbac checks *)
-              assert_credentials_ok name req
-                ~fn:(fun () -> handler req ic context)
-                ic
+              assert_credentials_ok name req ~fn:rate_limited_handler ic
             with e ->
               debug "Leaving RBAC-handler in xapi_http after: %s"
                 (ExnHelper.string_of_exn e) ;
               raise e
           ) else (* no rbac checks *)
-            handler req ic context
+            rate_limited_handler ()
         with Api_errors.Server_error (name, params) as e ->
           error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
             (String.concat "; " params) ;

@@ -10,7 +10,7 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 793
+let schema_minor_vsn = 794
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -314,6 +314,8 @@ let _observer = "Observer"
 let _host_driver = "Host_driver"
 
 let _driver_variant = "Driver_variant"
+
+let _rate_limit = "Rate_limit"
 
 let update_guidances =
   Enum

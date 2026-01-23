@@ -1,4 +1,6 @@
 let prototyped_of_class = function
+  | "Rate_limit" ->
+      Some "25.39.0"
   | "Driver_variant" ->
       Some "25.2.0"
   | "Host_driver" ->
@@ -13,6 +15,16 @@ let prototyped_of_class = function
       None
 
 let prototyped_of_field = function
+  | "Rate_limit", "fill_rate" ->
+      Some "25.39.0"
+  | "Rate_limit", "burst_size" ->
+      Some "25.39.0"
+  | "Rate_limit", "host_ip" ->
+      Some "26.1.0"
+  | "Rate_limit", "user_agent" ->
+      Some "26.1.0"
+  | "Rate_limit", "uuid" ->
+      Some "25.39.0"
   | "Driver_variant", "status" ->
       Some "25.2.0"
   | "Driver_variant", "priority" ->
@@ -138,11 +150,11 @@ let prototyped_of_field = function
   | "VM_guest_metrics", "netbios_name" ->
       Some "24.28.0"
   | "VM_metrics", "numa_node_memory" ->
-      Some "26.1.0-next"
+      Some "26.2.0"
   | "VM_metrics", "numa_nodes" ->
-      Some "26.1.0-next"
+      Some "26.2.0"
   | "VM_metrics", "numa_optimised" ->
-      Some "26.1.0-next"
+      Some "26.2.0"
   | "VM", "groups" ->
       Some "24.19.1"
   | "VM", "pending_guidances_full" ->
@@ -197,6 +209,10 @@ let prototyped_of_field = function
       None
 
 let prototyped_of_message = function
+  | "Rate_limit", "destroy" ->
+      Some "26.1.0"
+  | "Rate_limit", "create" ->
+      Some "26.1.0"
   | "Driver_variant", "select" ->
       Some "25.2.0"
   | "Host_driver", "rescan" ->
