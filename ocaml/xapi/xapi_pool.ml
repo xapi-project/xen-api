@@ -2385,6 +2385,7 @@ let eject_self ~__context ~host =
     Unixext.unlink_safe Xapi_globs.db_temporary_restore_path ;
     Unixext.unlink_safe Db_globs.ha_metadata_db ;
     Unixext.unlink_safe Db_globs.gen_metadata_db ;
+    Certificates.cleanup_all_trusted () ;
     (* If we've got local storage, remove it *)
     if Helpers.local_storage_exists () then (
       ignore
