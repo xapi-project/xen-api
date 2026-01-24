@@ -145,8 +145,9 @@ let rehash' path =
 let rehash () =
   List.iter
     (fun kind ->
+      mkdir_cert_path kind ;
       with_cert_store kind @@ fun ~cert_dir ~bundle_dir:_ ~bundle_name:_ ->
-      mkdir_cert_path kind ; rehash' cert_dir
+      rehash' cert_dir
     )
     all_trusted_kinds
 
