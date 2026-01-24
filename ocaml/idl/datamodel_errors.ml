@@ -1694,7 +1694,7 @@ let _ =
     () ;
 
   error Api_errors.server_certificate_invalid []
-    ~doc:"The provided certificate is not in a PEM-encoded X509." () ;
+    ~doc:"The provided certificate is not in a PEM-encoded X509 format." () ;
   error Api_errors.server_certificate_key_mismatch []
     ~doc:
       "The provided key does not match the provided certificate's public key."
@@ -1710,7 +1710,9 @@ let _ =
     () ;
 
   error Api_errors.server_certificate_chain_invalid []
-    ~doc:"The provided intermediate certificates are not in a PEM-encoded X509."
+    ~doc:
+      "The provided intermediate certificates are not in a PEM-encoded X509 \
+       format."
     () ;
 
   error Api_errors.not_trusted_certificate ["ref"]
@@ -1726,7 +1728,7 @@ let _ =
     ~doc:"The provided certificate is not valid yet." () ;
 
   error Api_errors.trusted_certificate_invalid []
-    ~doc:"The provided certificate is not in a PEM-encoded X509." () ;
+    ~doc:"The provided certificate is not in a PEM-encoded X509 format." () ;
 
   error Api_errors.vmpp_has_vm []
     ~doc:"There is at least one VM assigned to this protection policy." () ;
