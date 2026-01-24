@@ -571,3 +571,11 @@ let name_of_uuid uuid = Printf.sprintf "%s.pem" uuid
 
 let db_type_of_category category =
   match category with `Root -> `ca | `Pinned -> `pinned
+
+let cleanup_all_trusted () =
+  let ( let* ) l f = List.iter f l in
+  let* kind = all_trusted_kinds in
+  let* store = trusted_store_locations kind in
+  Unixext.rm_rec ~rm_top:false store.cert_dir ;
+  Unixext.unlink_safe (store.bundle_dir // store.bundle_name) ;
+  ()

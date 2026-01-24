@@ -70,6 +70,8 @@ val sync_all_hosts : __context:Context.t -> API.ref_host list -> unit
 
 val db_type_of_category : [`Root | `Pinned] -> [`ca | `pinned]
 
+val cleanup_all_trusted : unit -> unit
+
 (* Database manipulation *)
 
 module Db_util : sig
