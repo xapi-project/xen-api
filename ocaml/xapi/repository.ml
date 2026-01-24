@@ -169,7 +169,14 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
           )
       | `bundle ->
           let uri =
-            Uri.make ~scheme:"file" ~path:!Xapi_globs.bundle_repository_dir ()
+            (* dnf requires a URI that is file:///absolute/path, using the
+             * file:/absolute/path variant will result in a failure to locate
+             * the signature file, thus the host parameter to Uri.make is
+             * required
+             *)
+            Uri.make ~scheme:"file" ~host:""
+              ~path:!Xapi_globs.bundle_repository_dir
+              ()
           in
           (Uri.to_string uri, None, false, NoAuth, NoAuth)
       | `remote_pool ->
