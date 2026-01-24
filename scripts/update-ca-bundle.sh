@@ -28,5 +28,4 @@ regen_bundle () {
   mv "$BUNDLE.tmp" "$BUNDLE"
 }
 
-regen_bundle "$1"
-regen_bundle "$2"
+regen_bundle "$1" "$2"
