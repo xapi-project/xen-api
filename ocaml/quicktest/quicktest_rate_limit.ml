@@ -14,13 +14,10 @@ let rate_limit_throttling_test rpc session_id () =
   let test_user_agent =
     "quicktest-rate-limit-throttle-" ^ Uuidx.(to_string (make ()))
   in
-  (* pool.get_all costs ~0.000059 tokens per call.
-     Use a tiny burst (0.001) and slow fill rate (0.001 tokens/sec) so that:
-     - First ~17 calls fit in burst
-     - After that, we can only do ~17 calls/sec
-     This makes throttling observable with reasonable call counts. *)
   let burst_size = 0.001 in
   let fill_rate = 0.001 in
+  (* Token cost for pool.get_all from xapi_rate_limit.ml *)
+  let call_cost = 0.000059 in
   let rate_limit_ref =
     Rate_limit.create ~rpc ~session_id ~user_agent:test_user_agent ~host_ip:""
       ~burst_size ~fill_rate
@@ -42,9 +39,6 @@ let rate_limit_throttling_test rpc session_id () =
       in
       Printf.printf "%d unthrottled calls took %.3f seconds\n%!" num_calls
         elapsed_unthrottled ;
-      (* Now measure throttled calls - these should be much slower.
-         With 0.001 burst and 0.001 fill rate, after ~17 calls exhaust the burst,
-         each subsequent call must wait for tokens to refill. *)
       let start_throttled = Mtime_clock.counter () in
       for _ = 1 to num_calls do
         make_call ()
@@ -56,10 +50,19 @@ let rate_limit_throttling_test rpc session_id () =
         elapsed_throttled ;
       let throttle_ratio = elapsed_throttled /. max elapsed_unthrottled 0.001 in
       Printf.printf "Throttle ratio: %.2fx slower\n%!" throttle_ratio ;
-      (* Throttled calls should take noticeably longer - at least 2x slower
-         given the restrictive rate limit *)
+      (* Throttled calls should take noticeably longer - at least 2x slower *)
       Alcotest.(check bool)
-        "Rate limiting causes observable slowdown" true (throttle_ratio > 2.0)
+        "Rate limiting causes observable slowdown" true (throttle_ratio > 2.0) ;
+      (* Absolute upper bound: time should not exceed theoretical maximum
+         based on token bucket math: (total_cost - burst) / fill_rate *)
+      let num_calls_f = Float.of_int num_calls in
+      let total_cost = num_calls_f *. call_cost in
+      let max_time = (total_cost -. burst_size) /. fill_rate in
+      Printf.printf "Max expected time: %.3f seconds\n%!" max_time ;
+      Alcotest.(check bool)
+        "Execution time within theoretical bound"
+        true
+        (elapsed_throttled <= max_time)
   )
 
 (* Test that invalid rate limits are rejected *)
