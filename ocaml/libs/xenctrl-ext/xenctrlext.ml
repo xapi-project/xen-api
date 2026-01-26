@@ -92,7 +92,7 @@ external vcpu_setaffinity_hard : handle -> domid -> int -> bool array -> unit
 external vcpu_setaffinity_soft : handle -> domid -> int -> bool array -> unit
   = "stub_xenctrlext_vcpu_setaffinity_soft"
 
-type meminfo = {memfree: int64; memsize: int64}
+type meminfo = {memfree: int64; memsize: int64; claimed: int64}
 
 type numainfo = {memory: meminfo array; distances: int array array}
 
