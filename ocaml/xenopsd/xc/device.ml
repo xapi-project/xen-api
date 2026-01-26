@@ -3003,7 +3003,11 @@ module Backend = struct
       | Some (RTC_CHANGE timeoffset) ->
           rtc_change timeoffset
       | Some (XEN_PLATFORM_PV_DRIVER_INFO x) ->
-          xen_platform_pv_driver_info x
+          if !Xenopsd.linux_assume_ctrl_features then
+            xen_platform_pv_driver_info x
+          else
+            ()
+          (* let Linux announce control features *)
       | _ ->
           with_xs (update_cant_suspend domid)
 
