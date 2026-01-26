@@ -50,7 +50,7 @@
  (preprocess
    (per_module
     ((pps ppx_sexp_conv) Suspend_image)
-    ((pps ppx_deriving_rpc) Interface Xenops_hooks Xenops_migrate Xenops_server Xenops_server_plugin Xenops_server_simulator)
+    ((pps ppx_deriving_rpc) Interface Xapi_work_queues Xenops_hooks Xenops_migrate Xenops_server Xenops_server_plugin Xenops_server_simulator)
    )
  )
 )
