@@ -1619,6 +1619,7 @@ let crl_list ~__context = Certificates.(local_list CRL)
 
 let certificate_sync ~__context =
   Cert_distrib.copy_certs_to_all ~__context ;
+  Certificates.sync_all_hosts ~__context (Db.Host.get_all ~__context) ;
   ()
 
 let install_trusted_certificate ~__context ~self:_ ~ca ~cert ~purpose =
