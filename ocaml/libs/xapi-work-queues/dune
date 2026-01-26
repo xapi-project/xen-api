@@ -1,0 +1,7 @@
+(library
+ (name xapi_work_queues)
+ (modules xapi_work_queues)
+ (libraries clock xapi-log rpclib.core result rresult threads.posix xapi-stdext-threads)
+ (preprocess
+  (pps ppx_deriving_rpc))
+ (public_name xapi-work-queues))
