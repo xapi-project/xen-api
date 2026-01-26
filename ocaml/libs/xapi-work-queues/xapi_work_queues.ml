@@ -177,8 +177,8 @@ module type Dump = sig
   val make : unit -> t
 end
 
-module Make (I : Item) : sig
-  type item = I.t
+module type S = sig
+  type item
 
   module Redirector : sig
     type t
@@ -207,7 +207,9 @@ module Make (I : Item) : sig
 
     val set_size : int -> unit
   end
-end = struct
+end
+
+module Make (I : Item) = struct
   open I
 
   type item = I.t
