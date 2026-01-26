@@ -353,7 +353,7 @@ end = struct
       in
       And (type', fingerprint_sha256)
     in
-    ( Db.Certificate.get_records_where ~__context ~expr
+    Db.Certificate.get_records_where ~__context ~expr
     |> List.filter (fun (_, cert_rec) -> cert_rec.API.certificate_name = "")
     |> List.filter (fun (_, cert_rec) ->
         let open PurposeSet in
@@ -361,13 +361,9 @@ end = struct
         let s2 = of_list cert_rec.API.certificate_purpose in
         equal s1 s2 || not (is_empty (inter s1 s2))
     )
-    |> function
-      | (ref, _) :: _ ->
-          raise_server_error
-            [Ref.string_of ref]
-            trusted_certificate_already_exists
-      | [] ->
-          ()
+    |> List.iter (fun _ ->
+        raise_server_error [fingerprint_sha256]
+          trusted_certificate_already_exists
     ) ;
     let uuid = Uuidx.(to_string (make ())) in
     let ref' = Ref.make () in
