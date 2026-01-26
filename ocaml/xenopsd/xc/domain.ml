@@ -995,6 +995,16 @@ let numa_hierarchy =
 
 let numa_mutex = Mutex.create ()
 
+let node_mem_claimable_for_new_vm ~node ~domid m =
+  let open Xenctrlext in
+  let nodeid = Fmt.str "%a" Topology.NUMA.pp_dump_node node in
+  let available = Int64.sub m.memfree m.claimed in
+  D.debug
+    "mem_claimable_for_new_vm: NUMA nodeid=%s, domid=%d: memfree=%Ld \
+     memsize=%Ld claimed=%Ld: available=%Ld"
+    nodeid domid m.memfree m.memsize m.claimed available ;
+  available
+
 let numa_init () =
   let xcext = Xenctrlext.get_handle () in
   let host = Lazy.force numa_hierarchy in
@@ -1004,7 +1014,8 @@ let numa_init () =
   Array.iteri
     (fun i m ->
       let open Xenctrlext in
-      D.debug "NUMA node %d: %Ld/%Ld memory free" i m.memfree m.memsize
+      D.debug "NUMA node %d: %Ld/%Ld/%Ld memory free" i m.memfree m.memsize
+        m.claimed
     )
     mem
 
@@ -1024,7 +1035,10 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
       let numa_meminfo = (numainfo xcext).memory |> Array.to_seq in
       let nodes =
         Seq.map2
-          (fun node m -> NUMA.resource host node ~memory:m.memfree)
+          (fun node m ->
+            NUMA.resource host node
+              ~memory:(node_mem_claimable_for_new_vm ~node ~domid m)
+          )
           (NUMA.nodes host) numa_meminfo
       in
       let vm = NUMARequest.make ~memory ~vcpus ~cores in
