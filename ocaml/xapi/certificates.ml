@@ -78,17 +78,22 @@ let of_purposes = function
   | purposes ->
       List.map (fun p -> Record_util.certificate_purpose_to_string p) purposes
 
-type trusted_store = {cert_dir: string; bundle_dir: string; bundle_name: string}
+type trusted_store = {cert_dir: string; bundle: (string * string) option}
 
 let trusted_store_locations kind =
   let parent = library_path kind in
   match kind with
-  | Root_legacy | CRL ->
+  | CRL ->
+      [{cert_dir= parent; bundle= None}]
+  | Root_legacy ->
       [
         {
           cert_dir= parent
-        ; bundle_dir= Filename.dirname !Xapi_globs.stunnel_bundle_path
-        ; bundle_name= Filename.basename !Xapi_globs.stunnel_bundle_path
+        ; bundle=
+            Some
+              ( Filename.dirname !Xapi_globs.stunnel_bundle_path
+              , Filename.basename !Xapi_globs.stunnel_bundle_path
+              )
         }
       ]
   | Root purposes ->
@@ -96,8 +101,7 @@ let trusted_store_locations kind =
         (fun p ->
           {
             cert_dir= parent // ps "ca-%s" p
-          ; bundle_dir= parent
-          ; bundle_name= ps "ca-bundle-%s.pem" p
+          ; bundle= Some (parent, ps "ca-bundle-%s.pem" p)
           }
         )
         (of_purposes purposes)
@@ -106,28 +110,26 @@ let trusted_store_locations kind =
         (fun p ->
           {
             cert_dir= parent // ps "pinned-%s" p
-          ; bundle_dir= parent
-          ; bundle_name= ps "pinned-bundle-%s.pem" p
+          ; bundle= Some (parent, ps "pinned-bundle-%s.pem" p)
           }
         )
         (of_purposes purposes)
 
 let with_cert_store kind f =
   trusted_store_locations kind
-  |> List.iter (fun store ->
-      f ~cert_dir:store.cert_dir ~bundle_dir:store.bundle_dir
-        ~bundle_name:store.bundle_name
-  )
+  |> List.iter (fun store -> f ~cert_dir:store.cert_dir ~bundle:store.bundle)
 
 let with_cert_paths kind name f =
-  with_cert_store kind @@ fun ~cert_dir ~bundle_dir ~bundle_name ->
-  f cert_dir (cert_dir // name) (bundle_dir // bundle_name)
+  with_cert_store kind @@ fun ~cert_dir ~bundle ->
+  f cert_dir (cert_dir // name) bundle
 
 let mkdir_cert_path kind =
   trusted_store_locations kind
   |> List.iter (fun store ->
       Unixext.mkdir_rec store.cert_dir 0o700 ;
-      Unixext.mkdir_rec store.bundle_dir 0o700 ;
+      Option.iter
+        (fun (dir, name) -> Unixext.mkdir_rec (dir // name) 0o700)
+        store.bundle ;
       ()
   )
 
@@ -151,9 +153,13 @@ let local_sync' () =
   List.iter
     (fun kind ->
       mkdir_cert_path kind ;
-      with_cert_store kind @@ fun ~cert_dir ~bundle_dir ~bundle_name ->
+      with_cert_store kind @@ fun ~cert_dir ~bundle ->
       rehash cert_dir ;
-      remove_empty_bundle (bundle_dir // bundle_name)
+      Option.iter
+        (fun (bundle_dir, bundle_name) ->
+          remove_empty_bundle (bundle_dir // bundle_name)
+        )
+        bundle
     )
     all_trusted_kinds
 
@@ -440,29 +446,20 @@ let local_sync () =
     warn "Exception rehashing certificates: %s" (ExnHelper.string_of_exn e) ;
     raise_library_corrupt ()
 
-let update_bundle cert_dir bundle_path =
-  ignore
-    (Forkhelpers.execute_command_get_output
-       "/opt/xensource/bin/update-ca-bundle.sh" [cert_dir; bundle_path]
-    ) ;
-  remove_empty_bundle bundle_path
-
-let update_trusted_bundle =
+let update_bundle =
   let m = Mutex.create () in
-  fun kind cert_dir bundle_path ->
+  fun cert_dir bundle_path ->
     Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
-        match kind with
-        | CRL ->
-            ()
-        | Root_legacy | Root _ | Pinned _ ->
-            update_bundle cert_dir bundle_path
+        ignore
+          (Forkhelpers.execute_command_get_output
+             "/opt/xensource/bin/update-ca-bundle.sh" [cert_dir; bundle_path]
+          ) ;
+        remove_empty_bundle bundle_path
     )
 
-let update_pool_bundle () =
-  update_bundle !Xapi_globs.trusted_pool_certs_dir !Xapi_globs.pool_bundle_path
-
 let update_all_bundles () =
-  update_pool_bundle () ;
+  (* Update bundle for pool *)
+  update_bundle !Xapi_globs.trusted_pool_certs_dir !Xapi_globs.pool_bundle_path ;
   let ( let* ) l f = List.iter f l in
   let* category = all_categories in
   let* purposes = all_purposes in
@@ -478,21 +475,31 @@ let update_all_bundles () =
         Pinned purposes
   in
   let* store = trusted_store_locations kind in
-  update_trusted_bundle kind store.cert_dir
-    (store.bundle_dir // store.bundle_name)
+  Option.iter
+    (fun (bundle_dir, bundle_name) ->
+      update_bundle store.cert_dir (bundle_dir // bundle_name)
+    )
+    store.bundle
 
 let host_install kind ~name ~cert =
   validate_name kind name ;
-  with_cert_paths kind name @@ fun cert_dir cert_path bundle_path ->
+  with_cert_paths kind name @@ fun cert_dir cert_path bundle ->
   if Sys.file_exists cert_path then raise_already_exists kind name ;
-  debug "Installing %s %s under %s and in %s" (to_string kind) name cert_path
-    bundle_path ;
+  debug "%s: Installing %s (name='%s') under %s" __FUNCTION__ (to_string kind)
+    name cert_path ;
   try
     mkdir_cert_path kind ;
     Unixext.write_string_to_file cert_path cert ;
     Unix.chmod cert_path 0o644 ;
-    update_trusted_bundle kind cert_dir bundle_path ;
-    Unix.chmod bundle_path 0o644 ;
+    Option.iter
+      (fun (bundle_dir, bundle_name) ->
+        debug "%s: Updating bundle %s for %s (name='%s')" __FUNCTION__
+          (bundle_dir // bundle_name)
+          (to_string kind) name ;
+        update_bundle cert_dir (bundle_dir // bundle_name) ;
+        Unix.chmod (bundle_dir // bundle_name) 0o644
+      )
+      bundle ;
     rehash cert_dir
   with e ->
     warn "Exception installing %s %s: %s" (to_string kind) name
@@ -501,14 +508,17 @@ let host_install kind ~name ~cert =
 
 let host_uninstall kind ~name ~force =
   validate_name kind name ;
-  with_cert_store kind @@ fun ~cert_dir ~bundle_dir ~bundle_name ->
+  with_cert_store kind @@ fun ~cert_dir ~bundle ->
   let cert_path = cert_dir // name in
   debug "Uninstalling %s %s" (to_string kind) cert_path ;
-  let bundle_path = bundle_dir // bundle_name in
   if Sys.file_exists cert_path then (
     try
       Sys.remove cert_path ;
-      update_trusted_bundle kind cert_dir bundle_path
+      Option.iter
+        (fun (bundle_dir, bundle_name) ->
+          update_bundle cert_dir (bundle_dir // bundle_name)
+        )
+        bundle
     with e ->
       warn "Exception uninstalling %s %s: %s" (to_string kind) name
         (ExnHelper.string_of_exn e) ;
@@ -577,5 +587,9 @@ let cleanup_all_trusted () =
   let* kind = all_trusted_kinds in
   let* store = trusted_store_locations kind in
   Unixext.rm_rec ~rm_top:false store.cert_dir ;
-  Unixext.unlink_safe (store.bundle_dir // store.bundle_name) ;
+  Option.iter
+    (fun (bundle_dir, bundle_name) ->
+      Unixext.unlink_safe (bundle_dir // bundle_name)
+    )
+    store.bundle ;
   ()

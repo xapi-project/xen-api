@@ -62,7 +62,7 @@ val name_of_uuid : string -> string
 
 val all_purposes : API.certificate_purpose list list
 
-type trusted_store = {cert_dir: string; bundle_dir: string; bundle_name: string}
+type trusted_store = {cert_dir: string; bundle: (string * string) option}
 
 val trusted_store_locations : t_trusted -> trusted_store list
 
