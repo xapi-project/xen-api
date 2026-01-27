@@ -2037,7 +2037,7 @@ let disable_external_auth =
           param_type= Bool
         ; param_name= "force"
         ; param_doc= "Disable external auth even when not enabled"
-        ; param_release= numbered_release "26.2.0-next"
+        ; param_release= numbered_release "26.1.1"
         ; param_default= Some (VBool false)
         }
       ]
