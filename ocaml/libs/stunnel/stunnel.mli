@@ -40,6 +40,7 @@ type verification_config = {
     sni: string option
   ; verify: verify
   ; cert_bundle_path: string
+  ; crl_dir: string option
 }
 
 (** Represents an active stunnel connection *)
