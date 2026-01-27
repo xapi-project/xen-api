@@ -122,6 +122,7 @@ type verification_config = {
     sni: string option
   ; verify: verify
   ; cert_bundle_path: string
+  ; crl_dir: string option
 }
 
 type t = {
@@ -140,6 +141,7 @@ let appliance =
     sni= None
   ; verify= CheckHost
   ; cert_bundle_path= "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
+  ; crl_dir= Some crl_path
   }
 
 let pool =
@@ -147,12 +149,18 @@ let pool =
     sni= Some "pool"
   ; verify= VerifyPeer
   ; cert_bundle_path= "/etc/stunnel/xapi-pool-ca-bundle.pem"
+  ; crl_dir= None
   }
 
 let world = {appliance with cert_bundle_path= "/etc/ssl/certs/ca-bundle.crt"}
 
 let external_host ext_host_cert_file =
-  {sni= None; verify= VerifyPeer; cert_bundle_path= ext_host_cert_file}
+  {
+    sni= None
+  ; verify= VerifyPeer
+  ; cert_bundle_path= ext_host_cert_file
+  ; crl_dir= None
+  }
 
 let debug_conf_of_bool verbose : string =
   if verbose then
@@ -221,7 +229,7 @@ let config_file ?(accept = None) config host port =
        ; ( match config with
          | None ->
              []
-         | Some {sni; verify; cert_bundle_path} ->
+         | Some {sni; verify; cert_bundle_path; crl_dir} ->
              List.rev_append
                ( match verify with
                | VerifyPeer ->
@@ -236,14 +244,17 @@ let config_file ?(accept = None) config host port =
                ; "# the cert of the server we connect to"
                ; (match sni with None -> "" | Some s -> sprintf "sni = %s" s)
                ; sprintf "CAfile=%s" cert_bundle_path
-               ; ( match Sys.readdir crl_path with
-                 | [||] ->
-                     ""
-                 | _ ->
-                     sprintf "CRLpath=%s" crl_path
-                 | exception _ ->
-                     ""
-                 )
+               ; Option.fold ~none:""
+                   ~some:(fun crl_dir ->
+                     match Sys.readdir crl_dir with
+                     | [||] ->
+                         ""
+                     | _ ->
+                         sprintf "CRLpath=%s" crl_dir
+                     | exception _ ->
+                         ""
+                   )
+                   crl_dir
                ]
          )
        ; [""]
