@@ -28,5 +28,4 @@ regen_bundle () {
   mv "$BUNDLE.tmp" "$BUNDLE"
 }
 
-regen_bundle "/etc/stunnel/certs"      "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
-regen_bundle "/etc/stunnel/certs-pool" "/etc/stunnel/xapi-pool-ca-bundle.pem"
+regen_bundle "$1" "$2"

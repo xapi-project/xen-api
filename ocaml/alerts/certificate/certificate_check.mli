@@ -21,6 +21,7 @@ type cert =
   | CA of API.ref_Certificate * API.datetime
   | Host of API.ref_host * API.datetime
   | Internal of API.ref_host * API.datetime
+  | Pinned of API.ref_Certificate * API.datetime
 
 val certificate_description : cert -> string
 

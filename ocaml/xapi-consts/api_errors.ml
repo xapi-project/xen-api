@@ -749,6 +749,9 @@ let pool_joining_host_tls_verification_mismatch =
 let pool_joining_host_ca_certificates_conflict =
   add_error "POOL_JOINING_HOST_CA_CERTIFICATES_CONFLICT"
 
+let pool_joining_host_trusted_certificates_conflict =
+  add_error "POOL_JOINING_HOST_TRUSTED_CERTIFICATES_CONFLICT"
+
 let pool_joining_sm_features_incompatible =
   add_error "POOL_JOINING_SM_FEATURES_INCOMPATIBLE"
 
@@ -1116,6 +1119,9 @@ let certificate_does_not_exist = add_error "CERTIFICATE_DOES_NOT_EXIST"
 
 let certificate_already_exists = add_error "CERTIFICATE_ALREADY_EXISTS"
 
+let trusted_certificate_already_exists =
+  add_error "TRUSTED_CERTIFICATE_ALREADY_EXISTS"
+
 let certificate_name_invalid = add_error "CERTIFICATE_NAME_INVALID"
 
 let certificate_corrupt = add_error "CERTIFICATE_CORRUPT"
@@ -1156,6 +1162,13 @@ let ca_certificate_not_valid_yet = add_error "CA_CERTIFICATE_NOT_VALID_YET"
 let server_certificate_expired = add_error "SERVER_CERTIFICATE_EXPIRED"
 
 let ca_certificate_expired = add_error "CA_CERTIFICATE_EXPIRED"
+
+let trusted_certificate_expired = add_error "TRUSTED_CERTIFICATE_EXPIRED"
+
+let trusted_certificate_not_valid_yet =
+  add_error "TRUSTED_CERTIFICATE_NOT_VALID_YET"
+
+let trusted_certificate_invalid = add_error "TRUSTED_CERTIFICATE_INVALID"
 
 let server_certificate_signature_not_supported =
   add_error "SERVER_CERTIFICATE_SIGNATURE_NOT_SUPPORTED"
@@ -1443,3 +1456,7 @@ let invalid_ntp_config = add_error "INVALID_NTP_CONFIG"
 
 let not_allowed_when_ntp_is_enabled =
   add_error "NOT_ALLOWED_WHEN_NTP_IS_ENABLED"
+
+let not_trusted_certificate = add_error "NOT_TRUSTED_CERTIFICATE"
+
+let certificate_lacks_purpose = add_error "CERTIFICATE_LACKS_PURPOSE"
