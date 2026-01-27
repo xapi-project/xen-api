@@ -566,7 +566,7 @@ module VM = struct
 
   let remove _vm = ()
 
-  let create _ memory_limit vm _ _ _ _ =
+  let create _ memory_limit _ vm _ _ _ _ =
     with_lock m (create_nolock memory_limit vm)
 
   let destroy _ vm = with_lock m (destroy_nolock vm)

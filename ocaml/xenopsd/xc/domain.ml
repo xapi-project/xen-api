@@ -152,6 +152,8 @@ type builder_spec_info =
 type build_info = {
     memory_max: int64  (** memory max in kilobytes *)
   ; memory_target: int64  (** memory target in kilobytes *)
+  ; memory_total_source: int64 option
+        (** amount of memory to claim (during migration) *)
   ; kernel: string  (** in hvm case, point to hvmloader *)
   ; vcpus: int  (** vcpus max *)
   ; priv: builder_spec_info
@@ -246,7 +248,10 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds = 64) required_memory_kib
     in
     (* At exponentially increasing intervals, write  *)
     (* a debug message saying how long we've waited: *)
-    if is_power_of_2 accumulated_wait_time_seconds then
+    if
+      accumulated_wait_time_seconds = 0
+      || is_power_of_2 accumulated_wait_time_seconds
+    then
       debug
         "Waited %i second(s) for memory to become available: %Ld KiB free, %Ld \
          KiB scrub, %Ld KiB required"
@@ -1057,7 +1062,7 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
               __FUNCTION__ domid ;
             None
       in
-      let nr_pages = Int64.div memory 4096L |> Int64.to_int in
+      let nr_pages = Memory.pages_of_bytes_used memory |> Int64.to_int in
       try
         D.debug "NUMAClaim domid %d: local claim on node %d: %d pages" domid
           node nr_pages ;
@@ -1071,7 +1076,7 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
           D.debug "NUMAClaim domid %d: local claim not available" domid ;
           set_vcpu_affinity cpu_affinity ;
           None
-      | Xenctrlext.Unix_error (errno, _) ->
+      | Xenctrlext.Unix_error ((Unix.ENOMEM as errno), _) ->
           D.info
             "%s: unable to claim enough memory, domain %d won't be hosted in a \
              single NUMA node. (error %s)"
@@ -1083,6 +1088,13 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
 let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
   let open Memory in
   let uuid = get_uuid ~xc domid in
+  debug
+    "VM = %s, build_max_mib = %Ld, build_start_mib = %Ld, xen_max_mib =\n\
+    \    %Ld, shadow_mib = %Ld, required_host_free_mib = %Ld, overhead_mib = \
+     %Ld"
+    (Uuidx.to_string uuid) memory.build_max_mib memory.build_start_mib
+    memory.xen_max_mib memory.shadow_mib memory.required_host_free_mib
+    memory.overhead_mib ;
   debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory"
     (Uuidx.to_string uuid) domid memory.required_host_free_mib ;
   (* CA-39743: Wait, if necessary, for the Xen scrubber to catch up. *)
@@ -1170,10 +1182,38 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
               and cores =
                 Xenops_server.cores_of_numa_affinity_policy pin ~vcpus
               in
-              numa_placement domid ~vcpus ~cores
-                ~memory:(Int64.mul memory.xen_max_mib 1048576L)
-                affinity
-              |> Option.map fst
+
+              let build_claim_bytes =
+                Memory.bytes_of_pages memory.build_claim_pages
+              in
+              D.debug "VM = %s; domid = %d; will claim %Ld bytes = %Ld pages"
+                (Uuidx.to_string uuid) domid build_claim_bytes
+                memory.build_claim_pages ;
+              let memory = build_claim_bytes in
+              match numa_placement domid ~vcpus ~cores ~memory affinity with
+              | None ->
+                  (* Always perform a global claim when NUMA placement is
+                     enabled, and single node claims failed or were
+                     unavailable:
+                     This tries to ensures that memory allocated for this
+                     domain won't use up memory claimed by other domains.
+                     If claims are mixed with non-claims then Xen can't
+                     currently guarantee that it would honour the existing
+                     claims.
+                     A failure here is a hard failure: we'd fail allocating
+                     memory later anyway
+                  *)
+                  let nr_pages =
+                    Memory.pages_of_bytes_used memory |> Int64.to_int
+                  in
+                  let xcext = Xenctrlext.get_handle () in
+                  D.debug "NUMAClaim domid %d: global claim: %d pages" domid
+                    nr_pages ;
+                  Xenctrlext.domain_claim_pages xcext domid
+                    ~numa_node:Xenctrlext.NumaNode.none nr_pages ;
+                  None
+              | Some (plan, _) ->
+                  Some plan
         )
   in
   let store_chan, console_chan = create_channels ~xc uuid domid in
@@ -1864,6 +1904,17 @@ let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~timeoffset ~extras
         let vm_stuff = [("rtc/timeoffset", timeoffset)] in
         maybe_ca_140252_workaround ~xc ~vcpus domid ;
         (memory, vm_stuff, `pvh)
+  in
+  let memory =
+    match info.memory_total_source with
+    | None ->
+        memory
+    | Some kib ->
+        let build_claim_pages = Memory.pages_of_kib_used kib in
+        let bytes = Memory.bytes_of_kib kib in
+        debug "Domid %d: memory_total_source = %Ld bytes = %Ld KiB = %Ld pages"
+          domid bytes kib build_claim_pages ;
+        Memory.{memory with build_claim_pages}
   in
   let store_port, console_port, numa_placements =
     build_pre ~xc ~xs ~memory ~vcpus ~hard_affinity:info.hard_affinity domid
