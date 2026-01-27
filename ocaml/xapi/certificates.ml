@@ -518,7 +518,8 @@ let host_uninstall kind ~name ~force =
         (fun (bundle_dir, bundle_name) ->
           update_bundle cert_dir (bundle_dir // bundle_name)
         )
-        bundle
+        bundle ;
+      rehash cert_dir
     with e ->
       warn "Exception uninstalling %s %s: %s" (to_string kind) name
         (ExnHelper.string_of_exn e) ;
