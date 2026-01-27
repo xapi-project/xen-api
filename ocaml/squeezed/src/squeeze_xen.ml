@@ -60,8 +60,8 @@ let ( -* ) = Int64.sub
 
 let mib = 1024L
 
-(** Same as xen commandline *)
-(** CA-423173: this is `low_mem_virq_limit` Xen, default 64MiB *)
+(** Same as xen commandline
+    CA-423173: this is `low_mem_virq_limit` Xen, default 64MiB *)
 let low_mem_emergency_pool = 64L ** mib
 
 (** Return the extra amount we always add onto maxmem *)
