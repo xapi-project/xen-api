@@ -1558,7 +1558,8 @@ let rec import_inner n ~__context ~url ~sr ~full_restore ~force =
   else
     let uri = Uri.of_string url in
     try
-      Open_uri.with_open_uri uri (fun fd ->
+      let verify_cert = Stunnel_client.world () in
+      Open_uri.with_open_uri ~verify_cert uri (fun fd ->
           let module Request =
             Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
           let module Response =

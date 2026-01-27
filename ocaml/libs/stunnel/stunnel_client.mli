@@ -24,6 +24,8 @@ val appliance : unit -> Stunnel.verification_config option
 (** [appliance ()] returns the configuration that's meant to be used to connect
     to appliances providing services, like WLB or a licensing server. *)
 
+val world : unit -> Stunnel.verification_config option
+
 val external_host : string -> Stunnel.verification_config option
 (** [external_host path] returns the configuration that's meant to be used to connect to
     a xapi hosts outside the pool. This is useful, for example, to provide an
