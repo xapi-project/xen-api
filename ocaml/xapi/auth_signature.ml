@@ -140,6 +140,15 @@ type t = {
        	 Called internally when xapi is doing a clean exit.
     *)
     on_xapi_exit: __context:Context.t -> unit -> unit
+  ; (* unit set_ldaps(__context, bool ldaps, bool force)
+
+       	 Called to set or unset ldaps for external authentication. Takes the context,
+       	 whether to enable/disable ldaps, and whether to force the operation.
+       	 Gets the localhost from context, reads the current config from the database,
+       	 performs the update, and writes it back.
+       	 Raises Auth_service_error if the operation fails.
+    *)
+    set_ldaps: __context:Context.t -> ldaps:bool -> force:bool -> unit
 }
 
 (* Auth modules must implement this signature:*)
