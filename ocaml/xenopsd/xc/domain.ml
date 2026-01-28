@@ -1014,8 +1014,8 @@ let numa_init () =
   Array.iteri
     (fun i m ->
       let open Xenctrlext in
-      D.debug "NUMA node %d: %Ld/%Ld/%Ld memory free" i m.memfree m.memsize
-        m.claimed
+      D.debug "NUMA node %d memory: %Ld free / %Ld total / %Ld claimed" i
+        m.memfree m.memsize m.claimed
     )
     mem
 
