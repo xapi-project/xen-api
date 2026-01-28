@@ -149,6 +149,8 @@ let pool =
   ; cert_bundle_path= "/etc/stunnel/xapi-pool-ca-bundle.pem"
   }
 
+let world = {appliance with cert_bundle_path= "/etc/ssl/certs/ca-bundle.crt"}
+
 let external_host ext_host_cert_file =
   {sni= None; verify= VerifyPeer; cert_bundle_path= ext_host_cert_file}
 
