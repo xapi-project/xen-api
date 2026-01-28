@@ -155,7 +155,8 @@ type atomic =
   | VM_create_device_model of (Vm.id * bool)
   | VM_destroy_device_model of Vm.id
   | VM_destroy of Vm.id
-  | VM_create of (Vm.id * int64 option * Vm.id option * bool) (*no_sharept*)
+  | VM_create of (Vm.id * (int64 * int64 option) option * Vm.id option * bool)
+    (*no_sharept*)
   | VM_build of (Vm.id * bool)
   | VM_shutdown_domain of (Vm.id * shutdown_request * float)
   | VM_s3suspend of Vm.id
@@ -330,6 +331,7 @@ type vm_receive_op = {
   ; vmr_socket: Unix.file_descr
   ; vmr_handshake: string option  (** handshake protocol *)
   ; vmr_compressed: bool
+  ; vmr_memory_total_source: int64 option [@default None]
 }
 [@@deriving rpcty]
 
@@ -2317,19 +2319,26 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
   | VM_destroy id ->
       debug "VM.destroy %s" id ;
       B.VM.destroy t (VM_DB.read_exn id)
-  | VM_create (id, memory_upper_bound, final_id, no_sharept) ->
+  | VM_create (id, memory_upper_bound_and_source, final_id, no_sharept) ->
       let num_of_vbds = List.length (VBD_DB.vbds id) in
       let num_of_vifs = List.length (VIF_DB.vifs id) in
+      let memory_upper_bound = Option.map fst memory_upper_bound_and_source
+      and memory_total_source =
+        Option.map snd memory_upper_bound_and_source |> Option.join
+      in
       debug
-        "VM.create %s memory_upper_bound = %s, num_of_vbds = %d, num_of_vifs = \
-         %d"
+        "VM.create %s memory_upper_bound = %s, memory_total_source = %s, \
+         num_of_vbds = %d, num_of_vifs = %d"
         id
         (Option.value ~default:"None"
            (Option.map Int64.to_string memory_upper_bound)
         )
+        (Option.value ~default:"None"
+           (Option.map Int64.to_string memory_total_source)
+        )
         num_of_vbds num_of_vifs ;
-      B.VM.create t memory_upper_bound (VM_DB.read_exn id) final_id no_sharept
-        num_of_vbds num_of_vifs
+      B.VM.create t memory_upper_bound memory_total_source (VM_DB.read_exn id)
+        final_id no_sharept num_of_vbds num_of_vifs
   | VM_build (id, force) ->
       debug "VM.build %s" id ;
       let vbds : Vbd.t list = VBD_DB.vbds id |> vbd_plug_order in
@@ -2897,7 +2906,10 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
             Request.write (fun _ -> ()) request fd
           in
           do_request vm_fd
-            [("memory_limit", Int64.to_string state.Vm.memory_limit)]
+            [
+              ("memory_limit", Int64.to_string state.Vm.memory_limit)
+            ; ("memory_total_source", Int64.to_string state.Vm.memory_actual)
+            ]
             url ;
           let first_handshake () =
             ( match Handshake.recv vm_fd with
@@ -3004,6 +3016,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
         vmr_id= id
       ; vmr_final_id= final_id
       ; vmr_memory_limit= memory_limit
+      ; vmr_memory_total_source= memory_total_source
       ; vmr_socket= s
       ; vmr_handshake= handshake
       ; vmr_compressed
@@ -3084,7 +3097,14 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
                 )
               in
               perform_atomics
-                ([VM_create (id, Some memory_limit, Some final_id, no_sharept)]
+                ([
+                   VM_create
+                     ( id
+                     , Some (memory_limit, memory_total_source)
+                     , Some final_id
+                     , no_sharept
+                     )
+                 ]
                 (* Perform as many operations as possible on the destination
                    domain before pausing the original domain *)
                 @ atomics_of_operation (VM_restore_vifs id)
@@ -3902,6 +3922,9 @@ module VM = struct
     let module Response = Cohttp.Response.Make (Cohttp_posix_io.Unbuffered_IO) in
     let dbg = List.assoc "dbg" cookies in
     let memory_limit = List.assoc "memory_limit" cookies |> Int64.of_string in
+    let memory_total_source =
+      List.assoc_opt "memory_total_source" cookies |> Option.map Int64.of_string
+    in
     let handshake = List.assoc_opt cookie_mem_migration cookies in
     let compressed_memory = get_compression cookies in
     Debug.with_thread_associated dbg
@@ -3932,6 +3955,7 @@ module VM = struct
                 ; vmr_socket= transferred_fd
                 ; vmr_handshake= handshake
                 ; vmr_compressed= compressed_memory
+                ; vmr_memory_total_source= memory_total_source
                 }
             in
             let task =
