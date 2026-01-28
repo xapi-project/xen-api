@@ -72,6 +72,12 @@ module Make (T : Floatable) = struct
     let s = secs mod 60 in
     Printf.sprintf "%02d:%02d:%02d" h m s
 
+  let hms_ms secs_full =
+    let frac, secs = Float.modf secs_full in
+    Printf.sprintf "%s.%03d"
+      (hms (int_of_float secs))
+      (frac *. 1000. |> int_of_float)
+
   let eta t =
     let time_so_far = Unix.gettimeofday () -. t.start_time in
     let total_time =
@@ -109,7 +115,7 @@ module Make (T : Floatable) = struct
     if not t.summarised then (
       t.summarised <- true ;
       Printf.sprintf "Total time: %s\n"
-        (hms (int_of_float (Unix.gettimeofday () -. t.start_time)))
+        (hms_ms (Unix.gettimeofday () -. t.start_time))
     ) else
       ""
 end
