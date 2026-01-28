@@ -2044,6 +2044,44 @@ let disable_external_auth =
     ~doc:"This call disables external authentication on the local host"
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let external_auth_set_ldaps =
+  call ~flags:[`Session] ~name:"external_auth_set_ldaps" ~in_oss_since:None
+    ~lifecycle:
+      [
+        ( Published
+        , "26.6.0-next"
+        , "This call sets or unsets ldaps for external authentication on the \
+           host"
+        )
+      ]
+    ~versioned_params:
+      [
+        {
+          param_type= Ref _host
+        ; param_name= "host"
+        ; param_doc= "The host whose ldaps configuration should be set"
+        ; param_release= numbered_release "26.6.0-next"
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "ldaps"
+        ; param_doc= "Whether to enable or disable ldaps"
+        ; param_release= numbered_release "26.6.0-next"
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "force"
+        ; param_doc= "Force the operation even if already in the desired state"
+        ; param_release= numbered_release "26.6.0-next"
+        ; param_default= Some (VBool false)
+        }
+      ]
+    ~doc:
+      "This call sets or unsets ldaps for external authentication on the host"
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 let set_license_params =
   call ~name:"set_license_params"
     ~lifecycle:
@@ -2829,6 +2867,7 @@ let t =
       ; disable_binary_storage
       ; enable_external_auth
       ; disable_external_auth
+      ; external_auth_set_ldaps
       ; retrieve_wlb_evacuate_recommendations
       ; install_ca_certificate
       ; uninstall_ca_certificate
