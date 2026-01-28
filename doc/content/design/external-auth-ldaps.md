@@ -97,18 +97,20 @@ For the existing joined domain, user can switch between LDAP and LDAPS with this
 
 - `pool` (Ref _pool): pool to set LDAPS
 - `ldaps` (Bool): whether LDAPS is required
+- `force` (Bool): whether to set ldaps even when ldaps is currently set
 
 This API will set the `ldaps` in database (Refer to 2.1).
 
 This API performs following sanity check and rejects update if check fails:
 
 - AD has already been enabled
+- ldaps has already been enabled without force
 - Find proper certificate (Refer to 4.1 for the details)
 - Do a `ldaps` query to embedded user `krbtgt` for the joined domain
 
 **Note:**
-- This API allow en-entry for debug purpose
-- Will not do the LDAPS query on the trusted domains, as xapi does not have trusted domain details
+- This API allow re-entry with `force` to perform an extra `ldaps ping` for debug purpose
+- This API will not do the LDAPS query on the trusted domains, as xapi does not have trusted domain details
 - The joined domain likely has multiple DCs. LDAPS query tries every DC of the domain. Check pass if LDAPS query succeeds on any DC of the domain. This implies iterate and locate a DC supporting LDAPS (with proper certificate trust setup) before LDAPS query. However, this does not introduce performance problems as the LDAPS query happens in backend and refreshes result into XAPI DB
 - Pool coordinator dispatches this API request to every host, and only succeeds if all hosts pass the check
 - This API needs to be synced with other APIs. For example, `authenticate_username_password` should fail if this API is performing checking and configuration
