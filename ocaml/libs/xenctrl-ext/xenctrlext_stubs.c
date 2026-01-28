@@ -395,9 +395,14 @@ CAMLprim value stub_xenctrlext_numainfo(value xch_val)
 
         meminfos = caml_alloc_tuple(max_nodes);
         for (i=0;i<max_nodes;i++) {
-            info = caml_alloc_tuple(2);
+            info = caml_alloc_tuple(3);
             Store_field(info, 0, caml_copy_int64(meminfo[i].memfree));
             Store_field(info, 1, caml_copy_int64(meminfo[i].memsize));
+#ifdef XEN_SYSCTL_MEMINFO_HAS_CLAIMED
+            Store_field(info, 2, caml_copy_int64(meminfo[i].claimed));
+#else
+            Store_field(info, 2, caml_copy_int64(0));
+#endif
             Store_field(meminfos, i, info);
         }
 

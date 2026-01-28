@@ -68,7 +68,7 @@ external domain_soft_reset : handle -> domid -> unit
 external domain_update_channels : handle -> domid -> int -> int -> unit
   = "stub_xenctrlext_domain_update_channels"
 
-type meminfo = {memfree: int64; memsize: int64}
+type meminfo = {memfree: int64; memsize: int64; claimed: int64}
 
 type numainfo = {memory: meminfo array; distances: int array array}
 

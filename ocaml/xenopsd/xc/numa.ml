@@ -55,7 +55,7 @@ let get_memory () =
 
 let print_mem c mem =
   for i = 0 to Array.length mem - 1 do
-    let {memfree; memsize} = mem.(i) in
+    let {memfree; memsize; _} = mem.(i) in
     let memfree = human_readable_bytes memfree in
     let memsize = human_readable_bytes memsize in
     Logs.app (fun m ->
