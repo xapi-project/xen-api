@@ -3117,6 +3117,93 @@ let disable_external_auth ~__context ~pool:_ ~config =
       )
   )
 
+(* Set or unset ldaps for external authentication on all hosts in the pool *)
+let external_auth_set_ldaps ~__context ~pool:_ ~ldaps ~force =
+  let host = Helpers.get_master ~__context in
+  let current_ldaps =
+    Db.Host.get_external_auth_configuration ~__context ~self:host
+    |> fun config -> Helpers.ldaps_enabled_in_config ~config
+  in
+
+  let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
+  let assert_can_set_ldaps () =
+    (* Pool level check *)
+    let assert_ad_enabled () =
+      match
+        List.find_opt
+          (fun host -> not (Helpers.is_ad_enabled ~__context ~host))
+          hosts
+      with
+      | Some host ->
+          raise
+            (Api_errors.Server_error
+               (Api_errors.auth_is_disabled, [Ref.string_of host])
+            )
+      | None ->
+          ()
+    in
+    assert_ad_enabled ()
+  in
+  let set_ldap_on host =
+    try
+      call_fn_on_host ~__context
+        (Client.Host.external_auth_set_ldaps ~ldaps ~force)
+        host ;
+      Ok host
+    with
+    | Api_errors.Server_error (err, [host_msg]) ->
+        let msg = Printf.sprintf "%s: %s" (Ref.string_of host) host_msg in
+        debug "Failed to set ldaps for host %s" msg ;
+        Error (host, err, msg)
+    | e ->
+        let msg =
+          Printf.sprintf "%s: %s" (Ref.string_of host)
+            (ExnHelper.string_of_exn e)
+        in
+        debug "Failed to set ldaps for host %s" msg ;
+        (* Set error to pool_auth_set_ldaps_failed as genernal error *)
+        Error (host, Api_errors.pool_auth_set_ldaps_failed, msg)
+  in
+  with_lock Xapi_globs.serialize_pool_enable_disable_extauth @@ fun () ->
+  assert_can_set_ldaps () ;
+  let succeeded, failed =
+    List.map set_ldap_on hosts
+    |> List.partition_map (function
+      | Ok x ->
+          Either.Left x
+      | Error x ->
+          Either.Right x
+      )
+  in
+  match failed with
+  | [] ->
+      debug "ldaps setting applied successfully to all hosts in the pool"
+  | (host, err, msg) :: _ ->
+      debug "Failed to set ldaps for at least one host in the pool %s: %s"
+        (Ref.string_of host) msg ;
+      ( match current_ldaps = ldaps with
+      | true ->
+          ()
+      | false ->
+          (* Rollback: revert ldaps to original state on all succeeded hosts *)
+          debug "Reverting to %B" current_ldaps ;
+          List.iter
+            (fun succeeded_host ->
+              try
+                call_fn_on_host ~__context
+                  (Client.Host.external_auth_set_ldaps ~ldaps:current_ldaps
+                     ~force:true
+                  )
+                  succeeded_host
+              with e ->
+                warn "Failed to revert ldaps on host %s: %s"
+                  (Ref.string_of succeeded_host)
+                  (ExnHelper.string_of_exn e)
+            )
+            succeeded
+      ) ;
+      raise (Api_errors.Server_error (err, [Ref.string_of host; msg]))
+
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_pool ~__context =
   let slaves = Xapi_pool_helpers.get_slaves_list ~__context in

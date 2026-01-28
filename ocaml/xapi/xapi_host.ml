@@ -1980,6 +1980,19 @@ let disable_external_auth ~__context ~host ~config ~force =
   disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
     ~force ()
 
+(* Set or unset ldaps for external authentication on a host *)
+let external_auth_set_ldaps ~__context ~host:_ ~ldaps ~force =
+  let assert_can_set_ldaps () =
+    (* Host level check *)
+    let assert_certs () = () in
+    assert_certs ()
+  in
+
+  (* Just dispatch to the backend *)
+  with_lock serialize_host_enable_disable_extauth @@ fun () ->
+  assert_can_set_ldaps () ;
+  (Ext_auth.d ()).set_ldaps ~__context ~ldaps ~force
+
 module Static_vdis_list = Xapi_database.Static_vdis_list
 
 let attach_static_vdis ~__context ~host:_ ~vdi_reason_map =

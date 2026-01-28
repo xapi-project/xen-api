@@ -2478,3 +2478,8 @@ let ldaps_enabled_in_config ~config =
       true
   | _ ->
       false
+
+(* Check if Active Directory external authentication is enabled on a host *)
+let is_ad_enabled ~__context ~host =
+  let auth_type = Db.Host.get_external_auth_type ~__context ~self:host in
+  auth_type = Xapi_globs.auth_type_AD
