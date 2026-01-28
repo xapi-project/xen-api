@@ -169,6 +169,7 @@ let ( let@ ) f x = f x
 (** Synchronise the SM table with the SMAPIv1 plugins on the disk and the SMAPIv2
     plugins mentioned in the configuration file whitelist. *)
 let on_xapi_start ~__context =
+  let __FUN = __FUNCTION__ in
   (* An SM is either implemented as a plugin - for which we check its
       presence, or via an API *)
   let is_available rc =
@@ -275,7 +276,50 @@ let on_xapi_start ~__context =
       list_assoc_all ty existing
       |> List.iter (fun sm -> Xapi_sm.update_from_query_result ~__context sm qr)
     )
-    (StringSet.inter running_smapiv2_drivers existing_types)
+    (StringSet.inter running_smapiv2_drivers existing_types) ;
+
+  (* Warn in logs when there are still duplicates *)
+  let add_to_dups (last, dups) (_, curr) =
+    match (last.API.sM_type = curr.API.sM_type, dups) with
+    | false, _ ->
+        (curr, dups)
+    | true, x :: _ when x = last ->
+        (curr, curr :: dups)
+    | true, _ ->
+        (curr, curr :: last :: dups)
+  in
+  let find_all_duplicates lst =
+    lst
+    |> List.sort (fun (_, a_rc) (_, b_rc) ->
+        Stdlib.compare a_rc.API.sM_type b_rc.API.sM_type
+    )
+    |> function
+    | [] ->
+        []
+    | head :: rest ->
+        List.fold_left add_to_dups (snd head, []) rest |> snd
+  in
+
+  let features_to_string feats =
+    Fmt.(to_to_string (Dump.list (Dump.pair string int64)) feats)
+  in
+  let plugin_to_string plugin =
+    Printf.sprintf "{ type:%s; name:%s; UUID:%s; features:%s; }"
+      plugin.API.sM_type plugin.API.sM_name_label plugin.API.sM_uuid
+      (features_to_string plugin.API.sM_features)
+  in
+  let log_plugins = function
+    | [] ->
+        ()
+    | duplicates ->
+        let duplicates =
+          String.concat "\n; " (List.map plugin_to_string duplicates)
+        in
+        warn "%s: found duplicate SM plugins for the same type: [\n  %s\n]"
+          __FUN duplicates
+  in
+
+  Db.SM.get_all_records ~__context |> find_all_duplicates |> log_plugins
 
 let bind ~__context ~pbd =
   let dbg = Context.string_of_task __context in
