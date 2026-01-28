@@ -1145,7 +1145,7 @@ module SMAPIv1 : Server_impl = struct
 
       let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
           ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
-          ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
+          ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ ~remote_session:_ =
         assert false
 
       let receive_start _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ =

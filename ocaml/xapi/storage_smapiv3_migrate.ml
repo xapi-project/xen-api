@@ -115,13 +115,14 @@ module MIRROR : SMAPIv2_MIRROR = struct
 
   let send_start _ctx ~dbg ~task_id:_ ~dp ~sr ~vdi ~mirror_vm ~mirror_id
       ~local_vdi:_ ~copy_vm:_ ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest
-      =
+      ~remote_session =
     D.debug
       "%s dbg: %s dp: %s sr: %s vdi:%s mirror_vm:%s mirror_id: %s live_vm: %s \
        url:%s dest_sr:%s verify_dest:%B"
       __FUNCTION__ dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm mirror_vm)
       mirror_id (s_of_vm live_vm) url (s_of_sr dest_sr) verify_dest ;
     ignore (Local.VDI.attach3 dbg dp sr vdi (Vm.of_string "0") true) ;
+    ignore remote_session ;
     (* TODO we are not activating the VDI here because SMAPIv3 does not support
        activating the VDI again on dom 0 when it is already activated on the live_vm.
        This means that if the VM shutsdown while SXM is in progress the

@@ -106,6 +106,17 @@ end
 
 type vm = Vm.t
 
+module Ref_session : WRAPPEDSTRING = struct
+  (* This is the domid. *)
+  type t = string [@@deriving rpcty]
+
+  let string_of x = x
+
+  let of_string x = x
+end
+
+type ref_session = Ref_session.t
+
 let vm_pp : Format.formatter -> vm -> unit =
  fun ppf vm -> Format.fprintf ppf "%s" (Vm.string_of vm)
 
@@ -1045,6 +1056,11 @@ module StorageAPI (R : RPC) = struct
         ~description:["when true, verify remote server certificate"]
         Types.bool
 
+    let remote_session_p =
+      Param.mk ~name:"remote_session"
+        ~description:["use it to refresh session during long copy operation"]
+        Ref_session.t
+
     let copy =
       let result_p = Param.mk ~name:"task_id" Task.id in
       declare "DATA.copy" []
@@ -1055,6 +1071,7 @@ module StorageAPI (R : RPC) = struct
         @-> url_p
         @-> dest_p
         @-> verify_dest_p
+        @-> remote_session_p
         @-> returning result_p err
         )
 
@@ -1127,6 +1144,7 @@ module StorageAPI (R : RPC) = struct
         let local_vdi_p = Param.mk ~name:"local_vdi" vdi_info in
         let src_sr_p = Param.mk ~name:"src_sr" Sr.t in
         let dest_sr_p = Param.mk ~name:"dest_sr" Sr.t in
+
         declare "DATA.MIRROR.send_start" []
           (dbg_p
           @-> dp_p
@@ -1142,6 +1160,7 @@ module StorageAPI (R : RPC) = struct
           @-> recv_result_p
           @-> dest_sr_p
           @-> verify_dest_p
+          @-> remote_session_p
           @-> returning unit_p err
           )
 
@@ -1328,6 +1347,7 @@ module type MIRROR = sig
     -> remote_mirror:Mirror.mirror_receive_result
     -> dest_sr:sr
     -> verify_dest:bool
+    -> remote_session:ref_session
     -> unit
 
   val receive_start :
@@ -1649,6 +1669,7 @@ module type Server_impl = sig
       -> url:string
       -> dest:sr
       -> verify_dest:bool
+      -> remote_session:ref_session
       -> Task.id
 
     val mirror :
@@ -1838,8 +1859,9 @@ module Server (Impl : Server_impl) () = struct
         Impl.VDI.list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to
     ) ;
     S.get_by_name (fun dbg name -> Impl.get_by_name () ~dbg ~name) ;
-    S.DATA.copy (fun dbg sr vdi vm url dest verify_dest ->
+    S.DATA.copy (fun dbg sr vdi vm url dest verify_dest remote_session ->
         Impl.DATA.copy () ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest
+          ~remote_session
     ) ;
     S.DATA.mirror (fun dbg sr vdi vm dest ->
         Impl.DATA.mirror () ~dbg ~sr ~vdi ~vm ~dest
@@ -1863,10 +1885,11 @@ module Server (Impl : Server_impl) () = struct
         remote_mirror
         dest_sr
         verify_dest
+        remote_session
       ->
         Impl.DATA.MIRROR.send_start () ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm
           ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr
-          ~verify_dest
+          ~verify_dest ~remote_session
     ) ;
     S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
         Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar

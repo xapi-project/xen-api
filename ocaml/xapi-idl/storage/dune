@@ -26,6 +26,7 @@
    xapi-idl
    xapi-idl.storage.interface.types
    xapi-log
+   xapi-types
  )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc ppx_deriving.show)))
