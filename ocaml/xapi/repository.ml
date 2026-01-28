@@ -565,6 +565,20 @@ let get_host_updates_in_json ~__context ~installed =
         let latest_updates' =
           get_updates_from_yum_upgrade_dry_run repositories
         in
+        let latest_updates_group' =
+          get_updates_from_yum_group_upgrade_dry_run repositories
+        in
+        let latest_updates_combined' =
+          match (latest_updates', latest_updates_group') with
+          | Some pkgs', Some group_pkgs' ->
+              Some (List.sort_uniq compare (pkgs' @ group_pkgs'))
+          | Some pkgs', None ->
+              Some pkgs'
+          | None, Some group_pkgs' ->
+              Some group_pkgs'
+          | None, None ->
+              None
+        in
         let latest_updates'' = get_updates_from_repoquery repositories in
         (* To ensure the updating function will not strand, use redundant
          * functions to get the update/installation list.
@@ -576,7 +590,7 @@ let get_host_updates_in_json ~__context ~installed =
         let fail_on_error = Xapi_fist.fail_on_error_in_yum_upgrade_dry_run () in
         let latest_updates =
           get_latest_updates_from_redundancy ~fail_on_error
-            ~pkgs:latest_updates' ~fallback_pkgs:latest_updates''
+            ~pkgs:latest_updates_combined' ~fallback_pkgs:latest_updates''
         in
         List.iter (fun r -> clean_yum_cache r) repositories ;
         let latest_updates_in_json =
@@ -686,8 +700,15 @@ let get_pool_updates_in_json ~__context ~hosts =
 let apply ~__context ~host =
   (* This function runs on member host *)
   with_local_repositories ~__context (fun repositories ->
-      let Pkg_mgr.{cmd; params} = Pkgs.apply_upgrade ~repositories in
-      try ignore (Helpers.call_script cmd params)
+      let upgrade () =
+        let Pkg_mgr.{cmd; params} = Pkgs.apply_upgrade ~repositories in
+        ignore (Helpers.call_script cmd params)
+      in
+      let group_upgrade () =
+        let Pkg_mgr.{cmd; params} = Pkgs.apply_group_upgrade ~repositories in
+        ignore (Helpers.call_script cmd params)
+      in
+      try upgrade () ; group_upgrade ()
       with e ->
         let host' = Ref.string_of host in
         error "Failed to apply updates on host ref='%s': %s" host'
