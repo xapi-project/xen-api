@@ -2033,6 +2033,13 @@ let disable_external_auth =
         ; param_release= george_release
         ; param_default= Some (VMap [])
         }
+      ; {
+          param_type= Bool
+        ; param_name= "force"
+        ; param_doc= "Disable external auth even when not enabled"
+        ; param_release= numbered_release "26.1.1"
+        ; param_default= Some (VBool false)
+        }
       ]
     ~doc:"This call disables external authentication on the local host"
     ~allowed_roles:_R_POOL_ADMIN ()
