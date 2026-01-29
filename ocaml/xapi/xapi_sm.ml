@@ -20,12 +20,8 @@
 
 module Listext = Xapi_stdext_std.Listext
 
-let finally = Xapi_stdext_pervasives.Pervasiveext.finally
-
 (* We treat versions as '.'-separated integer lists under the usual
    lexicographic ordering. *)
-type version = int list
-
 let version_of_string s = List.map int_of_string (String.split_on_char '.' s)
 
 module D = Debug.Make (struct let name = "xapi_sm" end)
@@ -99,6 +95,12 @@ let remove_valid_features_from_pending ~__context ~self valid_features =
         (h, Listext.List.set_difference pending_features valid_features)
     )
   in
+  let new_pending_feature =
+    if List.for_all (fun (_, v) -> v = []) new_pending_feature then
+      []
+    else
+      new_pending_feature
+  in
   Db.SM.set_host_pending_features ~__context ~self ~value:new_pending_feature
 
 let update_from_query_result ~__context (self, r) q_result =
@@ -148,51 +150,43 @@ let update_from_query_result ~__context (self, r) q_result =
 
 let is_v1 x = version_of_string x < [2; 0]
 
-let _serialize_reg =
+let with_lock =
   let lock = Mutex.create () in
-  let holder = ref None in
-  fun f ->
-    match !holder with
-    | Some t when t = Thread.self () ->
-        (* inside a nested layer where the lock is held by myself *)
-        f ()
-    | _ ->
-        Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-            holder := Some (Thread.self ()) ;
-            finally f (fun () -> holder := None)
-        )
+  Xapi_stdext_threads.Threadext.Mutex.execute lock
 
-let unregister_plugin ~__context q_result =
-  _serialize_reg (fun () ->
-      let open Storage_interface in
-      let driver = String.lowercase_ascii q_result.driver in
-      if is_v1 q_result.required_api_version then
-        info "Not unregistering SM plugin %s (required_api_version %s < 2.0)"
-          driver q_result.required_api_version
-      else
-        List.iter
-          (fun (rf, rc) ->
-            if rc.API.sM_type = driver then
-              try
-                info "Unregistering SM plugin %s (version %s)" driver
-                  q_result.version ;
-                Db.SM.destroy ~__context ~self:rf
-              with e ->
-                warn "Ignore unregistering SM plugin failure: %s"
-                  (Printexc.to_string e)
-          )
-          (Db.SM.get_all_records ~__context)
+let _unregister_plugin ~__context q_result () =
+  let open Storage_interface in
+  let driver = String.lowercase_ascii q_result.driver in
+  if is_v1 q_result.required_api_version then
+    info "Not unregistering SM plugin %s (required_api_version %s < 2.0)" driver
+      q_result.required_api_version
+  else
+    List.iter
+      (fun (rf, rc) ->
+        if rc.API.sM_type = driver then
+          try
+            info "Unregistering SM plugin %s (version %s)" driver
+              q_result.version ;
+            Db.SM.destroy ~__context ~self:rf
+          with e ->
+            warn "Ignore unregistering SM plugin failure: %s"
+              (Printexc.to_string e)
+      )
+      (Db.SM.get_all_records ~__context)
+
+let _register_plugin ~__context q_result () =
+  let open Storage_interface in
+  let driver = String.lowercase_ascii q_result.driver in
+  if is_v1 q_result.required_api_version then
+    info "Not registering SM plugin %s (required_api_version %s < 2.0)" driver
+      q_result.required_api_version
+  else (
+    _unregister_plugin ~__context q_result () ;
+    create_from_query_result ~__context q_result
   )
+
+let unregister_plugin ~__context q_result () =
+  with_lock (_unregister_plugin ~__context q_result)
 
 let register_plugin ~__context q_result =
-  _serialize_reg (fun () ->
-      let open Storage_interface in
-      let driver = String.lowercase_ascii q_result.driver in
-      if is_v1 q_result.required_api_version then
-        info "Not registering SM plugin %s (required_api_version %s < 2.0)"
-          driver q_result.required_api_version
-      else (
-        unregister_plugin ~__context q_result ;
-        create_from_query_result ~__context q_result
-      )
-  )
+  with_lock (_register_plugin ~__context q_result)
