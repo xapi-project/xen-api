@@ -17,7 +17,7 @@ module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
-let rpc_of ty x = Rpcmarshal.marshal ty.Rpc.Types.ty x
+let _rpc_of ty x = Rpcmarshal.marshal ty.Rpc.Types.ty x
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
@@ -55,7 +55,7 @@ module Queues = struct
       fashion *)
 
   (** Each distinct 'tag' value creates a separate virtual queue *)
-  type tag = string
+  type _tag = string
 
   type 'a t = {
       mutable qs: 'a Queue.t StringMap.t
@@ -84,7 +84,7 @@ module Queues = struct
   let tags qs =
     with_lock qs.m (fun () -> StringMap.fold (fun x _ acc -> x :: acc) qs.qs [])
 
-  let get_last_tag qs = with_lock qs.m (fun () -> qs.last_tag)
+  let _get_last_tag qs = with_lock qs.m (fun () -> qs.last_tag)
 
   let push_with_coalesce should_keep tag item qs =
     with_lock qs.m (fun () ->
@@ -340,7 +340,7 @@ module Make (I : Item) = struct
 
       type t = q list [@@deriving rpcty]
 
-      let rpc_of_t = Rpcmarshal.marshal typ_of
+      let _rpc_of_t = Rpcmarshal.marshal typ_of
 
       let make () =
         with_lock m (fun () ->
@@ -377,7 +377,7 @@ module Make (I : Item) = struct
         mutable state: state
       ; mutable shutdown_requested: bool
       ; m: Mutex.t
-      ; c: Condition.t
+      ; _c: Condition.t
       ; mutable t: Thread.t option
       ; redirector: Redirector.t
     }
@@ -429,7 +429,7 @@ module Make (I : Item) = struct
           state= Idle
         ; shutdown_requested= false
         ; m= Mutex.create ()
-        ; c= Condition.create ()
+        ; _c= Condition.create ()
         ; t= None
         ; redirector
         }
