@@ -670,6 +670,24 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-install-trusted-certificate"
+    , {
+        reqd= ["filename"; "ca"]
+      ; optn= ["uuid"; "purpose"]
+      ; help= "Install a TLS trusted certificate, pool-wide."
+      ; implementation= With_fd Cli_operations.pool_install_trusted_certificate
+      ; flags= []
+      }
+    )
+  ; ( "pool-uninstall-trusted-certificate"
+    , {
+        reqd= ["certificate-uuid"]
+      ; optn= ["uuid"]
+      ; help= "Uninstall a TLS trusted certificate, pool-wide."
+      ; implementation= No_fd Cli_operations.pool_uninstall_trusted_certificate
+      ; flags= []
+      }
+    )
   ; ( "host-shutdown"
     , {
         reqd= []

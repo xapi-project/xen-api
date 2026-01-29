@@ -2171,21 +2171,6 @@ end = struct
       raise e
 end
 
-let update_ca_bundle =
-  (* it is not safe for multiple instances of this bash script to be
-   * running at the same time, so we must lock it.
-   *
-   * NB: we choose not to implement the lock inside the bash script
-   * itself *)
-  let m = Mutex.create () in
-  fun () ->
-    with_lock m (fun () ->
-        ignore
-          (Forkhelpers.execute_command_get_output
-             "/opt/xensource/bin/update-ca-bundle.sh" []
-          )
-    )
-
 let external_certificate_thumbprint_of_master ~hash_type =
   if List.mem hash_type [`Sha256; `Sha1] then
     Server_helpers.exec_with_new_task
