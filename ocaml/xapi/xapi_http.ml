@@ -362,7 +362,7 @@ let add_handler (name, handler) =
           debug "Rate limiting handler %s with user_agent %s host_ip %s" name
             user_agent host_ip ;
           Xapi_rate_limit.submit ~client_id ~callback:handler
-            Xapi_rate_limit.median_token_cost
+            Xapi_rate_limit.default_token_cost
   in
   let h req ic () =
     let client_info = Http_svr.client_of_req_and_fd req ic in
