@@ -22,7 +22,7 @@ val peek : client_id:Key.t -> float option
 
 val get_token_cost : string -> float
 
-val median_token_cost : float
+val default_token_cost : float
 
 val create :
      __context:Context.t
