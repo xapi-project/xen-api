@@ -21,7 +21,8 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module XenAPI = Client.Client
 open Storage_interface
-open Storage_utils
+
+let transform_storage_exn = Storage_utils.transform_storage_exn
 
 module D = Debug.Make (struct let name = "storage_access" end)
 
@@ -103,12 +104,72 @@ let external_rpc queue_name uri =
 (* Internal exception, never escapes the module *)
 exception Message_switch_failure
 
-(* We have to be careful in this function, because an exception raised from
-   here will cause the startup sequence to fail *)
+(* We have to be careful in the call tree of on_xapi_start, because an
+   exception raised in it will cause the startup sequence to fail *)
+
+let get_smapiv2_drivers_from_switch () =
+  let module Client = Message_switch_unix.Protocol_unix.Client in
+  try
+    let ( >>| ) result f =
+      match Client.error_to_msg result with
+      | Error (`Msg x) ->
+          error "%s: Error %s while querying message switch queues" __FUNCTION__
+            x ;
+          raise Message_switch_failure
+      | Ok x ->
+          f x
+    in
+    Client.connect ~switch:!Xcp_client.switch_path () >>| fun t ->
+    Client.list ~t ~prefix:!Storage_interface.queue_name ~filter:`Alive ()
+    >>| fun running_smapiv2_driver_queues ->
+    running_smapiv2_driver_queues
+    (* The results include the prefix itself, but that is the main storage
+       queue, we don't need it *)
+    |> List.filter (( <> ) !Storage_interface.queue_name)
+    |> Listext.List.try_map (fun driver ->
+        (* Get the last component of the queue name:
+              org.xen.xapi.storage.sr_type -> sr_type *)
+        driver
+        |> String.split_on_char '.'
+        |> Listext.List.last
+        |> Option.to_result ~none:(Invalid_argument driver)
+    )
+    |> function
+    | Ok drivers ->
+        drivers
+    | Error exn ->
+        raise exn
+  with
+  | Message_switch_failure ->
+      [] (* no more logging *)
+  | e ->
+      Backtrace.is_important e ;
+      error "Unexpected error querying the message switch: %s"
+        (Printexc.to_string e) ;
+      Debug.log_backtrace e (Backtrace.get e) ;
+      []
+
+let log_and_unregister ~__context ~reason __FUN (self, rc) =
+  info "%s: unregistering SM plugin %s (%s) since %s" __FUN rc.API.sM_name_label
+    rc.API.sM_uuid reason ;
+  try Db.SM.destroy ~__context ~self with _ -> ()
+
+module StringSet = Set.Make (String)
+
+let list_assoc_all a =
+  List.filter_map (fun (k, v) ->
+      if String.equal k a then
+        Some v
+      else
+        None
+  )
+
+let ( let@ ) f x = f x
 
 (** Synchronise the SM table with the SMAPIv1 plugins on the disk and the SMAPIv2
     plugins mentioned in the configuration file whitelist. *)
 let on_xapi_start ~__context =
+  let __FUN = __FUNCTION__ in
   (* An SM is either implemented as a plugin - for which we check its
       presence, or via an API *)
   let is_available rc =
@@ -120,107 +181,69 @@ let on_xapi_start ~__context =
     |> List.map (fun (rf, rc) -> (rc.API.sM_type, (rf, rc)))
   in
   let explicitly_configured_drivers =
-    List.filter_map
-      (function `Sm x -> Some x | _ -> None)
-      !Xapi_globs.sm_plugins
+    !Xapi_globs.sm_plugins
+    |> List.filter_map (function `Sm x -> Some x | _ -> None)
+    |> StringSet.of_list
   in
-  let smapiv1_drivers = Sm.supported_drivers () in
-  let configured_drivers = explicitly_configured_drivers @ smapiv1_drivers in
+  let smapiv1_drivers = Sm.supported_drivers () |> StringSet.of_list in
+  let configured_drivers =
+    StringSet.union explicitly_configured_drivers smapiv1_drivers
+  in
   let in_use_drivers =
     List.map (fun (_, rc) -> rc.API.sR_type) (Db.SR.get_all_records ~__context)
+    |> StringSet.of_list
   in
-  let to_keep = configured_drivers @ in_use_drivers in
-  (* The SMAPIv2 drivers we know about *)
-  let smapiv2_drivers = Listext.List.set_difference to_keep smapiv1_drivers in
+  let to_keep = StringSet.union configured_drivers in_use_drivers in
   (* Query the message switch to detect running SMAPIv2 plugins. *)
   let running_smapiv2_drivers =
-    if !Xcp_client.use_switch then (
-      try
-        let open Message_switch_unix.Protocol_unix in
-        let ( >>| ) result f =
-          match Client.error_to_msg result with
-          | Error (`Msg x) ->
-              error "Error %s while querying message switch queues" x ;
-              raise Message_switch_failure
-          | Ok x ->
-              f x
-        in
-        Client.connect ~switch:!Xcp_client.switch_path () >>| fun t ->
-        Client.list ~t ~prefix:!Storage_interface.queue_name ~filter:`Alive ()
-        >>| fun running_smapiv2_driver_queues ->
-        running_smapiv2_driver_queues
-        (* The results include the prefix itself, but that is the main storage
-           queue, we don't need it *)
-        |> List.filter (( <> ) !Storage_interface.queue_name)
-        |> Listext.List.try_map (fun driver ->
-            (* Get the last component of the queue name:
-                  org.xen.xapi.storage.sr_type -> sr_type *)
-            driver
-            |> String.split_on_char '.'
-            |> Listext.List.last
-            |> Option.to_result ~none:(Invalid_argument driver)
-        )
-        |> function
-        | Ok drivers ->
-            drivers
-        | Error exn ->
-            raise exn
-      with
-      | Message_switch_failure ->
-          [] (* no more logging *)
-      | e ->
-          Backtrace.is_important e ;
-          error "Unexpected error querying the message switch: %s"
-            (Printexc.to_string e) ;
-          Debug.log_backtrace e (Backtrace.get e) ;
-          []
-    ) else
-      smapiv2_drivers
+    if !Xcp_client.use_switch then
+      get_smapiv2_drivers_from_switch () |> StringSet.of_list
+    else (* The SMAPIv2 drivers we know about *)
+      StringSet.diff to_keep smapiv1_drivers
   in
   (* Add all the running SMAPIv2 drivers *)
-  let to_keep = to_keep @ running_smapiv2_drivers in
+  let to_keep = StringSet.union to_keep running_smapiv2_drivers in
+  let existing_types = List.map fst existing |> StringSet.of_list in
+  let unused = StringSet.diff existing_types to_keep in
   let unavailable =
     List.filter (fun (_, (_, rc)) -> not (is_available rc)) existing
   in
   (* Delete all records which aren't configured or in-use *)
-  List.iter
-    (fun ty ->
-      info
-        "Unregistering SM plugin %s since not in the whitelist and not in-use"
-        ty ;
-      let self, _ = List.assoc ty existing in
-      try Db.SM.destroy ~__context ~self with _ -> ()
-    )
-    (Listext.List.set_difference (List.map fst existing) to_keep) ;
-  List.iter
-    (fun (name, (self, rc)) ->
-      info "%s: unregistering SM plugin %s (%s) since it is unavailable"
-        __FUNCTION__ name rc.API.sM_uuid ;
-      try Db.SM.destroy ~__context ~self with _ -> ()
-    )
-    unavailable ;
+  let unregister_unused ty =
+    let sms = list_assoc_all ty existing in
+    let reason = "it's not in the allowed list and not in-use" in
+    List.iter (log_and_unregister ~__context ~reason __FUNCTION__) sms
+  in
+  let unregister_unavailable (_, sm) =
+    let reason = "it's unavailable" in
+    log_and_unregister ~__context ~reason __FUNCTION__ sm
+  in
+  StringSet.iter unregister_unused unused ;
+  List.iter unregister_unavailable unavailable ;
 
   (* Synchronize SMAPIv1 plugins *)
 
   (* Create all missing SMAPIv1 plugins *)
-  List.iter
+  StringSet.iter
     (fun ty ->
       let query_result =
         Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info
       in
       Xapi_sm.create_from_query_result ~__context query_result
     )
-    (Listext.List.set_difference smapiv1_drivers (List.map fst existing)) ;
+    (StringSet.diff smapiv1_drivers existing_types) ;
   (* Update all existing SMAPIv1 plugins *)
-  List.iter
+  StringSet.iter
     (fun ty ->
       let query_result =
         Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info
       in
-      Xapi_sm.update_from_query_result ~__context (List.assoc ty existing)
-        query_result
+      list_assoc_all ty existing
+      |> List.iter (fun sm ->
+          Xapi_sm.update_from_query_result ~__context sm query_result
+      )
     )
-    (Listext.List.intersect smapiv1_drivers (List.map fst existing)) ;
+    (StringSet.inter smapiv1_drivers existing_types) ;
 
   (* Synchronize SMAPIv2 plugins *)
 
@@ -241,18 +264,62 @@ let on_xapi_start ~__context =
         f query_result
     )
   in
-  List.iter
+  StringSet.iter
     (fun ty ->
       with_query_result ty (Xapi_sm.create_from_query_result ~__context)
     )
-    (Listext.List.set_difference running_smapiv2_drivers (List.map fst existing)) ;
+    (StringSet.diff running_smapiv2_drivers existing_types) ;
   (* Update all existing SMAPIv2 plugins *)
-  List.iter
+  StringSet.iter
     (fun ty ->
-      with_query_result ty
-        (Xapi_sm.update_from_query_result ~__context (List.assoc ty existing))
+      let@ qr = with_query_result ty in
+      list_assoc_all ty existing
+      |> List.iter (fun sm -> Xapi_sm.update_from_query_result ~__context sm qr)
     )
-    (Listext.List.intersect running_smapiv2_drivers (List.map fst existing))
+    (StringSet.inter running_smapiv2_drivers existing_types) ;
+
+  (* Warn in logs when there are still duplicates *)
+  let add_to_dups (last, dups) (_, curr) =
+    match (last.API.sM_type = curr.API.sM_type, dups) with
+    | false, _ ->
+        (curr, dups)
+    | true, x :: _ when x = last ->
+        (curr, curr :: dups)
+    | true, _ ->
+        (curr, curr :: last :: dups)
+  in
+  let find_all_duplicates lst =
+    lst
+    |> List.sort (fun (_, a_rc) (_, b_rc) ->
+        Stdlib.compare a_rc.API.sM_type b_rc.API.sM_type
+    )
+    |> function
+    | [] ->
+        []
+    | head :: rest ->
+        List.fold_left add_to_dups (snd head, []) rest |> snd
+  in
+
+  let features_to_string feats =
+    Fmt.(to_to_string (Dump.list (Dump.pair string int64)) feats)
+  in
+  let plugin_to_string plugin =
+    Printf.sprintf "{ type:%s; name:%s; UUID:%s; features:%s; }"
+      plugin.API.sM_type plugin.API.sM_name_label plugin.API.sM_uuid
+      (features_to_string plugin.API.sM_features)
+  in
+  let log_plugins = function
+    | [] ->
+        ()
+    | duplicates ->
+        let duplicates =
+          String.concat "\n; " (List.map plugin_to_string duplicates)
+        in
+        warn "%s: found duplicate SM plugins for the same type: [\n  %s\n]"
+          __FUN duplicates
+  in
+
+  Db.SM.get_all_records ~__context |> find_all_duplicates |> log_plugins
 
 let bind ~__context ~pbd =
   let dbg = Context.string_of_task __context in
