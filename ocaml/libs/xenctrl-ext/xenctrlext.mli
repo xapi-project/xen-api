@@ -121,3 +121,9 @@ module DomainNuma : sig
 
   val state : handle -> domid:int -> t
 end
+
+module HostNuma : sig
+  type node_meminfo = {size: int64; free: int64; claimed: int64}
+
+  val numa_get_meminfo : handle -> node_meminfo array
+end

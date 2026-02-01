@@ -167,3 +167,12 @@ module DomainNuma = struct
       {optimised; nodes; memory}
     with Failure _ -> default
 end
+
+module HostNuma = struct
+  (* Numa state of a host *)
+
+  type node_meminfo = {size: int64; free: int64; claimed: int64}
+
+  external numa_get_meminfo : handle -> node_meminfo array
+    = "stub_xenctrlext_numa_meminfo"
+end
