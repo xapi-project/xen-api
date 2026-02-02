@@ -73,7 +73,17 @@ module Make (T : Floatable) = struct
     let h = secs / 3600 in
     let m = secs mod 3600 / 60 in
     let s = secs mod 60 in
-    Printf.sprintf "%02d:%02d:%02d" h m s
+    let str = Printf.sprintf "%02d:%02d:%02d" h m s in
+    if String.length str > 8 then
+      (* negative or > 99 hours *)
+      let str = Printf.sprintf "%05d:%02d" h m in
+      if String.length str > 8 then
+        (* still too long, >11 years *)
+        "++:++:++"
+      else
+        str
+    else
+      str
 
   let eta t =
     let time_so_far = elapsed t in
