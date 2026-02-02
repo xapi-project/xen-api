@@ -179,6 +179,7 @@ join->>coor: Pool.exchange_certificates_on_join <Joiner's trusted host identity 
 coor->>coor: Cert_distrib.exchange_certificates_with_joiner
 coor->>memb: Host.cert_distrib_atom Write
 memb-->>coor:
+coor->>coor: Cert_distrib.get_local_pool_certs
 coor-->>join: <trusted host identity certs in pool>
 join->>join: Cert_distrib.import_joining_pool_certs <trusted host identity certs in pool>
 end
