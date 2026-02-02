@@ -11,6 +11,7 @@
 (library
   (name cli_progress_bar)
   (modules cli_progress_bar)
+  (libraries mtime mtime.clock.os)
  )
 
 (library
