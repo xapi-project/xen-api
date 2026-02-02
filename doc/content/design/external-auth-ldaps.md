@@ -66,6 +66,8 @@ The [trusted-certificates.md](https://github.com/xapi-project/xen-api/blob/maste
 
 ### 3.1 pool.enable_external_auth
 
+#### 3.1.1 Interface
+
 To enable external auth, the current API arguments are as follows:
 
 - `pool` (Ref _pool): The pool whose external authentication should be enabled
@@ -87,9 +89,15 @@ This API signature does not change. Regarding the config map, one new option is 
 
 Given `ldaps` default to `false`, this feature is **NOT** enabled until explicitly set.
 
+#### 3.1.2 Error code
+Following new error codes added to indicate ldaps enable related error
+- AUTH_NO_CERT,  no certs can be used for ldaps, refer to 4.1.2 for certs finding.
+- AUTH_INVALID_CERT, found certs, but none of the certs can be used to connect to DC
+
 ### 3.2 Set/Get Pool LDAPS Status
 
 #### 3.2.1 pool.external_auth_set_ldaps
+#### 3.2.1.1 Interface
 
 User can specify LDAPS during join domain as in 3.1.
 
@@ -122,6 +130,13 @@ So following xe command can be used to switch between LDAP and LDAPS:
 ```bash
 xe pool-external-auth-set-ldaps uuid=<uuid> ldaps=<true|false>
 ```
+
+#### 3.2.1.2 Error code
+This API may raise following errors
+- AUTH_NO_CERT, no certs found to enable ldaps, refer to 4.1.2 for certs finding
+- AUTH_INVALID_CERT, found certs, but none of the certs can be used to connect to DC
+- AUTH_IS_DISABLED, AD is not enabled
+- AUTH_LDAPS_PING_FAILED,  failed to do ldaps query on all DCs with valid certs
 
 #### 3.2.2 Get Pool LDAPS Status
 
