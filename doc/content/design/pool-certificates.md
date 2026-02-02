@@ -198,15 +198,16 @@ Note over join: exchange trusted certificates
 rect rgba(0,0,0,0.05)
 join->>coor: Pool.exchange_trusted_certificates_on_join <Joiner's trusted certs>
 loop for every <trusted> in Joiner
-coor->>coor: Pool.install_trusted_certificate
+coor->>coor: Certificates.host_install
 coor->>memb: Host.cert_distrib_atom Write
 memb-->>coor:
 coor->>memb: Host.certificate_sync
 memb-->>coor:
 end
+coor-->>coor: Cert_distrib.collect_trusted_certs
 coor-->>join: <trusted certs in pool>
 loop for every <trusted> in pool
-join->>join: Pool.install_trusted_certificate
+join->>join: Certificates.host_install
 end
 end
 
@@ -214,12 +215,13 @@ Note over join: exchange CRLs
 rect rgba(0,0,0,0.05)
 join->>coor: Pool.exchange_crls_on_join <Joiner's CRLs>
 loop for every <CRL> in Joiner
-coor->>coor: Pool.crl_install
+coor->>coor: Certificates.host_install
 coor->>memb: Host.cert_distrib_atom Write
 memb-->>coor:
 coor->>memb: Host.certificate_sync
 memb-->>coor:
 end
+coor->>coor: Cert_distrib.collect_crls
 coor-->>join: <CLRs in pool>
 loop for every <CRL> in pool
 join->>join: Pool.crl_install
