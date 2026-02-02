@@ -21,7 +21,7 @@ This allows the use case to start in quicker and easier way without prior CA sig
 
 As the unified API for the whole system, XAPI also exposes interfaces for users to install and manage trusted certificates that are used by system components for different purposes.
 
-The base design described in [pool-certificates.md](https://github.com/minglumlu/xen-api/blob/5d1ea1520825d502c57a90a02db476cd7d6a9132/doc/content/design/pool-certificates.md) defines the database, API, and trust store in the filesystem for managing trusted certificates.
+The base design described in [pool-certificates.md](https://github.com/xapi-project/xen-api/blob/master/doc/content/design/pool-certificates.md) defines the database, API, and trust store in the filesystem for managing trusted certificates.
 This document introduces the following enhancements to that design:
 
 * Explicit separation of root CA certificates and peer certificates:

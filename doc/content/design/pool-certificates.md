@@ -3,7 +3,7 @@ title: TLS vertification for intra-pool communications
 layout: default
 design_doc: true
 revision: 2
-status: released (22.6.0)
+status: draft (update based on release 22.6.0 revision 2)
 ---
 
 ## Overview
@@ -74,6 +74,8 @@ Conversely pool connections will ignore these certificates.
 | Default Bundle  | /etc/stunnel/xapi-stunnel-ca-bundle.pem | no       | Bundle of certificates that hosts use to verify appliances (in particular WLB), this is kept in sync with "Trusted Default"
 | Pool Bundle     | /etc/stunnel/xapi-pool-ca-bundle.pem    | no       | Bundle of certificates that hosts use to verify other hosts on pool communications, this is kept in sync with "Trusted Pool"
 
+And this part is improved and updated in a later design described in [trusted-certificates.md](https://github.com/xapi-project/xen-api/blob/master/doc/content/design/trusted-certificates.md).
+
 ## Cryptography of certificates
 
 The certificates until now have been signed using sha256WithRSAEncryption:
@@ -143,10 +145,12 @@ No IP nor hostname information is kept as the clients only check for the certifi
 
 This use-case is delicate as it is the point where trust is established between hosts.
 This is done with a call from the joiner to the pool coordinator where the certificate of the coordinator is not verified.
-In this call the joiner transmits its certificate to the coordinator and the coordinator returns a list of the pool members' UUIDs and certificates.
-This means that in the policy used is trust on first use.
+In this call the joiner transmits its identity certificate to the coordinator and the coordinator returns a list of the pool members' UUIDs and identity certificates.
+This means that in the policy used is trust on first use. This is to exchange the host identity certificates between the pool and the joining host.
 
 To deal with parallel pool joins, hosts download all the Pool certificates in the pool from the coordinator after all restarts.
+
+Similar exchanges occur for trusted certificates and CRLs during pool join, as the joining host may need them before certificate copying from the coordinator completes during xapi startup.
 
 The connection is initiated by a client, just like before, there is no change in the API as all the information needed to start the join is already provided (pool username and password, IP of coordinator)
 
@@ -157,39 +161,85 @@ participant clnt as Client
 participant join as Joiner
 participant coor as Coordinator
 participant memb as Member
-clnt->>join: pool.join coordinator_ip coordinator_username coordinator_password
-join->>coor:login_with_password coordinator_ip coordinator_username coordinator_password
+clnt->>join: Pool.join coordinator_ip coordinator_username coordinator_password
+join->>coor:login_with_password rpc_no_verify coordinator_ip coordinator_username coordinator_password
+coor-->>join:
 
 Note over join: pre_join_checks
-join->>join: remote_pool_has_tls_enabled = self_pool_has_tls_enabled
-alt are different
+rect rgba(0,0,0,0.05)
+join->>join: assert_tls_verification_matches
+alt fails
 Note over join: interrupt join, raise error
 end
-Note right of join: certificate distribution
-coor-->>join:
-join->>coor: pool.internal_certificate_list_content
-coor-->>join:
+end
 
-join->>coor: pool.upload_identity_host_certificate joiner_certificate uuid
-coor->>memb: pool.internal_certificates_sync
+Note over join: exchnage host identity certificates
+rect rgba(0,0,0,0.05)
+join->>coor: Pool.exchange_certificates_on_join <Joiner's host identity cert>
+coor->>coor: Cert_distrib.exchange_certificates_with_joiner
+coor->>memb: Host.cert_distrib_atom Write
 memb-->>coor:
-
-loop for every <user CA certificate> in Joiner
-join->>coor: Pool.install_ca_certitificate <user CA certificate>
-coor-->>join:
+coor-->>join: <host identity certs in pool>
+join->>join: Cert_distrib.import_joining_pool_certs <host identity certs in pool>
 end
 
-loop for every <user CRL> in Joiner
-join->>coor: Pool.install_crl <user CRL>
+join->>coor:login_with_password rpc_verify coordinator_ip coordinator_username coordinator_password
 coor-->>join:
+
+Note over join: exchange legacy ca certificates
+rect rgba(0,0,0,0.05)
+join->>coor: Pool.exchange_ca_certificates_on_join <Joiner's legacy ca certs>
+coor->>coor: Cert_distrib.exchange_ca_certificates_with_joiner
+coor-->>join: <legacy ca certs in pool>
+join->>join: Cert_distrib.import_joining_pool_ca_certificates <legacy ca certs in pool>
 end
 
-join->>coor: host.add joiner
+Note over join: exchange trusted certificates
+rect rgba(0,0,0,0.05)
+join->>coor: Pool.exchange_trusted_certificates_on_join <Joiner's trusted certs>
+loop for every <trusted> in Joiner
+coor->>coor: Pool.install_trusted_certificate
+coor->>memb: Host.cert_distrib_atom Write
+memb-->>coor:
+coor->>memb: Host.certificate_sync
+memb-->>coor:
+end
+coor-->>join: <trusted certs in pool>
+loop for every <trusted> in pool
+join->>join: Pool.install_trusted_certificate
+end
+end
+
+Note over join: exchange CRLs
+rect rgba(0,0,0,0.05)
+join->>coor: Pool.exchange_crls_on_join <Joiner's CRLs>
+loop for every <CRL> in Joiner
+coor->>coor: Pool.crl_install
+coor->>memb: Host.cert_distrib_atom Write
+memb-->>coor:
+coor->>memb: Host.certificate_sync
+memb-->>coor:
+end
+coor-->>join: <CLRs in pool>
+loop for every <CRL> in pool
+join->>join: Pool.crl_install
+end
+end
+
+join->>coor: Host.add joiner
 coor-->>join:
 
 join->>join: restart_as_slave
-join->>coor: pool.user_certificates_sync
-join->>coor: host.copy_primary_host_certs
+
+Note over join: Copy all certificates from coordinator
+rect rgba(0,0,0,0.05)
+join->>coor: Host.copy_primary_host_certs
+coor->>join: Host.cert_distrib_atom Write
+join-->>coor:
+coor->>join: Host.cert_distrib_atom GenBundle
+join-->>coor:
+coor-->>join: return from Host.copy_primary_host_certs
+end
 
 ~~~
 
@@ -200,6 +250,8 @@ During pool eject the pool must remove the host certificate of the ejected membe
 The ejected member will recreate both server certificates to replicate a new installation.
 This can be triggered by deleting the certificates and their private keys in the host before rebooting, the current boot scripts automatically generates a new self-signed certificate if the file is not present.
 Additionally, both the user and the internal trust roots will be cleared before rebooting as well.
+
+The ejected member will remove all trusted certificates and CRLs on its dom0's filesystem before its host rebooting so that it will behave like a new installation after booting up.
 
 ## U4. Pool Upgrade
 
@@ -351,20 +403,27 @@ This feature needs clients to behave differently when initiating pool joins, to 
 ### Alerts
 
 Several alerts are introduced:
-* POOL_CA_CERTIFICATE_EXPIRING_30, POOL_CA_CERTIFICATE_EXPIRING_14, POOL_CA_CERTIFICATE_EXPIRING_07, POOL_CA_CERTIFICATE_EXPIRED: Similar to host certificates, now the user-installable pool's CA certificates are monitored for expiry dates and alerts are generated about them. The body for this type of message is:
+* `POOL_{CA|PINNED}_CERTIFICATE_EXPIRING_30`, `POOL_{CA|PINNED}_CERTIFICATE_EXPIRING_14`, `POOL_{CA|PINNED}_CERTIFICATE_EXPIRING_07`, `POOL_{CA|PINNED}_CERTIFICATE_EXPIRED`: Similar to host certificates, now the user-installable pool's root CA and pinned leaf certificates are monitored for expiry dates and alerts are generated about them. The body for this type of message is:
 
+```
     <body><message>The trusted TLS server certificate {is expiring soon|has expired}.</message><date>20210302T02:00:01Z</date></body>
+```
 
-* HOST_INTERNAL_CERTIFICATE_EXPIRING_30, HOST_INTERNAL_CERTIFICATE_EXPIRING_14, HOST_INTERNAL_CERTIFICATE_EXPIRING_07, HOST_INTERNAL_CERTIFICATE_EXPIRED: Similar to host certificates, the newly-introduced hosts' internal server certificates are monitored for expiry dates and alerts are generated about them. The body for this type of message is:
+* `HOST_INTERNAL_CERTIFICATE_EXPIRING_30`, `HOST_INTERNAL_CERTIFICATE_EXPIRING_14`, `HOST_INTERNAL_CERTIFICATE_EXPIRING_07`, `HOST_INTERNAL_CERTIFICATE_EXPIRED`: Similar to host certificates, the newly-introduced hosts' internal server certificates are monitored for expiry dates and alerts are generated about them. The body for this type of message is:
 
+```
     <body><message>The TLS server certificate for internal communications {is expiring soon|has expired}.</message><date>20210302T02:00:01Z</date></body>
+```
 
-* TLS_VERIFICATION_EMERGENCY_DISABLED: The host is in emergency mode and is not enforcing tls verification anymore, the situation that forced the disabling must be fixed and the verification enabled ASAP.
+* `TLS_VERIFICATION_EMERGENCY_DISABLED`: The host is in emergency mode and is not enforcing tls verification anymore, the situation that forced the disabling must be fixed and the verification enabled ASAP.
 
+```
     <body><host>HOST-UUID</host></body>
+```
 
-* FAILED_LOGIN_ATTEMPTS: An hourly alert that contains the number of failed attempts and the 3 most common origins for these failed alerts. The body for this type of message is:
+* `FAILED_LOGIN_ATTEMPTS`: An hourly alert that contains the number of failed attempts and the 3 most common origins for these failed alerts. The body for this type of message is:
 
+```
     <body>
     <total>35</total>
     <known><username>usr5</username><originator>origin5</originator><ip>5.4.3.2</ip><number>10</number><date>20200922T15:03:13Z</date></known>
@@ -372,3 +431,4 @@ Several alerts are introduced:
     <known><useragent>UA</useragent><ip>4.3.2.1</ip><number>4</number><date>20200922T14:57:11Z</date></known>
     <unknown>10</unknown>
     </body>
+```
