@@ -176,10 +176,11 @@ end
 Note over join: exchnage trusted intra-pool host identity certificates
 rect rgba(0,0,0,0.05)
 join->>coor: Pool.exchange_certificates_on_join <Joiner's trusted host identity cert>
-coor->>coor: Cert_distrib.exchange_certificates_with_joiner
+coor->>coor: Cert_distrib.exchange_certificates_with_joiner start
 coor->>memb: Host.cert_distrib_atom Write
 memb-->>coor:
 coor->>coor: Cert_distrib.get_local_pool_certs
+coor-->>coor: Cert_distrib.exchange_certificates_with_joiner done
 coor-->>join: <trusted host identity certs in pool>
 join->>join: Cert_distrib.import_joining_pool_certs <trusted host identity certs in pool>
 end
