@@ -203,8 +203,8 @@ coor->>memb: Host.cert_distrib_atom Write
 memb-->>coor:
 coor->>memb: Host.certificate_sync
 memb-->>coor:
-end
 coor-->>coor: Pool.install_trusted_certificate done
+end
 coor->>coor: Cert_distrib.collect_trusted_certs
 coor-->>join: <trusted certs in pool>
 loop for every <trusted> in pool
@@ -221,8 +221,8 @@ coor->>memb: Host.cert_distrib_atom Write
 memb-->>coor:
 coor->>memb: Host.certificate_sync
 memb-->>coor:
-end
 coor-->>coor: Pool.crl_install done
+end
 coor->>coor: Cert_distrib.collect_crls
 coor-->>join: <CLRs in pool>
 loop for every <CRL> in pool
