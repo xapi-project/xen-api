@@ -74,7 +74,7 @@ Conversely pool connections will ignore these certificates.
 | Default Bundle  | /etc/stunnel/xapi-stunnel-ca-bundle.pem | no       | Bundle of certificates that hosts use to verify appliances (in particular WLB), this is kept in sync with "Trusted Default"
 | Pool Bundle     | /etc/stunnel/xapi-pool-ca-bundle.pem    | no       | Bundle of certificates that hosts use to verify other hosts on pool communications, this is kept in sync with "Trusted Pool"
 
-And this part is improved and updated in a later design described in [trusted-certificates.md](https://github.com/xapi-project/xen-api/blob/master/doc/content/design/trusted-certificates.md).
+And this part is improved and described in a later design described in [trusted-certificates.md](https://github.com/xapi-project/xen-api/blob/master/doc/content/design/trusted-certificates.md).
 
 ## Cryptography of certificates
 
@@ -145,8 +145,8 @@ No IP nor hostname information is kept as the clients only check for the certifi
 
 This use-case is delicate as it is the point where trust is established between hosts.
 This is done with a call from the joiner to the pool coordinator where the certificate of the coordinator is not verified.
-In this call the joiner transmits its identity certificate to the coordinator and the coordinator returns a list of the pool members' UUIDs and identity certificates.
-This means that in the policy used is trust on first use. This is to exchange the host identity certificates between the pool and the joining host.
+In this call the joiner transmits its trusted intra-pool host identity certificate to the coordinator and the coordinator returns a list of the pool members' UUIDs and trusted intra-pool host identity certificates.
+This means that in the policy used is trust on first use. And this is actually to exchange the trusted certificates between the pool and the joining host for intra-pool host-host TLS communications used by xapi processes.
 
 To deal with parallel pool joins, hosts download all the Pool certificates in the pool from the coordinator after all restarts.
 
@@ -173,14 +173,14 @@ Note over join: interrupt join, raise error
 end
 end
 
-Note over join: exchnage host identity certificates
+Note over join: exchnage trusted intra-pool host identity certificates
 rect rgba(0,0,0,0.05)
-join->>coor: Pool.exchange_certificates_on_join <Joiner's host identity cert>
+join->>coor: Pool.exchange_certificates_on_join <Joiner's trusted host identity cert>
 coor->>coor: Cert_distrib.exchange_certificates_with_joiner
 coor->>memb: Host.cert_distrib_atom Write
 memb-->>coor:
-coor-->>join: <host identity certs in pool>
-join->>join: Cert_distrib.import_joining_pool_certs <host identity certs in pool>
+coor-->>join: <trusted host identity certs in pool>
+join->>join: Cert_distrib.import_joining_pool_certs <trusted host identity certs in pool>
 end
 
 join->>coor:login_with_password rpc_verify coordinator_ip coordinator_username coordinator_password
