@@ -387,8 +387,8 @@ let stream_cmd =
 
 let read_headers_cmd =
   let doc =
-    {|Parse VHD headers and output allocated blocks information in JSON format \
-     like: {"virtual_size": X, "cluster_bits": X, "data_clusters": [1,2,3]}|}
+    {|Parse VHD headers and output allocated blocks intervals information in JSON format \
+     like: {"virtual_size": X, "cluster_bits": X, "data_clusters": [[1,13],[17,17],[19,272]]}|}
   in
   let source =
     let doc = Printf.sprintf "Path to the VHD file" in
