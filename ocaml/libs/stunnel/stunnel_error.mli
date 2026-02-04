@@ -1,5 +1,5 @@
 (*
- * Copyright (C) Systems Inc.
+ * Copyright (c) Cloud Software Group, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,15 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val get_verify_by_default : unit -> bool
+(** Shared error types for stunnel operations *)
 
-val set_verify_by_default : bool -> unit
+type t =
+  | Certificate_verify of string
+      (** Certificate verification failed with the reason *)
+  | Stunnel of string  (** Stunnel process error with description *)
 
-val pool : unit -> Stunnel.verification_config option
-
-val appliance : unit -> Stunnel.verification_config option
-
-val external_host : string -> Stunnel.verification_config option
-
-val construct_cert_verification :
-  purpose:string -> Stunnel.verification_config option
+val to_string : t -> string
+(** Convert error to human-readable string *)
