@@ -156,6 +156,9 @@ module UnixSocketProxy : sig
 
   val diagnose : t -> (unit, Stunnel_error.t) result
   (** Diagnose the status of a running stunnel proxy by checking its logfile.
+      Only checks NEW log entries since the last call to [diagnose] (or since
+      [start] if never called). This allows efficient monitoring of connection
+      failures that occur after the initial certificate verification.
       Returns [Ok ()] if no new errors found, [Error] with details otherwise. *)
 
   val with_proxy :
