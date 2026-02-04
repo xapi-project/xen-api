@@ -35,3 +35,47 @@ let appliance () = get_verification_config Stunnel.appliance
 
 let external_host cert_file =
   Stunnel.external_host cert_file |> get_verification_config
+
+let construct_cert_verification ~purpose =
+  let open Stunnel in
+  let base_dir = Constants.trusted_certs_by_purpose_dir in
+  let pinned_prefix = Constants.trusted_certs_pinned_prefix in
+  let root_prefix = Constants.trusted_certs_root_prefix in
+  let pinned_pem =
+    Printf.sprintf "%s/%s-%s.pem" base_dir pinned_prefix purpose
+  in
+  let chain_pem = Printf.sprintf "%s/%s-%s.pem" base_dir root_prefix purpose in
+  let general_pem = Printf.sprintf "%s/%s-general.pem" base_dir root_prefix in
+  match
+    ( Sys.file_exists pinned_pem
+    , Sys.file_exists chain_pem
+    , Sys.file_exists general_pem
+    )
+  with
+  | true, _, _ ->
+      Some
+        {
+          sni= None
+        ; verify= VerifyPeer
+        ; cert_bundle_path= pinned_pem
+        ; crl_dir= None
+        }
+  | false, true, _ ->
+      Some
+        {
+          sni= None
+        ; verify= CheckHost
+        ; cert_bundle_path= chain_pem
+        ; crl_dir= None
+        }
+  | false, false, true ->
+      Some
+        {
+          sni= None
+        ; verify= CheckHost
+        ; cert_bundle_path= general_pem
+        ; crl_dir= None
+        }
+  | false, false, false ->
+      D.debug "%s: No cert bundle found for purpose %s" __FUNCTION__ purpose ;
+      None

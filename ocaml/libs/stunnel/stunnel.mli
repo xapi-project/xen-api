@@ -100,3 +100,80 @@ val with_client_proxy_systemd_service :
   -> service:string
   -> (unit -> 'a)
   -> 'a
+
+module UnixSocketProxy : sig
+  (** Handle for a long-running stunnel proxy that exposes TLS connection
+      via a UNIX socket file.
+      This module allows to create stunnel clients. But in XAPI, if you are
+      finding a stunnel client to use, you probably should use stunnel_cache.ml.
+      Stunnel instances there are managed and reused.
+      *)
+  type t
+
+  val socket_path : t -> string
+  (** Get the UNIX socket file path for connecting to the proxy.
+      Use this path with HTTP clients (curl, urllib, etc.) to send traffic
+      through the TLS tunnel. *)
+
+  val start :
+       verify_cert:verification_config option
+    -> remote_host:string
+    -> remote_port:int
+    -> ?unix_socket_path:string
+    -> ?socket_mode:int
+    -> unit
+    -> (t, Stunnel_error.t) result
+  (** Start a long-running stunnel proxy listening on a UNIX socket.
+      Returns [Ok handle] if stunnel starts successfully. The handle MUST be
+      stopped with [stop] when no longer needed.
+      Returns [Error] if stunnel fails to start, initialize.
+      If [unix_socket_path] is not provided, a unique path will be generated
+      automatically in /tmp with the format:
+      stunnel-proxy-{host}-{port}-{uuid}.sock
+      If [socket_mode] is provided (e.g., [~socket_mode:0o666]), the socket
+      file permissions will be set accordingly after creation using chmod.
+
+      Use example:
+      let stunnel_proxy =
+        Stunnel.UnixSocketProxy.start ~verify_cert ~remote_host ~remote_port ()
+      in
+      match stunnel_proxy with
+      | Error e -> (* handle error *)
+      | Ok proxy_handle ->
+          let socket_path = Stunnel.UnixSocketProxy.socket_path proxy_handle in
+          (* use socket_path with HTTP clients *)
+          ...
+          Stunnel.UnixSocketProxy.diagnose proxy_handle |> function
+          | Ok () -> (* all good *)
+          | Error err -> (* handle connection errors *)
+          ...
+          Stunnel.UnixSocketProxy.stop proxy_handle (* clean up when done *)
+      *)
+
+  val stop : t -> unit
+  (** Stop a running stunnel proxy and clean up resources.
+      This kills the stunnel process and removes the socket and log files. *)
+
+  val diagnose : t -> (unit, Stunnel_error.t) result
+  (** Diagnose the status of a running stunnel proxy by checking its logfile.
+      Returns [Ok ()] if no new errors found, [Error] with details otherwise. *)
+
+  val with_proxy :
+       verify_cert:verification_config option
+    -> remote_host:string
+    -> remote_port:int
+    -> ?unix_socket_path:string
+    -> ?socket_mode:int
+    -> (t -> ('a, Stunnel_error.t) result)
+    -> ('a, Stunnel_error.t) result
+  (** Start a proxy, execute a function with it, and automatically stop it.
+      The proxy is guaranteed to be stopped even if the function raises an exception.
+      If [unix_socket_path] is not provided, a unique path will be generated.
+      If [socket_mode] is provided, stunnel will set the socket file permissions.
+      This is the preferred way for short-lived proxies. *)
+end
+
+val fetch_server_cert : remote_host:string -> remote_port:int -> string option
+(** Fetch the server certificate from a remote host.
+    Uses openssl s_client to connect and retrieve the certificate in PEM format.
+    This is useful for TOFU (Trust-On-First-Use) scenarios. *)
