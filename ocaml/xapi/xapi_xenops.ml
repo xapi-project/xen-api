@@ -3994,10 +3994,7 @@ let suspend ~__context ~self =
         in
         Int64.(ram |> add vgpu |> add 104857600L)
       in
-      let suspend_SR =
-        Helpers.choose_suspend_sr ~__context ~vm:self
-          ~required_space:space_needed
-      in
+      let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm:self in
       let sm_config =
         [
           (Constants._sm_vm_hint, id)
@@ -4007,11 +4004,22 @@ let suspend ~__context ~self =
       in
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           let vdi =
-            XenAPI.VDI.create ~rpc ~session_id ~name_label:"Suspend image"
-              ~name_description:"Suspend image" ~sR:suspend_SR
-              ~virtual_size:space_needed ~sharable:false ~read_only:false
-              ~_type:`suspend ~other_config:[] ~xenstore_data:[] ~sm_config
-              ~tags:[]
+            try
+              XenAPI.VDI.create ~rpc ~session_id ~name_label:"Suspend image"
+                ~name_description:"Suspend image" ~sR:suspend_SR
+                ~virtual_size:space_needed ~sharable:false ~read_only:false
+                ~_type:`suspend ~other_config:[] ~xenstore_data:[] ~sm_config
+                ~tags:[]
+            with Api_errors.Server_error ("SR_BACKEND_FAILURE_44", _) ->
+              let sr_uuid = Db.SR.get_uuid ~__context ~self:suspend_SR in
+              error "Not enough free space on suspend SR %s; need %Ld B" sr_uuid
+                space_needed ;
+              raise
+                (Api_errors.Server_error
+                   ( Api_errors.sr_suspend_space_insufficient
+                   , [Ref.string_of suspend_SR]
+                   )
+                )
           in
           let d = disk_of_vdi ~__context ~self:vdi |> Option.get in
           Db.VM.set_suspend_VDI ~__context ~self ~value:vdi ;
