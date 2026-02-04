@@ -64,7 +64,7 @@ let library_path = function
   | CRL ->
       Stunnel.crl_path
   | Root _ | Pinned _ ->
-      !Xapi_globs.trusted_certs_by_purpose_dir
+      Constants.trusted_certs_by_purpose_dir
 
 let ( // ) = Filename.concat
 
@@ -101,7 +101,8 @@ let trusted_store_locations kind =
         (fun p ->
           {
             cert_dir= parent // ps "ca-%s" p
-          ; bundle= Some (parent, ps "ca-bundle-%s.pem" p)
+          ; bundle=
+              Some (parent, ps "%s-%s.pem" Constants.trusted_certs_root_prefix p)
           }
         )
         (of_purposes purposes)
@@ -110,7 +111,9 @@ let trusted_store_locations kind =
         (fun p ->
           {
             cert_dir= parent // ps "pinned-%s" p
-          ; bundle= Some (parent, ps "pinned-bundle-%s.pem" p)
+          ; bundle=
+              Some
+                (parent, ps "%s-%s.pem" Constants.trusted_certs_pinned_prefix p)
           }
         )
         (of_purposes purposes)
