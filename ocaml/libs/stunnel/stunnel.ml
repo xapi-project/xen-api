@@ -507,33 +507,19 @@ let with_client_proxy_systemd_service ~verify_cert ~remote_host ~remote_port
     )
     (fun () -> Unixext.unlink_safe conf_path)
 
-let check_verify_error line =
-  let sub_after i s =
-    let len = String.length s in
-    String.sub s i (len - i)
-  in
-  let split_1 c s =
-    match Astring.String.cut ~sep:c s with Some (x, _) -> x | None -> s
-  in
+let check_verify_error cert_errors line =
   (* When verified with a mismatched certificate, one line of log from stunnel
    * would look like:
      SSL_connect: ssl/statem/statem_clnt.c:1889: error:0A000086:SSL routines::certificate verify failed
+   * The detailed reason would be in previous lines of log, which we have collected
+   * in cert_errors parameter. For example:
+     CERT: Pre-verification error: unable to get local issuer certificate
+     CERT: Subject checks failed
    * in this case, Stunnel_verify_error can be raised with detailed error as
    * reason if it can found in the log *)
   if Astring.String.is_infix ~affix:"certificate verify failed" line then
-    match Astring.String.find_sub ~sub:"error:" line with
-    | Some e ->
-        raise
-          (Stunnel_verify_error
-             (split_1 "," (sub_after (e + String.length "error:") line))
-          )
-    | None ->
-        raise (Stunnel_verify_error "")
-  else if
-    Astring.String.is_infix ~affix:"No certificate or private key specified"
-      line
-  then
-    raise (Stunnel_verify_error "The specified certificate is corrupt")
+    let err_msg = String.concat "; " cert_errors in
+    raise (Stunnel_verify_error err_msg)
   else
     ()
 
@@ -551,8 +537,15 @@ let check_error line =
   )
 
 let check_stunnel_logfile logfile =
+  let cert_errors = ref [] in
   let check_line line =
-    !stunnel_logger line ; check_verify_error line ; check_error line
+    !stunnel_logger line ;
+    Astring.String.cut ~rev:true ~sep:"CERT: " line
+    |> Option.iter (fun (_, cert_error) ->
+        cert_errors := cert_error :: !cert_errors
+    ) ;
+    check_verify_error !cert_errors line ;
+    check_error line
   in
   Unixext.readfile_line check_line logfile
 
