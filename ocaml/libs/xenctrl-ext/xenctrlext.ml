@@ -126,9 +126,18 @@ exception Not_available
 let domain_claim_pages handle domid ?(numa_node = NumaNode.none) nr_pages =
   stub_domain_claim_pages handle domid numa_node nr_pages
 
+module HostNuma = struct
+  (* Numa state of a host *)
+
+  type node_meminfo = {size: int64; free: int64; claimed: int64}
+
+  external numa_get_meminfo : handle -> node_meminfo array
+    = "stub_xenctrlext_numa_meminfo"
+end
+
 let get_nr_nodes handle =
-  let info = numainfo handle in
-  Array.length info.memory
+  let meminfo = HostNuma.numa_get_meminfo handle in
+  Array.length meminfo
 
 module DomainNuma = struct
   (* Numa state of a domain *)
