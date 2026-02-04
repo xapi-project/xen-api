@@ -224,26 +224,29 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits,
             # In case input_file is bigger than diff_file_name, first check
             # if clusters from diff_file_name differ, and then check if the
             # rest contain data
-            diff_nonzero_clusters_set = set(diff_nonzero_clusters)
-            for cluster in nonzero_clusters:
-                if cluster >= last_diff_cluster:
-                    allocate_cluster(cluster)
-                elif cluster in diff_nonzero_clusters_set:
-                    # If a cluster has different data from the original_cluster
-                    # then it must be allocated
-                    cluster_data = os.pread(fd, cluster_size, cluster_size * cluster)
-                    original_cluster = os.pread(diff_fd, cluster_size, cluster_size * cluster)
-                    check_cluster_allocate(cluster, cluster_data, original_cluster)
-                    diff_nonzero_clusters_set.remove(cluster)
-                else:
-                    allocate_cluster(cluster)
+            diff_nonzero_clusters_set = Interval(diff_nonzero_clusters)
+
+            for (cluster_left, cluster_right) in nonzero_clusters:
+                for cluster in range(cluster_left, cluster_right+1):
+                    if cluster >= last_diff_cluster:
+                        allocate_cluster(cluster)
+                    elif cluster in diff_nonzero_clusters_set:
+                        # If a cluster has different data from the original_cluster
+                        # then it must be allocated
+                        cluster_data = os.pread(fd, cluster_size, cluster_size * cluster)
+                        original_cluster = os.pread(diff_fd, cluster_size, cluster_size * cluster)
+                        check_cluster_allocate(cluster, cluster_data, original_cluster)
+                    else:
+                        allocate_cluster(cluster)
 
             # These are not present in the original file
-            for cluster in diff_nonzero_clusters_set:
-                allocate_cluster(cluster)
+            for (cluster_left, cluster_right) in diff_nonzero_clusters_set:
+                for cluster in range(cluster_left, cluster_right+1):
+                    allocate_cluster(cluster)
         else:
-            for cluster in nonzero_clusters:
-                allocate_cluster(cluster)
+            for (cluster_left, cluster_right) in nonzero_clusters:
+                for cluster in range(cluster_left, cluster_right+1):
+                    allocate_cluster(cluster)
 
     else:
         zero_cluster = bytes(cluster_size)
