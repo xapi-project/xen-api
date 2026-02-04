@@ -658,7 +658,11 @@ module Mem = struct
         ~default:(min, ("none", min))
         (reserve_memory_range dbg min max)
     in
-    try f amount id with e -> delete_reservation dbg id ; raise e
+    try f amount id
+    with e ->
+      let bt = Printexc.get_raw_backtrace () in
+      delete_reservation dbg id ;
+      Printexc.raise_with_backtrace e bt
 
   (** Transfer this 'reservation' to the given domain id *)
   let transfer_reservation_to_domain_exn dbg domid (reservation_id, amount) =
