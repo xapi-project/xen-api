@@ -53,6 +53,16 @@ let parse_header pipe_reader =
     1 lsl Yojson.Basic.Util.(member "cluster_bits" json |> to_int)
   in
   let cluster_list =
-    Yojson.Basic.Util.(member "data_clusters" json |> to_list |> List.map to_int)
+    Yojson.Basic.Util.(
+      member "data_clusters" json
+      |> to_list
+      |> List.map (fun x ->
+          match to_list x with
+          | x :: y :: _ ->
+              (to_int x, to_int y)
+          | _ ->
+              raise (Invalid_argument "Invalid JSON")
+      )
+    )
   in
   (cluster_size, cluster_list)
