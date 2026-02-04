@@ -191,6 +191,9 @@
  (name xapi-schema))
 
 (package
+  (name xapi-work-queues))
+
+(package
  (name rrdd-plugin)
  (synopsis "A plugin library for the xapi performance monitoring daemon")
  (description

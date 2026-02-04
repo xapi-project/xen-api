@@ -45,6 +45,7 @@
    xapi-stdext-unix
    xapi-tracing
    xapi-tracing-export
+   xapi-work-queues
    xmlm
  )
  (preprocess
