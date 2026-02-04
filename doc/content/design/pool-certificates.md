@@ -6,6 +6,8 @@ revision: 2
 status: released (22.6.0)
 ---
 
+This design is modified by [trusted-certificates.md](trusted-certificates.md).
+
 ## Overview
 
 Xenserver has used TLS-encrypted communications between xapi daemons in a pool since its first release.
@@ -353,18 +355,25 @@ This feature needs clients to behave differently when initiating pool joins, to 
 Several alerts are introduced:
 * POOL_CA_CERTIFICATE_EXPIRING_30, POOL_CA_CERTIFICATE_EXPIRING_14, POOL_CA_CERTIFICATE_EXPIRING_07, POOL_CA_CERTIFICATE_EXPIRED: Similar to host certificates, now the user-installable pool's CA certificates are monitored for expiry dates and alerts are generated about them. The body for this type of message is:
 
+```
     <body><message>The trusted TLS server certificate {is expiring soon|has expired}.</message><date>20210302T02:00:01Z</date></body>
+```
 
 * HOST_INTERNAL_CERTIFICATE_EXPIRING_30, HOST_INTERNAL_CERTIFICATE_EXPIRING_14, HOST_INTERNAL_CERTIFICATE_EXPIRING_07, HOST_INTERNAL_CERTIFICATE_EXPIRED: Similar to host certificates, the newly-introduced hosts' internal server certificates are monitored for expiry dates and alerts are generated about them. The body for this type of message is:
 
+```
     <body><message>The TLS server certificate for internal communications {is expiring soon|has expired}.</message><date>20210302T02:00:01Z</date></body>
+```
 
 * TLS_VERIFICATION_EMERGENCY_DISABLED: The host is in emergency mode and is not enforcing tls verification anymore, the situation that forced the disabling must be fixed and the verification enabled ASAP.
 
+```
     <body><host>HOST-UUID</host></body>
+```
 
 * FAILED_LOGIN_ATTEMPTS: An hourly alert that contains the number of failed attempts and the 3 most common origins for these failed alerts. The body for this type of message is:
 
+```
     <body>
     <total>35</total>
     <known><username>usr5</username><originator>origin5</originator><ip>5.4.3.2</ip><number>10</number><date>20200922T15:03:13Z</date></known>
@@ -372,3 +381,4 @@ Several alerts are introduced:
     <known><useragent>UA</useragent><ip>4.3.2.1</ip><number>4</number><date>20200922T14:57:11Z</date></known>
     <unknown>10</unknown>
     </body>
+```
