@@ -1,0 +1,12 @@
+2026.01.09 06:17:43 LOG5[ui]: stunnel 5.60 on x86_64-koji-linux-gnu platform
+2026.01.09 06:17:43 LOG5[ui]: Compiled/running with OpenSSL 3.0.9 30 May 2023
+2026.01.09 06:17:43 LOG5[ui]: Threading:PTHREAD Sockets:POLL,IPv6 TLS:ENGINE,OCSP,SNI Auth:LIBWRAP
+2026.01.09 06:17:43 LOG5[ui]: Reading configuration from descriptor 8
+2026.01.09 06:17:43 LOG5[ui]: UTF-8 byte order mark not detected
+2026.01.09 06:17:43 LOG5[ui]: FIPS mode disabled
+2026.01.09 06:17:43 LOG5[ui]: Configuration successful
+2026.01.09 06:17:44 LOG5[0]: Service [client-proxy] accepted connection from unnamed socket
+2026.01.09 06:17:44 LOG5[0]: s_connect: connected 10.71.212.108:8083
+2026.01.09 06:17:44 LOG5[0]: Service [client-proxy] connected remote server from 10.79.16.89:34844
+2026.01.09 06:17:45 LOG5[0]: Certificate accepted at depth=0: C=US, ST=Florida, L=Fort Lauderdale, O="Citrix Systems, Inc.", CN=*.xenrt.citrite.net
+2026.01.09 06:17:45 LOG5[0]: Connection closed: 6 byte(s) sent to TLS, 519 byte(s) sent to socket
