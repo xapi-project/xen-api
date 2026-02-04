@@ -165,7 +165,7 @@ module DomainNuma = struct
       let nodes =
         Array.fold_left
           (fun n pages ->
-            if pages > 0L then
+            if pages > 4096L then
               n + 1
             else
               n
