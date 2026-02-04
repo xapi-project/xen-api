@@ -75,6 +75,7 @@ type without_secret =
   | `sr_stat
   | `subject
   | `task
+  | `Rate_limit
   | `tunnel
   | `USB_group
   | `user

@@ -179,20 +179,46 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
                ~marshaller op_fn
            )
            ()
-        ) ;
-      (* Return task id immediately *)
-      Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+        )
     in
-    match sync_ty with
-    | `Sync ->
-        sync ()
-    | `Async ->
-        let need_complete = not (Context.forwarded_task __context) in
-        async ~need_complete
-    | `InternalAsync ->
-        async ~need_complete:true
-
-(* regardless of forwarding, we are expected to complete the task *)
+    let handle_request () =
+      match sync_ty with
+      | `Sync ->
+          sync ()
+      | `Async ->
+          let need_complete = not (Context.forwarded_task __context) in
+          async ~need_complete ;
+          Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+      | `InternalAsync ->
+          async ~need_complete:true ;
+          Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+    in
+    let handle_request_throttled () =
+      let token_cost = Xapi_rate_limit.get_token_cost called_fn_name in
+      let client_id =
+        Xapi_rate_limit.Key.
+          {
+            user_agent= Option.value http_req.user_agent ~default:""
+          ; host_ip= Option.value (Context.get_client_ip __context) ~default:""
+          }
+      in
+      match sync_ty with
+      | `Sync ->
+          Xapi_rate_limit.submit_sync ~client_id ~callback:sync token_cost
+      | `Async ->
+          let need_complete = not (Context.forwarded_task __context) in
+          Xapi_rate_limit.submit ~client_id
+            ~callback:(fun () -> async ~need_complete)
+            token_cost ;
+          Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+      | `InternalAsync ->
+          async ~need_complete:true ;
+          Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+    in
+    if Context.is_internal_origin __context then
+      handle_request ()
+    else
+      handle_request_throttled ()
 
 (* in the following functions, it is our responsibility to complete any tasks we create *)
 let exec_with_new_task ?http_other_config ?quiet ?subtask_of ?session_id

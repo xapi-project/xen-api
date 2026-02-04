@@ -53,6 +53,13 @@
  (depends xapi-log xapi-stdext-unix))
 
 (package
+ (name rate-limit)
+ (synopsis "Simple token bucket-based rate-limiting")
+ (depends
+   (ocaml (>= 4.12))
+   xapi-log xapi-stdext-unix))
+
+(package
  (name xml-light2))
 
 (package
