@@ -6,6 +6,5 @@
   (language c)
   (names xenctrlext_stubs)
  )
-  (c_library_flags (-L/lib64 -lxenforeignmemory))
 )
 
