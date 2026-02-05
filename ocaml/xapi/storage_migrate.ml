@@ -126,7 +126,7 @@ module MigrateLocal = struct
         (Storage_error (Migration_preparation_failure (Printexc.to_string e)))
 
   let start ~task_id ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~live_vm ~url ~dest
-      ~verify_dest =
+      ~verify_dest ~remote_session =
     SXM.info
       "%s sr:%s vdi:%s dp: %s mirror_vm: %s copy_vm: %s url:%s dest:%s \
        verify_dest:%B"
@@ -173,7 +173,7 @@ module MigrateLocal = struct
       in
       Migrate_Backend.send_start () ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm
         ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror
-        ~dest_sr:dest ~verify_dest ;
+        ~dest_sr:dest ~verify_dest ~remote_session ;
       Some (Mirror_id mirror_id)
     with
     | Storage_error (Sr_not_attached sr_uuid) ->
@@ -419,20 +419,20 @@ let with_task_and_thread ~dbg f =
    this way so that they all stay in one place rather than being spread around the
    file. *)
 
-let copy ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest =
+let copy ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest ~remote_session =
   with_task_and_thread ~dbg (fun task ->
       Storage_smapiv1_migrate.Copy.copy_into_sr ~task ~dbg:dbg.Debug_info.log
-        ~sr ~vdi ~vm ~url ~dest ~verify_dest
+        ~sr ~vdi ~vm ~url ~dest ~verify_dest ~remote_session
   )
 
 let start ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~live_vm ~url ~dest ~verify_dest
-    =
+    ~remote_session =
   with_dbg ~name:__FUNCTION__ ~dbg @@ fun dbg ->
   with_task_and_thread ~dbg (fun task ->
       MigrateLocal.start
         ~task_id:(Storage_task.id_of_handle task)
         ~dbg:dbg.Debug_info.log ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~live_vm ~url
-        ~dest ~verify_dest
+        ~dest ~verify_dest ~remote_session
   )
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)

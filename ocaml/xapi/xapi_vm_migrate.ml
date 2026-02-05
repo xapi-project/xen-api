@@ -1023,10 +1023,13 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
     }
   in
   let mirror_to_remote new_dp =
-    let task =
+    let remote_session : ref_session =
+      Storage_interface.Ref_session.of_string @@ Ref.string_of remote.session
+    in
+    let task : content_id =
       if not vconf.do_mirror then
         SMAPI.DATA.copy dbg vconf.sr vconf.location vconf.copy_vm remote.sm_url
-          dest_sr is_intra_pool
+          dest_sr is_intra_pool remote_session
       else
         (* Though we have no intention of "write", here we use the same mode as the
            associated VBD on a mirrored VDIs (i.e. always RW). This avoids problem
@@ -1057,6 +1060,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         Storage_migrate.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:new_dp
           ~mirror_vm:vconf.mirror_vm ~copy_vm:vconf.copy_vm ~live_vm
           ~url:remote.sm_url ~dest:dest_sr ~verify_dest:is_intra_pool
+          ~remote_session
     in
     let mapfn x =
       let total = Int64.to_float total_size in

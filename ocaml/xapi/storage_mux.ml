@@ -859,7 +859,7 @@ module Mux = struct
 
       let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
           ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
-          ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
+          ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ ~remote_session:_ =
         Storage_interface.unimplemented
           __FUNCTION__ (* see storage_smapi{v1,v3}_migrate.ml *)
 

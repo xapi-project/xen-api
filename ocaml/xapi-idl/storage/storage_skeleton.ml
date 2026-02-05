@@ -199,7 +199,8 @@ module DATA = struct
     type context = unit
 
     let send_start ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
-        ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest =
+        ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest
+        ~remote_session =
       Storage_interface.unimplemented __FUNCTION__
 
     let receive_start ctx ~dbg ~sr ~vdi_info ~id ~similar =

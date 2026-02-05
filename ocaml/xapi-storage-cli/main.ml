@@ -324,11 +324,17 @@ let mirror_start common_opts sr vdi dp url dest verify_dest =
       let dp = get_opt dp "Need a local data path" in
       let url = get_opt url "Need a URL" in
       let dest = get_opt dest "Need a destination SR" in
+      let dummy_session =
+        "cli_remote_session"
+        |> Ref.make_dummy
+        |> Ref.string_of
+        |> Storage_interface.Ref_session.of_string
+      in
       let task =
         Storage_migrate.start ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~live_vm
           ~url
           ~dest:(Storage_interface.Sr.of_string dest)
-          ~verify_dest
+          ~verify_dest ~remote_session:dummy_session
       in
       Printf.printf "Task id: %s\n" task
     )

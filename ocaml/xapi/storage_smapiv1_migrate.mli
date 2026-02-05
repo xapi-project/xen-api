@@ -36,6 +36,7 @@ module Copy : sig
     -> dest:Storage_interface.sr
     -> dest_vdi:Storage_interface.vdi
     -> verify_dest:bool
+    -> remote_session:Storage_interface.ref_session
     -> Storage_interface.async_result_t option
 
   val copy_into_sr :
@@ -47,6 +48,7 @@ module Copy : sig
     -> url:string
     -> dest:Storage_interface.sr
     -> verify_dest:bool
+    -> remote_session:Storage_interface.ref_session
     -> Storage_interface.async_result_t option
 end
 
@@ -84,6 +86,7 @@ val mirror_copy :
   -> dest_sr:Storage_interface.sr
   -> remote_mirror:Storage_interface.Mirror.mirror_receive_result_vhd_t
   -> verify_dest:bool
+  -> remote_session:Storage_interface.ref_session
   -> Storage_interface.vdi_info
 
 module MIRROR : SMAPIv2_MIRROR

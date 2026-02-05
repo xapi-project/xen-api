@@ -31,6 +31,8 @@ let s_of_vdi = Storage_interface.Vdi.string_of
 
 let s_of_vm = Storage_interface.Vm.string_of
 
+let s_of_session = Storage_interface.Ref_session.string_of
+
 let with_activated_disk ~dbg ~sr ~vdi ~dp ~vm f =
   let attached_vdi =
     Option.map
@@ -135,7 +137,8 @@ let tapdisk_of_attach_info (backend : Storage_interface.backend) =
         (Storage_interface.(rpc_of backend) backend |> Rpc.to_string) ;
       None
 
-let progress_callback start len t y =
+let progress_callback (refresh_session : unit -> unit) start len t y =
+  refresh_session () ;
   let new_progress = start +. (y *. len) in
   Storage_task.set_state t (Task.Pending new_progress) ;
   signal (Storage_task.id_of_handle t)
@@ -150,7 +153,8 @@ let perform_cleanup_actions =
 
 module Copy = struct
   (** [copy_into_vdi] is similar to [copy_into_sr] but requires a [dest_vdi] parameter *)
-  let copy_into_vdi ~task ~dbg ~sr ~vdi ~vm ~url ~dest ~dest_vdi ~verify_dest =
+  let copy_into_vdi ~task ~dbg ~sr ~vdi ~vm ~url ~dest ~dest_vdi ~verify_dest
+      ~remote_session =
     let (module Remote) = get_remote_backend url verify_dest in
     D.debug "copy local=%s/%s url=%s remote=%s/%s verify_dest=%B"
       (Storage_interface.Sr.string_of sr)
@@ -258,9 +262,25 @@ module Copy = struct
                     else
                       None
                   in
+                  let refresh_session =
+                    let url' = Http.Url.of_string url in
+                    let rpc xml =
+                      let transport =
+                        Xmlrpc_client.transport_of_url ~verify_cert url'
+                      in
+                      let version = "1.1" and path = "/" in
+                      let http = xmlrpc ~version path in
+                      Xmlrpc_client.XMLRPC_protocol.rpc ~transport ~http xml
+                    in
+                    let session_id =
+                      Ref.of_secret_string (s_of_session remote_session)
+                    in
+                    Xapi_session.consider_touching_session rpc session_id
+                  in
                   let dd =
                     Sparse_dd_wrapper.start
-                      ~progress_cb:(progress_callback 0.05 0.9 task)
+                      ~progress_cb:
+                        (progress_callback refresh_session 0.05 0.9 task)
                       ~verify_cert ~proto ?base:base_path true (Option.get src)
                       dest_vdi_url remote_vdi.virtual_size
                   in
@@ -299,7 +319,8 @@ module Copy = struct
   (** [copy_into_sr] does not requires a dest vdi to be provided, instead, it will
   find the nearest vdi on the [dest] sr, and if there is no such vdi, it will
   create one. *)
-  let copy_into_sr ~task ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest =
+  let copy_into_sr ~task ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest
+      ~remote_session =
     D.debug "copy sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
       (Storage_interface.Sr.string_of sr)
       (Storage_interface.Vdi.string_of vdi)
@@ -377,7 +398,7 @@ module Copy = struct
         in
         let remote_copy =
           copy_into_vdi ~task ~dbg ~sr ~vdi ~vm ~url ~dest
-            ~dest_vdi:remote_base.vdi ~verify_dest
+            ~dest_vdi:remote_base.vdi ~verify_dest ~remote_session
           |> vdi_info
         in
         let snapshot = Remote.VDI.snapshot dbg dest remote_copy in
@@ -554,13 +575,13 @@ let mirror_checker mirror_id tapdev =
   inner ()
 
 let mirror_copy ~task ~dbg ~sr ~snapshot ~copy_vm ~url ~dest_sr ~remote_mirror
-    ~verify_dest =
+    ~verify_dest ~remote_session =
   (* Copy the snapshot to the remote *)
   try
     Storage_task.with_subtask task "copy" (fun () ->
         Copy.copy_into_vdi ~task ~dbg ~sr ~vdi:snapshot.vdi ~vm:copy_vm ~url
           ~dest:dest_sr ~dest_vdi:remote_mirror.Mirror.copy_diffs_to
-          ~verify_dest
+          ~verify_dest ~remote_session
     )
     |> vdi_info
   with e ->
@@ -574,7 +595,8 @@ module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
 
   let send_start _ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
-      ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest =
+      ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest
+      ~remote_session =
     D.debug
       "%s dbg: %s dp: %s sr: %s vdi:%s mirror_vm:%s mirror_id: %s live_vm: %s \
        url:%s dest_sr:%s verify_dest:%B"
@@ -610,7 +632,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
         let task = Storage_task.(handle_of_id tasks) task_id in
         let new_parent =
           mirror_copy ~task ~dbg ~sr ~snapshot ~copy_vm ~url ~dest_sr
-            ~remote_mirror:mirror_res ~verify_dest
+            ~remote_mirror:mirror_res ~verify_dest ~remote_session
         in
 
         D.debug "Local VDI %s = remote VDI %s"
