@@ -2025,7 +2025,7 @@ let try_internal_async ~__context (marshaller : Rpc.t -> 'b)
         )
         (fun () ->
           info "try_internal_async: destroying task: t = ( %s )" ref ;
-          TaskHelper.destroy ~__context t
+          Db.Task.destroy ~__context ~self:t
         )
 
 module PoolSecret : sig
