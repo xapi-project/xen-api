@@ -25,7 +25,7 @@ module Make (T : Floatable) = struct
     ; width: int
     ; line: bytes
     ; mutable spin_index: int
-    ; start_time: float
+    ; start_time: Mtime_clock.counter
     ; mutable summarised: bool
   }
 
@@ -44,7 +44,7 @@ module Make (T : Floatable) = struct
     String.blit prefix_s 0 line 0 prefix ;
     String.blit suffix_s 0 line (width - suffix - 1) suffix ;
     let spin_index = 0 in
-    let start_time = Unix.gettimeofday () in
+    let start_time = Mtime_clock.counter () in
     {
       max_value
     ; current_value
@@ -54,6 +54,9 @@ module Make (T : Floatable) = struct
     ; start_time
     ; summarised= false
     }
+
+  let elapsed t =
+    1e-9 *. (Mtime_clock.count t.start_time |> Mtime.Span.to_float_ns)
 
   let percent t =
     int_of_float T.(to_float t.current_value /. to_float t.max_value *. 100.)
@@ -70,10 +73,20 @@ module Make (T : Floatable) = struct
     let h = secs / 3600 in
     let m = secs mod 3600 / 60 in
     let s = secs mod 60 in
-    Printf.sprintf "%02d:%02d:%02d" h m s
+    let str = Printf.sprintf "%02d:%02d:%02d" h m s in
+    if String.length str > 8 then
+      (* negative or > 99 hours *)
+      let str = Printf.sprintf "%05d:%02d" h m in
+      if String.length str > 8 then
+        (* still too long, >11 years *)
+        "++:++:++"
+      else
+        str
+    else
+      str
 
   let eta t =
-    let time_so_far = Unix.gettimeofday () -. t.start_time in
+    let time_so_far = elapsed t in
     let total_time =
       T.(to_float t.max_value /. to_float t.current_value) *. time_so_far
     in
@@ -108,8 +121,8 @@ module Make (T : Floatable) = struct
   let summarise t =
     if not t.summarised then (
       t.summarised <- true ;
-      Printf.sprintf "Total time: %s\n"
-        (hms (int_of_float (Unix.gettimeofday () -. t.start_time)))
+      Format.asprintf "Total time: %a@." Mtime.Span.pp
+        (Mtime_clock.count t.start_time)
     ) else
       ""
 end

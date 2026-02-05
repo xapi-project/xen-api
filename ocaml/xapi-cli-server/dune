@@ -9,8 +9,15 @@
 )
 
 (library
+  (name cli_progress_bar)
+  (modules cli_progress_bar)
+  (libraries mtime mtime.clock.os)
+ )
+
+(library
   (name xapi_cli_server)
   (modes best)
+  (modules (:standard \ cli_progress_bar))
   (libraries
     astring
     base64
@@ -37,6 +44,7 @@
     xapi-client
     xapi-cli-protocol
     xapi_aux
+    cli_progress_bar
     clock
     xapi-stdext-pervasives
     xapi-stdext-std
