@@ -121,7 +121,8 @@ module Make (T : Floatable) = struct
   let summarise t =
     if not t.summarised then (
       t.summarised <- true ;
-      Printf.sprintf "Total time: %s\n" (t |> elapsed |> int_of_float |> hms)
+      Format.asprintf "Total time: %a@." Mtime.Span.pp
+        (Mtime_clock.count t.start_time)
     ) else
       ""
 end
