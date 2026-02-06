@@ -54,6 +54,11 @@ let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
      to avoid reading all of the raw disk *)
   let input_fd = Result.map read_header qcow_path |> Result.to_option in
 
+  (* TODO: If VHD headers are to be consulted as well, qcow2-to-stdout
+     needs to properly account for cluster_bits. Currently QCOW2 export
+     from VHD-backed VDIs will just revert to raw, without any
+     allocation accounting. *)
+
   (* Parse the header of the VDI we are diffing against as well *)
   let relative_to_qcow_path =
     match relative_to with
