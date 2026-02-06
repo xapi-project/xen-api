@@ -146,10 +146,17 @@ module NUMA = struct
     let compare (Node a) (Node b) = compare a b
   end)
 
-  (* -1 in 32 bits *)
-  let unreachable_distance = 0xFFFFFFFF
+  let max_valid_distance = 0xFF
 
   let self_distance = 10
+
+  let is_unreachable d = d > max_valid_distance || d < 0
+
+  let () =
+    (* 32-bit *)
+    assert (is_unreachable 0xFFFFFFFF) ;
+    (* 64-bit, the value returned by Xen could change *)
+    assert (is_unreachable ~-1)
 
   (* no mutation is exposed in the interface, therefore this is immutable *)
   type t = {
@@ -198,10 +205,10 @@ module NUMA = struct
       seq_range 0 (Array.length d)
       |> Seq.filter_map (fun i ->
           let self = d.(i).(i) in
-          if self <> unreachable_distance then
-            Some i
-          else
+          if is_unreachable self then
             None
+          else
+            Some i
       )
     in
     let numa_nodes = Seq.length valid_nodes in
@@ -235,7 +242,7 @@ module NUMA = struct
     Array.iteri
       (fun i node ->
         let self = distances.(node).(node) in
-        if self <> unreachable_distance then
+        if not (is_unreachable self) then
           node_cpus.(node) <- CPUSet.add i node_cpus.(node)
       )
       cpu_to_node ;
@@ -254,10 +261,8 @@ module NUMA = struct
       |> Array.to_seqi
       |> Seq.for_all (fun (i, row) ->
           let d = distances.(i).(i) in
-          (d = unreachable_distance || d = self_distance)
-          && Array.for_all
-               (fun d -> d >= self_distance || d = unreachable_distance)
-               row
+          (is_unreachable d || d = self_distance)
+          && Array.for_all (fun d -> d >= self_distance || is_unreachable d) row
       )
     in
 
