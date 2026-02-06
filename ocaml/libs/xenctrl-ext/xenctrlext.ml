@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module D = Debug.Make (struct let name = "xenctrlext" end)
+
 type handle
 
 type domid = Xenctrl.domid
@@ -49,6 +51,45 @@ let _ =
   Callback.register_exception "Xenctrlext.Unix_error"
     (Unix_error (Unix.E2BIG, ""))
 
+type error = Unix.error * string
+
+type +'a outcome = ('a, error) result
+
+let handle_outcome ~default = function
+  | Ok v ->
+      v
+  | Error (err, fn) ->
+      D.warn "Ignoring %s: %s" fn (Unix.error_message err) ;
+      default
+
+let error ~__FUNCTION__ code binding =
+  D.debug "%s: %s: %s" __FUNCTION__ binding (Unix.error_message code) ;
+  Result.error (code, binding)
+
+let wrap ~__FUNCTION__ f =
+  try Ok (f ()) with
+  | Unix_error (code, binding) as e ->
+      D.log_backtrace e ;
+      error ~__FUNCTION__ code binding
+  | Failure _ as e ->
+      D.log_backtrace e ;
+      error ~__FUNCTION__ Unix.ENOSYS __FUNCTION__
+  | Xenctrl.Error _ as e ->
+      D.log_backtrace e ;
+      (* this indicates a bug in the stub, we shouldn't raise a Xenctrl.Error
+         in a Xenctrlext stub. But we don't want to make that a
+         hard failure, treat it as if the stub was completely missing when
+         buggy. *)
+      error ~__FUNCTION__ Unix.ENOSYS __FUNCTION__
+
+let wrap0 ~__FUNCTION__ f (xc : handle) = wrap ~__FUNCTION__ @@ fun () -> f xc
+
+let wrap1 ~__FUNCTION__ f (xc : handle) (arg1 : domid) =
+  wrap ~__FUNCTION__ @@ fun () -> f xc arg1
+
+let wrap3 ~__FUNCTION__ f (xc : handle) (arg1 : domid) arg2 arg3 =
+  wrap ~__FUNCTION__ @@ fun () -> f xc arg1 arg2 arg3
+
 type runstateinfo = {
     state: int32
   ; missed_changes: int32
@@ -63,6 +104,9 @@ type runstateinfo = {
 
 external domain_get_runstate_info : handle -> int -> runstateinfo
   = "stub_xenctrlext_get_runstate_info"
+
+(* this is always in our patchqueue, but not part of upstream Xen *)
+let domain_get_runstate_info = wrap1 ~__FUNCTION__ domain_get_runstate_info
 
 external get_max_nr_cpus : handle -> int = "stub_xenctrlext_get_max_nr_cpus"
 
@@ -92,6 +136,10 @@ external vcpu_setaffinity_hard : handle -> domid -> int -> bool array -> unit
 external vcpu_setaffinity_soft : handle -> domid -> int -> bool array -> unit
   = "stub_xenctrlext_vcpu_setaffinity_soft"
 
+let vcpu_setaffinity_soft xc domid vcpu affinity =
+  wrap3 ~__FUNCTION__ vcpu_setaffinity_soft xc domid vcpu affinity
+  |> handle_outcome ~default:()
+
 type meminfo = {memfree: int64; memsize: int64}
 
 type numainfo = {memory: meminfo array; distances: int array array}
@@ -108,7 +156,7 @@ external combine_cpu_policies : int64 array -> int64 array -> int64 array
 external policy_is_compatible : int64 array -> int64 array -> string option
   = "stub_xenctrlext_featuresets_are_compatible"
 
-external stub_domain_claim_pages : handle -> domid -> int -> int -> unit
+external domain_claim_pages : handle -> domid -> int -> int -> unit
   = "stub_xenctrlext_domain_claim_pages"
 
 module NumaNode = struct
@@ -121,10 +169,8 @@ module NumaNode = struct
   let from = Fun.id
 end
 
-exception Not_available
-
 let domain_claim_pages handle domid ?(numa_node = NumaNode.none) nr_pages =
-  stub_domain_claim_pages handle domid numa_node nr_pages
+  wrap3 ~__FUNCTION__ domain_claim_pages handle domid numa_node nr_pages
 
 module HostNuma = struct
   (* Numa state of a host *)
@@ -133,11 +179,13 @@ module HostNuma = struct
 
   external numa_get_meminfo : handle -> node_meminfo array
     = "stub_xenctrlext_numa_meminfo"
+
+  let numa_get_meminfo = wrap0 ~__FUNCTION__ numa_get_meminfo
 end
 
 let get_nr_nodes handle =
   let meminfo = HostNuma.numa_get_meminfo handle in
-  Array.length meminfo
+  Result.map Array.length meminfo
 
 module DomainNuma = struct
   (* Numa state of a domain *)
@@ -150,29 +198,34 @@ module DomainNuma = struct
     handle -> int -> domain_numainfo_node_pages
     = "stub_xc_domain_numa_get_node_pages_wrapper"
 
+  let domain_get_numa_info_node_pages =
+    wrap1 ~__FUNCTION__ domain_get_numa_info_node_pages
+
   type t = {optimised: bool; nodes: int; memory: int64 array (* bytes *)}
 
   (* nodes = -1 signals that could not obtain a meaningful value *)
   let default = {optimised= false; nodes= -1; memory= [||]}
 
   let state handle ~domid =
-    try
-      let host_nodes = get_nr_nodes handle in
-      let pages = domain_get_numa_info_node_pages handle domid in
-      let memory =
-        Array.map (fun n -> Int64.shift_left n 12) pages.tot_pages_per_node
-      in
-      let nodes =
-        Array.fold_left
-          (fun n pages ->
-            if pages > 4096L then
-              n + 1
-            else
-              n
-          )
-          0 pages.tot_pages_per_node
-      in
-      let optimised = nodes = 1 || nodes < host_nodes in
-      {optimised; nodes; memory}
-    with Failure _ -> default
+    match
+      (get_nr_nodes handle, domain_get_numa_info_node_pages handle domid)
+    with
+    | Ok host_nodes, Ok pages ->
+        let memory =
+          Array.map (fun n -> Int64.shift_left n 12) pages.tot_pages_per_node
+        in
+        let nodes =
+          Array.fold_left
+            (fun n pages ->
+              if pages > 4096L then
+                n + 1
+              else
+                n
+            )
+            0 pages.tot_pages_per_node
+        in
+        let optimised = nodes = 1 || nodes < host_nodes in
+        {optimised; nodes; memory}
+    | _ ->
+        default
 end

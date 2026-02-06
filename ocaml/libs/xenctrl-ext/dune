@@ -1,7 +1,7 @@
 (library
  (name xenctrl_ext)
  (wrapped false)
- (libraries unix xenctrl)
+ (libraries unix xenctrl xapi-log)
  (foreign_stubs
   (language c)
   (names xenctrlext_stubs)

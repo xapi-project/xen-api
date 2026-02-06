@@ -16,6 +16,16 @@ type handle
 
 type domid = Xenctrl.domid
 
+type error = Unix.error * string
+
+type +'a outcome = ('a, error) result
+
+val handle_outcome : default:'a -> 'a outcome -> 'a
+(** [handle_outcome ~default r] returns [default] when [r] is an error,
+    and the underlying value otherwise.
+    Logs errors, but doesn't raise exceptions
+*)
+
 external interface_open : unit -> handle = "stub_xenctrlext_interface_open"
 
 val get_handle : unit -> handle
@@ -43,8 +53,7 @@ type runstateinfo = {
   ; time5: int64
 }
 
-external domain_get_runstate_info : handle -> int -> runstateinfo
-  = "stub_xenctrlext_get_runstate_info"
+val domain_get_runstate_info : handle -> int -> runstateinfo outcome
 
 external get_max_nr_cpus : handle -> int = "stub_xenctrlext_get_max_nr_cpus"
 
@@ -74,15 +83,13 @@ type numainfo = {memory: meminfo array; distances: int array array}
 
 type cputopo = {core: int; socket: int; node: int}
 
-external vcpu_setaffinity_hard : handle -> domid -> int -> bool array -> unit
-  = "stub_xenctrlext_vcpu_setaffinity_hard"
+val vcpu_setaffinity_hard : handle -> domid -> int -> bool array -> unit
 
-external vcpu_setaffinity_soft : handle -> domid -> int -> bool array -> unit
-  = "stub_xenctrlext_vcpu_setaffinity_soft"
+val vcpu_setaffinity_soft : handle -> domid -> int -> bool array -> unit
 
-external numainfo : handle -> numainfo = "stub_xenctrlext_numainfo"
+val numainfo : handle -> numainfo
 
-external cputopoinfo : handle -> cputopo array = "stub_xenctrlext_cputopoinfo"
+val cputopoinfo : handle -> cputopo array
 
 external combine_cpu_policies : int64 array -> int64 array -> int64 array
   = "stub_xenctrlext_combine_cpu_featuresets"
@@ -98,14 +105,13 @@ module NumaNode : sig
   val from : int -> t
 end
 
-exception Not_available
-
-val domain_claim_pages : handle -> domid -> ?numa_node:NumaNode.t -> int -> unit
-(** Raises {Unix_error} if there's not enough memory to claim in the system.
-    Raises {Not_available} if a single numa node is requested and xen does not
+val domain_claim_pages :
+  handle -> domid -> ?numa_node:NumaNode.t -> int -> unit outcome
+(** Returns {Unix_error} if there's not enough memory to claim in the system.
+    Returns {`Not_available msg} if a single numa node is requested and xen does not
     provide page claiming for single numa nodes. *)
 
-val get_nr_nodes : handle -> int
+val get_nr_nodes : handle -> int outcome
 (** Returns the count of NUMA nodes available in the system. *)
 
 module DomainNuma : sig
@@ -113,9 +119,8 @@ module DomainNuma : sig
       tot_pages_per_node: int64 array (* page=4k bytes *)
   }
 
-  external domain_get_numa_info_node_pages :
-    handle -> int -> domain_numainfo_node_pages
-    = "stub_xc_domain_numa_get_node_pages_wrapper"
+  val domain_get_numa_info_node_pages :
+    handle -> int -> domain_numainfo_node_pages outcome
 
   type t = {optimised: bool; nodes: int; memory: int64 array (* bytes *)}
 
@@ -125,5 +130,5 @@ end
 module HostNuma : sig
   type node_meminfo = {size: int64; free: int64; claimed: int64}
 
-  val numa_get_meminfo : handle -> node_meminfo array
+  val numa_get_meminfo : handle -> node_meminfo array outcome
 end

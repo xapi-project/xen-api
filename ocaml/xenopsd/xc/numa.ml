@@ -115,32 +115,33 @@ let reporter ppf =
 let memory_changes () =
   let max_time = Mtime.Span.(7 * s) in
 
-  let memory = get_memory () in
-  let c = Mtime_clock.counter () in
-  print_mem c memory ;
-  let rec loop since_started since_changed previous =
-    let current = get_memory () in
+  get_memory ()
+  |> Result.iter @@ fun memory ->
+     let c = Mtime_clock.counter () in
+     print_mem c memory ;
+     let rec loop since_started since_changed previous =
+       let current = get_memory () |> Result.get_ok in
 
-    let since_started = ref since_started in
-    let timer () =
-      let last_changed = Mtime_clock.count since_changed in
-      if Mtime.Span.is_longer last_changed ~than:max_time then
-        since_started := Mtime_clock.counter () ;
-      !since_started
-    in
+       let since_started = ref since_started in
+       let timer () =
+         let last_changed = Mtime_clock.count since_changed in
+         if Mtime.Span.is_longer last_changed ~than:max_time then
+           since_started := Mtime_clock.counter () ;
+         !since_started
+       in
 
-    let changed = diff timer previous current in
+       let changed = diff timer previous current in
 
-    let since_changed =
-      if changed then
-        Mtime_clock.counter ()
-      else
-        !since_started
-    in
-    Unix.sleepf 0.01 ;
-    loop !since_started since_changed current
-  in
-  loop c c memory
+       let since_changed =
+         if changed then
+           Mtime_clock.counter ()
+         else
+           !since_started
+       in
+       Unix.sleepf 0.01 ;
+       loop !since_started since_changed current
+     in
+     loop c c memory
 
 module DomainSet = Set.Make (Int)
 
