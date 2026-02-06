@@ -1001,7 +1001,11 @@ module HOST = struct
           p.nr_cpus / (p.threads_per_core * p.cores_per_socket)
         in
         let threads_per_core = p.threads_per_core in
-        let nr_nodes = Xenctrlext.(get_handle () |> get_nr_nodes) in
+        let nr_nodes =
+          Xenctrlext.(
+            get_handle () |> get_nr_nodes |> handle_outcome ~default:~-1
+          )
+        in
         let features = get_cpu_featureset xc Featureset_host in
         (* this is Default policy in Xen's terminology, used on boot for new VMs *)
         let features_pv_host = get_cpu_featureset xc Featureset_pv in

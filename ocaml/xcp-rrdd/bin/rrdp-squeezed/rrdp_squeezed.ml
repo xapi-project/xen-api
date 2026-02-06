@@ -253,60 +253,63 @@ let free_other uuid free =
     )
 
 let dss_numa_info uuid domid =
-  try
-    let handle = Xenctrlext.get_handle () in
-    let host_nr_nodes = Xenctrlext.get_nr_nodes handle in
-    let vm_nodes =
-      Xenctrlext.DomainNuma.domain_get_numa_info_node_pages handle domid
-    in
-    let dss_memory_numa_nodes_of_vm (dss, nr_nodes_used_by_vm)
-        (node_id, tot_pages_per_node) =
-      (*
+  let handle = Xenctrlext.get_handle () in
+  Xenctrlext.handle_outcome ~default:[]
+  @@
+  match
+    ( Xenctrlext.get_nr_nodes handle
+    , Xenctrlext.DomainNuma.domain_get_numa_info_node_pages handle domid
+    )
+  with
+  | Ok host_nr_nodes, Ok vm_nodes ->
+      let dss_memory_numa_nodes_of_vm (dss, nr_nodes_used_by_vm)
+          (node_id, tot_pages_per_node) =
+        (*
         for each numa node used by the host, show the
         corresponding amount of memory used by the vm
       *)
-      let is_node_used_by_vm = tot_pages_per_node > 4096L in
-      let is_node_used_by_host = node_id < host_nr_nodes in
-      if is_node_used_by_host then
-        ( ( Rrd.VM uuid
-          , Ds.ds_make
-              ~name:(Printf.sprintf "memory_numa_node_%d" node_id)
-              ~units:"B"
-              ~description:
-                (Printf.sprintf "Memory from NUMA node %d used by VM" node_id)
-              ~value:(Rrd.VT_Int64 (Int64.mul tot_pages_per_node 4096L))
-              ~min:0.0 ~ty:Rrd.Gauge ~default:false ()
+        let is_node_used_by_vm = tot_pages_per_node > 4096L in
+        let is_node_used_by_host = node_id < host_nr_nodes in
+        if is_node_used_by_host then
+          ( ( Rrd.VM uuid
+            , Ds.ds_make
+                ~name:(Printf.sprintf "memory_numa_node_%d" node_id)
+                ~units:"B"
+                ~description:
+                  (Printf.sprintf "Memory from NUMA node %d used by VM" node_id)
+                ~value:(Rrd.VT_Int64 (Int64.mul tot_pages_per_node 4096L))
+                ~min:0.0 ~ty:Rrd.Gauge ~default:false ()
+            )
+            :: dss
+            (* remember the number of nodes used by vm *)
+          , nr_nodes_used_by_vm
+            +
+            if is_node_used_by_vm then
+              1
+            else
+              0
           )
-          :: dss
-          (* remember the number of nodes used by vm *)
-        , nr_nodes_used_by_vm
-          +
-          if is_node_used_by_vm then
-            1
-          else
-            0
+        else
+          (dss, nr_nodes_used_by_vm)
+      in
+      let dss_numa_nodes_of_vm (dss, nr_nodes_used_by_vm) =
+        ( Rrd.VM uuid
+        , Ds.ds_make
+            ~name:(Printf.sprintf "numa_nodes")
+            ~units:"count"
+            ~description:(Printf.sprintf "Number of NUMA nodes used by VM")
+            ~value:(Rrd.VT_Int64 (Int64.of_int nr_nodes_used_by_vm))
+            ~min:0.0 ~ty:Rrd.Gauge ~default:false ()
         )
-      else
-        (dss, nr_nodes_used_by_vm)
-    in
-    let dss_numa_nodes_of_vm (dss, nr_nodes_used_by_vm) =
-      ( Rrd.VM uuid
-      , Ds.ds_make
-          ~name:(Printf.sprintf "numa_nodes")
-          ~units:"count"
-          ~description:(Printf.sprintf "Number of NUMA nodes used by VM")
-          ~value:(Rrd.VT_Int64 (Int64.of_int nr_nodes_used_by_vm))
-          ~min:0.0 ~ty:Rrd.Gauge ~default:false ()
-      )
-      :: List.rev dss
-    in
-    vm_nodes.Xenctrlext.DomainNuma.tot_pages_per_node
-    |> Array.mapi (fun i x -> (i, x))
-    |> Array.fold_left dss_memory_numa_nodes_of_vm ([], 0)
-    |> dss_numa_nodes_of_vm
-  with e ->
-    D.debug "dss_numa_info: %s" (Printexc.to_string e) ;
-    []
+        :: List.rev dss
+      in
+      vm_nodes.Xenctrlext.DomainNuma.tot_pages_per_node
+      |> Array.mapi (fun i x -> (i, x))
+      |> Array.fold_left dss_memory_numa_nodes_of_vm ([], 0)
+      |> dss_numa_nodes_of_vm
+      |> Result.ok
+  | (Error _ as e), _ | _, (Error _ as e) ->
+      e
 
 let get_list f = Option.to_list (f ())
 
