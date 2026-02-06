@@ -31,13 +31,16 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-let internal_error fmt =
+let internal_error' e fmt =
   Printf.ksprintf
     (fun str ->
       error "%s" str ;
-      raise (Xenopsd_error (Internal_error str))
+      let err = Xenopsd_error (Internal_error str) in
+      match e with None -> raise err | Some e -> Backtrace.reraise e err
     )
     fmt
+
+let internal_error fmt = internal_error' None fmt
 
 (* libxl_internal.h:DISABLE_UDEV_PATH *)
 let disable_udev_path = "libxl/disable_udev"
@@ -269,8 +272,9 @@ let di_of_uuid ~xc uuid =
       let domid_list = String.concat ", " (List.map domid_of_di possible) in
       let uuid' = Uuidx.to_string uuid in
       internal_error "More than one domain with uuid %s: (%s)" uuid' domid_list
-  | exception Failure r ->
-      internal_error "%s" r
+  | exception (Failure r as e) ->
+      Backtrace.is_important e ;
+      internal_error' (Some e) "%s" r
 
 let domid_of_uuid ~xs uuid =
   (* We don't fully control the domain lifecycle because libxenguest will
@@ -2621,36 +2625,42 @@ module VM = struct
         try
           build_domain_exn xc xs domid task vm vbds vifs vgpus vusbs extras
             force
-        with
-        | Bootloader.Bad_sexpr x ->
-            internal_error "VM = %s; domid = %d; Bootloader.Bad_sexpr %s"
-              vm.Vm.id domid x
-        | Bootloader.Bad_error x ->
-            internal_error "VM = %s; domid = %d; Bootloader.Bad_error %s"
-              vm.Vm.id domid x
-        | Bootloader.Unknown_bootloader x ->
-            internal_error
-              "VM = %s; domid = %d; Bootloader.Unknown_bootloader %s" vm.Vm.id
-              domid x
-        | Bootloader.Error_from_bootloader x ->
-            let m =
-              Printf.sprintf
-                "VM = %s; domid = %d; Bootloader.Error_from_bootloader %s"
+        with e -> (
+          Backtrace.is_important e ;
+          let internal_error fmt = internal_error' (Some e) fmt in
+          match e with
+          | Bootloader.Bad_sexpr x ->
+              internal_error "VM = %s; domid = %d; Bootloader.Bad_sexpr %s"
                 vm.Vm.id domid x
-            in
-            debug "%s" m ;
-            raise (Xenopsd_error (Bootloader_error (vm.Vm.id, x)))
-        | Domain.Not_enough_memory m ->
-            debug
-              "VM = %s; domid = %d; Domain.Not_enough_memory. Needed: %Ld bytes"
-              vm.Vm.id domid m ;
-            raise (Xenopsd_error (Not_enough_memory m))
-        | e ->
-            let m =
-              Printf.sprintf "VM = %s; domid = %d; Error: %s" vm.Vm.id domid
-                (Printexc.to_string e)
-            in
-            debug "%s" m ; raise e
+          | Bootloader.Bad_error x ->
+              internal_error "VM = %s; domid = %d; Bootloader.Bad_error %s"
+                vm.Vm.id domid x
+          | Bootloader.Unknown_bootloader x ->
+              internal_error
+                "VM = %s; domid = %d; Bootloader.Unknown_bootloader %s" vm.Vm.id
+                domid x
+          | Bootloader.Error_from_bootloader x ->
+              let m =
+                Printf.sprintf
+                  "VM = %s; domid = %d; Bootloader.Error_from_bootloader %s"
+                  vm.Vm.id domid x
+              in
+              debug "%s" m ;
+              Backtrace.reraise e
+                (Xenopsd_error (Bootloader_error (vm.Vm.id, x)))
+          | Domain.Not_enough_memory m ->
+              debug
+                "VM = %s; domid = %d; Domain.Not_enough_memory. Needed: %Ld \
+                 bytes"
+                vm.Vm.id domid m ;
+              Backtrace.reraise e (Xenopsd_error (Not_enough_memory m))
+          | e ->
+              let m =
+                Printf.sprintf "VM = %s; domid = %d; Error: %s" vm.Vm.id domid
+                  (Printexc.to_string e)
+              in
+              debug "%s" m ; Backtrace.reraise e e
+        )
       )
       (fun () -> clean_memory_reservation task di.Xenctrl.domid)
 
