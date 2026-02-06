@@ -21,4 +21,4 @@ val run_tool :
   -> string list
   -> unit
 
-val parse_header : Unix.file_descr -> int * int list
+val parse_header : Unix.file_descr -> int * (int * int) list
