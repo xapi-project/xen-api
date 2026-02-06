@@ -33,5 +33,7 @@ let pool () = get_verification_config Stunnel.pool
 
 let appliance () = get_verification_config Stunnel.appliance
 
+let world () = get_verification_config Stunnel.world
+
 let external_host cert_file =
   Stunnel.external_host cert_file |> get_verification_config
