@@ -1516,7 +1516,7 @@ let set_ext_auth_cache_enabled =
         , "Specifies whether caching is enabled for external authentication"
         )
       ]
-    ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
+    ~hide_from_docs:false ~allowed_roles:_R_POOL_OP ()
 
 let set_ext_auth_cache_size =
   call ~name:"set_ext_auth_cache_size" ~lifecycle:[]
@@ -1525,7 +1525,7 @@ let set_ext_auth_cache_size =
         (Ref _pool, "self", "The pool")
       ; (Int, "value", "The capacity of the external authentication cache")
       ]
-    ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
+    ~hide_from_docs:false ~allowed_roles:_R_POOL_OP ()
 
 let set_ext_auth_cache_expiry =
   call ~name:"set_ext_auth_cache_expiry" ~lifecycle:[]
@@ -1538,7 +1538,7 @@ let set_ext_auth_cache_expiry =
            seconds - 300 seconds, i.e. 5 minutes, is the default value)"
         )
       ]
-    ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
+    ~hide_from_docs:false ~allowed_roles:_R_POOL_OP ()
 
 let pool_guest_secureboot_readiness =
   Enum
