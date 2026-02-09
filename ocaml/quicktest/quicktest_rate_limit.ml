@@ -60,8 +60,7 @@ let rate_limit_throttling_test rpc session_id () =
       let max_time = (total_cost -. burst_size) /. fill_rate in
       Printf.printf "Max expected time: %.3f seconds\n%!" max_time ;
       Alcotest.(check bool)
-        "Execution time within theoretical bound"
-        true
+        "Execution time within theoretical bound" true
         (elapsed_throttled <= max_time)
   )
 
