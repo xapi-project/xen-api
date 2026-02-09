@@ -132,12 +132,18 @@
   (preprocess (per_module ((pps ppx_deriving_rpc) Test_cluster_host)))
 )
 
-(test
-(name test_storage_smapiv1_wrapper)
+(tests
+(names test_storage_smapiv1_wrapper test_xapi_sr_operations)
 (modes exe)
 (package xapi)
-(modules test_storage_smapiv1_wrapper)
-(libraries alcotest xapi_internal fmt xapi-idl.storage.interface xapi-idl.storage.interface.types))
+(modules test_storage_smapiv1_wrapper test_xapi_sr_operations)
+(libraries
+  alcotest
+  fmt
+  record_util
+  xapi-idl.storage.interface
+  xapi-idl.storage.interface.types
+  xapi_internal))
 
 (test
 (name test_storage_quicktest)

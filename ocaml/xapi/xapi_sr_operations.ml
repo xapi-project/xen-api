@@ -271,13 +271,9 @@ let valid_operations ~__context ?op record _ref' : table =
 
 let throw_error (table : table) op =
   match Hashtbl.find_opt table op with
-  | None ->
-      Helpers.internal_error
-        "xapi_sr.assert_operation_valid unknown operation: %s"
-        (sr_operation_to_string op)
   | Some (Error ex) ->
       raise ex
-  | Some (Ok ()) ->
+  | None | Some (Ok ()) ->
       ()
 
 let assert_operation_valid ~__context ~self ~(op : API.storage_operations) =
