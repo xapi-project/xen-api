@@ -27,12 +27,18 @@ let read_header qcow_path =
   let pipe_reader, pipe_writer = Unix.pipe ~cloexec:true () in
 
   let progress_cb _ = () in
-  Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () ->
-      Vhd_qcow_parsing.run_tool qcow_tool progress_cb args
-        ~output_fd:pipe_writer
-    )
-    (fun () -> Unix.close pipe_writer) ;
+  let (_ : Thread.t) =
+    Thread.create
+      (fun () ->
+        Xapi_stdext_pervasives.Pervasiveext.finally
+          (fun () ->
+            Vhd_qcow_parsing.run_tool qcow_tool progress_cb args
+              ~output_fd:pipe_writer
+          )
+          (fun () -> Unix.close pipe_writer)
+      )
+      ()
+  in
   pipe_reader
 
 let parse_header qcow_path =
