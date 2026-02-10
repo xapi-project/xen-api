@@ -104,15 +104,15 @@ module SR = struct
       (* Even though the SM backend may expose a VDI_CREATE capability attempts
          to actually create a VDI will fail in (eg) the tools SR and any that
          happen to be R/O NFS exports *)
+      let is_iso_sr =
+        Client.Client.SR.get_content_type ~rpc ~session_id ~self:sr = "iso"
+      in
       let avoid_vdi_create session_id sr =
         let other_config =
           Client.Client.SR.get_other_config ~rpc ~session_id ~self:sr
         in
         let is_tools_sr =
           Client.Client.SR.get_is_tools_sr ~rpc ~session_id ~self:sr
-        in
-        let is_iso_sr =
-          Client.Client.SR.get_content_type ~rpc ~session_id ~self:sr = "iso"
         in
         let special_key = "quicktest-no-VDI_CREATE" in
         let is_marked =
@@ -155,13 +155,13 @@ module SR = struct
         else
           ops
       in
-      (ops, caps, sm.API.sM_required_api_version)
+      (ops, caps, sm.API.sM_required_api_version, is_iso_sr)
     in
-    let allowed_operations, capabilities, required_sm_api_version =
+    let allowed_operations, capabilities, required_sm_api_version, is_iso =
       get_sr_features session_id sr
     in
     let open Qt in
-    {sr; allowed_operations; capabilities; required_sm_api_version}
+    {sr; allowed_operations; capabilities; required_sm_api_version; is_iso}
 
   let list_srs_connected_to_localhost rpc session_id =
     let is_attached =
@@ -233,6 +233,15 @@ module SR = struct
       [List.nth srs index]
 
   let sr_filter f srs () = List.filter f (srs ())
+
+  let iso_srs () =
+    with_xapi_query @@ fun () ->
+    Lazy.force all_srs
+    |> List.filter (fun sr_info ->
+        Client.Client.SR.get_content_type ~rpc:!A.rpc ~session_id:!session_id
+          ~self:sr_info.Qt.sr
+        = "iso"
+    )
 
   let not_iso =
     sr_filter (fun sr_info ->
@@ -353,3 +362,33 @@ let vm_template template_name =
       | Some vm_template ->
           [(name, speed, test vm_template)]
   )
+
+let find_memtest_iso ~prefix srs =
+  with_xapi_query @@ fun () ->
+  let isos =
+    srs
+    |> List.concat_map @@ fun iso_info ->
+       let expr =
+         Printf.sprintf {|field "SR" = "%s"|} (Ref.string_of iso_info.Qt.sr)
+       in
+       Client.Client.VDI.get_all_records_where ~rpc:!A.rpc
+         ~session_id:!session_id ~expr
+       |> List.filter (fun (_, iso) ->
+           String.starts_with ~prefix iso.API.vDI_name_label
+       )
+  in
+  isos
+  |> List.sort (fun (_, a) (_, b) ->
+      -String.compare a.API.vDI_name_label b.API.vDI_name_label
+  )
+
+let memtest_iso ?(prefix = "memtest") tcs =
+  let isos = find_memtest_iso ~prefix (SR.iso_srs ()) in
+  tcs
+  |> for_each @@ fun (name, speed, test) ->
+     match isos with
+     | [] ->
+         []
+     | (_, iso) :: _ ->
+         Printf.eprintf "Choosing ISO %S\n%!" iso.API.vDI_name_label ;
+         [(name, speed, test iso)]
