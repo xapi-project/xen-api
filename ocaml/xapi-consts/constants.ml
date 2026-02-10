@@ -470,3 +470,9 @@ let default_ssh_enabled_timeout = 0L
 let default_console_idle_timeout = 0L
 
 let default_ssh_auto_mode = false
+
+let trusted_certs_by_purpose_dir = "/etc/trusted-certs"
+
+let trusted_certs_root_prefix = "ca-bundle"
+
+let trusted_certs_pinned_prefix = "pinned-bundle"

@@ -1,0 +1,14 @@
+2026.01.09 06:01:27 LOG5[ui]: stunnel 5.60 on x86_64-koji-linux-gnu platform
+2026.01.09 06:01:27 LOG5[ui]: Compiled/running with OpenSSL 3.0.9 30 May 2023
+2026.01.09 06:01:27 LOG5[ui]: Threading:PTHREAD Sockets:POLL,IPv6 TLS:ENGINE,OCSP,SNI Auth:LIBWRAP
+2026.01.09 06:01:27 LOG5[ui]: Reading configuration from descriptor 8
+2026.01.09 06:01:27 LOG5[ui]: UTF-8 byte order mark not detected
+2026.01.09 06:01:27 LOG5[ui]: FIPS mode disabled
+2026.01.09 06:01:27 LOG5[ui]: Configuration successful
+2026.01.09 06:01:28 LOG5[0]: Service [client-proxy] accepted connection from unnamed socket
+2026.01.09 06:01:28 LOG5[0]: s_connect: connected 10.79.16.92:4433
+2026.01.09 06:01:28 LOG5[0]: Service [client-proxy] connected remote server from 10.79.16.89:56850
+2026.01.09 06:01:28 LOG4[0]: CERT: Pre-verification error: certificate has expired
+2026.01.09 06:01:28 LOG4[0]: Rejected by CERT at depth=0: C=US, ST=California, L=San Francisco, O=MyCompany, CN=testserver
+2026.01.09 06:01:28 LOG3[0]: SSL_connect: ssl/statem/statem_clnt.c:1889: error:0A000086:SSL routines::certificate verify failed
+2026.01.09 06:01:28 LOG5[0]: Connection reset: 0 byte(s) sent to TLS, 0 byte(s) sent to socket

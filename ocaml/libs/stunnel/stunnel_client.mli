@@ -28,3 +28,6 @@ val external_host : string -> Stunnel.verification_config option
 (** [external_host path] returns the configuration that's meant to be used to connect to
     a xapi hosts outside the pool. This is useful, for example, to provide an
     update repository to download updates from. *)
+
+val construct_cert_verification :
+  purpose:string -> Stunnel.verification_config option
