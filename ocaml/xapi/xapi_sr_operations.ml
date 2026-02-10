@@ -93,7 +93,7 @@ let sm_cap_table : (API.storage_operations * _) list =
     (`vdi_snapshot, Vdi_snapshot)
   ]
 
-type table = (API.storage_operations, (string * string list) option) Hashtbl.t
+type table = (API.storage_operations, (unit, exn) Result.t) Hashtbl.t
 
 let features_of_sr_internal ~__context ~_type =
   match
@@ -113,22 +113,30 @@ let features_of_sr_internal ~__context ~_type =
 let features_of_sr ~__context record =
   features_of_sr_internal ~__context ~_type:record.Db_actions.sR_type
 
-(** Returns a table of operations -> API error options (None if the operation would be ok)
- * If op is specified, the table may omit reporting errors for ops other than that one. *)
+(** Returns a table of operations -> API error options (None if the operation
+    would be ok) If op is specified, the table may omit reporting errors for
+    ops other than that one. *)
 let valid_operations ~__context ?op record _ref' : table =
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.sR_current_operations in
   let table : table = Hashtbl.create 10 in
-  List.iter (fun x -> Hashtbl.replace table x None) all_ops ;
+  List.iter (fun x -> Hashtbl.replace table x (Ok ())) all_ops ;
   let set_errors (code : string) (params : string list)
       (ops : API.storage_operations_set) =
     List.iter
       (fun op ->
-        (* Exception can't be raised since the hash table is
-           pre-filled for all_ops, and set_errors is applied
-           to a subset of all_ops (disallowed_during_rpu) *)
-        if Hashtbl.find table op = None then
-          Hashtbl.replace table op (Some (code, params))
+        match Hashtbl.find_opt table op with
+        | Some (Ok ()) ->
+            Hashtbl.replace table op
+              (Error (Api_errors.Server_error (code, params)))
+        | Some (Error _) ->
+            (* Don't replace existing errors *)
+            ()
+        | None ->
+            (* Ignore order if the operation is not in table, this is a coding
+               error, as all calls to set_errors should be a subset of all_ops
+               *)
+            ()
       )
       ops
   in
@@ -143,7 +151,8 @@ let valid_operations ~__context ?op record _ref' : table =
     let open Smint.Feature in
     (* First consider the backend SM features *)
     let sm_features = features_of_sr ~__context record in
-    (* Then filter out the operations we don't want to see for the magic tools SR *)
+    (* Then filter out the operations we don't want to see for the magic tools
+       SR *)
     let sm_features =
       if record.Db_actions.sR_is_tools_sr then
         List.filter
@@ -163,7 +172,8 @@ let valid_operations ~__context ?op record _ref' : table =
     set_errors Api_errors.sr_operation_not_supported [_ref] forbidden_by_backend
   in
   let check_any_attached_pbds ~__context _record =
-    (* CA-70294: if the SR has any attached PBDs, destroy and forget operations are not allowed.*)
+    (* CA-70294: if the SR has any attached PBDs, destroy and forget operations
+       are not allowed.*)
     let all_pbds_attached_to_this_sr =
       Db.PBD.get_records_where ~__context
         ~expr:
@@ -237,7 +247,8 @@ let valid_operations ~__context ?op record _ref' : table =
       Cluster_stack_constraints.assert_cluster_stack_compatible ~__context _ref'
     with Api_errors.Server_error (e, args) -> set_errors e args [`plug]
   in
-  (* List of (operations * function which checks for errors relevant to those operations) *)
+  (* List of (operations * function which checks for errors relevant to those
+     operations) *)
   let relevant_functions =
     [
       (all_ops, check_sm_features)
@@ -264,9 +275,9 @@ let throw_error (table : table) op =
       Helpers.internal_error
         "xapi_sr.assert_operation_valid unknown operation: %s"
         (sr_operation_to_string op)
-  | Some (Some (code, params)) ->
-      raise (Api_errors.Server_error (code, params))
-  | Some None ->
+  | Some (Error ex) ->
+      raise ex
+  | Some (Ok ()) ->
       ()
 
 let assert_operation_valid ~__context ~self ~(op : API.storage_operations) =
@@ -280,7 +291,7 @@ let update_allowed_operations ~__context ~self : unit =
   let keys =
     Hashtbl.fold
       (fun k v acc ->
-        if v = None then
+        if v = Ok () then
           k :: acc
         else
           acc
