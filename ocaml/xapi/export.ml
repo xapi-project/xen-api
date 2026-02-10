@@ -525,6 +525,13 @@ let make_vtpm table __context self =
   ; snapshot= rpc_of_vtpm' vtpm'
   }
 
+let check_references ~check ~f objects =
+  let log id path r = if check path r then f id path r in
+  let go {cls; id; snapshot} =
+    Diagnostic.visit_references (log id) cls snapshot
+  in
+  List.iter go objects
+
 let make_all ~with_snapshot_metadata ~preserve_power_state table __context =
   let filter table rs =
     List.filter (fun x -> lookup table (Ref.string_of x) <> Ref.null) rs
@@ -631,6 +638,17 @@ let vm_metadata ~with_snapshot_metadata ~preserve_power_state
     vms ;
   let objects =
     make_all ~with_snapshot_metadata ~preserve_power_state table __context
+  in
+  let () =
+    (* Log any references in the export that still refer to internal
+       Xapi objects. *)
+    let is_dangling _path r = Db.is_valid_ref __context r in
+    let log id path r =
+      debug "Dangling reference on export, %s.%s = %s" id
+        (Diagnostic.show_path path)
+        (Ref.string_of r)
+    in
+    check_references ~check:is_dangling ~f:log objects
   in
   let header = {version= this_version __context; objects} in
   let ova_xml = Xmlrpc.to_string (rpc_of_header header) in
