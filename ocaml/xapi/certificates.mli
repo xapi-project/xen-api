@@ -12,7 +12,13 @@
    GNU Lesser General Public License for more details.
  *)
 
-type t_trusted = CA_Certificate | CRL
+type t_trusted =
+  | Root_legacy
+  | CRL
+  | Root of API.certificate_purpose list
+  | Pinned of API.certificate_purpose list
+
+type category = [`Root_legacy | `CRL | `Root | `Pinned]
 
 (* Information extraction *)
 
@@ -35,11 +41,9 @@ val get_internal_server_certificate : unit -> string
 
 (* Keeping CA roots updated in the filesystem *)
 
-val update_ca_bundle : unit -> unit
+val update_all_bundles : unit -> unit
 
 val local_sync : unit -> unit
-
-val pool_sync : __context:Context.t -> unit
 
 (* Certificate installation to filesystem *)
 
@@ -54,23 +58,35 @@ val host_install : t_trusted -> name:string -> cert:string -> unit
 
 val host_uninstall : t_trusted -> name:string -> force:bool -> unit
 
-val pool_install :
-  t_trusted -> __context:Context.t -> name:string -> cert:string -> unit
+val name_of_uuid : string -> string
 
-val pool_uninstall :
-  t_trusted -> __context:Context.t -> name:string -> force:bool -> unit
+val all_purposes : API.certificate_purpose list list
+
+type trusted_store = {cert_dir: string; bundle: (string * string) option}
+
+val trusted_store_locations : t_trusted -> trusted_store list
+
+val sync_all_hosts : __context:Context.t -> API.ref_host list -> unit
+
+val db_type_of_category : [`Root | `Pinned] -> [`ca | `pinned]
+
+val cleanup_all_trusted : unit -> unit
 
 (* Database manipulation *)
 
 module Db_util : sig
+  module PurposeSet : Set.S with type elt = API.certificate_purpose
+
   val add_cert :
        __context:Context.t
     -> type':
          [< `ca of string
          | `host of API.ref_host
-         | `host_internal of API.ref_host ]
+         | `host_internal of API.ref_host
+         | `pinned ]
+    -> purpose:API.certificate_purpose list
     -> X509.Certificate.t
-    -> API.ref_Certificate
+    -> API.ref_Certificate * string
 
   val remove_cert_by_ref : __context:Context.t -> API.ref_Certificate -> unit
 
@@ -83,4 +99,9 @@ module Db_util : sig
     -> API.ref_Certificate list
 
   val get_ca_certs : __context:Context.t -> API.ref_Certificate list
+
+  val get_trusted_certs :
+       __context:Context.t
+    -> [`ca | `pinned]
+    -> (API.ref_Certificate * API.certificate_t) list
 end

@@ -878,6 +878,13 @@ let _ =
       "The host joining the pool has different CA certificates from the pool \
        coordinator while using the same name, uninstall them and try again."
     () ;
+  error Api_errors.pool_joining_host_trusted_certificates_conflict
+    ["ref_in_pool"; "ref_on_host"]
+    ~doc:
+      "The joining host has a trusted certificate identical to one on the pool \
+       coordinator but with different purpose. Uninstall it then install it on \
+       the host again with the pool-compatible purpose, and try again."
+    () ;
   error Api_errors.pool_joining_sm_features_incompatible
     ["pool_sm_ref"; "candidate_sm_ref"]
     ~doc:
@@ -1659,6 +1666,8 @@ let _ =
     ~doc:"The specified certificate does not exist." () ;
   error Api_errors.certificate_already_exists ["name"]
     ~doc:"A certificate already exists with the specified name." () ;
+  error Api_errors.trusted_certificate_already_exists ["fingerprint"]
+    ~doc:"A trusted certificate already exists with the same purpose." () ;
   error Api_errors.certificate_name_invalid ["name"]
     ~doc:"The specified certificate name is invalid." () ;
   error Api_errors.certificate_corrupt ["name"]
@@ -1685,7 +1694,7 @@ let _ =
     () ;
 
   error Api_errors.server_certificate_invalid []
-    ~doc:"The provided certificate is not in a PEM-encoded X509." () ;
+    ~doc:"The provided certificate is not in a PEM-encoded X509 format." () ;
   error Api_errors.server_certificate_key_mismatch []
     ~doc:
       "The provided key does not match the provided certificate's public key."
@@ -1701,8 +1710,25 @@ let _ =
     () ;
 
   error Api_errors.server_certificate_chain_invalid []
-    ~doc:"The provided intermediate certificates are not in a PEM-encoded X509."
+    ~doc:
+      "The provided intermediate certificates are not in a PEM-encoded X509 \
+       format."
     () ;
+
+  error Api_errors.not_trusted_certificate ["ref"]
+    ~doc:"The provided certificate is not a trusted certificate." () ;
+
+  error Api_errors.certificate_lacks_purpose []
+    ~doc:"No purpose is specified for the provided certificate." () ;
+
+  error Api_errors.trusted_certificate_expired ["now"; "not_after"]
+    ~doc:"The provided certificate has expired." () ;
+
+  error Api_errors.trusted_certificate_not_valid_yet ["now"; "not_before"]
+    ~doc:"The provided certificate is not valid yet." () ;
+
+  error Api_errors.trusted_certificate_invalid []
+    ~doc:"The provided certificate is not in a PEM-encoded X509 format." () ;
 
   error Api_errors.vmpp_has_vm []
     ~doc:"There is at least one VM assigned to this protection policy." () ;

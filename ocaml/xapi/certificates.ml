@@ -29,7 +29,25 @@ open D
  *
  * Note that the bundles (e) and (f) are generated automatically using the contents of (c) and (d) respectively *)
 
-type t_trusted = CA_Certificate | CRL
+type t_trusted =
+  | Root_legacy
+  | CRL
+  | Root of API.certificate_purpose list
+  | Pinned of API.certificate_purpose list
+
+type category = [`Root_legacy | `CRL | `Root | `Pinned]
+
+let all_categories = [`Root_legacy; `CRL; `Root; `Pinned]
+
+let all_purposes = [] :: List.map (fun x -> [x]) API.certificate_purpose__all
+
+let all_trusted_kinds =
+  List.concat
+    [
+      List.map (fun p -> Root p) all_purposes
+    ; List.map (fun p -> Pinned p) all_purposes
+    ; [Root_legacy; CRL]
+    ]
 
 let pem_of_string x =
   match X509.Certificate.decode_pem x with
@@ -41,16 +59,79 @@ let pem_of_string x =
       x
 
 let library_path = function
-  | CA_Certificate ->
+  | Root_legacy ->
       !Xapi_globs.trusted_certs_dir
   | CRL ->
       Stunnel.crl_path
+  | Root _ | Pinned _ ->
+      !Xapi_globs.trusted_certs_by_purpose_dir
 
-let library_filename kind name = Filename.concat (library_path kind) name
+let ( // ) = Filename.concat
 
-let mkdir_cert_path kind = Unixext.mkdir_rec (library_path kind) 0o700
+let library_filename kind name = library_path kind // name
 
-let rehash' path =
+let ps = Printf.sprintf
+
+let of_purposes = function
+  | [] ->
+      ["general"]
+  | purposes ->
+      List.map (fun p -> Record_util.certificate_purpose_to_string p) purposes
+
+type trusted_store = {cert_dir: string; bundle: (string * string) option}
+
+let trusted_store_locations kind =
+  let parent = library_path kind in
+  match kind with
+  | CRL ->
+      [{cert_dir= parent; bundle= None}]
+  | Root_legacy ->
+      [
+        {
+          cert_dir= parent
+        ; bundle=
+            Some
+              ( Filename.dirname !Xapi_globs.stunnel_bundle_path
+              , Filename.basename !Xapi_globs.stunnel_bundle_path
+              )
+        }
+      ]
+  | Root purposes ->
+      List.map
+        (fun p ->
+          {
+            cert_dir= parent // ps "ca-%s" p
+          ; bundle= Some (parent, ps "ca-bundle-%s.pem" p)
+          }
+        )
+        (of_purposes purposes)
+  | Pinned purposes ->
+      List.map
+        (fun p ->
+          {
+            cert_dir= parent // ps "pinned-%s" p
+          ; bundle= Some (parent, ps "pinned-bundle-%s.pem" p)
+          }
+        )
+        (of_purposes purposes)
+
+let with_cert_store kind f =
+  trusted_store_locations kind
+  |> List.iter (fun store -> f ~cert_dir:store.cert_dir ~bundle:store.bundle)
+
+let with_cert_paths kind name f =
+  with_cert_store kind @@ fun ~cert_dir ~bundle ->
+  f cert_dir (cert_dir // name) bundle
+
+let mkdir_cert_path kind =
+  trusted_store_locations kind
+  |> List.iter (fun store ->
+      Unixext.mkdir_rec store.cert_dir 0o700 ;
+      Option.iter (fun (dir, _) -> Unixext.mkdir_rec dir 0o700) store.bundle ;
+      ()
+  )
+
+let rehash path =
   match Sys.file_exists !Xapi_globs.c_rehash with
   | true ->
       Forkhelpers.execute_command_get_output !Xapi_globs.c_rehash [path]
@@ -61,15 +142,38 @@ let rehash' path =
         ["rehash"; path]
       |> ignore
 
-let rehash () =
-  mkdir_cert_path CA_Certificate ;
-  mkdir_cert_path CRL ;
-  rehash' (library_path CA_Certificate) ;
-  rehash' (library_path CRL)
+let remove_empty_bundle bundle_path =
+  if Sys.file_exists bundle_path then
+    let s = Unix.stat bundle_path in
+    if s.Unix.st_size = 0 then Sys.remove bundle_path
 
-let update_ca_bundle () = Helpers.update_ca_bundle ()
+let local_sync' () =
+  List.iter
+    (fun kind ->
+      mkdir_cert_path kind ;
+      with_cert_store kind @@ fun ~cert_dir ~bundle ->
+      rehash cert_dir ;
+      Option.iter
+        (fun (bundle_dir, bundle_name) ->
+          remove_empty_bundle (bundle_dir // bundle_name)
+        )
+        bundle
+    )
+    all_trusted_kinds
 
-let to_string = function CA_Certificate -> "CA certificate" | CRL -> "CRL"
+let to_string = function
+  | Root_legacy ->
+      "legacy root CA certificate"
+  | CRL ->
+      "CRL"
+  | Root purposes ->
+      List.map API.certificate_purpose_to_string purposes
+      |> String.concat "; "
+      |> Printf.sprintf "root CA certificate [%s]"
+  | Pinned purposes ->
+      List.map API.certificate_purpose_to_string purposes
+      |> String.concat "; "
+      |> Printf.sprintf "pinned leaf certificate [%s]"
 
 (** {pp_hash hash} outputs the hexadecimal representation of the {hash}
     adding a colon between every octet, in uppercase.
@@ -118,7 +222,7 @@ let raise_server_error parameters err = raise (Server_error (err, parameters))
 let raise_name_invalid kind n =
   let err =
     match kind with
-    | CA_Certificate ->
+    | Root_legacy | Root _ | Pinned _ ->
         certificate_name_invalid
     | CRL ->
         crl_name_invalid
@@ -131,7 +235,7 @@ let validate_name kind name =
 let raise_already_exists kind n =
   let err =
     match kind with
-    | CA_Certificate ->
+    | Root_legacy | Root _ | Pinned _ ->
         certificate_already_exists
     | CRL ->
         crl_already_exists
@@ -141,7 +245,7 @@ let raise_already_exists kind n =
 let raise_does_not_exist kind n =
   let err =
     match kind with
-    | CA_Certificate ->
+    | Root_legacy | Root _ | Pinned _ ->
         certificate_does_not_exist
     | CRL ->
         crl_does_not_exist
@@ -150,7 +254,11 @@ let raise_does_not_exist kind n =
 
 let raise_corrupt kind n =
   let err =
-    match kind with CA_Certificate -> certificate_corrupt | CRL -> crl_corrupt
+    match kind with
+    | Root_legacy | Root _ | Pinned _ ->
+        certificate_corrupt
+    | CRL ->
+        crl_corrupt
   in
   raise_server_error [n] err
 
@@ -160,12 +268,18 @@ let raise_library_corrupt () =
 module Db_util : sig
   type name = string
 
+  module PurposeSet : Set.S with type elt = API.certificate_purpose
+
   val add_cert :
        __context:Context.t
     -> type':
-         [< `host of API.ref_host | `host_internal of API.ref_host | `ca of name]
+         [< `host of API.ref_host
+         | `host_internal of API.ref_host
+         | `ca of name
+         | `pinned ]
+    -> purpose:API.certificate_purpose list
     -> X509.Certificate.t
-    -> API.ref_Certificate
+    -> API.ref_Certificate * string
 
   val remove_cert_by_ref : __context:Context.t -> API.ref_Certificate -> unit
 
@@ -180,6 +294,11 @@ module Db_util : sig
     * of type [type'] belonging to [host] (the term 'host' is overloaded here) *)
 
   val get_ca_certs : __context:Context.t -> API.ref_Certificate list
+
+  val get_trusted_certs :
+       __context:Context.t
+    -> [`ca | `pinned]
+    -> (API.ref_Certificate * API.certificate_t) list
 end = struct
   module Date = Clock.Date
 
@@ -207,19 +326,29 @@ end = struct
     debug "deleting cert ref=%s from the database" (Ref.string_of self) ;
     Db.Certificate.destroy ~__context ~self
 
-  let add_cert ~__context ~type' certificate =
+  module PurposeSet = Set.Make (struct
+    type t = API.certificate_purpose
+
+    let compare = Stdlib.compare
+  end)
+
+  let add_cert ~__context ~type' ~purpose certificate =
     let name, host, _type, post_action =
       match type' with
       | `host host ->
           ("", host, `host, Fun.id)
       | `host_internal host ->
           ("", host, `host_internal, Fun.id)
-      | `ca name ->
+      | `ca name when name <> "" ->
           let certs = get_ca_certs ~__context name in
           let remove_obsoleted_copies () =
             List.iter (remove_cert_by_ref ~__context) certs
           in
           (name, Ref.null, `ca, remove_obsoleted_copies)
+      | `ca _name ->
+          ("", Ref.null, `ca, Fun.id)
+      | `pinned ->
+          ("", Ref.null, `pinned, Fun.id)
     in
     let date_of_ptime time = Date.of_unix_time (Ptime.to_float_s time) in
     let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
@@ -228,14 +357,36 @@ end = struct
     in
     let fingerprint_sha256 = pp_fingerprint ~hash_type:`SHA256 certificate in
     let fingerprint_sha1 = pp_fingerprint ~hash_type:`SHA1 certificate in
+    let expr =
+      let open Xapi_database.Db_filter_types in
+      let type' = Record_util.certificate_type_to_string _type in
+      let type' = Eq (Field "type", Literal type') in
+      let fingerprint_sha256 =
+        Eq (Field "fingerprint_sha256", Literal fingerprint_sha256)
+      in
+      And (type', fingerprint_sha256)
+    in
+    Db.Certificate.get_records_where ~__context ~expr
+    |> List.filter (fun (_, cert_rec) -> cert_rec.API.certificate_name = "")
+    |> List.filter (fun (_, cert_rec) ->
+        let open PurposeSet in
+        let s1 = of_list purpose in
+        let s2 = of_list cert_rec.API.certificate_purpose in
+        equal s1 s2 || not (is_empty (inter s1 s2))
+    )
+    |> List.iter (fun _ ->
+        raise_server_error [fingerprint_sha256]
+          trusted_certificate_already_exists
+    ) ;
     let uuid = Uuidx.(to_string (make ())) in
     let ref' = Ref.make () in
     Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
       ~not_after ~fingerprint:fingerprint_sha256 ~fingerprint_sha256
-      ~fingerprint_sha1 ~name ~_type ;
-    debug "added cert %s under uuid=%s ref=%s" name uuid (Ref.string_of ref') ;
+      ~fingerprint_sha1 ~name ~_type ~purpose ;
+    debug "added cert (name='%s') under uuid=%s ref=%s" name uuid
+      (Ref.string_of ref') ;
     post_action () ;
-    ref'
+    (ref', uuid)
 
   let remove_ca_cert_by_name ~__context name =
     let certs =
@@ -260,9 +411,22 @@ end = struct
   let get_ca_certs ~__context =
     let expr =
       let open Xapi_database.Db_filter_types in
-      Eq (Field "type", Literal "ca")
+      let type' = Eq (Field "type", Literal "ca") in
+      let name = Not (Eq (Field "name", Literal "")) in
+      And (type', name)
     in
     Db.Certificate.get_refs_where ~__context ~expr
+
+  let get_trusted_certs ~__context cert_type =
+    let cert_type = Record_util.certificate_type_to_string cert_type in
+    let expr =
+      let open Xapi_database.Db_filter_types in
+      let type' = Eq (Field "type", Literal cert_type) in
+      (* Unlike Root_legacy, the Root and Pinned certificates are of empty names always *)
+      let name' = Eq (Field "name", Literal "") in
+      And (type', name')
+    in
+    Db.Certificate.get_records_where ~__context ~expr
 end
 
 let local_list kind =
@@ -275,28 +439,66 @@ let local_list kind =
     (Array.to_list (Sys.readdir (library_path kind)))
 
 let local_sync () =
-  try rehash ()
+  try local_sync' ()
   with e ->
     warn "Exception rehashing certificates: %s" (ExnHelper.string_of_exn e) ;
     raise_library_corrupt ()
 
-let cert_perms kind =
-  let stat = Unix.stat (library_path kind) in
-  let mask = 0o666 in
-  let perm = stat.Unix.st_perm land mask in
-  debug "%d %d" perm stat.Unix.st_perm ;
-  perm
+let update_bundle =
+  let m = Mutex.create () in
+  fun cert_dir bundle_path ->
+    Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
+        ignore
+          (Forkhelpers.execute_command_get_output
+             "/opt/xensource/bin/update-ca-bundle.sh" [cert_dir; bundle_path]
+          ) ;
+        remove_empty_bundle bundle_path
+    )
+
+let update_all_bundles () =
+  (* Update bundle for pool *)
+  update_bundle !Xapi_globs.trusted_pool_certs_dir !Xapi_globs.pool_bundle_path ;
+  let ( let* ) l f = List.iter f l in
+  let* category = all_categories in
+  let* purposes = all_purposes in
+  let kind =
+    match category with
+    | `Root_legacy ->
+        Root_legacy
+    | `CRL ->
+        CRL
+    | `Root ->
+        Root purposes
+    | `Pinned ->
+        Pinned purposes
+  in
+  let* store = trusted_store_locations kind in
+  Option.iter
+    (fun (bundle_dir, bundle_name) ->
+      update_bundle store.cert_dir (bundle_dir // bundle_name)
+    )
+    store.bundle
 
 let host_install kind ~name ~cert =
   validate_name kind name ;
-  let filename = library_filename kind name in
-  if Sys.file_exists filename then raise_already_exists kind name ;
-  debug "Installing %s %s" (to_string kind) name ;
+  with_cert_paths kind name @@ fun cert_dir cert_path bundle ->
+  if Sys.file_exists cert_path then raise_already_exists kind name ;
+  debug "%s: Installing %s (name='%s') under %s" __FUNCTION__ (to_string kind)
+    name cert_path ;
   try
     mkdir_cert_path kind ;
-    Unixext.write_string_to_file filename cert ;
-    Unix.chmod filename (cert_perms kind) ;
-    update_ca_bundle ()
+    Unixext.write_string_to_file cert_path cert ;
+    Unix.chmod cert_path 0o644 ;
+    Option.iter
+      (fun (bundle_dir, bundle_name) ->
+        debug "%s: Updating bundle %s for %s (name='%s')" __FUNCTION__
+          (bundle_dir // bundle_name)
+          (to_string kind) name ;
+        update_bundle cert_dir (bundle_dir // bundle_name) ;
+        Unix.chmod (bundle_dir // bundle_name) 0o644
+      )
+      bundle ;
+    rehash cert_dir
   with e ->
     warn "Exception installing %s %s: %s" (to_string kind) name
       (ExnHelper.string_of_exn e) ;
@@ -304,10 +506,18 @@ let host_install kind ~name ~cert =
 
 let host_uninstall kind ~name ~force =
   validate_name kind name ;
-  let filename = library_filename kind name in
-  if Sys.file_exists filename then (
-    debug "Uninstalling %s %s" (to_string kind) name ;
-    try Sys.remove filename ; update_ca_bundle ()
+  with_cert_store kind @@ fun ~cert_dir ~bundle ->
+  let cert_path = cert_dir // name in
+  debug "Uninstalling %s %s" (to_string kind) cert_path ;
+  if Sys.file_exists cert_path then (
+    try
+      Sys.remove cert_path ;
+      Option.iter
+        (fun (bundle_dir, bundle_name) ->
+          update_bundle cert_dir (bundle_dir // bundle_name)
+        )
+        bundle ;
+      rehash cert_dir
     with e ->
       warn "Exception uninstalling %s %s: %s" (to_string kind) name
         (ExnHelper.string_of_exn e) ;
@@ -317,15 +527,6 @@ let host_uninstall kind ~name ~force =
       name
   else
     raise_does_not_exist kind name
-
-let get_cert kind name =
-  validate_name kind name ;
-  let filename = library_filename kind name in
-  try Unixext.string_of_file filename
-  with e ->
-    warn "Exception reading %s %s: %s" (to_string kind) name
-      (ExnHelper.string_of_exn e) ;
-    raise_corrupt kind name
 
 let sync_all_hosts ~__context hosts =
   let exn = ref None in
@@ -338,84 +539,6 @@ let sync_all_hosts ~__context hosts =
         hosts
   ) ;
   match !exn with Some e -> raise e | None -> ()
-
-let sync_certs_crls kind list_func install_func uninstall_func ~__context
-    master_certs host =
-  Helpers.call_api_functions ~__context (fun rpc session_id ->
-      let host_certs = list_func rpc session_id host in
-      List.iter
-        (fun c ->
-          if not (List.mem c master_certs) then
-            uninstall_func rpc session_id host c
-        )
-        host_certs ;
-      List.iter
-        (fun c ->
-          if not (List.mem c host_certs) then
-            install_func rpc session_id host c (get_cert kind c)
-        )
-        master_certs
-  )
-
-let sync_certs kind ~__context master_certs host =
-  match kind with
-  | CA_Certificate ->
-      sync_certs_crls CA_Certificate
-        (fun rpc session_id host ->
-          Client.Host.certificate_list ~rpc ~session_id ~host
-        )
-        (fun rpc session_id host name cert ->
-          Client.Host.install_ca_certificate ~rpc ~session_id ~host ~name ~cert
-        )
-        (fun rpc session_id host name ->
-          Client.Host.uninstall_ca_certificate ~rpc ~session_id ~host ~name
-            ~force:false
-        )
-        ~__context master_certs host
-  | CRL ->
-      sync_certs_crls CRL
-        (fun rpc session_id host -> Client.Host.crl_list ~rpc ~session_id ~host)
-        (fun rpc session_id host name crl ->
-          Client.Host.crl_install ~rpc ~session_id ~host ~name ~crl
-        )
-        (fun rpc session_id host name ->
-          Client.Host.crl_uninstall ~rpc ~session_id ~host ~name
-        )
-        ~__context master_certs host
-
-let sync_certs_all_hosts kind ~__context master_certs hosts_but_master =
-  let exn = ref None in
-  List.iter
-    (fun host ->
-      try sync_certs kind ~__context master_certs host with e -> exn := Some e
-    )
-    hosts_but_master ;
-  match !exn with Some e -> raise e | None -> ()
-
-let pool_sync ~__context =
-  let hosts = Db.Host.get_all ~__context in
-  let master = Helpers.get_localhost ~__context in
-  let hosts_but_master = List.filter (fun h -> h <> master) hosts in
-  sync_all_hosts ~__context hosts ;
-  let master_certs = local_list CA_Certificate in
-  let master_crls = local_list CRL in
-  sync_certs_all_hosts CA_Certificate ~__context master_certs hosts_but_master ;
-  sync_certs_all_hosts CRL ~__context master_crls hosts_but_master
-
-let pool_install kind ~__context ~name ~cert =
-  host_install kind ~name ~cert ;
-  try pool_sync ~__context
-  with exn ->
-    ( try host_uninstall kind ~name ~force:false
-      with e ->
-        warn "Exception unwinding install of %s %s: %s" (to_string kind) name
-          (ExnHelper.string_of_exn e)
-    ) ;
-    raise exn
-
-let pool_uninstall kind ~__context ~name ~force =
-  host_uninstall kind ~name ~force ;
-  pool_sync ~__context
 
 (* Extracts the server certificate from the server certificate pem file.
    It strips the private key as well as the rest of the certificate chain. *)
@@ -452,3 +575,20 @@ let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key ~path =
       cert
   | Error (`Msg (err, msg)) ->
       raise_server_error msg err
+
+let name_of_uuid uuid = Printf.sprintf "%s.pem" uuid
+
+let db_type_of_category category =
+  match category with `Root -> `ca | `Pinned -> `pinned
+
+let cleanup_all_trusted () =
+  let ( let* ) l f = List.iter f l in
+  let* kind = all_trusted_kinds in
+  let* store = trusted_store_locations kind in
+  Unixext.rm_rec ~rm_top:false store.cert_dir ;
+  Option.iter
+    (fun (bundle_dir, bundle_name) ->
+      Unixext.unlink_safe (bundle_dir // bundle_name)
+    )
+    store.bundle ;
+  ()

@@ -356,6 +356,20 @@ let host_internal_certificate_expiring_14 =
 let host_internal_certificate_expiring_07 =
   certificate_expiring host_internal_certificate_expiring 7 1L
 
+let pool_pinned_certificate_expired =
+  addMessage "POOL_PINNED_CERTIFICATE_EXPIRED" 1L
+
+let pool_pinned_certificate_expiring = "POOL_PINNED_CERTIFICATE_EXPIRING"
+
+let pool_pinned_certificate_expiring_30 =
+  certificate_expiring pool_pinned_certificate_expiring 30 3L
+
+let pool_pinned_certificate_expiring_14 =
+  certificate_expiring pool_pinned_certificate_expiring 14 2L
+
+let pool_pinned_certificate_expiring_07 =
+  certificate_expiring pool_pinned_certificate_expiring 7 1L
+
 let failed_login_attempts = addMessage "FAILED_LOGIN_ATTEMPTS" 3L
 
 let kernel_is_broken which =
