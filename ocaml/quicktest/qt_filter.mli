@@ -49,6 +49,8 @@ module SR : sig
 
   val random : srs -> srs
 
+  val iso_srs : srs
+
   val not_iso : srs -> srs
 
   val is_iso : srs -> srs
@@ -85,3 +87,5 @@ end
 val sr : SR.srs -> (Qt.sr_info -> 'b, 'b) filter
 
 val vm_template : string -> (API.ref_VM -> 'b, 'b) filter
+
+val memtest_iso : ?prefix:string -> (API.vDI_t -> 'a, 'a) filter

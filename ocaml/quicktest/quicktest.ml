@@ -50,6 +50,13 @@ let () =
         ; ( "Quicktest_vm_calibrate_cleanup1"
           , Quicktest_vm_calibrate.tests_cleanup ()
           )
+        ; ( "Quicktest_vm_calibrate_cleanup00"
+          , Quicktest_vm_calibrate.tests_cleanup ()
+          )
+        ; ("Quicktest_vm_memory", Quicktest_vm_memory.tests ())
+        ; ( "Quicktest_vm_calibrate_cleanup2"
+          , Quicktest_vm_calibrate.tests_cleanup ()
+          )
         ; ("Quicktest_example", Quicktest_example.tests ())
         ; ("Quicktest_message", Quicktest_message.tests ())
         ; ("xenstore", Quicktest_xenstore.tests ())
