@@ -2911,16 +2911,35 @@ functor
 
         let include_block = include_block None t in
 
-        let blocks =
+        let blocks, last_block =
           Seq.init max_table_entries Fun.id
-          |> Seq.filter_map (fun i ->
-              if include_block i then
-                Some (`Int i)
-              else
-                None
-          )
-          |> List.of_seq
+          |> Seq.fold_left
+               (fun (acc, left_block) i ->
+                 if include_block i then
+                   match left_block with
+                   | Some _ ->
+                       (acc, left_block)
+                   | None ->
+                       (acc, Some i)
+                 else
+                   match left_block with
+                   | Some x ->
+                       (`List [`Int x; `Int (i - 1)] :: acc, None)
+                   | None ->
+                       (acc, None)
+               )
+               ([], None)
         in
+        (* Close off the interval we were tracking we ran off the end of the seq *)
+        let blocks =
+          match last_block with
+          | Some x ->
+              `List [`Int x; `Int (max_table_entries - 1)] :: blocks
+          | None ->
+              blocks
+        in
+        let blocks = List.rev blocks in
+
         let json =
           `Assoc
             [
