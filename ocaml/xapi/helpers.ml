@@ -1127,6 +1127,12 @@ let check_sr_exists_for_host ~__context ~self ~host =
   else
     None
 
+(* Returns the amount of free space for a given SR *)
+let get_sr_free_space ~__context ~sr =
+  let size = Db.SR.get_physical_size ~__context ~self:sr in
+  let utilisation = Db.SR.get_physical_utilisation ~__context ~self:sr in
+  Int64.sub size utilisation
+
 (* Returns an SR suitable for suspending this VM *)
 let choose_suspend_sr ~__context ~vm =
   (* If the VM.suspend_SR exists, use that. If it fails, try the Pool.suspend_image_SR. *)
@@ -2019,7 +2025,7 @@ let try_internal_async ~__context (marshaller : Rpc.t -> 'b)
         )
         (fun () ->
           info "try_internal_async: destroying task: t = ( %s )" ref ;
-          TaskHelper.destroy ~__context t
+          Db.Task.destroy ~__context ~self:t
         )
 
 module PoolSecret : sig

@@ -678,14 +678,15 @@ CAMLprim value stub_xenctrlext_domain_claim_pages(value xch_val, value domid_val
         value numa_node_val, value nr_pages_val)
 {
         CAMLparam4(xch_val, domid_val, numa_node_val, nr_pages_val);
+#ifdef XEN_DOMCTL_NUMA_OP_GET_NODE_PAGES
         int retval, the_errno;
         xc_interface* xch = xch_of_val(xch_val);
         uint32_t domid = Int_val(domid_val);
-        // unsigned int numa_node = Int_val(numa_node_val);
+        unsigned int numa_node = Int_val(numa_node_val);
         unsigned long nr_pages = Long_val(nr_pages_val);
 
         caml_release_runtime_system();
-        retval = xc_domain_claim_pages(xch, domid, /*numa_node,*/ nr_pages);
+        retval = xc_domain_claim_pages_node(xch, domid, numa_node, nr_pages);
         the_errno = errno;
         caml_acquire_runtime_system();
 
@@ -693,6 +694,9 @@ CAMLprim value stub_xenctrlext_domain_claim_pages(value xch_val, value domid_val
                 raise_unix_errno_msg(the_errno,
                         "Error when trying to claim memory pages");
         }
+#else
+        raise_unix_errno_msg(ENOSYS, "xc_domain_claim_pages_node");
+#endif
         CAMLreturn(Val_unit);
 }
 
@@ -709,6 +713,104 @@ CAMLprim value stub_xc_domain_numa_get_node_pages_wrapper(value xch_val, value d
         caml_failwith(__func__);
         CAMLnoreturn;
 #endif
+}
+
+/*
+ * Get NUMA memory info with claimed memory support
+ *
+ * Falls back to previous xc_numainfo with claimed=0
+ * if XEN_SYSCTL_numa_meminfo is not available at compile time or runtime
+ */
+CAMLprim value stub_xenctrlext_numa_meminfo(value xch_val)
+{
+	CAMLparam1(xch_val);
+	CAMLlocal2(result, info);
+	xc_interface *xch = xch_of_val(xch_val);
+	unsigned int max_nodes = 0;
+	unsigned int i;
+	int ret;
+
+#ifdef XEN_SYSCTL_numa_meminfo
+	xen_sysctl_node_meminfo_t *meminfo = NULL;
+
+	/* First call to get node count */
+	caml_release_runtime_system();
+	ret = xc_numa_meminfo(xch, &max_nodes, NULL);
+	caml_acquire_runtime_system();
+
+	if (ret == 0) {
+		/* New hypercall available, use it */
+		meminfo = calloc(max_nodes, sizeof(*meminfo));
+		if (!meminfo)
+			caml_raise_out_of_memory();
+
+		caml_release_runtime_system();
+		ret = xc_numa_meminfo(xch, &max_nodes, meminfo);
+		caml_acquire_runtime_system();
+
+		if (ret < 0) {
+			int err = errno;
+			free(meminfo);
+			errno = err;
+			failwith_xc(xch);
+		}
+
+		result = caml_alloc_tuple(max_nodes);
+		for (i = 0; i < max_nodes; i++) {
+			info = caml_alloc_tuple(3);
+			Store_field(info, 0, caml_copy_int64(meminfo[i].size));
+			Store_field(info, 1, caml_copy_int64(meminfo[i].free));
+			Store_field(info, 2, caml_copy_int64(meminfo[i].claimed));
+			Store_field(result, i, info);
+		}
+
+		free(meminfo);
+		CAMLreturn(result);
+	}
+
+	/* If we get ENOSYS or EOPNOTSUPP, fall back to old hypercall */
+	if (errno != ENOSYS && errno != EOPNOTSUPP)
+		failwith_xc(xch);
+#endif
+
+	/* Fallback: use xc_numainfo with claimed=0 */
+	{
+		xc_meminfo_t *old_meminfo = NULL;
+
+		caml_release_runtime_system();
+		ret = xc_numainfo(xch, &max_nodes, NULL, NULL);
+		caml_acquire_runtime_system();
+
+		if (ret < 0)
+			failwith_xc(xch);
+
+		old_meminfo = calloc(max_nodes, sizeof(*old_meminfo));
+		if (!old_meminfo)
+			caml_raise_out_of_memory();
+
+		caml_release_runtime_system();
+		ret = xc_numainfo(xch, &max_nodes, old_meminfo, NULL);
+		caml_acquire_runtime_system();
+
+		if (ret < 0) {
+			int err = errno;
+			free(old_meminfo);
+			errno = err;
+			failwith_xc(xch);
+		}
+
+		result = caml_alloc_tuple(max_nodes);
+		for (i = 0; i < max_nodes; i++) {
+			info = caml_alloc_tuple(3);
+			Store_field(info, 0, caml_copy_int64(old_meminfo[i].memsize));
+			Store_field(info, 1, caml_copy_int64(old_meminfo[i].memfree));
+			Store_field(info, 2, caml_copy_int64(0));  /* claimed=0 */
+			Store_field(result, i, info);
+		}
+
+		free(old_meminfo);
+		CAMLreturn(result);
+	}
 }
 
 

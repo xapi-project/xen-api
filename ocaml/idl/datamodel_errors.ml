@@ -1123,6 +1123,11 @@ let _ =
       "The source SR does not have sufficient temporary space available to \
        proceed the operation."
     () ;
+  error Api_errors.sr_suspend_space_insufficient ["sr"]
+    ~doc:
+      "The suspend SR does not have sufficient free space to store the VM \
+       suspend image."
+    () ;
   error Api_errors.pbd_exists ["sr"; "host"; "pbd"]
     ~doc:"A PBD already exists connecting the SR to the server." () ;
   error Api_errors.sr_has_pbd ["sr"]

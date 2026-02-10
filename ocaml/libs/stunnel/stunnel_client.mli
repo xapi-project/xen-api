@@ -17,7 +17,14 @@ val get_verify_by_default : unit -> bool
 val set_verify_by_default : bool -> unit
 
 val pool : unit -> Stunnel.verification_config option
+(** [pool ()] returns the configuration that's meant to be used to connect to
+    other xapi hosts in the pool *)
 
 val appliance : unit -> Stunnel.verification_config option
+(** [appliance ()] returns the configuration that's meant to be used to connect
+    to appliances providing services, like WLB or a licensing server. *)
 
 val external_host : string -> Stunnel.verification_config option
+(** [external_host path] returns the configuration that's meant to be used to connect to
+    a xapi hosts outside the pool. This is useful, for example, to provide an
+    update repository to download updates from. *)

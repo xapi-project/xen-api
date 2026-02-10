@@ -739,6 +739,18 @@ let db_forget ~__context ~vdi =
   debug "db_forget uuid=%s ref=%s"
     (Db.VDI.get_uuid ~__context ~self:vdi)
     (Ref.string_of vdi) ;
+  (* CA-419840  mark VBD as empty when it is a CDR *)
+  ( Db.VDI.get_VBDs ~__context ~self:vdi |> function
+    | [] ->
+        debug "%s: no VBD for VDI %s" __FUNCTION__ (Ref.string_of vdi)
+    | self :: _ when self = Ref.null ->
+        warn "%s: NULL VBD for VDI %s" __FUNCTION__ (Ref.string_of vdi)
+    | self :: _ when Db.VBD.get_type ~__context ~self = `CD ->
+        Db.VBD.set_VDI ~__context ~self ~value:Ref.null ;
+        Db.VBD.set_empty ~__context ~self ~value:true
+    | _ ->
+        () (* not a CDR *)
+  ) ;
   Db.VDI.destroy ~__context ~self:vdi
 
 let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type

@@ -1889,13 +1889,13 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
 
 (* CP-718: Disables external auth/directory service for host *)
 let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
-    ~config () =
+    ~config ~force () =
   (* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
   (* we need to protect against concurrent access to the host.external_auth_type variable *)
   with_lock serialize_host_enable_disable_extauth (fun () ->
       let host_name_label = Db.Host.get_name_label ~__context ~self:host in
       let auth_type = Db.Host.get_external_auth_type ~__context ~self:host in
-      if auth_type = "" then
+      if auth_type = "" && not force then
         (* nothing to do, external authentication is already disabled *)
         let msg = "external authentication service is already disabled" in
         debug "Failed to disable external authentication in host %s: %s"
@@ -1936,6 +1936,8 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
                    , [msg]
                    )
                 )
+          | Extauth_is_disabled ->
+              Some Extauth_is_disabled
           | e ->
               (*absorb any exception*)
               debug
@@ -1957,19 +1959,6 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
         Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded := true ;
 
         (* succeeds because there's no need to initialize anymore *)
-
-        (* If any cache is present, clear it in order to ensure cached
-           logins don't persist after disabling external
-           authentication. *)
-        Xapi_session.clear_external_auth_cache () ;
-
-        (* 3. CP-703: we always revalidate all sessions after the external authentication has been disabled *)
-        (* so that all sessions that were externally authenticated will be destroyed *)
-        debug
-          "calling revalidate_all_sessions after disabling external auth for \
-           host %s"
-          host_name_label ;
-        Xapi_session.revalidate_all_sessions ~__context ;
         if not during_pool_eject then
           (* CA-28168 *)
           (* CA-24856: detect non-homogeneous external-authentication config in this host *)
@@ -1978,19 +1967,18 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
         if auth_type = Xapi_globs.auth_type_AD then
           Extauth_ad.stop_backend_daemon ~wait_until_success:false ;
         match plugin_disable_failure with
-        | None ->
+        (* we do not want to stop pool_eject and permit Extauth_is_disabled during force *)
+        | Some e when during_pool_eject || (e = Extauth_is_disabled && force) ->
             ()
         | Some e ->
-            if not during_pool_eject then
-              raise e (* bubble up plugin's on_disable exception *)
-            else
-              ()
-      (* we do not want to stop pool_eject *)
+            raise e
+        | None ->
+            ()
   )
 
-let disable_external_auth ~__context ~host ~config =
+let disable_external_auth ~__context ~host ~config ~force =
   disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
-    ()
+    ~force ()
 
 module Static_vdis_list = Xapi_database.Static_vdis_list
 
@@ -2161,21 +2149,13 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
     ~additional:new_ed.additional_params
 
 let apply_edition ~__context ~host ~edition ~force =
-  (* if HA is enabled do not allow the edition to be changed *)
-  let pool = Helpers.get_pool ~__context in
-  if
-    Db.Pool.get_ha_enabled ~__context ~self:pool
-    && edition <> Db.Host.get_edition ~__context ~self:host
-  then
-    raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
-  else
-    let additional =
-      if force then
-        [("force", "true")]
-      else
-        []
-    in
-    apply_edition_internal ~__context ~host ~edition ~additional
+  let additional =
+    if force then
+      [("force", "true")]
+    else
+      []
+  in
+  apply_edition_internal ~__context ~host ~edition ~additional
 
 let license_add ~__context ~host ~contents =
   let license =

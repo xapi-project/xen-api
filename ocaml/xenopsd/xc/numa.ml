@@ -49,17 +49,17 @@ let human_readable_bytes quantity =
   else
     loop [] quantity binary_prefixes |> String.concat ", "
 
-let get_memory () =
-  let {memory; _} = numainfo xc in
-  memory
+let get_memory () = HostNuma.numa_get_meminfo xc
 
 let print_mem c mem =
   for i = 0 to Array.length mem - 1 do
-    let {memfree; memsize} = mem.(i) in
-    let memfree = human_readable_bytes memfree in
-    let memsize = human_readable_bytes memsize in
+    let {HostNuma.size; free; claimed} = mem.(i) in
+    let memfree = human_readable_bytes free in
+    let memsize = human_readable_bytes size in
+    let memclaimed = human_readable_bytes claimed in
     Logs.app (fun m ->
-        m "\t%d: %s free out of %s" i memfree memsize ~tags:(stamp c)
+        m "\t%d: %s free / %s claimed out of %s" i memfree memclaimed memsize
+          ~tags:(stamp c)
     )
   done
 
@@ -72,7 +72,9 @@ let print_diff_mem before after =
 let diff c old cur =
   let changed_yet = ref false in
   for i = 0 to Int.min (Array.length old) (Array.length cur) - 1 do
-    let {memfree= a_free; _}, {memfree= b_free; _} = (old.(i), cur.(i)) in
+    let {HostNuma.free= a_free; _}, {HostNuma.free= b_free; _} =
+      (old.(i), cur.(i))
+    in
     if a_free <> b_free then (
       if not !changed_yet then changed_yet := true ;
       let free = human_readable_bytes b_free in

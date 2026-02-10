@@ -109,7 +109,21 @@ val get_nr_nodes : handle -> int
 (** Returns the count of NUMA nodes available in the system. *)
 
 module DomainNuma : sig
+  type domain_numainfo_node_pages = {
+      tot_pages_per_node: int64 array (* page=4k bytes *)
+  }
+
+  external domain_get_numa_info_node_pages :
+    handle -> int -> domain_numainfo_node_pages
+    = "stub_xc_domain_numa_get_node_pages_wrapper"
+
   type t = {optimised: bool; nodes: int; memory: int64 array (* bytes *)}
 
   val state : handle -> domid:int -> t
+end
+
+module HostNuma : sig
+  type node_meminfo = {size: int64; free: int64; claimed: int64}
+
+  val numa_get_meminfo : handle -> node_meminfo array
 end

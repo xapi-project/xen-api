@@ -169,7 +169,14 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
           )
       | `bundle ->
           let uri =
-            Uri.make ~scheme:"file" ~path:!Xapi_globs.bundle_repository_dir ()
+            (* dnf requires a URI that is file:///absolute/path, using the
+             * file:/absolute/path variant will result in a failure to locate
+             * the signature file, thus the host parameter to Uri.make is
+             * required
+             *)
+            Uri.make ~scheme:"file" ~host:""
+              ~path:!Xapi_globs.bundle_repository_dir
+              ()
           in
           (Uri.to_string uri, None, false, NoAuth, NoAuth)
       | `remote_pool ->
@@ -224,9 +231,12 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
       | s ->
           s
     in
-    let write_initial_yum_config ~binary_url =
-      write_yum_config ~source_url ~binary_url ~repo_gpgcheck:true ~gpgkey_path
-        ~repo_name
+    let proxy_config =
+      match use_proxy with true -> get_proxy_params ~__context | false -> []
+    in
+    let write_initial_yum_config ~proxy_config ~binary_url =
+      write_yum_config ~proxy_config ~source_url ~binary_url ~repo_gpgcheck:true
+        ~gpgkey_path ~repo_name
     in
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
@@ -255,7 +265,7 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
 
         with_sync_client_auth client_auth @@ fun client_auth ->
         with_sync_server_auth server_auth @@ fun binary_url' ->
-        write_initial_yum_config
+        write_initial_yum_config ~proxy_config
           ~binary_url:(Option.value binary_url' ~default:binary_url) ;
         clean_yum_cache repo_name ;
         (* Remove imported YUM repository GPG key *)
@@ -272,15 +282,10 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
           | None ->
               []
         in
-        let proxy_params =
-          match use_proxy with
-          | true ->
-              get_proxy_params ~__context
-          | false ->
-              []
-        in
-        auth_params @ proxy_params |> fun x ->
-        config_repo x ; make_cache () ; sync_repo ()
+        (* Proxy config is now written directly to repo file, so only pass
+         * auth_params to config_repo to avoid exposing credentials in
+         * command-line arguments which get logged by DNF5 *)
+        config_repo auth_params ; make_cache () ; sync_repo ()
       )
       (fun () ->
         (* Rewrite repo conf file as initial content to remove credential
@@ -294,7 +299,8 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
          *)
         match Pkgs.manager with
         | Yum ->
-            write_initial_yum_config ~binary_url
+            (* Write clean config without proxy credentials *)
+            write_initial_yum_config ~proxy_config:[] ~binary_url
         | Dnf ->
             Unixext.unlink_safe !Xapi_globs.dnf_repo_config_file
       ) ;
@@ -559,6 +565,20 @@ let get_host_updates_in_json ~__context ~installed =
         let latest_updates' =
           get_updates_from_yum_upgrade_dry_run repositories
         in
+        let latest_updates_group' =
+          get_updates_from_yum_group_upgrade_dry_run repositories
+        in
+        let latest_updates_combined' =
+          match (latest_updates', latest_updates_group') with
+          | Some pkgs', Some group_pkgs' ->
+              Some (List.sort_uniq compare (pkgs' @ group_pkgs'))
+          | Some pkgs', None ->
+              Some pkgs'
+          | None, Some group_pkgs' ->
+              Some group_pkgs'
+          | None, None ->
+              None
+        in
         let latest_updates'' = get_updates_from_repoquery repositories in
         (* To ensure the updating function will not strand, use redundant
          * functions to get the update/installation list.
@@ -570,7 +590,7 @@ let get_host_updates_in_json ~__context ~installed =
         let fail_on_error = Xapi_fist.fail_on_error_in_yum_upgrade_dry_run () in
         let latest_updates =
           get_latest_updates_from_redundancy ~fail_on_error
-            ~pkgs:latest_updates' ~fallback_pkgs:latest_updates''
+            ~pkgs:latest_updates_combined' ~fallback_pkgs:latest_updates''
         in
         List.iter (fun r -> clean_yum_cache r) repositories ;
         let latest_updates_in_json =
@@ -680,8 +700,15 @@ let get_pool_updates_in_json ~__context ~hosts =
 let apply ~__context ~host =
   (* This function runs on member host *)
   with_local_repositories ~__context (fun repositories ->
-      let Pkg_mgr.{cmd; params} = Pkgs.apply_upgrade ~repositories in
-      try ignore (Helpers.call_script cmd params)
+      let upgrade () =
+        let Pkg_mgr.{cmd; params} = Pkgs.apply_upgrade ~repositories in
+        ignore (Helpers.call_script cmd params)
+      in
+      let group_upgrade () =
+        let Pkg_mgr.{cmd; params} = Pkgs.apply_group_upgrade ~repositories in
+        ignore (Helpers.call_script cmd params)
+      in
+      try upgrade () ; group_upgrade ()
       with e ->
         let host' = Ref.string_of host in
         error "Failed to apply updates on host ref='%s': %s" host'

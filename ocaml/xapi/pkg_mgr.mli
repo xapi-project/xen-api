@@ -41,6 +41,10 @@ module type S = sig
   val get_updates_from_upgrade_dry_run : repositories:string list -> cmd_line
   (** Command line and arguments to dry run an upgrade, with repositories enabled *)
 
+  val get_updates_from_group_upgrade_dry_run :
+    repositories:string list -> cmd_line
+  (** Command line and arguments to dry run a group upgrade, with repositories enabled *)
+
   val is_obsoleted : pkg_name:string -> repositories:string list -> cmd_line
   (** Command line and arguments to check whether a package is obsoleted by any other
    * package in given repositories *)
@@ -67,6 +71,9 @@ module type S = sig
 
   val apply_upgrade : repositories:string list -> cmd_line
   (** Command line and arguments to apply upgrades from repos *)
+
+  val apply_group_upgrade : repositories:string list -> cmd_line
+  (** Command line and arguments to apply group upgrades from repos *)
 end
 
 (** Exposed only for unittest, do not use the modules directly

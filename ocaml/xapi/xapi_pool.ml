@@ -2232,7 +2232,7 @@ let eject_self ~__context ~host =
     (* disable the external authentication of this slave being ejected *)
     (* this call will return an exception if something goes wrong *)
     Xapi_host.disable_external_auth_common ~during_pool_eject:true ~__context
-      ~host ~config:[] () ;
+      ~host ~config:[] ~force:false () ;
 
     (* FIXME: in the future, we should send the windows AD admin/pass here *)
     (* in order to remove the slave from the AD database during pool-eject *)
@@ -3169,7 +3169,7 @@ let enable_external_auth ~__context ~pool:_ ~config ~service_name ~auth_type =
                     (* best-effort attempt to disable all enabled hosts, swallowing any exceptions *)
                     try
                       call_fn_on_host ~__context
-                        (Client.Host.disable_external_auth ~config)
+                        (Client.Host.disable_external_auth ~config ~force:false)
                         host
                     with e ->
                       debug
@@ -3237,7 +3237,7 @@ let disable_external_auth ~__context ~pool:_ ~config =
             (* forward the call to the host in the pool *)
             try
               call_fn_on_host ~__context
-                (Client.Host.disable_external_auth ~config)
+                (Client.Host.disable_external_auth ~config ~force:false)
                 host ;
               (* no failed host to add to the filtered list, just visit next host *)
               (host, "", "")
@@ -3296,9 +3296,21 @@ let disable_external_auth ~__context ~pool:_ ~config =
                    )
                 )
       ) else (* OK *)
+        (
+        (* If any cache is present, clear it in order to ensure cached
+           logins don't persist after disabling external
+           authentication. *)
+        Xapi_session.clear_external_auth_cache () ;
+
+        (* CP-703: we always revalidate all sessions after the external authentication has been disabled *)
+        (* so that all sessions that were externally authenticated will be destroyed *)
+        debug "calling revalidate_all_sessions after disabling external auth" ;
+        Xapi_session.revalidate_all_sessions ~__context ;
+
         debug
           "The external authentication of all hosts in the pool was disabled \
            successfully"
+      )
   )
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)

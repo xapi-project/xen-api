@@ -185,6 +185,7 @@ type memory_config = {
   ; shadow_mib: int64
   ; required_host_free_mib: int64
   ; overhead_mib: int64
+  ; build_claim_pages: int64
 }
 
 module Memory_model (D : MEMORY_MODEL_DATA) = struct
@@ -218,6 +219,8 @@ module Memory_model (D : MEMORY_MODEL_DATA) = struct
     D.extra_internal_mib
     +++ D.extra_external_mib
     +++ shadow_mib static_max_mib vcpu_count multiplier
+    (* CA-423172: Xen uses some extra memory/vCPU *)
+    +++ mib_of_pages_used (38L *** Int64.of_int vcpu_count)
     +++ D.shim_mib static_max_mib
 
   let footprint_mib target_mib static_max_mib vcpu_count multiplier =
@@ -226,14 +229,16 @@ module Memory_model (D : MEMORY_MODEL_DATA) = struct
   let shadow_multiplier_default = 1.0
 
   let full_config static_max_mib video_mib target_mib vcpus shadow_multiplier =
+    let build_start_mib = build_start_mib static_max_mib target_mib video_mib in
     {
       build_max_mib= build_max_mib static_max_mib video_mib
-    ; build_start_mib= build_start_mib static_max_mib target_mib video_mib
+    ; build_start_mib
     ; xen_max_mib= xen_max_mib static_max_mib
     ; shadow_mib= shadow_mib static_max_mib vcpus shadow_multiplier
     ; required_host_free_mib=
         footprint_mib target_mib static_max_mib vcpus shadow_multiplier
     ; overhead_mib= overhead_mib static_max_mib vcpus shadow_multiplier
+    ; build_claim_pages= pages_of_mib build_start_mib
     }
 end
 

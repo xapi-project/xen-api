@@ -310,8 +310,8 @@ let remove_repo_conf_file repo_name =
   in
   Unixext.unlink_safe path
 
-let write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
-    ~repo_name =
+let write_yum_config ~proxy_config ~source_url ~binary_url ~repo_gpgcheck
+    ~gpgkey_path ~repo_name =
   let file_path =
     Filename.concat !Xapi_globs.yum_repos_config_dir (repo_name ^ ".repo")
   in
@@ -344,6 +344,7 @@ let write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
     ; opt_gpgcheck
     ; opt_gpgkey
     ]
+    @ proxy_config
   in
   let content_of_source =
     match source_url with
@@ -445,8 +446,8 @@ let with_local_repositories ~__context f =
                   s
             in
             remove_repo_conf_file repo_name ;
-            write_yum_config ~source_url:None ~binary_url ~repo_gpgcheck:false
-              ~gpgkey_path ~repo_name ;
+            write_yum_config ~proxy_config:[] ~source_url:None ~binary_url
+              ~repo_gpgcheck:false ~gpgkey_path ~repo_name ;
             clean_yum_cache repo_name ;
             let Pkg_mgr.{cmd; params} =
               [
@@ -770,8 +771,10 @@ module YumUpgradeOutput = struct
     | false -> (
         take_till is_eol <* end_of_line >>= function
         | ( "Installing:"
+          | "Installing group/module packages:"
           | "Updating:"
           | "Upgrading:"
+          | "Upgrading groups:"
           | "Removing:"
           | "Reinstalling:"
           | "Downgrading:"
@@ -889,6 +892,7 @@ module YumUpgradeOutput = struct
         |> List.filter (fun (section, _) ->
             match section with
             | "Installing:"
+            | "Installing group/module packages:"
             | "Updating:"
             | "Upgrading:"
             | "Installing for dependencies:"
@@ -935,6 +939,31 @@ end
 let get_updates_from_yum_upgrade_dry_run repositories =
   let Pkg_mgr.{cmd; params} =
     Pkgs.get_updates_from_upgrade_dry_run ~repositories
+  in
+  match Forkhelpers.execute_command_get_output cmd params with
+  | _, _ ->
+      Some []
+  | exception Forkhelpers.Spawn_internal_error (stderr, stdout, Unix.WEXITED 1)
+    -> (
+      (*Yum put the details to stderr while dnf to stdout*)
+      (match Pkgs.manager with Yum -> stderr | Dnf -> stdout)
+      |> YumUpgradeOutput.parse_output_of_dry_run
+      |> function
+      | Ok (pkgs, Some txn_file) ->
+          Unixext.unlink_safe txn_file ;
+          Some pkgs
+      | Ok (pkgs, None) ->
+          Some pkgs
+      | Error msg ->
+          error "%s" msg ; None
+    )
+  | exception e ->
+      error "%s" (ExnHelper.string_of_exn e) ;
+      None
+
+let get_updates_from_yum_group_upgrade_dry_run repositories =
+  let Pkg_mgr.{cmd; params} =
+    Pkgs.get_updates_from_group_upgrade_dry_run ~repositories
   in
   match Forkhelpers.execute_command_get_output cmd params with
   | _, _ ->

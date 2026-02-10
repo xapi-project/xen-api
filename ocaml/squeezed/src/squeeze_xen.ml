@@ -60,8 +60,9 @@ let ( -* ) = Int64.sub
 
 let mib = 1024L
 
-(** Same as xen commandline *)
-let low_mem_emergency_pool = 1L ** mib
+(** Same as xen commandline
+    CA-423173: this is `low_mem_virq_limit` Xen, default 64MiB *)
+let low_mem_emergency_pool = 64L ** mib
 
 (** Return the extra amount we always add onto maxmem *)
 let xen_max_offset_kib domain_type =
@@ -793,7 +794,8 @@ let make_host ~verbose ~xc =
     (fun domain ->
       let domid = domain.Squeeze.domid
       and target_kib = domain.Squeeze.target_kib in
-      if target_kib < Domain.get_maxmem xc domid then
+      if target_kib < Domain.get_maxmem xc domid && domain.Squeeze.can_balloon
+      then
         Domain.set_maxmem_noexn xc domid target_kib
     )
     domains ;
@@ -827,16 +829,14 @@ let execute_action ~xc action =
           "Not setting target for domid: %d since no feature-balloon. Setting \
            maxmem to %Ld"
           domid target_kib
-    ) else (
-      if can_balloon then
-        Domain.set_target_noexn cnx domid target_kib
-      else
-        debug
-          "Not setting target for domid: %d since no feature-balloon. Setting \
-           maxmem to %Ld"
-          domid target_kib ;
+    ) else if can_balloon then begin
+      Domain.set_target_noexn cnx domid target_kib ;
       Domain.set_maxmem_noexn cnx domid target_kib
-    )
+    end else
+      debug
+        "Not setting target for domid: %d since no feature-balloon. Not \
+         setting maxmem to %Ld"
+        domid target_kib
   with e ->
     debug "Failed to reset balloon target (domid: %d) (target: %Ld): %s"
       action.Squeeze.action_domid action.Squeeze.new_target_kib

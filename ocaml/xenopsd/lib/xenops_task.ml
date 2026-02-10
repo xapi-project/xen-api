@@ -106,9 +106,10 @@ let with_tracing ~name ~task f =
         result
       with exn ->
         let backtrace = Printexc.get_raw_backtrace () in
+        Backtrace.is_important exn ;
         let error = (exn, backtrace) in
         let _ : (Span.t option, exn) result = Tracer.finish span ~error in
-        raise exn
+        Printexc.raise_with_backtrace exn backtrace
     )
   | Error e ->
       D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;

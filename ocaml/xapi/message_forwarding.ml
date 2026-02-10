@@ -3795,11 +3795,13 @@ functor
         in
         do_op_on ~local_fn ~__context ~host ~remote_fn
 
-      let disable_external_auth ~__context ~host ~config =
+      let disable_external_auth ~__context ~host ~config ~force =
         info "Host.disable_external_auth: host = '%s'"
           (host_uuid ~__context host) ;
-        let local_fn = Local.Host.disable_external_auth ~host ~config in
-        let remote_fn = Client.Host.disable_external_auth ~host ~config in
+        let local_fn = Local.Host.disable_external_auth ~host ~config ~force in
+        let remote_fn =
+          Client.Host.disable_external_auth ~host ~config ~force
+        in
         do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let install_ca_certificate ~__context ~host ~name ~cert =
