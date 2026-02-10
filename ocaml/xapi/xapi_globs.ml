@@ -1063,8 +1063,6 @@ let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
 
 let winbind_set_machine_account_kerberos_encryption_type = ref false
 
-let winbind_allow_kerberos_auth_fallback = ref false
-
 let winbind_scan_trusted_domains = ref false
 
 let winbind_keep_configuration = ref false
@@ -1662,11 +1660,6 @@ let other_options =
       )
     , "Whether set machine account encryption type \
        (msDS-SupportedEncryptionTypes) on domain controller"
-    )
-  ; ( "winbind_allow_kerberos_auth_fallback"
-    , Arg.Set winbind_allow_kerberos_auth_fallback
-    , (fun () -> string_of_bool !winbind_allow_kerberos_auth_fallback)
-    , "Whether to allow fallback to other auth on kerberos failure"
     )
   ; ( "winbind_scan_trusted_domains"
     , Arg.Set winbind_scan_trusted_domains
