@@ -5,6 +5,7 @@ type sr_info = {
   ; allowed_operations: API.storage_operations_set
   ; capabilities: string list
   ; required_sm_api_version: string
+  ; is_iso: bool
 }
 
 let init_session rpc username password =
