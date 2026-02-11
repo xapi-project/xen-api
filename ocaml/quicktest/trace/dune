@@ -1,0 +1,18 @@
+(library
+  (name quicktest_trace)
+  (modules_without_implementation sampling)
+  (libraries
+    ambient-context
+    fmt
+    logs
+    logs.fmt
+    mtime
+    mtime.clock.os
+    (re_export opentelemetry)
+    (re_export opentelemetry.proto)
+    pbrt
+    ptime
+    threads.posix
+    unix
+    xapi-backtrace
+   ))

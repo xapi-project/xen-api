@@ -336,6 +336,9 @@ module Span = struct
 
   let get_trace_context t = t.context |> SpanContext.context_of_span_context
 
+  let[@inline always] set_trace_context trace_context =
+    trace_context |> TraceContext.traceparent_of |> Debug.set_remote_context
+
   let start ?(attributes = Attributes.empty)
       ?(trace_context : TraceContext.t option) ~name ~parent ~span_kind () =
     let trace_id, extra_context, depth =
@@ -348,6 +351,7 @@ module Span = struct
           , TraceContext.baggage_depth_of span_parent.context.trace_context + 1
           )
     in
+    set_trace_context extra_context ;
     let span_id = Span_id.make () in
     let extra_context_with_depth =
       TraceContext.(
@@ -405,7 +409,15 @@ module Span = struct
   let get_attributes span =
     Attributes.fold (fun k v tags -> (k, v) :: tags) span.attributes []
 
+  let[@inline always] traceparent_of_parent parent =
+    parent |> get_context |> SpanContext.to_traceparent
+
   let finish ?(attributes = Attributes.empty) ~span () =
+    (* Unfold the stack: set parent's traceparent if any.
+       If at top level then remove the trace context.
+       This ensures we don't have a stale trace context set.
+     *)
+    span.parent |> Option.map traceparent_of_parent |> Debug.set_remote_context ;
     let attributes =
       Attributes.union (fun _k a _b -> Some a) attributes span.attributes
     in
