@@ -47,8 +47,9 @@ let create_pool_record ~__context =
       ~client_certificate_auth_enabled:false ~client_certificate_auth_name:""
       ~repository_proxy_url:"" ~repository_proxy_username:""
       ~repository_proxy_password:Ref.null ~migration_compression:false
-      ~coordinator_bias:true ~telemetry_uuid:Ref.null
-      ~telemetry_frequency:`weekly ~telemetry_next_collection:Clock.Date.epoch
+      ~migration_compressor:"stream" ~coordinator_bias:true
+      ~telemetry_uuid:Ref.null ~telemetry_frequency:`weekly
+      ~telemetry_next_collection:Clock.Date.epoch
       ~last_update_sync:Clock.Date.epoch ~update_sync_frequency:`weekly
       ~update_sync_day:0L ~update_sync_enabled:false ~local_auth_max_threads:8L
       ~ext_auth_max_threads:1L ~ext_auth_cache_enabled:false

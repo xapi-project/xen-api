@@ -2176,8 +2176,12 @@ let t =
              the enabled repositories"
         ; field ~qualifier:RW ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "migration_compression"
-            "Default behaviour during migration, True if stream compression \
-             should be used"
+            "Default behaviour during migration, True if migration stream \
+             compression should be used."
+        ; field ~qualifier:RW ~lifecycle:[] ~ty:String
+            ~default_value:(Some (VString "stream")) "migration_compressor"
+            "Compression method when migration steam compression is used. \
+             Currently stream is the only supported value."
         ; field ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool true))
             ~lifecycle:
               [

@@ -308,8 +308,9 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(repositories = []) ?(client_certificate_auth_enabled = false)
     ?(client_certificate_auth_name = "") ?(repository_proxy_url = "")
     ?(repository_proxy_username = "") ?(repository_proxy_password = Ref.null)
-    ?(migration_compression = false) ?(coordinator_bias = true)
-    ?(telemetry_uuid = Ref.null) ?(telemetry_frequency = `weekly)
+    ?(migration_compression = false) ?(migration_compressor = "stream")
+    ?(coordinator_bias = true) ?(telemetry_uuid = Ref.null)
+    ?(telemetry_frequency = `weekly)
     ?(telemetry_next_collection = API.Date.epoch)
     ?(last_update_sync = API.Date.epoch) ?(update_sync_frequency = `daily)
     ?(update_sync_day = 0L) ?(update_sync_enabled = false)
@@ -330,9 +331,9 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~is_psr_pending:false ~tls_verification_enabled:false ~repositories
     ~client_certificate_auth_enabled ~client_certificate_auth_name
     ~repository_proxy_url ~repository_proxy_username ~repository_proxy_password
-    ~migration_compression ~coordinator_bias ~telemetry_uuid
-    ~telemetry_frequency ~telemetry_next_collection ~last_update_sync
-    ~local_auth_max_threads:8L ~ext_auth_max_threads:8L
+    ~migration_compression ~migration_compressor ~coordinator_bias
+    ~telemetry_uuid ~telemetry_frequency ~telemetry_next_collection
+    ~last_update_sync ~local_auth_max_threads:8L ~ext_auth_max_threads:8L
     ~ext_auth_cache_enabled:false ~ext_auth_cache_size:50L
     ~ext_auth_cache_expiry:300L ~update_sync_frequency ~update_sync_day
     ~update_sync_enabled ~recommendations ~license_server

@@ -712,6 +712,10 @@ module XenopsAPI (R : RPC) = struct
           ~description:["when true, use stream compression"]
           Types.bool
       in
+      let compressor =
+        Param.mk ~name:"compressor" ~description:["Compression method"]
+          Types.string
+      in
       let verify_dest =
         Param.mk ~name:"verify_dest"
           ~description:["when true, verify remote server certificate"]
@@ -730,6 +734,7 @@ module XenopsAPI (R : RPC) = struct
         @-> pcimap
         @-> xenops_url
         @-> compress
+        @-> compressor
         @-> verify_dest
         @-> localhost_migration
         @-> returning task_id_p err

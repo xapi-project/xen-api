@@ -1528,7 +1528,7 @@ let resume (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~domain_type
   resume_post ~xc ~xs domid ;
   if domain_type = `hvm then Device.Dm.resume task ~xs ~qemu_domid domid
 
-type suspend_flag = Live | Debug
+type suspend_flag = Live | Debug | Compress
 
 let dm_flags =
   let open Device.Profile in
@@ -1982,7 +1982,15 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xs ~domain_type
         ([], [])
   in
   let cmdline_to_flag flag =
-    match flag with Live -> ["-live"; "true"] | Debug -> ["-debug"; "true"]
+    match flag with
+    | Live ->
+        ["-live"; "true"]
+    | Debug ->
+        ["-debug"; "true"]
+    | Compress ->
+        ["-compress"; "true"]
+    (* xenguest compression; could pass a different argument in the
+       furture to signal version or compression algorithm *)
   in
   let flags' = List.map cmdline_to_flag flags in
   let args =
