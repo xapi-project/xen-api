@@ -886,7 +886,11 @@ let _ =
        again."
     () ;
   error Api_errors.pool_joining_pool_cannot_enable_clustering_on_vlan_network
-    ["vlan"] ~doc:"The remote pool cannot enable clustering on vlan network" () ;
+    ["vlan"]
+    ~doc:
+      "The host attempted to join a pool with clustering enabled on a \
+       non-management VLAN network, which is not supported."
+    () ;
   error Api_errors.pool_joining_host_must_have_only_one_IP_on_clustering_network
     []
     ~doc:
