@@ -256,9 +256,9 @@ let large_data_integrity_tests vdi_op op_name =
 let sr_with_vdi_create_destroy =
   Qt_filter.SR.(all |> allowed_operations [`vdi_create; `vdi_destroy] |> not_iso)
 
-let supported_srs test_case =
+let supported_srs ?(f = Fun.id) test_case =
   let open Qt_filter in
-  test_case |> conn |> sr sr_with_vdi_create_destroy
+  test_case |> conn |> sr (f sr_with_vdi_create_destroy)
 
 (* XXX Currently only GFS2 SRs support sparse reading of VDIs exported as TAR *)
 let supported_gfs2_srs test_case =
@@ -276,7 +276,7 @@ let tests () =
     )
   @ (delta_data_integrity_tests delta_export_import_vhd
        "VDI delta export/import to/from VHD file"
-    |> supported_srs
+    |> supported_srs ~f:Qt_filter.SR.smapiv1
     )
   @ (data_integrity_tests export_import_tar "VDI export/import to/from TAR file"
     |> supported_srs
