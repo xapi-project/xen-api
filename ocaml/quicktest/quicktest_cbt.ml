@@ -73,19 +73,21 @@ let vdi_data_destroy_test rpc session_id sr_info () =
         (VDI.get_type ~session_id ~rpc ~self:snapshot) ;
       assert_cbt_status true ~rpc ~session_id ~vDI:snapshot
         ~msg:"VDI snapshot cbt_enabled field erroneously set to false" ;
+
       (* test_vdi_update ~session_id  snapshot;
          temporarily comment this out as it is blocked on CA-273981
          VDI.update doesn't currently work on cbt-metadata VDIs *)
-      let content_id_str = "/No content: this is a cbt_metadata VDI/" in
-      Alcotest.(check string)
-        (Printf.sprintf
-           "VDI.data_destroy failed to update VDI.content_id to \"%s\""
-           content_id_str
-        )
-        (VDI.get_other_config ~session_id ~rpc ~self:snapshot
-        |> List.assoc "content_id"
-        )
-        content_id_str
+      if Qt_filter.SR.is_smapiv1 sr_info then
+        let content_id_str = "/No content: this is a cbt_metadata VDI/" in
+        Alcotest.(check string)
+          (Printf.sprintf
+             "VDI.data_destroy failed to update VDI.content_id to \"%s\""
+             content_id_str
+          )
+          (VDI.get_other_config ~session_id ~rpc ~self:snapshot
+          |> List.assoc "content_id"
+          )
+          content_id_str
   )
 
 (* Check VDI.{copy, clone} all properly update cbt_enabled
