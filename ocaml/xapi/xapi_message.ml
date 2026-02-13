@@ -746,6 +746,35 @@ let get_record ~__context ~self =
 
 let get_all_records ~__context = get_real message_dir (fun _ -> true) 0.0
 
+let destroy_all ~__context ~filters =
+  let before_opt =
+    Option.map Date.of_iso8601 (List.assoc_opt "before" filters)
+  in
+  let after_opt = Option.map Date.of_iso8601 (List.assoc_opt "after" filters) in
+  let priority_opt =
+    Option.map Int64.of_string (List.assoc_opt "priority" filters)
+  in
+  let filter_timestamp ts =
+    Option.fold ~none:true
+      ~some:(fun before -> Date.is_earlier ts ~than:before)
+      before_opt
+    && Option.fold ~none:true
+         ~some:(fun after -> Date.is_later ts ~than:after)
+         after_opt
+  in
+  let priority_filter p =
+    Option.fold ~none:true ~some:(fun priority -> p = priority) priority_opt
+  in
+  let message_filter msg =
+    filter_timestamp msg.API.message_timestamp
+    && priority_filter msg.API.message_priority
+  in
+  let messages =
+    get_real_inner message_dir message_filter (fun _ -> true)
+    |> List.map (fun (_, msg, _) -> msg)
+  in
+  destroy_many ~__context ~messages
+
 let get_all_records_where ~__context ~expr =
   let open Xapi_database in
   let expr = Db_filter.expr_of_string expr in
