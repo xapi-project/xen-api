@@ -526,3 +526,110 @@ let return_302_redirect (req : Http.Request.t) s address =
   let headers = Http.http_302_redirect url in
   debug "HTTP 302 redirect to: %s" url ;
   Http_svr.headers s headers
+
+module type Visitor = sig
+  type path = Field of string | Entry of path * string | Index of path * int
+
+  val show_path : path -> string
+
+  val visit_references :
+    (path -> Ref.without_secret Ref.t -> unit) -> string -> Rpc.t -> unit
+end
+
+module Diagnostic : Visitor = struct
+  module DT = Datamodel_types
+
+  let is_referential =
+    let rec go : DT.ty -> bool = function
+      | Ref _ ->
+          true
+      | Set ty | Option ty ->
+          go ty
+      | Map (l, r) ->
+          go l || go r
+      | _ ->
+          false
+    in
+    go
+
+  (* Collapse namespaced fields into the names and types that are
+     stored in a snapshot. *)
+  let collapse_namespace =
+    let rec go prefix = function
+      | DT.Field f ->
+          let prefix = f.field_name :: prefix in
+          let name = String.concat "_" (List.rev prefix) in
+          [(name, f.ty)]
+      | Namespace (p, cs) ->
+          List.concat_map (go (p :: prefix)) cs
+    in
+    go []
+
+  let fields_of clazz =
+    let all = Datamodel.all_system in
+    match List.find_opt (fun o -> o.DT.name = clazz) all with
+    | Some obj ->
+        obj.contents |> List.concat_map collapse_namespace
+    | _ ->
+        []
+
+  type path = Field of string | Entry of path * string | Index of path * int
+
+  let rec show_path = function
+    | Field f ->
+        f
+    | Entry (p, k) ->
+        Printf.sprintf {|%s["%s"]|} (show_path p) k
+    | Index (p, i) ->
+        Printf.sprintf "%s[%d]" (show_path p) i
+
+  let visit f =
+    let rec go path (ty : DT.ty) (obj : Rpc.t) =
+      match ty with
+      | Ref _ -> (
+        match obj with
+        | String s ->
+            let r = Ref.of_string s in
+            f path r
+        | _ ->
+            ()
+      )
+      | Set ty -> (
+        match obj with
+        | Enum es ->
+            List.iteri (fun i -> go (Index (path, i)) ty) es
+        | _ ->
+            ()
+      )
+      | Map (_, r) -> (
+        match obj with
+        | Dict es ->
+            List.iter (fun (k, v) -> go (Entry (path, k)) r v) es
+        | _ ->
+            ()
+      )
+      | _ ->
+          ()
+    in
+    go
+
+  let visit_references f (clazz : string) (snapshot : Rpc.t) =
+    (* Precompute a map of each of the snapshot record's fields. *)
+    let get_entry =
+      let tbl = Hashtbl.create 32 in
+      ( match snapshot with
+      | Dict es ->
+          List.iter (fun (k, v) -> Hashtbl.replace tbl k v) es
+      | _ ->
+          ()
+      ) ;
+      Hashtbl.find_opt tbl
+    in
+    let visit_field (n, ty) =
+      (* If a field's type is designed to store references, visit the
+         related snapshot entry. *)
+      if is_referential ty then get_entry n |> Option.iter (visit f (Field n) ty)
+    in
+    let fields = fields_of clazz in
+    List.iter visit_field fields
+end

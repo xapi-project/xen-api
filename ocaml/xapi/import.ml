@@ -2108,6 +2108,28 @@ let update_snapshot_and_parent_links ~__context state =
   in
   List.iter aux state.table
 
+let check_references ~__context (table : table) =
+  let is_export_reference r =
+    r <> Ref.null && String.starts_with ~prefix:"Ref:" (Ref.string_of r)
+  in
+  let get_snapshot ~clazz ~r =
+    Eventgen.find_get_record clazz ~__context ~self:r ()
+  in
+  let check_reference path r =
+    if is_export_reference r then
+      debug "External reference not updated during import: %s: %s"
+        (Diagnostic.show_path path)
+        (Ref.string_of r)
+  in
+  let rec go (clazz, _, r) =
+    match get_snapshot ~clazz ~r with
+    | Some record ->
+        Diagnostic.visit_references check_reference clazz record
+    | _ ->
+        debug "Could not find imported object %s" r
+  in
+  List.iter go table
+
 (** Take a list of objects, lookup the handlers by class name and 'handle' them *)
 let handle_all __context config rpc session_id (xs : obj list) =
   let state = initial_state xs in
@@ -2127,7 +2149,10 @@ let handle_all __context config rpc session_id (xs : obj list) =
       | _ ->
           false
     in
-    if not dry_run then update_snapshot_and_parent_links ~__context state ;
+    if not dry_run then (
+      update_snapshot_and_parent_links ~__context state ;
+      check_references ~__context state.table
+    ) ;
     state
   with e ->
     Backtrace.is_important e ;
