@@ -81,8 +81,6 @@ let vm_suspend_timeout = ref 1200.
 
 let vm_suspend_ack_timeout = ref 30.
 
-let linux_assume_ctrl_features = ref false
-
 let oxenstored_conf = ref "/etc/xen/oxenstored.conf"
 
 let for_each_line path f =
@@ -325,13 +323,6 @@ let options =
     , Arg.Bool (fun x -> Xenops_server.xenopsd_vbd_plug_unplug_legacy := x)
     , (fun () -> string_of_bool !Xenops_server.xenopsd_vbd_plug_unplug_legacy)
     , "False if we want to split the plug atomic into attach/activate"
-    )
-  ; ( "linux-assume-control-features"
-    , Arg.Bool (fun b -> linux_assume_ctrl_features := b)
-    , (fun () -> string_of_bool !linux_assume_ctrl_features)
-    , "To support old Linux guest kernels, assume the kernel supports certain \
-       control features without announcing them. Linux kernels 4.9 and later \
-       announce support in xenstore."
     )
   ; ( "vm-suspend-timeout"
     , Arg.Set_float vm_suspend_timeout
