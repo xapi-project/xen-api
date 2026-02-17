@@ -1,0 +1,135 @@
+name: Create release from tag
+
+permissions: {}
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-python:
+    name: Build and upload Python artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install build dependencies
+        run: pip install build
+
+      - name: Generate python package for XenAPI
+        run: |
+          echo "export XAPI_VERSION=${{ github.ref_name }}" > config.mk
+          make python
+
+      - name: Store python distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: XenAPI
+          path: python3/examples/dist/
+
+  build-sdks:
+    name: Build and upload SDK artifacts
+    uses: ./.github/workflows/generate-and-build-sdks.yml
+    permissions:
+      contents: read
+    with:
+      xapi_version: ${{ github.ref_name }}
+
+  release:
+    permissions:
+      contents: write # allow creating a release
+
+    name: "Create and package release"
+    runs-on: ubuntu-latest
+    needs: [build-python, build-sdks]
+    steps:
+      - name: Retrieve Go SDK distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Artifacts_Go
+          path: sdk_go/
+
+      - name: Retrieve Python SDK distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: XenAPI
+          path: dist/
+
+      - name: Retrieve C SDK distribution binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Artifacts_C
+          path: libxenserver/usr/local/
+
+      - name: Retrieve Java SDK distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Artifacts_Java
+          path: dist/
+
+      - name: Retrieve C# SDK distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Binaries_CSharp
+          path: dist/
+
+      - name: Retrieve PowerShell 7.x SDK distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Binaries_XenServerPowerShell_NET8
+          path: sdk_powershell_7x/
+
+      - name: Package C SDK artifacts for deployment
+        shell: bash
+        run: |
+          mkdir -p libxenserver/usr/local/lib
+          mv libxenserver/usr/local/libxenserver.* libxenserver/usr/local/lib/
+          tar -zcvf libxenserver-prerelease.tar.gz -C ./libxenserver usr/local/lib/ usr/local/include/xen/api
+          rm -rf libxenserver/usr/local/lib/
+          tar -zcvf libxenserver-prerelease.src.tar.gz -C ./libxenserver/usr/local .
+
+      - name: Zip PowerShell 7.x SDK artifacts for deployment
+        shell: bash
+        run: zip PowerShell-SDK-7.x-prerelease-unsigned.zip ./sdk_powershell_7x -r
+
+      - name: Zip Go SDK artifacts for deployment
+        shell: bash
+        run: zip Go-SDK-prerelease-unsigned.zip ./sdk_go -r
+
+      - name: Create release ${{ github.ref_name }}
+        shell: bash
+        run: |
+          gh release create ${{ github.ref_name }} --repo ${{ github.repository }} --generate-notes dist/* \
+          PowerShell-SDK-7.x-prerelease-unsigned.zip \
+          Go-SDK-prerelease-unsigned.zip \
+          libxenserver-prerelease.tar.gz libxenserver-prerelease.src.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-pypi:
+    name: Publish Python release to PyPI
+    runs-on: ubuntu-latest
+    needs: release
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Retrieve python distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: XenAPI
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
