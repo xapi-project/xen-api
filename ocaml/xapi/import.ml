@@ -2103,37 +2103,27 @@ let update_vdi_links ~__context state =
   in
   List.iter go state.table
 
+(* Same as [update_vdi_links] but over VMs instead. *)
 let update_vm_links ~__context state =
-  let aux (cls, _, ref) =
-    let ref = Ref.of_string ref in
-    ( if
-        cls = Datamodel_common._vm
-        && Db.VM.get_is_a_snapshot ~__context ~self:ref
-      then
-        let snapshot_of = Db.VM.get_snapshot_of ~__context ~self:ref in
-        if snapshot_of <> Ref.null then (
-          debug "lookup for snapshot_of = '%s'" (Ref.string_of snapshot_of) ;
-          log_reraise
-            ("Failed to find the VM which is snapshot of "
-            ^ Db.VM.get_name_label ~__context ~self:ref
-            )
-            (fun table ->
-              let snapshot_of = (lookup snapshot_of) table in
-              Db.VM.set_snapshot_of ~__context ~self:ref ~value:snapshot_of
-            )
-            state.table
-        )
-    ) ;
-    if cls = Datamodel_common._vm then (
-      let parent = Db.VM.get_parent ~__context ~self:ref in
-      debug "lookup for parent = '%s'" (Ref.string_of parent) ;
-      try
-        let parent = lookup parent state.table in
-        Db.VM.set_parent ~__context ~self:ref ~value:parent
-      with _ -> debug "no parent found"
-    )
+  let resolve_import =
+    let tbl = Hashtbl.create 16 in
+    let go (_, a, b) = Hashtbl.replace tbl a (Ref.of_string b) in
+    List.iter go state.table ;
+    fun r ->
+      Hashtbl.find_opt tbl (Ref.string_of r) |> Option.value ~default:Ref.null
   in
-  List.iter aux state.table
+  let update x =
+    let x_r = Db.VM.get_record ~__context ~self:x in
+    let parent = resolve_import x_r.API.vM_parent in
+    let snapshot_of = resolve_import x_r.API.vM_snapshot_of in
+    Db.VM.set_parent ~__context ~self:x ~value:parent ;
+    Db.VM.set_snapshot_of ~__context ~self:x ~value:snapshot_of ;
+    Db.VM.set_is_a_snapshot ~__context ~self:x ~value:(snapshot_of <> Ref.null)
+  in
+  let go (cls, _, r) =
+    if cls = Datamodel_common._vm then update (Ref.of_string r)
+  in
+  List.iter go state.table
 
 let check_references ~__context (table : table) =
   let is_export_reference r =
