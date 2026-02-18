@@ -4806,55 +4806,62 @@ let vm_migrate printer rpc session_id params =
             (read_map_params "vgpu" params)
         in
         let preferred_sr =
-          (* The preferred SR is determined to be as the SR that the destine host has a PDB attached to it,
-             and among the choices of that the shared is preferred first(as it is recommended to have shared storage
-             in pool to host VMs), and then the one with the maximum available space *)
+          (* The preferred SR is determined to be as the SR that the destine
+             host has a PDB attached to it, and among the choices of that the
+             shared is preferred first(as it is recommended to have shared
+             storage in pool to host VMs), and then the one with the maximum
+             available space *)
           try
-            let expr =
-              Printf.sprintf
-                {|(field "host"="%s") and (field "currently_attached"="true")|}
-                (Ref.string_of host)
+            let host_attached_pbds =
+              let expr =
+                Printf.sprintf
+                  {|(field "host"="%s") and (field "currently_attached"="true")|}
+                  (Ref.string_of host)
+              in
+              remote Client.PBD.get_all_records_where ~expr
             in
-            let srs =
-              remote Client.PBD.get_all_where ~expr
-              |> List.map (fun pbd ->
-                  let sr = remote Client.PBD.get_SR ~self:pbd in
-                  (sr, remote Client.SR.get_record ~self:sr)
+            let shared_non_iso_srs =
+              let expr =
+                {|(field "sr_content_type"<>"iso") and (field "shared"="true")|}
+              in
+              remote Client.SR.get_all_where ~expr
+            in
+            let local_non_iso_srs =
+              let expr =
+                {|(field "sr_content_type"<>"iso") and (field "shared"="false")|}
+              in
+              remote Client.SR.get_all_where ~expr
+            in
+            let get_free_space_of non_iso_srs =
+              host_attached_pbds
+              |> List.filter_map (fun (_, pbd_rec) ->
+                  let sr = pbd_rec.API.pBD_SR in
+                  if List.mem sr non_iso_srs then
+                    let size = remote Client.SR.get_physical_size ~self:sr in
+                    let used =
+                      remote Client.SR.get_physical_utilisation ~self:sr
+                    in
+                    Some (sr, Int64.sub size used)
+                  else
+                    None
               )
             in
-            (* In the following loop, the current SR:sr' will be compared with previous checked ones,
-               first if it is an ISO type, then pass this one for selection, then the only shared one from this and
-               previous one will be valued, and if not that case (both shared or none shared), choose the one with
-               more space available *)
-            let sr, _ =
-              List.fold_left
-                (fun (sr, free_space) ((_, sr_rec') as sr') ->
-                  if sr_rec'.API.sR_content_type = "iso" then
-                    (sr, free_space)
-                  else
-                    let free_space' =
-                      Int64.sub sr_rec'.API.sR_physical_size
-                        sr_rec'.API.sR_physical_utilisation
-                    in
-                    match sr with
-                    | None ->
-                        (Some sr', free_space')
-                    | Some ((_, sr_rec) as sr) -> (
-                      match (sr_rec.API.sR_shared, sr_rec'.API.sR_shared) with
-                      | true, false ->
-                          (Some sr, free_space)
-                      | false, true ->
-                          (Some sr', free_space')
-                      | _ ->
-                          if free_space' > free_space then
-                            (Some sr', free_space')
-                          else
-                            (Some sr, free_space)
-                    )
-                )
-                (None, Int64.zero) srs
+            let find_most_free_space srs =
+              match
+                List.fast_sort
+                  (fun (_, a) (_, b) -> Int64.compare b a)
+                  (get_free_space_of srs)
+              with
+              | (sr, _) :: _ ->
+                  Some sr
+              | [] ->
+                  None
             in
-            match sr with Some (sr_ref, _) -> Some sr_ref | _ -> None
+            match find_most_free_space shared_non_iso_srs with
+            | Some sr ->
+                Some sr
+            | None ->
+                find_most_free_space local_non_iso_srs
           with _ -> None
         in
         let vdi_map =
