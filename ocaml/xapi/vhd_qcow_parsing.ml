@@ -44,7 +44,7 @@ let run_tool tool ?(replace_fds = []) ?input_fd ?output_fd
       error "%s output: %s" tool out ;
       raise (Api_errors.Server_error (Api_errors.vdi_io_error, [out]))
 
-let parse_header pipe_reader =
+let parse_header_aux pipe_reader =
   let ic = Unix.in_channel_of_descr pipe_reader in
   let buf = Buffer.create 4096 in
   let json = Yojson.Basic.from_channel ~buf ~fname:"header.json" ic in
@@ -52,7 +52,28 @@ let parse_header pipe_reader =
   let cluster_size =
     1 lsl Yojson.Basic.Util.(member "cluster_bits" json |> to_int)
   in
+  (cluster_size, json)
+
+let parse_header pipe_reader =
+  let cluster_size, json = parse_header_aux pipe_reader in
   let cluster_list =
     Yojson.Basic.Util.(member "data_clusters" json |> to_list |> List.map to_int)
+  in
+  (cluster_size, cluster_list)
+
+let parse_header_interval pipe_reader =
+  let cluster_size, json = parse_header_aux pipe_reader in
+  let cluster_list =
+    Yojson.Basic.Util.(
+      member "data_clusters" json
+      |> to_list
+      |> List.map (fun x ->
+          match to_list x with
+          | x :: y :: _ ->
+              (to_int x, to_int y)
+          | _ ->
+              raise (Invalid_argument "Invalid JSON")
+      )
+    )
   in
   (cluster_size, cluster_list)
