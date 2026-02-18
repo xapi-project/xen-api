@@ -116,9 +116,14 @@ let receive progress_cb format protocol (s : Unix.file_descr)
   in
   run_vhd_tool progress_cb args s s' path
 
-let read_vhd_header path =
+let read_vhd_header path ~legacy =
   let vhd_tool = !Xapi_globs.vhd_tool in
-  let args = ["read_headers"; path] in
+  let args =
+    if legacy then
+      ["read_headers"; path]
+    else
+      ["read_headers_interval"; path]
+  in
   let pipe_reader, pipe_writer = Unix.pipe ~cloexec:true () in
 
   let progress_cb _ = () in
@@ -130,8 +135,12 @@ let read_vhd_header path =
   pipe_reader
 
 let parse_header vhd_path =
-  let pipe_reader = read_vhd_header vhd_path in
+  let pipe_reader = read_vhd_header vhd_path ~legacy:true in
   Vhd_qcow_parsing.parse_header pipe_reader
+
+let parse_header_interval vhd_path =
+  let pipe_reader = read_vhd_header vhd_path ~legacy:false in
+  Vhd_qcow_parsing.parse_header_interval pipe_reader
 
 let send progress_cb ?relative_to (protocol : string) (dest_format : string)
     (s : Unix.file_descr) (path : string) (size : Int64.t) (prefix : string) =

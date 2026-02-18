@@ -39,6 +39,10 @@ let parse_header qcow_path =
   let pipe_reader = read_header qcow_path in
   Vhd_qcow_parsing.parse_header pipe_reader
 
+let parse_header_interval qcow_path =
+  let pipe_reader = read_header qcow_path in
+  Vhd_qcow_parsing.parse_header_interval pipe_reader
+
 let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
     (path : string) (_size : Int64.t) =
   let qcow_of_device =
