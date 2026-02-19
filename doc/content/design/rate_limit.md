@@ -21,21 +21,18 @@ lock out XenCenter or break CVAD use cases.
 
 Part of the problem is that xapi and xenopsd are not very good at handling
 load, in particular in a pool where the coordinator is often a bottleneck. A
-lot of work has already been done in the Apollo team to make the Toolstack cope
-better under load. This is important and a lot more can be done in this space.
+lot of work has already been done make the Toolstack cope better under load.
+This is important and a lot more can be done in this space.
 
 However, even a very efficient Toolstack can be overloaded by a particularly
 determined client, unless the client is deliberate slowed down in some way.
 Hence, a way of throttling clients is needed in addition to performance
 improvements, as a complimentary approach.
 
-Last year, the Apollo team worked on an approach to throttling by assigning
-weights or priorities to threads running in xapi for particular API calls.
-Since then, the team has been diverted to other topics. We should review where
-we got to with this approach, but one thing that I was missing was a clear way
-of identifying and posing constraints on clients. For example, as an admin, I
-want to configure XS to give XC unlimited access, but explicitly limit how much
-Monitoring App X can do.
+Last year, thread prioritisation was tried. This could be revisited, but we
+also need an approach that allows us to pose hard constraints on clients. For
+example, as an admin, I want to configure XS to give XC unlimited access, but
+explicitly limit how much Monitoring App X can do.
 
 The proposal here is to do a simpler kind of per-client rate limiting at the
 API level.
@@ -43,7 +40,7 @@ API level.
 ## Approach
 
 ### Rate limiting
-The idea is to use a Token Bucket algorithm, where each client gets its own
+The idea is to use a [Token Bucket algorithm](https://en.wikipedia.org/wiki/Token_bucket), where each client gets its own
 Token Bucket with specific parameters to rate limit its requests. The Token
 Bucket algorithm has two basic parameters:
 
@@ -52,14 +49,16 @@ The **capacity**: the maximum number of tokens that fit in the bucket.
 The **fill rate**: the number of tokens per second that get added to the bucket (up
 to its capacity).
 
-Requests may differ in the number of tokens that they require to be served. For
-example, a simple DB call like VM.get_power_state may cost 1 token, while a
-VM.start call may cost 100 tokens.
+Serving requests consumes tokens for the bucket - the token cost will be
+proportional to the amount of work that the request requires. For example, a
+simple DB call like VM.get_power_state may cost 1 token, while a VM.start call
+may cost 100 tokens.
 
 The basic principle is that for a client to get a request accepted, it needs to
 have enough tokens in the bucket. If there are not enough tokens, then the
-request will be queued until there are enough. When a request is accepted, its
-required number of tokens is taken out of the bucket.
+request will be queued until there are enough - the bucket is constantly
+refilled, so all requests eventually get served. When a request is accepted, its
+required number of tokens are taken out of the bucket.
 
 Therefore, the bucket’s **fill rate** determines the **long-term average** rate at
 which requests are served. For example, if the rate is 1 token/second, then on
