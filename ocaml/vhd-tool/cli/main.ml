@@ -385,17 +385,32 @@ let stream_cmd =
   , Cmd.info "stream" ~sdocs:_common_options ~doc ~man
   )
 
+let vhd_source =
+  let doc = Printf.sprintf "Path to the VHD file" in
+  Arg.(required & pos 0 (some file) None & info [] ~doc)
+
 let read_headers_cmd =
   let doc =
     {|Parse VHD headers and output allocated blocks information in JSON format \
      like: {"virtual_size": X, "cluster_bits": X, "data_clusters": [1,2,3]}|}
   in
-  let source =
-    let doc = Printf.sprintf "Path to the VHD file" in
-    Arg.(required & pos 0 (some file) None & info [] ~doc)
-  in
-  ( Term.(ret (const Impl.read_headers $ common_options_t $ source))
+  ( Term.(
+      ret
+        (const (Impl.read_headers ~legacy:true) $ common_options_t $ vhd_source)
+    )
   , Cmd.info "read_headers" ~sdocs:_common_options ~doc
+  )
+
+let read_headers_interval_cmd =
+  let doc =
+    {|Parse VHD headers and output allocated blocks intervals information in JSON format \
+     like: {"virtual_size": X, "cluster_bits": X, "data_clusters": [[1,13],[17,17],[19,272]]|}
+  in
+  ( Term.(
+      ret
+        (const (Impl.read_headers ~legacy:false) $ common_options_t $ vhd_source)
+    )
+  , Cmd.info "read_headers_interval" ~sdocs:_common_options ~doc
   )
 
 let cmds =
@@ -408,6 +423,7 @@ let cmds =
   ; serve_cmd
   ; stream_cmd
   ; read_headers_cmd
+  ; read_headers_interval_cmd
   ]
   |> List.map (fun (t, i) -> Cmd.v i t)
 
