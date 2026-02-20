@@ -1483,6 +1483,13 @@ let pool_record rpc session_id pool =
               ~value:(bool_of_string x)
           )
           ()
+      ; make_field ~name:"migration-compressor"
+          ~get:(fun () -> (x ()).API.pool_migration_compressor)
+          ~set:(fun value ->
+            Client.Pool.set_migration_compressor ~rpc ~session_id ~self:pool
+              ~value
+          )
+          ()
       ; make_field ~name:"coordinator-bias"
           ~get:(fun () -> (x ()).API.pool_coordinator_bias |> string_of_bool)
           ~set:(fun x ->

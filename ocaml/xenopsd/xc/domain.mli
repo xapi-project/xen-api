@@ -270,7 +270,7 @@ val restore :
   -> unit
 (** Restore a domain using the info provided *)
 
-type suspend_flag = Live | Debug
+type suspend_flag = Live | Debug | Compress (* xenguest compression *)
 
 val suspend :
      Xenops_task.Xenops_task.task_handle

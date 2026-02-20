@@ -1,5 +1,5 @@
 (*
- * Copyright (C) Citrix Systems Inc.
+ a Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -319,6 +319,7 @@ type vm_migrate_op = {
   ; vmm_tmp_src_id: Vm.id
   ; vmm_tmp_dest_id: Vm.id
   ; vmm_compress: bool
+  ; vmm_compressor: string
   ; vmm_verify_dest: bool
   ; vmm_localhost_migration: bool
 }
@@ -2774,7 +2775,11 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
       let vm = VM_DB.read_exn id in
       let dbg = (Xenops_task.to_interface_task t).Task.dbg in
       let url = Uri.of_string vmm.vmm_url in
-      let compress_memory = vmm.vmm_compress in
+      (* signal that that we use compression only if are using the
+         "stream" compression method; the xenguest compressor method
+         does not require setting up a pipeline *)
+      let compress_memory = vmm.vmm_compress && vmm.vmm_compressor = "stream" in
+      let compress_xg = vmm.vmm_compress && vmm.vmm_compressor <> "stream" in
       let compress =
         match compress_memory with
         | true ->
@@ -2955,12 +2960,22 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
                 debug "VM.migrate: Synchronisation point 1-mem" ;
                 Handshake.send vm_fd Handshake.Success ;
                 debug "VM.migrate: Synchronisation point 1-mem ACK" ;
-
+                let flags =
+                  List.concat
+                    [
+                      [Live]
+                    ; ( if compress_xg then
+                          [Compress]
+                        else
+                          []
+                      )
+                    ]
+                in
                 compress mem_fd @@ fun mem_fd ->
                 compress_vgpu vgpu_fd @@ fun vgpu_fd ->
                 perform_atomics
                   [
-                    VM_save (id, [Live], FD mem_fd, vgpu_fd)
+                    VM_save (id, flags, FD mem_fd, vgpu_fd)
                   ; VM_rename (id, new_src_id, Pre_migration)
                   ]
                   t ;
@@ -3887,7 +3902,8 @@ module VM = struct
   let s3resume _ dbg id = queue_operation dbg id (Atomic (VM_s3resume id))
 
   let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url
-      (compress : bool) (verify_dest : bool) (localhost_migration : bool) =
+      (compress : bool) (compressor : string) (verify_dest : bool)
+      (localhost_migration : bool) =
     let tmp_uuid_of uuid ~kind =
       Printf.sprintf "%s00000000000%c" (String.sub uuid 0 24)
         (match kind with `dest -> '1' | `src -> '0')
@@ -3903,6 +3919,7 @@ module VM = struct
          ; vmm_tmp_src_id= tmp_uuid_of id ~kind:`src
          ; vmm_tmp_dest_id= tmp_uuid_of id ~kind:`dest
          ; vmm_compress= compress
+         ; vmm_compressor= compressor
          ; vmm_verify_dest= verify_dest
          ; vmm_localhost_migration= localhost_migration
          }

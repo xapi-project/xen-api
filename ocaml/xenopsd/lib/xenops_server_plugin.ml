@@ -45,9 +45,9 @@ type data = Disk of disk | FD of Unix.file_descr [@@deriving rpcty]
 
 let string_of_data x = x |> rpc_of data |> Jsonrpc.to_string
 
-type flag = Live [@@deriving rpcty]
+type flag = Live | Compress [@@deriving rpcty]
 
-let string_of_flag = function Live -> "Live"
+let string_of_flag = function Live -> "Live" | Compress -> "Compress"
 
 type progress_cb = float -> unit
 

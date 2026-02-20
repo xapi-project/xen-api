@@ -78,21 +78,25 @@ let get_bool_option key values =
   | None ->
       None
 
-(** Decide whether to use stream compression during migration based on
-options passed to the API, localhost, and destination *)
+(** Decide whether to use compression during migration based on
+options passed to the API, localhost, and destination. The compression
+method is decided by Pool.migration_compressor *)
 let use_compression ~__context options src dst =
-  debug "%s: options=%s" __FUNCTION__
+  let pool = Helpers.get_pool ~__context in
+  let compressor = Db.Pool.get_migration_compressor ~__context ~self:pool in
+  debug "%s: compressor=%s options=%s" __FUNCTION__ compressor
     (String.concat ", "
        (List.map (fun (k, v) -> Printf.sprintf "%s:%s" k v) options)
     ) ;
   match (get_bool_option "compress" options, src = dst) with
   | Some b, _ ->
-      b (* honour any option given *)
+      (b, compressor (* honour any option given *))
   | None, true ->
-      false (* don't use for local migration *)
+      (false, compressor (* don't use for local migration *))
   | None, _ ->
+      (* use pool default *)
       let pool = Helpers.get_pool ~__context in
-      Db.Pool.get_migration_compression ~__context ~self:pool
+      (Db.Pool.get_migration_compression ~__context ~self:pool, compressor)
 
 let remote_of_dest ~__context dest =
   let maybe_set_https url =
@@ -246,7 +250,7 @@ let assert_licensed_storage_motion ~__context =
 
 let rec migrate_with_retries ~__context ~queue_name ~max ~try_no ~dbg:_ ~vm_uuid
     ~xenops_vdi_map ~xenops_vif_map ~xenops_vgpu_map ~xenops_url ~compress
-    ~verify_cert ~localhost_migration =
+    ~compressor ~verify_cert ~localhost_migration =
   let open Xapi_xenops_queue in
   let module Client = (val make_client queue_name : XENOPS) in
   let dbg = Context.string_of_task_and_tracing __context in
@@ -256,7 +260,8 @@ let rec migrate_with_retries ~__context ~queue_name ~max ~try_no ~dbg:_ ~vm_uuid
     progress := "Client.VM.migrate" ;
     let t1 =
       Client.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map
-        xenops_vgpu_map xenops_url compress verify_dest localhost_migration
+        xenops_vgpu_map xenops_url compress compressor verify_dest
+        localhost_migration
     in
     progress := "sync_with_task" ;
     ignore (Xapi_xenops.sync_with_task __context queue_name t1)
@@ -283,7 +288,7 @@ let rec migrate_with_retries ~__context ~queue_name ~max ~try_no ~dbg:_ ~vm_uuid
           (Printexc.to_string e) !progress try_no max ;
         migrate_with_retries ~__context ~queue_name ~max ~try_no:(try_no + 1)
           ~dbg ~vm_uuid ~xenops_vdi_map ~xenops_vif_map ~xenops_vgpu_map
-          ~xenops_url ~compress ~verify_cert ~localhost_migration
+          ~xenops_url ~compress ~compressor ~verify_cert ~localhost_migration
     (* Something else went wrong *)
     | e ->
         debug
@@ -393,7 +398,9 @@ let pool_migrate ~__context ~vm ~host ~options =
         .assert_valid_ip_configuration_on_network_for_host ~__context
           ~self:network ~host
   in
-  let compress = use_compression ~__context options localhost host in
+  let compress, compressor =
+    use_compression ~__context options localhost host
+  in
   debug "%s using stream compression=%b" __FUNCTION__ compress ;
   let http =
     if !Xapi_globs.migration_https_only && host <> localhost then
@@ -433,7 +440,8 @@ let pool_migrate ~__context ~vm ~host ~options =
                 let verify_cert = Stunnel_client.pool () in
                 migrate_with_retry ~__context ~queue_name ~dbg ~vm_uuid
                   ~xenops_vdi_map:[] ~xenops_vif_map:[] ~xenops_vgpu_map
-                  ~xenops_url ~compress ~verify_cert ~localhost_migration ;
+                  ~xenops_url ~compress ~compressor ~verify_cert
+                  ~localhost_migration ;
                 (* Delete all record of this VM locally (including caches) *)
                 Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid
             )
@@ -1237,7 +1245,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
     try bool_of_string (List.assoc "force" options) with _ -> false
   in
   let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
-  let compress =
+  let compress, compressor =
     use_compression ~__context options localhost remote.dest_host
   in
   debug "%s using stream compression=%b" __FUNCTION__ compress ;
@@ -1650,7 +1658,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
               let dbg = Context.string_of_task __context in
               migrate_with_retry ~__context ~queue_name ~dbg ~vm_uuid
                 ~xenops_vdi_map ~xenops_vif_map ~xenops_vgpu_map
-                ~xenops_url:remote.xenops_url ~compress ~verify_cert
+                ~xenops_url:remote.xenops_url ~compress ~compressor ~verify_cert
                 ~localhost_migration:is_same_host ;
               Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid
           )
