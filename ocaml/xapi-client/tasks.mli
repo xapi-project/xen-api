@@ -43,6 +43,18 @@ val wait_for_all_with_callback :
     and return an empty list.
     *)
 
+val wait_for_all_with_progress :
+     rpc:(Rpc.call -> Rpc.response)
+  -> session_id:API.ref_session
+  -> tasks:API.ref_task list
+  -> callback:(int -> API.ref_task -> API.ref_task list)
+  -> on_progress:(API.ref_task -> int -> float -> unit)
+  -> unit
+(** [wait_for_all_with_progress ~rpc ~session_id ~tasks ~callback ~on_progress]
+  is like {!val:wait_for_all_with_callback}, but also invokes [on_progress]
+  with the per-task progress every time there is an event on the task.
+*)
+
 val with_tasks_destroy :
      rpc:(Rpc.call -> Rpc.response)
   -> session_id:API.ref_session

@@ -29,6 +29,9 @@ val with_thread_associated :
 val with_thread_named : string -> ('a -> 'b) -> 'a -> 'b
 (** Do an action with a name associated with the current thread *)
 
+val set_remote_context : string option -> unit
+(** [set_remote_context context] sets the remote context, will be logged as the 2nd field *)
+
 module type BRAND = sig val name : string end
 
 val gettimestring : unit -> string
