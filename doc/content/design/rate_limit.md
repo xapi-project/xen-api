@@ -177,9 +177,15 @@ and returns a boolean for whether the consume was successful, and the other
 blocks until the tokens have been consumed.
 
 ### Rate limit queue
-Token buckets on their own are sufficient for basic rate limiting, but they
-have a fairness problem. To alleviate this, we keep rate limited requests in a
-queue which get processed as the token bucket is refilled over time:
+A token bucket enforces an overall request rate but provides no guarantees
+about ordering or fairness under contention. When multiple callers compete for
+tokens, whichever thread or process happens to run first can repeatedly consume
+newly refilled tokens, while others may be delayed indefinitely. Under sustained
+load, this can lead to starvation for less aggressively scheduled or slower
+clients.
+
+To alleviate this, we keep rate limited requests in a queue which get processed
+as the token bucket is refilled over time:
 
 ```ocaml
 type t = {
