@@ -28,9 +28,9 @@ tried to shut down 20 VMs and this took 2 hours!”) and general system
 instability and unavailability.
 
 In some cases, there is a mix of “well behaved” clients and others that are
-either misconfigured or make improper use of the API, hammering the XS pool and
-breaking use of the the good guys. For example, a dodgy monitoring service may
-lock out XenCenter or break CVAD use cases.
+either misconfigured or make improper use of the API, hammering the pool and
+breaking use of the good guys. For example, a dodgy monitoring service may
+lock out the control software, or slow down VM lifecycle operations.
 
 Part of the problem is that xapi and xenopsd are not very good at handling
 load, in particular in a pool where the coordinator is often a bottleneck. A
@@ -44,11 +44,15 @@ improvements, as a complimentary approach.
 
 Last year, thread prioritisation was tried. This could be revisited, but we
 also need an approach that allows us to pose hard constraints on clients. For
-example, as an admin, I want to configure XS to give XC unlimited access, but
-explicitly limit how much Monitoring App X can do.
+example, as an admin, I want to configure xapi to give my control panel
+unlimited access, but explicitly limit how much Monitoring App X can do.
 
 The proposal here is to do a simpler kind of per-client rate limiting at the
-API level.
+API level. The objective is to introduce a simple mechanism to slow down
+individual clients which are overloading the system. This design intentionally
+enforces rate limits on a per-client basis rather than capping total system
+throughput. System-wide admission control or global load shedding is explicitly
+out of scope and would require separate mechanisms.
 
 ## Approach
 
@@ -97,7 +101,7 @@ related callers together and assign them labels.
 
 The caller classification allows wildcards for any field, though we require
 that at least one field be specified. This lets us, for example, combine all
-accesses from XenCenter by only specifying the originator field,
+accesses from the xapi python API by specifying the user-agent .
 
 In order to assist with rate limiting, we can store statistics about callers:
 - Last request timestamp
@@ -132,10 +136,10 @@ and set them to 0 when a rate limit is not being applied --- I don't like this
 coupling, but it would simplify the interface.
 
 ## XAPI integration
-Calls into Xapi are intercepted at two points:
+Calls into xapi are intercepted at two points:
 - RPC calls are intercepted at dispatch, in the `do_dispatch` function within
 xapi/server_helpers.ml. At this point, we already have a session available if
-the caller is logged in, and we know which Xapi call is being made.
+the caller is logged in, and we know which xapi call is being made.
 - Other calls are intercepted by instrumenting the HTTP handlers as they are
 added to the HTTP server in the `add_handler` function within
 xapi/xapi_http.ml. Here we have less information, so the rate limiting is less
