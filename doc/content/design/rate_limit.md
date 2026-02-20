@@ -6,6 +6,19 @@ revision: 1
 status: draft
 ---
 
+<!--toc:start-->
+- [Overview](#overview)
+- [Approach](#approach)
+  - [Rate limiting](#rate-limiting)
+  - [Client classification](#client-classification)
+- [API design](#api-design)
+- [XAPI integration](#xapi-integration)
+- [Library](#library)
+  - [Token bucket](#token-bucket)
+  - [Rate limit queue](#rate-limit-queue)
+  - [Client table](#client-table)
+<!--toc:end-->
+
 ## Overview
 
 We have had several customer incidents in the past that have been attributed to
@@ -138,7 +151,75 @@ the response is delayed until the bucket is refilled.
 An exception to this is async RPC calls, which always respond immediately but
 the work that they initiate does get added to the rate limiting queue.
 
-### Library
+## Library
 The internals of this are all implemented in a new library: libs/rate-limit,
 which contains modules for token buckets, rate limiting queues, client
 classification, and LRU cache, together with comprehensive unit tests.
+
+### Token bucket
+Token buckets enforce rate limiting by storing tokens that get depleted on
+request and are refilled over time. In our implementation, they are split into
+two types:
+
+```ocaml
+type state = {tokens: float; last_refill: Mtime.span}
+
+type t = {burst_size: float; fill_rate: float; state: state Atomic.t}
+```
+
+The main type, type `t`, stores the token bucket parameters together with an
+atomically wrapped state for thread safety. The state type itself contains the
+token count at last refill, together with the last refill time.
+
+By keeping track of the last refill time, we refill the tokens only when a new
+request comes in. We provide two functions for consuming: one is non-blocking
+and returns a boolean for whether the consume was successful, and the other
+blocks until the tokens have been consumed.
+
+### Rate limit queue
+Token buckets on their own are sufficient for basic rate limiting, but they
+have a fairness problem. To alleviate this, we keep rate limited requests in a
+queue which get processed as the token bucket is refilled over time:
+
+```ocaml
+type t = {
+    bucket: Token_bucket.t
+  ; process_queue:
+      (float * (unit -> unit)) Queue.t (* contains token cost and callback *)
+  ; process_queue_lock: Mutex.t
+  ; worker_thread_cond: Condition.t
+  ; should_terminate: bool ref (* signal termination to worker thread *)
+  ; worker_thread: Thread.t
+}
+```
+
+The worker thread is responsible for executing the callbacks in the process
+queue when their time arrives. As above, we provide two functions for consuming
+from the token bucket; `submit_async` returns immediately and places a function
+to be executed at a later time in the queue, while `submit_sync` blocks until
+its function is executed by the rate limiter but may return a value.
+
+### Client table
+We define a `Key` module to identify clients. This contains only user_agent and
+host_ip at present, but can be expanded to cover AD user and originator, for
+example.
+```ocaml
+module Key = struct
+  type t = {user_agent: string; host_ip: string}
+```
+
+This module implements a `match : t -> t -> bool` function, which treats empty
+strings as wildcards -- for example `match {"", "1.1.1.1"} {"firefox", "1.1.1.1"}`
+will succeed. In order to store all recorded users, we use a simple association
+list with a cache:
+```ocaml
+type 'a cached_table = {
+    table: (Key.t * 'a) list
+  ; cache: (Key.t, 'a option) Lru.t
+}
+
+type 'a t = 'a cached_table Atomic.t
+```
+
+We use the atomic type to allow thread-safe updates, and provide functions for
+inserting, deleting, and obtaining items from the table.
