@@ -819,12 +819,12 @@ module TaskDump = struct
     }
 end
 
-module Item = struct
+module Work = struct
   type t = operation * Xenops_task.task_handle
 
   let make op task = (op, task)
 
-  let describe_item (op, _) = string_of_operation op
+  let describe_work (op, _) = string_of_operation op
 
   let dump_task (_, handle) = TaskDump.(of_task handle |> rpc_of t)
 
@@ -864,7 +864,7 @@ module Item = struct
         true
 end
 
-include Xapi_work_queues.Make (Item)
+include Xapi_work_queues.Make (Work)
 
 (* Keep track of which VMs we're rebooting so we avoid transient glitches where
    the power_state becomes Halted *)

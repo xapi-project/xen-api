@@ -148,10 +148,10 @@ let typ_of_rpc_t =
       }
   )
 
-module type Item = sig
+module type Work = sig
   type t
 
-  val describe_item : t -> string
+  val describe_work : t -> string
 
   val dump_task : t -> Rpc.t
 
@@ -171,7 +171,7 @@ module type Dump = sig
 end
 
 module type S = sig
-  type item
+  type work
 
   module Redirector : sig
     type t
@@ -186,7 +186,7 @@ module type S = sig
 
     val receive_memory_queues : t
 
-    val push : t -> string -> item -> unit
+    val push : t -> string -> work -> unit
 
     val alias : tag:string -> alias:string -> unit
 
@@ -202,15 +202,15 @@ module type S = sig
   end
 end
 
-module Make (I : Item) = struct
-  open I
+module Make (W : Work) = struct
+  open W
 
-  type item = I.t
+  type work = W.t
 
   module Redirector = struct
-    type t = {queues: item Queues.t; mutex: Mutex.t}
+    type t = {queues: work Queues.t; mutex: Mutex.t}
 
-    (* When a thread is not actively processing a queue, items are placed here: *)
+    (* When a thread is not actively processing a queue, work items are placed here: *)
     let default = {queues= Queues.create (); mutex= Mutex.create ()}
 
     (* We create another queue only for Parallel atoms so as to avoid a situation
@@ -247,7 +247,7 @@ module Make (I : Item) = struct
       | _ ->
           "Default"
 
-    (* When a thread is actively processing a queue, items are redirected to a
+    (* When a thread is actively processing a queue, work items are redirected to a
      thread-private queue *)
     let overrides = ref StringMap.empty
 
@@ -255,7 +255,7 @@ module Make (I : Item) = struct
 
     let m = Mutex.create ()
 
-    let push t tag item =
+    let push t tag work =
       Debug.with_thread_associated "queue"
         (fun () ->
           with_lock m (fun () ->
@@ -273,7 +273,7 @@ module Make (I : Item) = struct
                 | None ->
                     (t.queues, false)
               in
-              debug "Queue.push %s onto %s%s:[ %s ]" (describe_item item)
+              debug "Queue.push %s onto %s%s:[ %s ]" (describe_work work)
                 ( if aliased then
                     "aliased "
                   else if redirected then
@@ -285,12 +285,12 @@ module Make (I : Item) = struct
                 (String.concat ", "
                    (List.rev
                       (Queue.fold
-                         (fun acc item -> describe_item item :: acc)
+                         (fun acc work -> describe_work work :: acc)
                          [] (Queues.get tag q)
                       )
                    )
                 ) ;
-              Queues.push_with_coalesce should_keep real_tag item q
+              Queues.push_with_coalesce should_keep real_tag work q
           )
         )
         ()
@@ -300,13 +300,13 @@ module Make (I : Item) = struct
        successfully put the redirection in place. Otherwise we end up with
        parallel threads operating on the same VM. *)
       with_lock t.mutex (fun () ->
-          let tag, item = Queues.pop t.queues in
+          let tag, work = Queues.pop t.queues in
           with_lock m (fun () ->
               let q = Queues.create () in
               Queues.transfer_tag tag t.queues q ;
               overrides := StringMap.add tag q !overrides ;
-              (* All items with [tag] will enter queue [q] *)
-              (tag, q, item)
+              (* All work items with [tag] will enter queue [q] *)
+              (tag, q, work)
           )
       )
 
@@ -314,7 +314,7 @@ module Make (I : Item) = struct
       with_lock m (fun () ->
           Queues.transfer_tag tag queue t.queues ;
           overrides := StringMap.remove tag !overrides ;
-          (* All items with [tag] will enter the queues queue *)
+          (* All work items with [tag] will enter the queues queue *)
           (* Sanity check: there should be no override for tag in overrides *)
           aliases := StringMap.filter (fun _ v -> v <> tag) !aliases
       )
@@ -329,7 +329,7 @@ module Make (I : Item) = struct
       )
 
     module Dump = struct
-      type q = {tag: string; items: string list} [@@deriving rpcty]
+      type q = {tag: string; works: string list} [@@deriving rpcty]
 
       type t = q list [@@deriving rpcty]
 
@@ -340,10 +340,10 @@ module Make (I : Item) = struct
                 (fun t ->
                   {
                     tag= t
-                  ; items=
+                  ; works=
                       List.rev
                         (Queue.fold
-                           (fun acc b -> describe_item b :: acc)
+                           (fun acc b -> describe_work b :: acc)
                            [] (Queues.get t queue)
                         )
                   }
@@ -362,7 +362,7 @@ module Make (I : Item) = struct
   end
 
   module Worker = struct
-    type state = Idle | Processing of item | Shutdown_requested | Shutdown
+    type state = Idle | Processing of work | Shutdown_requested | Shutdown
 
     type t = {
         mutable state: state
@@ -435,16 +435,16 @@ module Make (I : Item) = struct
                 )
             do
               with_lock t.m (fun () -> t.state <- Idle) ;
-              let tag, queue, item = Redirector.pop redirector () in
+              let tag, queue, work = Redirector.pop redirector () in
               (* blocks here *)
-              debug "Queue.pop returned %s" (describe_item item) ;
-              with_lock t.m (fun () -> t.state <- Processing item) ;
-              ( try execute item
+              debug "Queue.pop returned %s" (describe_work work) ;
+              with_lock t.m (fun () -> t.state <- Processing work) ;
+              ( try execute work
                 with e -> debug "Queue caught: %s" (Printexc.to_string e)
               ) ;
               Redirector.finished redirector tag queue ;
               (* The task must have succeeded or failed. *)
-              try finally item
+              try finally work
               with e -> debug "Queue finally caught: %s" (Printexc.to_string e)
             done
           )
@@ -474,10 +474,10 @@ module Make (I : Item) = struct
                 match Worker.get_state t with
                 | Worker.Idle ->
                     {state= "Idle"; task= None}
-                | Worker.Processing item ->
+                | Worker.Processing work ->
                     {
-                      state= Printf.sprintf "Processing %s" (describe_item item)
-                    ; task= Some (dump_task item)
+                      state= Printf.sprintf "Processing %s" (describe_work work)
+                    ; task= Some (dump_task work)
                     }
                 | Worker.Shutdown_requested ->
                     {state= "Shutdown_requested"; task= None}

@@ -1,10 +1,10 @@
 (** A work item submitted to a worker pool *)
-module type Item = sig
+module type Work = sig
   (** work item*)
   type t
 
-  val describe_item : t -> string
-  (** [describe_item item] returns a short description of the operation
+  val describe_work : t -> string
+  (** [describe_work work] returns a short description of the operation
       for debugging purposes *)
 
   val dump_task : t -> Rpc.t
@@ -42,7 +42,7 @@ end
 
 module type S = sig
   (** work item *)
-  type item
+  type work
 
   module Redirector : sig
     (** A redirector queues items, and redirects their execution to a thread
@@ -73,8 +73,8 @@ module type S = sig
      as the receiver has no free workers to receive memory. *)
     val receive_memory_queues : t
 
-    val push : t -> string -> item -> unit
-    (** [push queue tag item] Pushes [item] at the end of [queue].
+    val push : t -> string -> work -> unit
+    (** [push queue tag work] Pushes [wotk] at the end of [queue].
         Items with the same [tag] are serialised, but items with different tags
         can be executed in parallel if enough workers are available.
         [tag]s get scheduled in a round-robin fashion.
@@ -97,4 +97,4 @@ module type S = sig
   end
 end
 
-module Make : functor (I : Item) -> S with type item = I.t
+module Make : functor (W : Work) -> S with type work = W.t
