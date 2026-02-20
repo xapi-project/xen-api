@@ -8925,6 +8925,23 @@ module Message = struct
       ~params:[(Set (Ref _message), "messages", "Messages to destroy")]
       ~allowed_roles:_R_POOL_OP ()
 
+  let destroy_all =
+    call ~name:"destroy_all" ~lifecycle:[]
+      ~params:
+        [
+          ( Map (String, String)
+          , "filters"
+          , "Optional filters identifying messages to destroy: before (RFC3339 \
+             DateTime, destroy messages dated before this timestamp), after \
+             (RFC3339 DateTime, destroy messages dated after this timestamp), \
+             and priority (int, only destroy messages with this priority). All \
+             provided conditions must be met (logical AND). If no filters are \
+             provided, all messages are destroyed. If no timezone is specified \
+             in a timestamp, UTC is assumed."
+          )
+        ]
+      ~allowed_roles:_R_POOL_OP ()
+
   let get_all =
     call ~name:"get_all"
       ~lifecycle:[(Published, rel_orlando, "")]
@@ -9012,6 +9029,7 @@ module Message = struct
           create
         ; destroy
         ; destroy_many
+        ; destroy_all
         ; get
         ; get_all
         ; get_since
