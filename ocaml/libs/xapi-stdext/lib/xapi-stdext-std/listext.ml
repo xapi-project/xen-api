@@ -86,6 +86,20 @@ module List = struct
     in
     loop [] l
 
+  let try_map_collect f l =
+    let rec loop acc = function
+      | [] ->
+          Ok (List.rev acc)
+      | x :: xs -> (
+        match f x with
+        | Ok r ->
+            loop (r :: acc) xs
+        | Error e ->
+            Error (List.rev acc, e)
+      )
+    in
+    loop [] l
+
   let take n list =
     let rec loop i acc = function
       | x :: xs when i < n ->
