@@ -40,9 +40,15 @@ module List : sig
   (** [last l] returns the last element of [l] or None if [l] is empty *)
 
   val try_map : ('a -> ('b, 'c) result) -> 'a list -> ('b list, 'c) result
-  (** [try_map f l] applies [f] to all elements of [l] in turn. Returns the
-      first [Error] result encountered or, if no errors were produced, returns
-      all the [Ok] results. *)
+  (** [try_map f l] applies [f] to elements of [l] in turn. Returns the first
+      [Error] result encountered or, if no errors were produced, returns all
+      the [Ok] results. *)
+
+  val try_map_collect :
+    ('a -> ('b, 'c) result) -> 'a list -> ('b list, 'b list * 'c) result
+  (** [try_map_collect f l] applies [f] to elements of [l] in turn. Returns all
+      the [Ok] results, and the first [Error] result encountered, if it is
+      encountered. *)
 
   val rev_mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
   (** [rev_map f l] gives the same result as {!Stdlib.List.rev}[ (]
