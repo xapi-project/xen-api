@@ -12,16 +12,15 @@ module Impl = struct
       let* virtual_size, cluster_bits, _, data_cluster_map =
         Qcow_stream.start_stream_decode fd
       in
-      (* TODO: List.map becomes tail-recursive in OCaml 5.1, and could be used here instead *)
       let clusters =
-        data_cluster_map
-        |> Qcow_types.Cluster.Map.to_seq
-        |> Seq.map (fun (_, virt_address) ->
-            let ( >> ) = Int64.shift_right_logical in
-            let address =
-              Int64.to_int (virt_address >> Int32.to_int cluster_bits)
-            in
-            `Int address
+        Qcow_mapping.to_interval_seq data_cluster_map
+          (Int64.of_int32 cluster_bits)
+        |> Seq.map (fun (left_cluster, right_cluster) ->
+            `List
+              [
+                `Int (Int64.to_int left_cluster)
+              ; `Int (Int64.to_int right_cluster)
+              ]
         )
         |> List.of_seq
       in
@@ -64,9 +63,9 @@ module Cli = struct
 
   let read_headers_cmd =
     let doc =
-      "Determine allocated clusters by parsing qcow2 file at the provided \
-       path. Returns JSON like the following: {'virtual_size': X, \
-       'cluster_bits': Y, 'data_clusters': [1,2,3]}"
+      "Determine intervals of allocated clusters by parsing qcow2 file at the \
+       provided path. Returns JSON like the following: {'virtual_size': X, \
+       'cluster_bits': Y, 'data_clusters': [[1,13],[17,17],[19,272]]}"
     in
     let man = [`S "DESCRIPTION"; `P doc] in
     Cmd.v

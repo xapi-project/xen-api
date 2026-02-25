@@ -1168,11 +1168,15 @@ let stream_t common args ?(progress = no_progress_bar) () =
     args.StreamCommon.tar_filename_prefix args.StreamCommon.good_ciphersuites
     args.StreamCommon.verify_cert
 
-let read_headers common source =
+let read_headers common source ~legacy =
   let path = [Filename.dirname source] in
   let thread =
     retry common 3 (fun () -> Vhd_IO.openchain ~path source false) >>= fun t ->
-    Vhd_IO.close t >>= fun () -> Hybrid_input.blocks_json t
+    Vhd_IO.close t >>= fun () ->
+    if legacy then
+      Hybrid_input.blocks_json t
+    else
+      Hybrid_input.blocks_json_interval t
   in
   Lwt_main.run thread ; `Ok ()
 

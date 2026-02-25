@@ -91,6 +91,64 @@ def write_features(cluster, offset, data_file_name):
         offset += 48
 
 
+class Interval:
+    """
+    Represents the allocated virtual cluster intervals in a sparse file
+    """
+    def __init__(self, lst):
+        self.intervals = lst
+        self.intervals.sort(key=lambda x: x[0])
+
+
+    def __contains__(self, cluster):
+        """
+        Checks if cluster is in one of the intervals, removes it from the
+        interval if true
+        """
+        # Check if cluster is within [min, max]
+        if self.intervals[-1][1] < cluster or self.intervals[0][0] > cluster:
+            return False
+
+        # Binary search for the interval that could contain the cluster
+        l = 0
+        h = len(self.intervals) - 1
+        while l <= h:
+            mid = (l + h) // 2
+            current = self.intervals[mid]
+
+            if cluster >= current[0] and cluster <= current[1]:
+                if cluster == current[0] and cluster == current[1]:
+                    # Remove the cluster from the interval
+                    del self.intervals[mid]
+                    return True
+
+                if cluster == current[0]:
+                    # Shrink interval from the left
+                    left = current[0] + 1
+                    right = current[1]
+                elif cluster == current[1]:
+                    # Shrink interval from the right
+                    left = current[0]
+                    right = current[1] - 1
+                else:
+                    # Split the original interval into two
+                    left = current[0]
+                    right = cluster
+                    self.intervals.insert(mid+1, [cluster+1, current[1]])
+
+                self.intervals[mid] = [left, right]
+                return True
+            elif cluster < current[0]:
+                h = mid - 1
+            elif cluster > current[1]:
+                l = mid + 1
+
+        return False
+
+    def __iter__(self):
+        return self.intervals.__iter__()
+
+
 def write_qcow2_content(input_file, cluster_size, refcount_bits,
                         data_file_name, data_file_raw, diff_file_name,
                         virtual_size, nonzero_clusters,
@@ -166,26 +224,29 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits,
             # In case input_file is bigger than diff_file_name, first check
             # if clusters from diff_file_name differ, and then check if the
             # rest contain data
-            diff_nonzero_clusters_set = set(diff_nonzero_clusters)
-            for cluster in nonzero_clusters:
-                if cluster >= last_diff_cluster:
-                    allocate_cluster(cluster)
-                elif cluster in diff_nonzero_clusters_set:
-                    # If a cluster has different data from the original_cluster
-                    # then it must be allocated
-                    cluster_data = os.pread(fd, cluster_size, cluster_size * cluster)
-                    original_cluster = os.pread(diff_fd, cluster_size, cluster_size * cluster)
-                    check_cluster_allocate(cluster, cluster_data, original_cluster)
-                    diff_nonzero_clusters_set.remove(cluster)
-                else:
-                    allocate_cluster(cluster)
+            diff_nonzero_clusters_set = Interval(diff_nonzero_clusters)
+
+            for (cluster_left, cluster_right) in nonzero_clusters:
+                for cluster in range(cluster_left, cluster_right+1):
+                    if cluster >= last_diff_cluster:
+                        allocate_cluster(cluster)
+                    elif cluster in diff_nonzero_clusters_set:
+                        # If a cluster has different data from the original_cluster
+                        # then it must be allocated
+                        cluster_data = os.pread(fd, cluster_size, cluster_size * cluster)
+                        original_cluster = os.pread(diff_fd, cluster_size, cluster_size * cluster)
+                        check_cluster_allocate(cluster, cluster_data, original_cluster)
+                    else:
+                        allocate_cluster(cluster)
 
             # These are not present in the original file
-            for cluster in diff_nonzero_clusters_set:
-                allocate_cluster(cluster)
+            for (cluster_left, cluster_right) in diff_nonzero_clusters_set:
+                for cluster in range(cluster_left, cluster_right+1):
+                    allocate_cluster(cluster)
         else:
-            for cluster in nonzero_clusters:
-                allocate_cluster(cluster)
+            for (cluster_left, cluster_right) in nonzero_clusters:
+                for cluster in range(cluster_left, cluster_right+1):
+                    allocate_cluster(cluster)
 
     else:
         zero_cluster = bytes(cluster_size)

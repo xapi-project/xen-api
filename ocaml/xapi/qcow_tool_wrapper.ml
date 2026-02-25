@@ -45,6 +45,10 @@ let parse_header qcow_path =
   let pipe_reader = read_header qcow_path in
   Vhd_qcow_parsing.parse_header pipe_reader
 
+let parse_header_interval qcow_path =
+  let pipe_reader = read_header qcow_path in
+  Vhd_qcow_parsing.parse_header_interval pipe_reader
+
 let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
     (path : string) (_size : Int64.t) =
   let qcow_of_device =
@@ -55,6 +59,11 @@ let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
   (* If VDI is backed by QCOW, parse the header to determine nonzero clusters
      to avoid reading all of the raw disk *)
   let input_fd = Result.map read_header qcow_path |> Result.to_option in
+
+  (* TODO: If VHD headers are to be consulted as well, qcow2-to-stdout
+     needs to properly account for cluster_bits. Currently QCOW2 export
+     from VHD-backed VDIs will just revert to raw, without any
+     allocation accounting. *)
 
   (* Parse the header of the VDI we are diffing against as well *)
   let relative_to_qcow_path =
