@@ -180,10 +180,21 @@ client ldap sasl wrapping = <ldaps | seal>
 tls verify peer = ca_and_name_if_available
 tls trust system cas = yes
 tls cafile = /etc/trusted-certs/ca-bundle-[ldaps|general].pem
+tls priority = NONE:+VERS-TLS1.2:+AES-256-GCM:+AES-128-GCM:+AEAD:+ECDHE-RSA:+SIGN-ALL:+GROUP-SECP384R1:+COMP-NULL:%SERVER_PRECEDENCE
 ```
 
 - Switch between `ldap` and `ldaps` will flip `client ldap sasl wrapping` between `seal` and `ldaps`
 - `tls cafile` points to a CA bundle used to verify DC certs. Details refer to 4.1.2
+- `tls priority` is following stunnel TLS configuration, this result to TLS 1.2 with cipher suite TLS_ECDHE_RSA_AES_128_GCM_SHA256, TLS_ECDHE_RSA_AES_256_GCM_SHA384, Windows Server 2008R2 and later as DC support it
+  - NONE: starts with empty set
+  - +VERS-TLS1.2: Enbale TLS 1.2
+  - +AES-256-GCM:+AES-128-GCM: Enable AES-256-GCM and AES-128-GCM cipher
+  - +AEAD: Enable AEAD MAC, required for GCM
+  - +ECDHE-RSA: Enable ECDHE-RSA key exchange
+  - +SIGN-ALL: Enable all signature algorithms, this will limit to TLS1.2
+  - +GROUP-SECP384R1: Enable secp384r1 curve
+  - +COMP-NULL: No compression (required in modern TLS)
+  - %SERVER_PRECEDENCE: Server chooses cipher order
 
 #### 4.1.2 Certificate Selection
 
