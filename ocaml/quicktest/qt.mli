@@ -9,6 +9,7 @@ type sr_info = {
   ; allowed_operations: API.storage_operations_set
   ; capabilities: string list
   ; required_sm_api_version: string
+  ; is_iso: bool
 }
 
 val init_session : rpc -> string -> string -> API.ref_session
@@ -53,6 +54,7 @@ module VM : sig
        rpc
     -> API.ref_session
     -> template:API.ref_VM
+    -> ?iso:API.vDI_t
     -> ?sr:API.ref_SR
     -> (API.ref_VM -> 'a)
     -> 'a

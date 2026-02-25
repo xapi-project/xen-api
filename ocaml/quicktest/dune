@@ -9,10 +9,15 @@
     ezxenstore
     ezxenstore.watch
     fmt
+    fmt.tty
     forkexec
     http_lib
     mtime
     mtime.clock.os
+    cli_progress_bar
+    quicktest_trace
+    quicktest_trace_api
+    quicktest_trace_rpc
     pam
     qcheck-alcotest
     result
@@ -25,6 +30,7 @@
     threads.posix
     unix
     uuid
+    xapi-backtrace
     xapi-client
     xapi-consts
     xapi-datamodel

@@ -1,0 +1,6 @@
+(library
+  (name quicktest_trace_rpc)
+  (libraries
+    quicktest_trace
+    rpclib.core
+   ))
