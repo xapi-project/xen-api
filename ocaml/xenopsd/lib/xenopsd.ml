@@ -335,6 +335,11 @@ let options =
     , (fun () -> string_of_float !vm_suspend_ack_timeout)
     , "Timeout in seconds for a VM to acknowledge a suspend request"
     )
+  ; ( "migration-compressor"
+    , Arg.Set_string Xenops_server.migration_compressor
+    , (fun () -> !Xenops_server.migration_compressor)
+    , "Compression method; one of 'stream' (default), 'xenguest'"
+    )
   ]
 
 let path () = Filename.concat !sockets_path "xenopsd"

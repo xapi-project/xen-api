@@ -69,6 +69,8 @@ let cookie_mem_compression_value = "zstd"
 
 let backend = ref None
 
+let migration_compressor = ref "stream"
+
 let get_backend () =
   match !backend with
   | Some x ->
@@ -310,6 +312,21 @@ let rec atomic_expires_after = function
       (* 20 minutes, in seconds *)
       1200.
 
+(** Stream compression uses zstd, XenGuest relies on internal
+    compression inside XenGuest *)
+type compressor = Stream | XenGuest [@@deriving rpcty]
+
+let compressor () =
+  match String.lowercase_ascii !migration_compressor with
+  | "xenguest" ->
+      XenGuest
+  | "stream" ->
+      Stream
+  | _ ->
+      warn "%s: unknown migration compressor %S" __FUNCTION__
+        !migration_compressor ;
+      Stream
+
 type vm_migrate_op = {
     vmm_id: Vm.id
   ; vmm_vdi_map: (string * string) list
@@ -319,6 +336,7 @@ type vm_migrate_op = {
   ; vmm_tmp_src_id: Vm.id
   ; vmm_tmp_dest_id: Vm.id
   ; vmm_compress: bool
+  ; vmm_compressor: compressor
   ; vmm_verify_dest: bool
   ; vmm_localhost_migration: bool
 }
@@ -2774,7 +2792,11 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
       let vm = VM_DB.read_exn id in
       let dbg = (Xenops_task.to_interface_task t).Task.dbg in
       let url = Uri.of_string vmm.vmm_url in
-      let compress_memory = vmm.vmm_compress in
+      (* signal that that we use compression only if are using the
+         "stream" compression method; the xenguest compressor method
+         does not require setting up a pipeline *)
+      let compress_memory = vmm.vmm_compress && vmm.vmm_compressor = Stream in
+      let compress_xg = vmm.vmm_compress && vmm.vmm_compressor = XenGuest in
       let compress =
         match compress_memory with
         | true ->
@@ -2955,12 +2977,22 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
                 debug "VM.migrate: Synchronisation point 1-mem" ;
                 Handshake.send vm_fd Handshake.Success ;
                 debug "VM.migrate: Synchronisation point 1-mem ACK" ;
-
+                let flags =
+                  List.concat
+                    [
+                      [Live]
+                    ; ( if compress_xg then
+                          [Compress]
+                        else
+                          []
+                      )
+                    ]
+                in
                 compress mem_fd @@ fun mem_fd ->
                 compress_vgpu vgpu_fd @@ fun vgpu_fd ->
                 perform_atomics
                   [
-                    VM_save (id, [Live], FD mem_fd, vgpu_fd)
+                    VM_save (id, flags, FD mem_fd, vgpu_fd)
                   ; VM_rename (id, new_src_id, Pre_migration)
                   ]
                   t ;
@@ -3903,6 +3935,7 @@ module VM = struct
          ; vmm_tmp_src_id= tmp_uuid_of id ~kind:`src
          ; vmm_tmp_dest_id= tmp_uuid_of id ~kind:`dest
          ; vmm_compress= compress
+         ; vmm_compressor= compressor ()
          ; vmm_verify_dest= verify_dest
          ; vmm_localhost_migration= localhost_migration
          }

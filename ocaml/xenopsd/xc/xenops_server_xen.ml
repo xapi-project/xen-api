@@ -2853,7 +2853,14 @@ module VM = struct
     )
 
   let save task progress_callback vm flags data vgpu_data pre_suspend_callback =
-    let flags' = List.map (function Live -> Domain.Live) flags in
+    let flags' =
+      flags
+      |> List.map @@ function
+         | Live ->
+             Domain.Live
+         | Compress ->
+             Domain.Compress
+    in
     on_domain task vm (fun xc xs (task : Xenops_task.task_handle) vm di ->
         let domain_type =
           match get_domain_type ~xs di with
