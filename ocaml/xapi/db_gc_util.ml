@@ -247,6 +247,13 @@ let gc_PCIs ~__context =
         Db.PCI.destroy ~__context ~self
   )
 
+let gc_Features ~__context =
+  Db.Feature.get_all ~__context
+  |> List.iter (fun self ->
+      if not (valid_ref __context (Db.Feature.get_host ~__context ~self)) then
+        Db.Feature.destroy ~__context ~self
+  )
+
 let gc_Host_patches ~__context =
   gc_connector ~__context Db.Host_patch.get_all Db.Host_patch.get_record
     (fun x -> valid_ref __context x.host_patch_host)
@@ -642,6 +649,7 @@ let gc_subtask_list =
   ; ("PGPUs", gc_PGPUs)
   ; ("VGPU_types", gc_VGPU_types)
   ; ("PCIs", gc_PCIs)
+  ; ("Features", gc_Features)
   ; ("Host patches", gc_Host_patches)
   ; ("Host CPUs", gc_host_cpus)
   ; ("Host metrics", gc_host_metrics)
