@@ -172,6 +172,12 @@ let gc_PBDs ~__context =
     (fun x -> valid_ref __context x.pBD_SR)
     Db.PBD.destroy
 
+let gc_PUSBs ~__context =
+  gc_connector ~__context Db.PUSB.get_all Db.PUSB.get_record
+    (fun x -> valid_ref __context x.pUSB_host)
+    (fun x -> valid_ref __context x.pUSB_USB_group)
+    Db.PUSB.destroy
+
 let gc_Cluster_hosts ~__context =
   gc_connector ~__context Db.Cluster_host.get_all Db.Cluster_host.get_record
     (fun x -> valid_ref __context x.cluster_host_host)
@@ -631,6 +637,7 @@ let gc_subtask_list =
   ; ("crashdumps", gc_crashdumps)
   ; ("VIFs", gc_VIFs)
   ; ("PBDs", gc_PBDs)
+  ; ("PUSBs", gc_PUSBs)
   ; ("VGPUs", gc_VGPUs)
   ; ("PGPUs", gc_PGPUs)
   ; ("VGPU_types", gc_VGPU_types)
