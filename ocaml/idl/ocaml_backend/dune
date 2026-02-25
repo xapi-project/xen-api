@@ -4,6 +4,8 @@
   (libraries
     astring
     cmdliner
+    fmt
+    ptime.clock
     uuidm
     xapi-consts
     xapi-datamodel
