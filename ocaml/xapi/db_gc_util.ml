@@ -172,6 +172,12 @@ let gc_PBDs ~__context =
     (fun x -> valid_ref __context x.pBD_SR)
     Db.PBD.destroy
 
+let gc_PUSBs ~__context =
+  gc_connector ~__context Db.PUSB.get_all Db.PUSB.get_record
+    (fun x -> valid_ref __context x.pUSB_host)
+    (fun x -> valid_ref __context x.pUSB_USB_group)
+    Db.PUSB.destroy
+
 let gc_Cluster_hosts ~__context =
   gc_connector ~__context Db.Cluster_host.get_all Db.Cluster_host.get_record
     (fun x -> valid_ref __context x.cluster_host_host)
@@ -233,6 +239,20 @@ let gc_VGPU_types ~__context =
       debug "GC-ing the following unused and unsupported VGPU_types: [ %s ]"
         (String.concat "; " (List.map Ref.string_of (List.map fst garbage))) ;
       List.iter (fun (self, _) -> Db.VGPU_type.destroy ~__context ~self) garbage
+
+let gc_PCIs ~__context =
+  Db.PCI.get_all ~__context
+  |> List.iter (fun self ->
+      if not (valid_ref __context (Db.PCI.get_host ~__context ~self)) then
+        Db.PCI.destroy ~__context ~self
+  )
+
+let gc_Features ~__context =
+  Db.Feature.get_all ~__context
+  |> List.iter (fun self ->
+      if not (valid_ref __context (Db.Feature.get_host ~__context ~self)) then
+        Db.Feature.destroy ~__context ~self
+  )
 
 let gc_Host_patches ~__context =
   gc_connector ~__context Db.Host_patch.get_all Db.Host_patch.get_record
@@ -624,9 +644,12 @@ let gc_subtask_list =
   ; ("crashdumps", gc_crashdumps)
   ; ("VIFs", gc_VIFs)
   ; ("PBDs", gc_PBDs)
+  ; ("PUSBs", gc_PUSBs)
   ; ("VGPUs", gc_VGPUs)
   ; ("PGPUs", gc_PGPUs)
   ; ("VGPU_types", gc_VGPU_types)
+  ; ("PCIs", gc_PCIs)
+  ; ("Features", gc_Features)
   ; ("Host patches", gc_Host_patches)
   ; ("Host CPUs", gc_host_cpus)
   ; ("Host metrics", gc_host_metrics)
