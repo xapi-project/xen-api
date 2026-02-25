@@ -155,7 +155,7 @@ let ( let@ ) f x = f x
 
 let try_result f = try Ok (f ()) with exn -> Error exn
 
-let with_backtraces f =
+let with_backtraces_common f with_table =
   let id = Thread.(id (self ())) in
   let tbl =
     let@ () =  with_lock in
@@ -172,10 +172,28 @@ let with_backtraces f =
   let finally () =
     with_lock (fun () -> Hashtbl.remove per_thread_backtraces id)
   in
-  let@ () = Fun.protect ~finally in
-  match try_result f with
-  | Ok ok -> `Ok ok
-  | Error e -> `Error (e, get tbl e)
+  Fun.protect ~finally (fun () -> with_table tbl (try_result f))
+
+module V1 = struct
+  let with_backtraces f = 
+    let with_table tbl = function
+      | Ok ok -> `Ok ok 
+      | Error e -> `Error (e, get tbl e)
+    in
+    with_backtraces_common f with_table
+end
+
+module V2 = struct
+  let with_backtraces ~finally f =
+    let with_table tbl result =
+      result
+      |> Result.map_error (function e -> (e, get tbl e))
+      |> finally
+    in
+    with_backtraces_common f with_table
+end
+
+let with_backtraces = V1.with_backtraces
 
 let with_table f default =
   let id = Thread.(id (self ())) in

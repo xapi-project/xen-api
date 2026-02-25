@@ -23,9 +23,9 @@ let log_backtrace_exn exn bt =
   output_log (Printf.sprintf "Raised %s" (Printexc.to_string exn)) ;
   List.iter output_log all
 
-let with_thread_associated desc f x =
+let with_thread_associated_old desc f x =
   let result = 
-    let@ () = Backtrace.with_backtraces in
+    let@ () = begin [@alert "-deprecated"] Backtrace.V1.with_backtraces end in
     try f x with e -> Backtrace.is_important e ; raise e
   in
   match result with
@@ -38,3 +38,18 @@ let with_thread_associated desc f x =
         ) ;
       log_backtrace_exn exn bt ;
       raise exn
+
+let with_thread_associated desc f x =
+  let print_backtrace = function 
+    | Ok result ->
+        result
+    | Error (exn, bt) ->
+        output_log
+          (Printf.sprintf "%s failed with exception %s" desc
+             (Printexc.to_string exn)
+          ) ;
+        log_backtrace_exn exn bt ;
+        raise exn
+  in
+  let@ () = Backtrace.V2.with_backtraces ~finally:print_backtrace in
+  try f x with e -> Backtrace.is_important e ; raise e
