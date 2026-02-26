@@ -27,12 +27,6 @@ module Mutex = struct
     r
 end
 
-let rec split_c c str =
-  try
-    let i = String.index str c in
-    String.sub str 0 i :: (split_c c (String.sub str (i+1) (String.length str - i - 1)))
-  with Not_found -> [str]
-
 type frame = {
   process: string;
   filename: string;
@@ -68,11 +62,11 @@ let max_backtraces = 100
 
 let frame_of_string process x =
   try
-    begin match split_c '"' x with
+    begin match String.split_on_char '"' x with
     | [ _; filename; rest ] ->
-      begin match split_c ',' rest with
+      begin match String.split_on_char ',' rest with
       | [ _; line_n; _ ] ->
-        begin match split_c ' ' line_n with
+        begin match String.split_on_char ' ' line_n with
         | _ :: _ :: n :: _ ->
           { process; filename; line = int_of_string n }
         | _ ->
@@ -88,7 +82,7 @@ let frame_of_string process x =
 
 let get_backtrace_401 () =
   Printexc.get_backtrace ()
-  |> split_c '\n'
+  |> String.split_on_char '\n'
   |> List.filter (fun x -> x <> "")
   |> List.map (frame_of_string !my_name)
 
