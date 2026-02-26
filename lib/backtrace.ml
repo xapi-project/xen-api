@@ -143,35 +143,69 @@ let remove t exn =
       bt :: acc
   ) [] |> remove_dups |> List.concat
 
-let per_thread_backtraces = Hashtbl.create 37
-let per_thread_backtraces_m = Mutex.create ()
 
-let with_lock f =
-  let finally () = Mutex.unlock per_thread_backtraces_m in
-  Mutex.lock per_thread_backtraces_m;
-  Fun.protect ~finally f
+module IntMap = Map.Make (Int)
+
+module ThreadLocalTable = struct
+  (* The map values behave like stacks here, with shadowing as in Hashtbl.
+     A Hashtbl is not used here, in order to avoid taking the lock in `find`. *)
+  type 'a t = {mutable tbl: 'a list IntMap.t; m: Mutex.t}
+
+  let make () =
+    let tbl = IntMap.empty in
+    let m = Mutex.create () in
+    {tbl; m}
+
+  let add t v =
+    let id = Thread.(id (self ())) in
+    Mutex.execute t.m (fun () ->
+        t.tbl <-
+          IntMap.update id
+            (function Some v' -> Some (v :: v') | None -> Some [v])
+            t.tbl
+    )
+
+  let remove t =
+    let id = Thread.(id (self ())) in
+    Mutex.execute t.m (fun () ->
+        t.tbl <-
+          IntMap.update id
+            (function
+              | Some [_] ->
+                  None
+              | Some (_hd :: tl) ->
+                  Some tl
+              | Some [] | None ->
+                  None
+              )
+            t.tbl
+    )
+
+  let find t =
+    let id = Thread.(id (self ())) in
+    IntMap.find_opt id t.tbl
+    |> Option.fold ~none:None ~some:(function v :: _ -> Some v | [] -> None)
+end
+
+let per_thread_backtraces = ThreadLocalTable.make ()
 
 let ( let@ ) f x = f x
 
 let try_result f = try Ok (f ()) with exn -> Error exn
 
 let with_backtraces_common f with_table =
-  let id = Thread.(id (self ())) in
   let tbl =
-    let@ () =  with_lock in
-    let tbl =
-      match Hashtbl.find_opt per_thread_backtraces id with
+    let tbl = 
+      match ThreadLocalTable.find per_thread_backtraces with
       | Some tbl -> tbl
       | None -> make ()
     in
     (* If we nest these functions we add multiple bindings
        to the same mutable table which is ok *)
-    Hashtbl.add per_thread_backtraces id tbl;
+    ThreadLocalTable.add per_thread_backtraces tbl;
     tbl
   in
-  let finally () =
-    with_lock (fun () -> Hashtbl.remove per_thread_backtraces id)
-  in
+  let finally () = ThreadLocalTable.remove per_thread_backtraces in
   Fun.protect ~finally (fun () -> with_table tbl (try_result f))
 
 module V1 = struct
@@ -195,24 +229,21 @@ end
 
 let with_backtraces = V1.with_backtraces
 
-let with_table f default =
-  let id = Thread.(id (self ())) in
-  match with_lock (fun () -> Hashtbl.find_opt per_thread_backtraces id) with
-  | None -> default ()
-  | Some tbl -> f tbl
+let is_important exn =
+  ThreadLocalTable.find per_thread_backtraces
+  |> Option.iter (fun tbl -> is_important tbl exn)
 
-let is_important exn = with_table (fun tbl -> is_important tbl exn) (fun () -> ())
+let add exn bt =
+  ThreadLocalTable.find per_thread_backtraces
+  |> Option.iter (fun tbl -> add tbl exn bt)
 
-let add exn bt = with_table (fun tbl -> add tbl exn bt) (fun () -> ())
+let remove exn =
+  ThreadLocalTable.find per_thread_backtraces
+  |> Option.fold ~some:(fun tbl -> remove tbl exn) ~none:empty
 
-let warning () =
-  [ { process = !my_name;
-      filename = Printf.sprintf "(Thread %d has no backtrace table. Was with_backtraces called?" Thread.(id (self ()));
-      line = 0 } ]
-
-let remove exn = with_table (fun tbl -> remove tbl exn) warning
-
-let get exn = with_table (fun tbl -> get tbl exn) warning
+let get exn =
+  ThreadLocalTable.find per_thread_backtraces
+  |> Option.fold ~some:(fun tbl -> get tbl exn) ~none:empty
 
 let reraise old newexn =
   add newexn (remove old);
