@@ -52,9 +52,12 @@ namespace Citrix.XenServer.Commands
 
         private readonly object _certificateValidationLock = new object();
 
+        private static readonly string DefaultUserAgent = $"XenServerPSModule/@SDK_VERSION@";
+
         public ConnectXenServerCommand()
         {
             Port = 443;
+            Originator = DefaultUserAgent;
         }
 
         #region Cmdlet Parameters
@@ -85,7 +88,10 @@ namespace Citrix.XenServer.Commands
         public string[] OpaqueRef { get; set; }
 
         [Parameter]
-        public string Originator { get; set; } = "XenServerPSModule/" + Helper.APIVersionString(API_Version.LATEST);
+        public string Originator { get; set; }
+
+        [Parameter(HelpMessage = "The UserAgent to use for the requests to the server")]
+        public string UserAgent { get; set; }
 
         [Parameter]
         public SwitchParameter PassThru { get; set; }
@@ -193,7 +199,7 @@ namespace Citrix.XenServer.Commands
                 Session session;
                 if (string.IsNullOrEmpty(OpaqueRef[i]))
                 {
-                    session = new Session(Url[i]);
+                    session = new Session(Url[i]) { UserAgent = UserAgent };
                     try
                     {
                         session.login_with_password(connUser, connPassword, Helper.APIVersionString(API_Version.LATEST), Originator);
@@ -235,12 +241,15 @@ namespace Citrix.XenServer.Commands
                             });
                         }
 
+                        if (inner != null)
+                            throw inner;
+
                         throw;
                     }
                 }
                 else
                 {
-                    session = new Session(Url[i], OpaqueRef[i]);
+                    session = new Session(Url[i], OpaqueRef[i]){ UserAgent = UserAgent };
                 }
 
                 session.Tag = Creds;
