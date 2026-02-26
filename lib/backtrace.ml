@@ -146,45 +146,40 @@ let remove t exn =
 let per_thread_backtraces = Hashtbl.create 37
 let per_thread_backtraces_m = Mutex.create ()
 
-let with_lock f x =
+let with_lock f =
+  let finally () = Mutex.unlock per_thread_backtraces_m in
   Mutex.lock per_thread_backtraces_m;
-  try
-    let result = f x in
-    Mutex.unlock per_thread_backtraces_m;
-    result
-  with e ->
-    Mutex.unlock per_thread_backtraces_m;
-    raise e
+  Fun.protect ~finally f
+
+let ( let@ ) f x = f x
+
+let try_result f = try Ok (f ()) with exn -> Error exn
 
 let with_backtraces f =
   let id = Thread.(id (self ())) in
-  let tbl = with_lock
-    (fun () ->
-      let tbl =
-        if Hashtbl.mem per_thread_backtraces id
-        then Hashtbl.find per_thread_backtraces id
-        else make () in
-      (* If we nest these functions we add multiple bindings
-         to the same mutable table which is ok *)
-      Hashtbl.add per_thread_backtraces id tbl;
-      tbl
-    ) () in
-  try
-    let result = f () in
-    with_lock (Hashtbl.remove per_thread_backtraces) id;
-    `Ok result
-  with e ->
-    let bt = get tbl e in
-    with_lock (Hashtbl.remove per_thread_backtraces) id;
-    `Error(e, bt)
+  let tbl =
+    let@ () =  with_lock in
+    let tbl =
+      match Hashtbl.find_opt per_thread_backtraces id with
+      | Some tbl -> tbl
+      | None -> make ()
+    in
+    (* If we nest these functions we add multiple bindings
+       to the same mutable table which is ok *)
+    Hashtbl.add per_thread_backtraces id tbl;
+    tbl
+  in
+  let finally () =
+    with_lock (fun () -> Hashtbl.remove per_thread_backtraces id)
+  in
+  let@ () = Fun.protect ~finally in
+  match try_result f with
+  | Ok ok -> `Ok ok
+  | Error e -> `Error (e, get tbl e)
 
 let with_table f default =
   let id = Thread.(id (self ())) in
-  match with_lock (fun () ->
-    if Hashtbl.mem per_thread_backtraces id
-    then Some (Hashtbl.find per_thread_backtraces id)
-    else None
-  ) () with
+  match with_lock (fun () -> Hashtbl.find_opt per_thread_backtraces id) with
   | None -> default ()
   | Some tbl -> f tbl
 
