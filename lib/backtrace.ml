@@ -46,7 +46,9 @@ let to_string_hum xs =
     Buffer.add_string results (Printf.sprintf "%d/%d %s %s file %s, line %d" i xs' x.process (if first_line then "Raised at" else "Called from") x.filename x.line);
     Buffer.add_string results "\n";
     loop false (i + 1) xs in
-  loop true 1 xs
+  match xs with
+  | [] -> Printf.sprintf "%s: Thread %d has no backtrace table" !my_name Thread.(id (self ()))
+  | _ -> loop true 1 xs
 
 type table = {
   backtraces: t array;
