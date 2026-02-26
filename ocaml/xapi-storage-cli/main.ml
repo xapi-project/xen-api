@@ -317,16 +317,19 @@ let copy_vm = Vm.of_string "SXM_copy"
 
 let live_vm = Vm.of_string "live_vm"
 
-let mirror_start common_opts sr vdi dp url dest verify_dest =
+let mirror_start common_opts sr vdi dp url dest verify_dest dest_img_format =
   on_vdi'
     (fun sr vdi ->
       let get_opt x err = match x with Some y -> y | None -> failwith err in
       let dp = get_opt dp "Need a local data path" in
       let url = get_opt url "Need a URL" in
       let dest = get_opt dest "Need a destination SR" in
+      let image_format =
+        match dest_img_format with Some s -> s | None -> ""
+      in
       let task =
-        Storage_migrate.start ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~live_vm
-          ~url
+        Storage_migrate.start ~dbg ~sr ~vdi ~image_format ~dp ~mirror_vm
+          ~copy_vm ~live_vm ~url
           ~dest:(Storage_interface.Sr.of_string dest)
           ~verify_dest
       in
@@ -531,6 +534,10 @@ let mirror_start_cmd =
     let doc = "Verify certicate of remote server" in
     Arg.(value & pos 5 bool false & info [] ~docv:"VERIFYDEST" ~doc)
   in
+  let dest_img_format =
+    let doc = "Specify the image format on the destination SR" in
+    Arg.(value & pos 6 (some string) None & info [] ~docv:"IMAGEFORMAT" ~doc)
+  in
   ( Term.(
       ret
         (const mirror_start
@@ -541,6 +548,7 @@ let mirror_start_cmd =
         $ url
         $ dest
         $ verify_dest
+        $ dest_img_format
         )
     )
   , Cmd.info "mirror-start" ~sdocs:_common_options ~doc ~man

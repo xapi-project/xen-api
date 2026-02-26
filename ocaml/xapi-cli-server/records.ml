@@ -3957,6 +3957,12 @@ let sm_record rpc session_id sm =
       ; make_field ~name:"required-cluster-stack"
           ~get:(fun () -> concat_with_comma (x ()).API.sM_required_cluster_stack)
           ()
+      ; make_field ~name:"supported-image-formats"
+          ~get:(fun () ->
+            map_and_concat Record_util.image_format_type_to_string
+              (x ()).API.sM_supported_image_formats
+          )
+          ()
       ]
   }
 

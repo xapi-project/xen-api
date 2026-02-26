@@ -934,6 +934,8 @@ module QueryImpl (M : META) = struct
         ; configuration= response.Xapi_storage.Plugin.configuration
         ; required_cluster_stack=
             response.Xapi_storage.Plugin.required_cluster_stack
+        ; supported_image_formats=
+            response.Xapi_storage.Plugin.supported_image_formats
         ; smapi_version= SMAPIv3
         }
     in
@@ -1808,7 +1810,10 @@ module DATAImpl (M : META) = struct
 
   let stat_impl dbg sr vdi vm key = wrap @@ stat dbg sr vdi vm key
 
-  let mirror dbg sr vdi' vm' remote =
+  let mirror dbg sr vdi' image_format vm' remote =
+    let* () =
+      info (fun m -> m "image_format (%s) is not currently used" image_format)
+    in
     let vdi = Storage_interface.Vdi.string_of vdi' in
     let domain = Storage_interface.Vm.string_of vm' in
     Attached_SRs.find sr >>>= fun sr ->
@@ -1832,7 +1837,8 @@ module DATAImpl (M : META) = struct
     | MirrorV1 v ->
         return (Storage_interface.Mirror.MirrorV1 v)
 
-  let mirror_impl dbg sr vdi vm remote = wrap @@ mirror dbg sr vdi vm remote
+  let mirror_impl dbg sr vdi image_format vm remote =
+    wrap @@ mirror dbg sr vdi image_format vm remote
 
   let data_import_activate_impl dbg _dp sr vdi' vm' =
     wrap

@@ -269,13 +269,14 @@ func TestVMMigrateSend(t *testing.T) {
 
 	inputParams := spec.Key.Params["VM.migrate_send"]
 	const (
-		IndexVMRef   = 1
-		IndexDest    = 2
-		IndexLive    = 3
-		IndexVdiMap  = 4
-		IndexVifMap  = 5
-		IndexOptions = 6
-		IndexVgpuMap = 7
+		IndexVMRef        = 1
+		IndexDest         = 2
+		IndexLive         = 3
+		IndexVdiMap       = 4
+		IndexVifMap       = 5
+		IndexOptions      = 6
+		IndexVgpuMap      = 7
+		IndexVdiFormatMap = 8
 	)
 	vmRef, ok1 := inputParams[IndexVMRef].(string)
 	destOrg, ok2 := inputParams[IndexDest].(map[string]interface{})
@@ -284,7 +285,8 @@ func TestVMMigrateSend(t *testing.T) {
 	vifMapOrg, ok5 := inputParams[IndexVifMap].(map[string]interface{})
 	optionsOrg, ok6 := inputParams[IndexOptions].(map[string]interface{})
 	vgpuMapOrg, ok7 := inputParams[IndexVgpuMap].(map[string]interface{})
-	if !ok1 || !ok2 || !ok3 || !ok4 || !ok5 || !ok6 || !ok7 {
+	vdiFormatMapOrg, ok8 := inputParams[IndexVdiFormatMap].(map[string]interface{})
+	if !ok1 || !ok2 || !ok3 || !ok4 || !ok5 || !ok6 || !ok7 || !ok8 {
 		t.Log("Parameter get error from json file")
 		t.Fail()
 		return
@@ -319,8 +321,13 @@ func TestVMMigrateSend(t *testing.T) {
 		t.Fail()
 		return
 	}
-
-	result, err := xenapi.VM.MigrateSend(session, xenapi.VMRef(vmRef), dest, live, vdiMap, vifMap, options, vgpuMap)
+	vdiFormatMap, err := ConvertMapToVdiFormatMap(vdiFormatMapOrg)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+	result, err := xenapi.VM.MigrateSend(session, xenapi.VMRef(vmRef), dest, live, vdiMap, vifMap, options, vgpuMap, vdiFormatMap)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
