@@ -1,0 +1,235 @@
+---
+title: XAPI Rate Limiting
+layout: default
+design_doc: true
+revision: 1
+status: draft
+---
+
+<!--toc:start-->
+- [Overview](#overview)
+- [Approach](#approach)
+  - [Rate limiting](#rate-limiting)
+  - [Client classification](#client-classification)
+- [API design](#api-design)
+- [XAPI integration](#xapi-integration)
+- [Library](#library)
+  - [Token bucket](#token-bucket)
+  - [Rate limit queue](#rate-limit-queue)
+  - [Client table](#client-table)
+<!--toc:end-->
+
+## Overview
+
+We have had several customer incidents in the past that have been attributed to
+“overloading” xapi. This effectively means that a client is making requests at
+a rate that xapi cannot handle. This can result in very bad response times (“we
+tried to shut down 20 VMs and this took 2 hours!”) and general system
+instability and unavailability.
+
+In some cases, there is a mix of “well behaved” clients and others that are
+either misconfigured or make improper use of the API, hammering the pool and
+breaking use of the good guys. For example, a dodgy monitoring service may
+lock out the control software, or slow down VM lifecycle operations.
+
+Part of the problem is that xapi and xenopsd are not very good at handling
+load, in particular in a pool where the coordinator is often a bottleneck. A
+lot of work has already been done make the Toolstack cope better under load.
+This is important and a lot more can be done in this space.
+
+However, even a very efficient Toolstack can be overloaded by a particularly
+determined client, unless the client is deliberate slowed down in some way.
+Hence, a way of throttling clients is needed in addition to performance
+improvements, as a complimentary approach.
+
+Last year, thread prioritisation was tried. This could be revisited, but we
+also need an approach that allows us to pose hard constraints on clients. For
+example, as an admin, I want to configure xapi to give my control panel
+unlimited access, but explicitly limit how much Monitoring App X can do.
+
+The proposal here is to do a simpler kind of per-client rate limiting at the
+API level. The objective is to introduce a simple mechanism to slow down
+individual clients which are overloading the system. This design intentionally
+enforces rate limits on a per-client basis rather than capping total system
+throughput. System-wide admission control or global load shedding is explicitly
+out of scope and would require separate mechanisms.
+
+## Approach
+
+### Rate limiting
+The idea is to use a [Token Bucket algorithm](https://en.wikipedia.org/wiki/Token_bucket), where each client gets its own
+Token Bucket with specific parameters to rate limit its requests. The Token
+Bucket algorithm has two basic parameters:
+
+The **capacity**: the maximum number of tokens that fit in the bucket.
+
+The **fill rate**: the number of tokens per second that get added to the bucket (up
+to its capacity).
+
+Serving requests consumes tokens for the bucket - the token cost will be
+proportional to the amount of work that the request requires. For example, a
+simple DB call like VM.get_power_state may cost 1 token, while a VM.start call
+may cost 100 tokens.
+
+The basic principle is that for a client to get a request accepted, it needs to
+have enough tokens in the bucket. If there are not enough tokens, then the
+request will be queued until there are enough - the bucket is constantly
+refilled, so all requests eventually get served. When a request is accepted, its
+required number of tokens are taken out of the bucket.
+
+Therefore, the bucket’s **fill rate** determines the **long-term average** rate at
+which requests are served. For example, if the rate is 1 token/second, then on
+average 1 DB call per second can be made.
+
+The **capacity** is related to the maximum “**burst size**”. For example, a capacity of
+100 tokens means that, if the bucket is full, the client can make 100 DB calls
+in quick succession, before it is slowed done to match the rate.
+
+One instance of a Token Bucket would apply to all calls from a given client,
+potentially made on multiple connections.
+
+### Client classification
+In order to let pool administrators know who they should be rate limiting, we
+will also introduce a **Caller** datamodel class which tracks all requests made
+to xapi.
+
+Callers will be a high-level way of tracking clients. We allow callers to be
+identified by a number of different parameters: AD user, IP address,
+originator, user agent. When an unknown caller makes a request to xapi, we
+record their data in a new row. The pool administrator will be able to merge
+related callers together and assign them labels.
+
+The caller classification allows wildcards for any field, though we require
+that at least one field be specified. This lets us, for example, combine all
+accesses from the xapi python API by specifying the user-agent .
+
+In order to assist with rate limiting, we can store statistics about callers:
+- Last request timestamp
+- Tokens used over the last (5 minutes/hour/day).
+- Most common API requests.
+
+A rate limiter can then be attached to a particular caller, and the parameters
+of the rate limiter can either be derived from the usage patterns of the caller
+or selected from a number of preset profiles.
+
+## API design
+We propose two new datamodels: **Caller** and **Rate_limit**.
+
+Caller:
+| Mutability | Name        | Type     | Description                                     |
+| ---------: | ----------- | -------- | ----------------------------------------------- |
+| RW         | name_label  | String   | User-assigned label for the caller              |
+| RO         | user_agent  | String   | User agent of throttled client; empty if “any”. |
+| RO         | host_ip     | String   | IP address of throttled client; empty if “any”. |
+| RO         | last_access | DateTime | Last time the caller made a request             |
+
+Rate_limit:
+| Mutability | Name       | Type        | Description                                        |
+| ---------: | ---------- | ----------- | -------------------------------------------------- |
+| RO         | caller     | Ref _caller | Caller being rate-limited                          |
+| RO         | burst_size | Float       | Amount of tokens that can be consumed in one burst |
+| RO         | fill_rate  | Float       | Tokens added to the bucket per second              |
+
+In order to rate limit a client, they must first be registered as a caller. An
+alternative design is to include the rate limit parameters in the caller table
+and set them to 0 when a rate limit is not being applied --- I don't like this
+coupling, but it would simplify the interface.
+
+## XAPI integration
+Calls into xapi are intercepted at two points:
+- RPC calls are intercepted at dispatch, in the `do_dispatch` function within
+xapi/server_helpers.ml. At this point, we already have a session available if
+the caller is logged in, and we know which xapi call is being made.
+- Other calls are intercepted by instrumenting the HTTP handlers as they are
+added to the HTTP server in the `add_handler` function within
+xapi/xapi_http.ml. Here we have less information, so the rate limiting is less
+fine-grained, though there is scope to integrate more closely with the handlers
+should it be necessary.
+
+Both caller and rate limiter are implemented internally via a single table
+which maps `caller -> caller_metrics.t * (rate_limit_data.t option)`. If a rate
+limiter is being applied, then the cost of the call must come out of the
+associated token bucket, and if there are not enough tokens in the bucket then
+the response is delayed until the bucket is refilled.
+
+An exception to this is async RPC calls, which always respond immediately but
+the work that they initiate does get added to the rate limiting queue.
+
+## Library
+The internals of this are all implemented in a new library: libs/rate-limit,
+which contains modules for token buckets, rate limiting queues, client
+classification, and LRU cache, together with comprehensive unit tests.
+
+### Token bucket
+Token buckets enforce rate limiting by storing tokens that get depleted on
+request and are refilled over time. In our implementation, they are split into
+two types:
+
+```ocaml
+type state = {tokens: float; last_refill: Mtime.span}
+
+type t = {burst_size: float; fill_rate: float; state: state Atomic.t}
+```
+
+The main type, type `t`, stores the token bucket parameters together with an
+atomically wrapped state for thread safety. The state type itself contains the
+token count at last refill, together with the last refill time.
+
+By keeping track of the last refill time, we refill the tokens only when a new
+request comes in. We provide two functions for consuming: one is non-blocking
+and returns a boolean for whether the consume was successful, and the other
+blocks until the tokens have been consumed.
+
+### Rate limit queue
+A token bucket enforces an overall request rate but provides no guarantees
+about ordering or fairness under contention. When multiple callers compete for
+tokens, whichever thread or process happens to run first can repeatedly consume
+newly refilled tokens, while others may be delayed indefinitely. Under sustained
+load, this can lead to starvation for less aggressively scheduled or slower
+clients.
+
+To alleviate this, we keep rate limited requests in a queue which get processed
+as the token bucket is refilled over time:
+
+```ocaml
+type t = {
+    bucket: Token_bucket.t
+  ; process_queue:
+      (float * (unit -> unit)) Queue.t (* contains token cost and callback *)
+  ; process_queue_lock: Mutex.t
+  ; worker_thread_cond: Condition.t
+  ; should_terminate: bool ref (* signal termination to worker thread *)
+  ; worker_thread: Thread.t
+}
+```
+
+The worker thread is responsible for executing the callbacks in the process
+queue when their time arrives. As above, we provide two functions for consuming
+from the token bucket; `submit_async` returns immediately and places a function
+to be executed at a later time in the queue, while `submit_sync` blocks until
+its function is executed by the rate limiter but may return a value.
+
+### Client table
+We define a `Key` module to identify clients. This contains only user_agent and
+host_ip at present, but can be expanded to cover AD user and originator, for
+example.
+```ocaml
+module Key = struct
+  type t = {user_agent: string; host_ip: string}
+```
+
+This module implements a `match : t -> t -> bool` function, which treats empty
+strings as wildcards -- for example `match {"", "1.1.1.1"} {"firefox", "1.1.1.1"}`
+will succeed. In order to store all recorded users, we use a simple association
+list with a cache:
+```ocaml
+type 'a cached_table = {
+    table: (Key.t * 'a) list
+  ; cache: (Key.t, 'a option) Lru.t
+}
+
+type 'a t = 'a cached_table Atomic.t
+```
+
+We use the atomic type to allow thread-safe updates, and provide functions for
+inserting, deleting, and obtaining items from the table.
