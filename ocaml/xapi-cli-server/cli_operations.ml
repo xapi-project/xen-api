@@ -1458,6 +1458,39 @@ let message_destroy (_ : printer) rpc session_id params =
   in
   Client.Message.destroy_many ~rpc ~session_id ~messages
 
+let message_destroy_all (_ : printer) rpc session_id params =
+  let fail msg = raise (Cli_util.Cli_failure msg) in
+  let before_str = List.assoc_opt "before" params in
+  let after_str = List.assoc_opt "after" params in
+  let priority_str = List.assoc_opt "priority" params in
+  let before =
+    try Option.map Date.of_iso8601 before_str
+    with _ ->
+      fail
+        "invalid timestamp format for 'before' (expected RFC3339, e.g. \
+         2025-01-01T00:00:00Z)"
+  in
+  let after =
+    try Option.map Date.of_iso8601 after_str
+    with _ ->
+      fail
+        "Invalid timestamp format for 'after' (expected RFC3339, e.g. \
+         2025-01-01T00:00:00Z)"
+  in
+  let priority =
+    try Option.map (fun s -> Scanf.sscanf s " %Lu" Fun.id) priority_str
+    with _ -> fail "Invalid priority format (expected positive integer)"
+  in
+  let filters =
+    List.filter_map Fun.id
+      [
+        Option.map (fun b -> ("before", Date.to_rfc3339 b)) before
+      ; Option.map (fun a -> ("after", Date.to_rfc3339 a)) after
+      ; Option.map (fun p -> ("priority", Int64.to_string p)) priority
+      ]
+  in
+  Client.Message.destroy_all ~rpc ~session_id ~filters
+
 (* Pool operations *)
 
 let get_pool_with_default rpc session_id params key =

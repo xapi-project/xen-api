@@ -32,7 +32,7 @@ jobs:
           ocaml-version: "4.14.2"
           experimental: true
         - runs-on: "ubuntu-22.04"
-          ocaml-version: "5.4.0"
+          ocaml-version: "5.4.1"
           experimental: true
 
     continue-on-error: ${{ matrix.experimental }}
