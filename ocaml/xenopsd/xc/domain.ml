@@ -984,9 +984,120 @@ let numa_hierarchy =
      NUMA.make ~distances ~cpu_to_node ~node_cores
     )
 
+module NUMAResources = struct
+  module DomidMap = Map.Make (Int)
+
+  type node_memusage = int64 Topology.NUMA.NodeMap.t
+
+  type t = {
+      host: Topology.NUMAResource.t Topology.NUMA.NodeMap.t
+    ; estimated: node_memusage DomidMap.t
+    ; outstanding_builds: node_memusage DomidMap.t
+  }
+
+  let node_memusage_of_domidmap node t =
+    DomidMap.fold
+      (fun _ nodemap acc ->
+        Topology.NUMA.NodeMap.find_opt node nodemap
+        |> Option.value ~default:0L
+        |> Int64.add acc
+      )
+      t 0L
+
+  let to_nodes t =
+    let open Topology in
+    t.host
+    |> NUMA.NodeMap.mapi @@ fun node r ->
+       NUMAResource.shrink_memory r
+         (Int64.add
+            (node_memusage_of_domidmap node t.estimated)
+            (node_memusage_of_domidmap node t.outstanding_builds)
+         )
+
+  let of_host nodes =
+    {
+      host= nodes |> Topology.NUMA.NodeMap.of_seq
+    ; estimated= DomidMap.empty
+    ; outstanding_builds= DomidMap.empty
+    }
+
+  let empty =
+    {
+      host= Topology.NUMA.NodeMap.empty
+    ; estimated= DomidMap.empty
+    ; outstanding_builds= DomidMap.empty
+    }
+
+  let pp_dump_nodemap pp_elt =
+    let open Topology.NUMA in
+    Fmt.(Dump.iter_bindings NodeMap.iter (any "nodemap") pp_dump_node pp_elt)
+
+  let pp_dump_domidmap pp_elt =
+    Fmt.(Dump.iter_bindings DomidMap.iter (any "domidmap") int pp_elt)
+
+  let pp_dump_numa_resources =
+    Fmt.Dump.(
+      record
+        [
+          field "host"
+            (fun t -> t.host)
+            (pp_dump_nodemap Topology.NUMAResource.pp_dump)
+        ; field "estimated"
+            (fun t -> t.estimated)
+            (pp_dump_domidmap @@ pp_dump_nodemap Fmt.int64)
+        ; field "outstanding_builds"
+            (fun t -> t.outstanding_builds)
+            (pp_dump_domidmap @@ pp_dump_nodemap Fmt.int64)
+        ]
+    )
+
+  let add_outstanding domid plan t =
+    D.debug "domid %u: adding outstanding NUMA memory usage estimate: %s" domid
+      ((Fmt.to_to_string @@ pp_dump_nodemap Fmt.int64) plan) ;
+    {t with outstanding_builds= DomidMap.add domid plan t.outstanding_builds}
+
+  let remove_outstanding domid t =
+    D.debug "domid %u: removing outstanding NUMA memory usage estimate" domid ;
+    {t with outstanding_builds= DomidMap.remove domid t.outstanding_builds}
+
+  let transfer_outstanding domid t =
+    D.debug "domid %u: transfering outstanding NUMA memory usage estimate" domid ;
+    DomidMap.find_opt domid t.outstanding_builds
+    |> Option.fold ~none:t ~some:(fun plan ->
+        {
+          t with
+          estimated= DomidMap.add domid plan t.estimated
+        ; outstanding_builds= DomidMap.remove domid t.outstanding_builds
+        }
+    )
+
+  let estimate_plan nodes mem plan =
+    let open Topology in
+    let _, _, nodemap =
+      List.fold_left
+        (fun (mem, remaining_nodes, acc) node ->
+          let per_node_usage =
+            Int64.div mem (remaining_nodes |> Int64.of_int)
+          in
+          let r = NUMA.NodeMap.find node nodes in
+          let allocated_from_node =
+            Int64.min per_node_usage r.NUMAResource.memfree
+          in
+          ( Int64.sub mem allocated_from_node
+          , remaining_nodes - 1
+          , NUMA.NodeMap.add node allocated_from_node acc
+          )
+        )
+        (mem, List.length plan, NUMA.NodeMap.empty)
+        plan
+    in
+    nodemap
+end
+
 let numa_mutex = Mutex.create ()
 
-let numa_resources = ref None
+(* protected by numa_mutex *)
+let numa_resources = ref NUMAResources.empty
 
 let numa_init () =
   let xcext = Xenctrlext.get_handle () in
@@ -1007,9 +1118,10 @@ let set_affinity = function
   | Xenops_server.Soft ->
       Xenctrlext.vcpu_setaffinity_soft
 
-let numa_placement domid ~vcpus ~cores ~memory affinity =
+let numa_placement domid ~vcpus ~cores ~memory ~required_free affinity =
   let open Xenctrlext in
   let open Topology in
+  let open NUMAResources in
   with_lock numa_mutex (fun () ->
       let ( let* ) = Option.bind in
       let xcext = get_handle () in
@@ -1017,18 +1129,25 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
       let numa_meminfo = (numainfo xcext).memory |> Array.to_seq in
       let nodes =
         Seq.map2
-          (fun node m -> NUMA.resource host node ~memory:m.memfree)
+          (fun node m -> (node, NUMA.resource host node ~memory:m.memfree))
           (NUMA.nodes host) numa_meminfo
       in
       let vm = NUMARequest.make ~memory ~vcpus ~cores in
+
+      let previous = !numa_resources in
+      if DomidMap.is_empty previous.outstanding_builds then begin
+        (* no outstanding domain builds: synchronize actual free node memory
+           with host *)
+          numa_resources := of_host nodes ;
+          D.debug "no outstanding domain builds, dropping NUMA usage estimates"
+      end ;
+      D.debug "numa_resources(in): %s"
+      @@ Fmt.to_to_string pp_dump_numa_resources !numa_resources ;
+
+      let estimated_nodes = to_nodes !numa_resources in
       let nodea =
-        match !numa_resources with
-        | None ->
-            Array.of_seq nodes
-        | Some a ->
-            Array.map2 NUMAResource.min_memory (Array.of_seq nodes) a
+        estimated_nodes |> NUMA.NodeMap.to_seq |> Seq.map snd |> Array.of_seq
       in
-      numa_resources := Some nodea ;
       let cpu_affinity, memory_plan =
         match Softaffinity.plan ~vm host nodea with
         | None ->
@@ -1037,6 +1156,12 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
         | Some (cpu_affinity, mem_plan) ->
             (Some cpu_affinity, mem_plan)
       in
+      numa_resources :=
+        add_outstanding domid
+          (estimate_plan estimated_nodes required_free memory_plan)
+          !numa_resources ;
+      D.debug "numa_resources(out): %s"
+      @@ Fmt.to_to_string pp_dump_numa_resources !numa_resources ;
       let set_vcpu_affinity = function
         | None ->
             D.debug "%s: not setting vcpu affinity for domain %d" __FUNCTION__
@@ -1177,6 +1302,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
               in
               numa_placement domid ~vcpus ~cores
                 ~memory:(Int64.mul memory.xen_max_mib 1048576L)
+                ~required_free:(Int64.mul memory.required_host_free_mib 1048576L)
                 affinity
               |> Option.map fst
         )
@@ -1358,6 +1484,11 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
   let target_mib = Memory.mib_of_kib_used target_kib in
   (* Sanity check. *)
   assert (target_mib <= static_max_mib) ;
+  let finally () =
+    with_lock numa_mutex @@ fun () ->
+    numa_resources := NUMAResources.remove_outstanding domid !numa_resources
+  in
+  Fun.protect ~finally @@ fun () ->
   let store_mfn, store_port, console_mfn, console_port, vm_stuff, domain_type =
     match info.priv with
     | BuildHVM hvminfo ->
@@ -1444,6 +1575,10 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
         )
   in
   let local_stuff = console_keys console_port console_mfn in
+  let () =
+    with_lock numa_mutex @@ fun () ->
+    numa_resources := NUMAResources.transfer_outstanding domid !numa_resources
+  in
   build_post ~xc ~xs ~target_mib ~static_max_mib domid domain_type store_mfn
     store_port local_stuff vm_stuff
 
