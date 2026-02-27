@@ -72,6 +72,8 @@ let numa_placement_compat = ref true
 
 let numa_best_effort_prio_mem_only = ref false
 
+let numa_reserve_node0_dmaheap_bits = ref 31
+
 (* O(N^2) operations, until we get a xenstore cache, so use a small number here *)
 let vm_guest_agent_xenstore_quota = ref 128
 
@@ -281,6 +283,12 @@ let options =
     , "Revert to the previous 'best effort' NUMA policy, where we only \
        filtered NUMA nodes based on available memory. Only use if there are \
        issues with the new best effort policy"
+    )
+  ; ( "numa-reserve-node0-dmaheap-bits"
+    , Arg.Int (fun x -> numa_reserve_node0_dmaheap_bits := x)
+    , (fun () -> string_of_int !numa_reserve_node0_dmaheap_bits)
+    , "Reserve 2^N bytes on node0 in the NUMA planner, similar to how Xen would\n\
+      \  protect the low 4GiB of the memory for the DMA heap"
     )
   ; ( "pci-quarantine"
     , Arg.Bool (fun b -> pci_quarantine := b)
