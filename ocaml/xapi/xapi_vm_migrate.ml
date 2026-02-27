@@ -1443,7 +1443,41 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
       List.fold_left (fun acc vconf -> Int64.add acc vconf.size) 0L all_vdis
     in
     let so_far = ref 0L in
+    let keep_refreshing = Atomic.make true in
+    let _ =
+      Thread.create
+        (fun () ->
+          let session_id = remote.session in
+          let refresh_session =
+            Xapi_session.consider_touching_session remote.rpc session_id
+          in
+          let threshold =
+            Ptime.Span.to_float_s !Xapi_globs.threshold_last_active
+            |> int_of_float
+          in
+          let just_refreshed () =
+            Clock.Timer.start ~duration:Mtime.Span.((threshold + 5) * s)
+          in
+          let next_refresh = ref (just_refreshed ()) in
+          debug "%s: starting refreshing thread" __FUNCTION__ ;
+          while Atomic.get keep_refreshing do
+            if Clock.Timer.has_expired !next_refresh then (
+              refresh_session () ;
+              debug "%s: refresh_session called" __FUNCTION__ ;
+              next_refresh := just_refreshed ()
+            ) ;
+            Thread.delay 10.
+          done ;
+          debug "%s: stopping refreshing thread" __FUNCTION__
+        )
+        ()
+    in
     let new_vm =
+      Fun.protect ~finally:(fun () ->
+          debug "%s: setting keep_refreshing to false" __FUNCTION__ ;
+          Atomic.set keep_refreshing false
+      )
+      @@ fun () ->
       with_many
         (vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis
            so_far total_size copy

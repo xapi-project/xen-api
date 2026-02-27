@@ -1008,15 +1008,15 @@ let node_mem_claimable_for_new_vm ~node ~domid m =
 let numa_init () =
   let xcext = Xenctrlext.get_handle () in
   let host = Lazy.force numa_hierarchy in
-  let mem = Xenctrlext.HostNuma.numa_get_meminfo xcext in
   D.debug "Host NUMA information: %s"
     (Fmt.to_to_string (Fmt.Dump.option Topology.NUMA.pp_dump) host) ;
-  Array.iteri
-    (fun i m ->
-      let open Xenctrlext.HostNuma in
-      D.debug "NUMA node %d: %Ld/%Ld/%Ld memory free" i m.free m.size m.claimed
-    )
-    mem
+  Xenctrlext.HostNuma.numa_get_meminfo xcext
+  |> Result.iter
+     @@ Array.iteri (fun i m ->
+         let open Xenctrlext.HostNuma in
+         D.debug "NUMA node %d: %Ld/%Ld/%Ld memory free" i m.free m.size
+           m.claimed
+     )
 
 let set_affinity = function
   | Xenops_server.Hard ->
@@ -1031,7 +1031,11 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
       let ( let* ) = Option.bind in
       let xcext = get_handle () in
       let* host = Lazy.force numa_hierarchy in
-      let numa_meminfo = HostNuma.numa_get_meminfo xcext |> Array.to_seq in
+      let* numa_meminfo =
+        HostNuma.numa_get_meminfo xcext
+        |> Result.map Array.to_seq
+        |> Result.to_option
+      in
       let nodes =
         Seq.map2
           (fun node m ->
@@ -1076,25 +1080,23 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
             None
       in
       let nr_pages = Memory.pages_of_bytes_used memory |> Int64.to_int in
-      try
-        D.debug "NUMAClaim domid %d: local claim on node %d: %d pages" domid
-          node nr_pages ;
-        Xenctrlext.domain_claim_pages xcext domid ~numa_node nr_pages ;
-        set_vcpu_affinity cpu_affinity ;
-        Some (node, memory)
-      with
-      | Xenctrlext.Not_available ->
-          (* Xen does not provide the interface to claim pages from a single NUMA
-             node, ignore the error and continue. *)
-          D.debug "NUMAClaim domid %d: local claim not available" domid ;
+      D.debug "NUMAClaim domid %d: local claim on node %d: %d pages" domid node
+        nr_pages ;
+      match Xenctrlext.domain_claim_pages xcext domid ~numa_node nr_pages with
+      | Ok () ->
           set_vcpu_affinity cpu_affinity ;
-          None
-      | Xenctrlext.Unix_error ((Unix.ENOMEM as errno), _) ->
+          Some (node, memory)
+      | Error (Unix.ENOMEM, _) ->
           D.info
             "%s: unable to claim enough memory, domain %d won't be hosted in a \
-             single NUMA node. (error %s)"
-            __FUNCTION__ domid
-            Unix.(error_message errno) ;
+             single NUMA node."
+            __FUNCTION__ domid ;
+          None
+      | Error (err, fn) ->
+          (* Xen does not provide the interface to claim pages from a single NUMA node, ignore the error and continue. *)
+          D.debug "NUMAClaim domid %d: local claim not available: %s: %s" domid
+            fn (Unix.error_message err) ;
+          set_vcpu_affinity cpu_affinity ;
           None
   )
 
@@ -1177,7 +1179,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
           Xapi_stdext_std.Listext.List.take vcpus ((m :: ms) @ defaults)
       )
     |> List.iteri (fun vcpu mask ->
-        Xenctrlext.vcpu_setaffinity_hard xcext domid vcpu (bitmap mask)
+        Xenctrlext.(vcpu_setaffinity_hard xcext domid vcpu (bitmap mask))
     )
   in
   apply_hard_vcpu_map () ;
@@ -1222,8 +1224,26 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
                   let xcext = Xenctrlext.get_handle () in
                   D.debug "NUMAClaim domid %d: global claim: %d pages" domid
                     nr_pages ;
-                  Xenctrlext.domain_claim_pages xcext domid
-                    ~numa_node:Xenctrlext.NumaNode.none nr_pages ;
+
+                  let () =
+                    match
+                      Xenctrlext.(
+                        domain_claim_pages xcext domid
+                          ~numa_node:Xenctrlext.NumaNode.none nr_pages
+                      )
+                    with
+                    | Ok () ->
+                        ()
+                    | Error ((Unix.ENOMEM as e), fn) ->
+                        (* propagate global claim ENOMEM, unlikely we'd
+                           succeed *)
+                        raise (Xenctrlext.Unix_error (e, fn))
+                    | Error _ as e ->
+                        (* Something else failed, e.g. ENOSYS or EINVAL, etc.
+                           Continue without global claims, as if NUMA
+                           placement was disabled. *)
+                        Xenctrlext.handle_outcome ~default:() e
+                  in
                   None
               | Some (plan, _) ->
                   Some plan
@@ -1508,7 +1528,7 @@ let resume (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~domain_type
   resume_post ~xc ~xs domid ;
   if domain_type = `hvm then Device.Dm.resume task ~xs ~qemu_domid domid
 
-type suspend_flag = Live | Debug
+type suspend_flag = Live | Debug | Compress
 
 let dm_flags =
   let open Device.Profile in
@@ -1962,7 +1982,15 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xs ~domain_type
         ([], [])
   in
   let cmdline_to_flag flag =
-    match flag with Live -> ["-live"; "true"] | Debug -> ["-debug"; "true"]
+    match flag with
+    | Live ->
+        ["-live"; "true"]
+    | Debug ->
+        ["-debug"; "true"]
+    | Compress ->
+        ["-compress"; "true"]
+    (* xenguest compression; could pass a different argument in the
+       furture to signal version or compression algorithm *)
   in
   let flags' = List.map cmdline_to_flag flags in
   let args =

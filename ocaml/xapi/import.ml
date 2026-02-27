@@ -2076,37 +2076,79 @@ let handlers =
   ; (Datamodel_common._vtpm, VTPMHandler.handle)
   ]
 
-let update_snapshot_and_parent_links ~__context state =
-  let aux (cls, _, ref) =
-    let ref = Ref.of_string ref in
-    ( if
-        cls = Datamodel_common._vm
-        && Db.VM.get_is_a_snapshot ~__context ~self:ref
-      then
-        let snapshot_of = Db.VM.get_snapshot_of ~__context ~self:ref in
-        if snapshot_of <> Ref.null then (
-          debug "lookup for snapshot_of = '%s'" (Ref.string_of snapshot_of) ;
-          log_reraise
-            ("Failed to find the VM which is snapshot of "
-            ^ Db.VM.get_name_label ~__context ~self:ref
-            )
-            (fun table ->
-              let snapshot_of = (lookup snapshot_of) table in
-              Db.VM.set_snapshot_of ~__context ~self:ref ~value:snapshot_of
-            )
-            state.table
-        )
-    ) ;
-    if cls = Datamodel_common._vm then (
-      let parent = Db.VM.get_parent ~__context ~self:ref in
-      debug "lookup for parent = '%s'" (Ref.string_of parent) ;
-      try
-        let parent = lookup parent state.table in
-        Db.VM.set_parent ~__context ~self:ref ~value:parent
-      with _ -> debug "no parent found"
-    )
+(* If snapshot_of(x) = y, and both x and y are freshly imported VDIs,
+   the field must be rewritten to a real database reference. The same
+   relationship formed by parental links must be preserved as well.
+
+   We can't do this on-the-fly during an import because we can't
+   guarantee that the VDIs will be imported in reverse topological
+   order of the relation induced by snapshot_of. *)
+let update_vdi_links ~__context state =
+  (* Map an exported reference to a (freshly) imported reference, or
+     null if it's not present in the import. *)
+  let resolve_import =
+    let tbl = Hashtbl.create 16 in
+    let go (_, a, b) = Hashtbl.replace tbl a (Ref.of_string b) in
+    List.iter go state.table ;
+    fun r ->
+      Hashtbl.find_opt tbl (Ref.string_of r) |> Option.value ~default:Ref.null
   in
-  List.iter aux state.table
+  let update x =
+    let x_r = Db.VDI.get_record ~__context ~self:x in
+    let parent = resolve_import x_r.API.vDI_parent in
+    let snapshot_of = resolve_import x_r.API.vDI_snapshot_of in
+    Db.VDI.set_parent ~__context ~self:x ~value:parent ;
+    Db.VDI.set_snapshot_of ~__context ~self:x ~value:snapshot_of ;
+    Db.VDI.set_is_a_snapshot ~__context ~self:x ~value:(snapshot_of <> Ref.null)
+  in
+  let go (cls, _, r) =
+    if cls = Datamodel_common._vdi then update (Ref.of_string r)
+  in
+  List.iter go state.table
+
+(* Same as [update_vdi_links] but over VMs instead. *)
+let update_vm_links ~__context state =
+  let resolve_import =
+    let tbl = Hashtbl.create 16 in
+    let go (_, a, b) = Hashtbl.replace tbl a (Ref.of_string b) in
+    List.iter go state.table ;
+    fun r ->
+      Hashtbl.find_opt tbl (Ref.string_of r) |> Option.value ~default:Ref.null
+  in
+  let update x =
+    let x_r = Db.VM.get_record ~__context ~self:x in
+    let parent = resolve_import x_r.API.vM_parent in
+    let snapshot_of = resolve_import x_r.API.vM_snapshot_of in
+    Db.VM.set_parent ~__context ~self:x ~value:parent ;
+    Db.VM.set_snapshot_of ~__context ~self:x ~value:snapshot_of ;
+    Db.VM.set_is_a_snapshot ~__context ~self:x ~value:(snapshot_of <> Ref.null)
+  in
+  let go (cls, _, r) =
+    if cls = Datamodel_common._vm then update (Ref.of_string r)
+  in
+  List.iter go state.table
+
+let check_references ~__context (table : table) =
+  let is_export_reference r =
+    r <> Ref.null && String.starts_with ~prefix:"Ref:" (Ref.string_of r)
+  in
+  let get_snapshot ~clazz ~r =
+    Eventgen.find_get_record clazz ~__context ~self:r ()
+  in
+  let check_reference path r =
+    if is_export_reference r then
+      debug "External reference not updated during import: %s: %s"
+        (Diagnostic.show_path path)
+        (Ref.string_of r)
+  in
+  let rec go (clazz, _, r) =
+    match get_snapshot ~clazz ~r with
+    | Some record ->
+        Diagnostic.visit_references check_reference clazz record
+    | _ ->
+        debug "Could not find imported object %s" r
+  in
+  List.iter go table
 
 (** Take a list of objects, lookup the handlers by class name and 'handle' them *)
 let handle_all __context config rpc session_id (xs : obj list) =
@@ -2127,7 +2169,11 @@ let handle_all __context config rpc session_id (xs : obj list) =
       | _ ->
           false
     in
-    if not dry_run then update_snapshot_and_parent_links ~__context state ;
+    if not dry_run then (
+      update_vm_links ~__context state ;
+      update_vdi_links ~__context state ;
+      check_references ~__context state.table
+    ) ;
     state
   with e ->
     Backtrace.is_important e ;

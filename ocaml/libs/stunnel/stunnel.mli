@@ -60,6 +60,8 @@ val appliance : verification_config
 
 val pool : verification_config
 
+val world : verification_config
+
 val external_host : string -> verification_config
 
 val with_connect :

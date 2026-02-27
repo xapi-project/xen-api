@@ -2980,16 +2980,6 @@ module Backend = struct
         )
       in
       let xen_platform_pv_driver_info pv_info =
-        (* we would like to keep the assumptions about supported
-           features small and rather have the Linux kernel or a guest agent
-           announce the actually supported featuresi. See commit message *)
-        let features =
-          match !Xenopsd.linux_assume_ctrl_features with
-          | true ->
-              ["suspend"; "poweroff"; "reboot"; "vcpu-hotplug"]
-          | false ->
-              ["vcpu-hotplug"]
-        in
         with_xs (fun xs ->
             let is_hvm_linux {product_num; build_num} =
               let _XEN_IOPORT_LINUX_PRODNUM = 3 in
@@ -3002,7 +2992,9 @@ module Backend = struct
                   (Printf.sprintf "/local/domain/%d/%s%s" domid prefix x)
                   "1"
               in
-              List.iter (write_local_domain "control/feature-") features ;
+              List.iter
+                (write_local_domain "control/feature-")
+                ["suspend"; "poweroff"; "reboot"; "vcpu-hotplug"] ;
               List.iter (write_local_domain "data/") ["updated"]
             )
         )
