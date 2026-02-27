@@ -1099,6 +1099,20 @@ let numa_mutex = Mutex.create ()
 (* protected by numa_mutex *)
 let numa_resources = ref NUMAResources.empty
 
+let numa_reserve_node0 mem =
+  let reserved = Int64.shift_left 1L !Xenopsd.numa_reserve_node0_dmaheap_bits in
+  let mem' = Int64.(max 0L (sub mem reserved)) in
+  (* Prefer nodes other than node0 when node0 is low on memory.
+     This is reserved for the DMA heap in Xen, and even if we try to make a VM
+     use it up, Xen will move some of its memory to other nodes to avoid
+     running out.
+     Without the claim API we have no way of forcing or querying this
+     (and even with the claim API it'd be desirable to avoid running out on
+     node0).
+   *)
+  D.debug "numa_reserve_node0, reducing free memory: %Lu -> %Lu" mem mem' ;
+  mem'
+
 let numa_init () =
   let xcext = Xenctrlext.get_handle () in
   let host = Lazy.force numa_hierarchy in
@@ -1129,7 +1143,19 @@ let numa_placement domid ~vcpus ~cores ~memory ~required_free affinity =
       let numa_meminfo = (numainfo xcext).memory |> Array.to_seq in
       let nodes =
         Seq.map2
-          (fun node m -> (node, NUMA.resource host node ~memory:m.memfree))
+          (fun node m ->
+            ( node
+            , let (NUMA.Node nodeid) = node in
+              let memory = m.memfree in
+              let memory =
+                if nodeid = 0 then
+                  numa_reserve_node0 memory
+                else
+                  memory
+              in
+              NUMA.resource host node ~memory
+            )
+          )
           (NUMA.nodes host) numa_meminfo
       in
       let vm = NUMARequest.make ~memory ~vcpus ~cores in
