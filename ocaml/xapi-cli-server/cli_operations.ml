@@ -5482,7 +5482,7 @@ let with_license_server_changes printer rpc session_id params hosts f =
           hosts
   ) ;
   try f rpc session_id with
-  | Api_errors.Server_error (name, [_; msg])
+  | Api_errors.Server_error (name, [msg1; msg2])
     when name = Api_errors.license_checkout_error ->
       (* Put back original license_server_details *)
       List.iter
@@ -5491,7 +5491,7 @@ let with_license_server_changes printer rpc session_id params hosts f =
             ~value:license_server
         )
         current_license_servers ;
-      printer (Cli_printer.PStderr (msg ^ "\n")) ;
+      printer (Cli_printer.PStderr (Printf.sprintf "%s: %s\n" msg1 msg2)) ;
       raise (ExitWithError 1)
   | Api_errors.Server_error (name, _) as e
     when name = Api_errors.invalid_edition ->
