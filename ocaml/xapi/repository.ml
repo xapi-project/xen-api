@@ -399,9 +399,7 @@ let get_hosts_updates ~__context =
       )
       hosts
   in
-  with_pool_repositories (fun () ->
-      Helpers.run_in_parallel ~funs ~capacity:capacity_in_parallel
-  )
+  Helpers.run_in_parallel ~funs ~capacity:capacity_in_parallel
 
 let get_applied_livepatches_of_host updates_of_host =
   get_list_from_updates_of_host "applied_livepatches" updates_of_host
@@ -421,7 +419,7 @@ let is_livepatchable ~__context repository applied_livepatches_of_host =
     )
     applied_livepatches_of_host
 
-let set_available_updates ~__context =
+let set_available_updates_no_lock ~__context =
   ignore (get_single_enabled_update_repository ~__context) ;
   let enabled = get_enabled_repositories ~__context in
   let hosts_updates = get_hosts_updates ~__context in
@@ -480,6 +478,9 @@ let set_available_updates ~__context =
   Hashtbl.clear updates_in_cache ;
   Hashtbl.add_seq updates_in_cache (List.to_seq hosts_updates) ;
   get_singleton checksums
+
+let set_available_updates ~__context =
+  with_pool_repositories (fun () -> set_available_updates_no_lock ~__context)
 
 let create_pool_repository ~__context ~self =
   let repo_name = get_remote_repository_name ~__context ~self in
@@ -636,10 +637,11 @@ let consolidate_updates_of_hosts ~repository_name ~updates_info ~hosts =
     updates_in_cache ([], UpdateIdSet.empty)
 
 let get_pool_updates_in_json ~__context ~hosts =
+  with_pool_repositories @@ fun () ->
   try
     let repository = get_single_enabled_update_repository ~__context in
     if Hashtbl.length updates_in_cache = 0 then
-      set_available_updates ~__context |> ignore ;
+      set_available_updates_no_lock ~__context |> ignore ;
 
     let repository_name = get_repository_name ~__context ~self:repository in
     let api_ver, updates_info =
@@ -876,7 +878,7 @@ let apply_updates ~__context ~host ~hash =
           if Helpers.is_pool_master ~__context ~host then (
             (* save available updates before applying on coordinator *)
             if Hashtbl.length updates_in_cache = 0 then
-              set_available_updates ~__context |> ignore ;
+              set_available_updates_no_lock ~__context |> ignore ;
             let hosts = Db.Host.get_all ~__context in
             consolidate_updates_of_hosts ~repository_name ~updates_info ~hosts
             |> fst
