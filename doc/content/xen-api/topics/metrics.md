@@ -249,3 +249,29 @@ To request a different update interval, add the parameter `interval=seconds` e.g
 ```sh
 wget "http://hostname/rrd_updates?session_id=<token>&start=0&interval=5"
 ```
+
+Filtering by UUID
+-----------------
+
+By default the `rrd_updates` endpoint returns statistics for all VMs
+resident on the host being queried.
+
+It is possible to restrict the response to specific VMs or storage
+repositories by using the `vm_uuid` or `sr_uuid` query parameters.
+
+Multiple UUIDs may be provided by repeating the parameter. In this
+case the result will contain statistics for all the specified objects.
+
+For example, to retrieve statistics for two VMs:
+
+```sh
+wget "http://hostname/rrd_updates?session_id=<token>&start=<secondsinceepoch>&vm_uuid=<uuid1>&vm_uuid=<uuid2>"
+```
+
+Similarly, to retrieve statistics for multiple storage repositories:
+
+```sh
+wget "http://hostname/rrd_updates?session_id=<token>&start=<secondsinceepoch>&sr_uuid=<uuid1>&sr_uuid=<uuid2>"
+```
+
+If `sr_uuid` is omitted, no SR statistics are included in the response.
