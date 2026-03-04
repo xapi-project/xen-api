@@ -120,8 +120,9 @@ This API performs following sanity check and rejects update if check fails:
 - This API allow re-entry with `force` to perform an extra `ldaps ping` for debug purpose
 - This API will not do the LDAPS query on the trusted domains, as xapi does not have trusted domain details
 - The joined domain likely has multiple DCs. LDAPS query tries every DC of the domain. Check pass if LDAPS query succeeds on any DC of the domain. This implies iterate and locate a DC supporting LDAPS (with proper certificate trust setup) before LDAPS query. However, this does not introduce performance problems as the LDAPS query happens in backend and refreshes result into XAPI DB
-- Pool coordinator dispatches this API request to every host, and only succeeds if all hosts pass the check
+- Pool coordinator dispatches this API request to every host, and only succeeds if all hosts pass the check. All succeed host will revert to the original status if this API failed
 - This API needs to be synced with other APIs. For example, `authenticate_username_password` should fail if this API is performing checking and configuration
+- This API only impact whether ldap traffic use TLS, it does not impact existing machine account and credentials
 
 This API will refresh `winbind` configuration (Refer to 4.1).
 
@@ -185,7 +186,7 @@ tls priority = NONE:+VERS-TLS1.2:+AES-256-GCM:+AES-128-GCM:+AEAD:+ECDHE-RSA:+SIG
 
 - Switch between `ldap` and `ldaps` will flip `client ldap sasl wrapping` between `seal` and `ldaps`
 - `tls cafile` points to a CA bundle used to verify DC certs. Details refer to 4.1.2
-- `tls priority` is following stunnel TLS configuration, this result to TLS 1.2 with cipher suite TLS_ECDHE_RSA_AES_128_GCM_SHA256, TLS_ECDHE_RSA_AES_256_GCM_SHA384, Windows Server 2008R2 and later as DC support it
+- `tls priority` is following stunnel TLS configuration, this result to TLS 1.2 with cipher suite TLS_ECDHE_RSA_AES_128_GCM_SHA256, TLS_ECDHE_RSA_AES_256_GCM_SHA384, Windows Server 2012 and later as DC support it
   - NONE: starts with empty set
   - +VERS-TLS1.2: Enbale TLS 1.2
   - +AES-256-GCM:+AES-128-GCM: Enable AES-256-GCM and AES-128-GCM cipher
