@@ -11,11 +11,14 @@ homepage: "https://github.com/xapi-project/backtrace"
 bug-reports: "https://github.com/xapi-project/backtrace/issues"
 depends: [
   "ocaml"
-  "dune" {>= "1.4"}
+  "dune" {>= "2.7"}
   "base-threads"
   "ppx_deriving_rpc"
   "ppx_sexp_conv" {>= "v0.11.0"}
   "rpclib"
 ]
-build: ["dune" "build" "-p" name "-j" jobs]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
 dev-repo: "git+https://github.com/xapi-project/backtrace.git"
