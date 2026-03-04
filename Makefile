@@ -22,5 +22,11 @@ test:
 doc:
 	dune build @doc --profile=release
 
+check:
+	dune build @check
+
+format:
+	dune build @fmt --auto-promote
+
 reindent:
 	ocp-indent --syntax cstruct -i **/*.ml*
