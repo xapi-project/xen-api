@@ -246,6 +246,7 @@ let get exn =
   |> Option.fold ~some:(fun tbl -> get tbl exn) ~none:empty
 
 let reraise old newexn =
+  is_important old;
   add newexn (remove old);
   raise newexn
 

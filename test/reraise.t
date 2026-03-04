@@ -6,8 +6,10 @@
   $ ./raiser.exe -reraise
   Backtrace lab failed with exception Failure("bar")
   Raised Failure("bar")
-  1/2 raiser.exe Raised at file lib/backtrace.ml, line 250
-  2/2 raiser.exe Called from file test/log.ml, line 55
+  1/4 raiser.exe Raised at file test/raiser.ml, line 1
+  2/4 raiser.exe Called from file test/raiser.ml, line 4
+  3/4 raiser.exe Called from file lib/backtrace.ml, line 251
+  4/4 raiser.exe Called from file test/log.ml, line 55
   
 
   $ ./raiser.exe -v1-with-backtrace
