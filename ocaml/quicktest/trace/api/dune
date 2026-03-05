@@ -1,0 +1,16 @@
+(library
+  (name quicktest_trace_api)
+  (modules_without_implementation types)
+  (libraries
+    cli_progress_bar
+    quicktest_trace
+    quicktest_trace_rpc
+    rpclib.xml
+    threads.posix
+    sexplib
+    sexplib0
+    xapi-backtrace
+    xapi-client
+    xapi-consts
+    xapi-types
+   ))
