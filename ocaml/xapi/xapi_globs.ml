@@ -1149,6 +1149,10 @@ let validate_reusable_pool_session = ref false
 let vm_sysprep_enabled = ref true
 (* enable VM.sysprep API *)
 
+let vhd_legacy_blocks_format = ref true
+(* If false, uses an interval-based JSON blocks format for VHD instead of the
+   legacy format which includes all the allocated clusters *)
+
 let vm_sysprep_wait = ref 5.0 (* seconds *)
 
 let test_open = ref 0
@@ -1875,6 +1879,12 @@ let other_options =
     , Arg.Set_float vm_sysprep_wait
     , (fun () -> string_of_float !vm_sysprep_wait)
     , "Time in seconds to wait for VM to recognise inserted CD"
+    )
+  ; ( "vhd-legacy-blocks-format"
+    , Arg.Set vhd_legacy_blocks_format
+    , (fun () -> string_of_bool !vhd_legacy_blocks_format)
+    , "Choose whether legacy/sparse block format will be used for determining \
+       allocated VHD clusters"
     )
   ; ( "proxy_poll_period_timeout"
     , Arg.Set_float proxy_poll_period_timeout
