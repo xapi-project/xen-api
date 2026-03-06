@@ -128,6 +128,10 @@ let tests =
       (N.vm_uefi_mode_to_string, N.vm_uefi_mode_to_string)
   ; mk __LINE__ None all_vm_secureboot_readiness
       (O.vm_secureboot_readiness_to_string, N.vm_secureboot_readiness_to_string)
+  ; mk __LINE__ None all_vm_secureboot_certificates_state
+      ( O.vm_secureboot_certificates_state_to_string
+      , N.vm_secureboot_certificates_state_to_string
+      )
   ; mk __LINE__ None all_pool_guest_secureboot_readiness
       ( O.pool_guest_secureboot_readiness_to_string
       , N.pool_guest_secureboot_readiness_to_string

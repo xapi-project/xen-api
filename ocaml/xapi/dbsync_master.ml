@@ -352,6 +352,45 @@ let update_pool_recommendations_noexn ~__context =
     )
     ()
 
+(* Update the secureboot_certificates_state field for all VMs.
+   This checks each VM's NVRAM/certificate status and sets the state
+   to update_required if certificates are due to expire or have expired.
+   TODO: The actual certificate expiration check should be implemented
+   using a C library binding to varstored's certificate checking functionality. *)
+let update_vm_secureboot_certificates_state_noexn ~__context =
+  Helpers.log_exn_continue "update VM secureboot certificates state"
+    (fun () ->
+      let vms = Db.VM.get_all ~__context in
+      List.iter
+        (fun vm ->
+          try
+            (* Skip templates and control domains *)
+            let is_template = Db.VM.get_is_a_template ~__context ~self:vm in
+            let is_control_domain =
+              Db.VM.get_is_control_domain ~__context ~self:vm
+            in
+            if (not is_template) && not is_control_domain then
+              (* TODO: Call C library to check certificate expiration status
+                 from NVRAM content. For now, this is a placeholder that
+                 preserves the current state unless it needs to be reset. *)
+              let current_state =
+                Db.VM.get_secureboot_certificates_state ~__context ~self:vm
+              in
+              match current_state with
+              | `update_scheduled | `error ->
+                  (* Don't change scheduled or error states *)
+                  ()
+              | `ok | `update_required ->
+                  (* TODO: Actually check certificates and update state *)
+                  ()
+          with e ->
+            debug "Failed to update secureboot_certificates_state for VM %s: %s"
+              (Ref.string_of vm) (Printexc.to_string e)
+        )
+        vms
+    )
+    ()
+
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
 let update_env __context =
@@ -376,4 +415,5 @@ let update_env __context =
   (* Update the SM plugin table *)
   if !Xapi_globs.create_tools_sr then create_tools_sr_noexn __context ;
   ensure_vm_metrics_records_exist_noexn __context ;
-  update_pool_recommendations_noexn ~__context
+  update_pool_recommendations_noexn ~__context ;
+  update_vm_secureboot_certificates_state_noexn ~__context

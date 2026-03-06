@@ -191,4 +191,94 @@ module VMSetBiosStrings = Generic.MakeStateful (struct
     `QuickAndAutoDocumented tests
 end)
 
-let tests = [("test_vm_set_bios_strings", VMSetBiosStrings.tests)]
+module VMSecurebootCertificatesState = struct
+  (* Test that the default value of secureboot_certificates_state is `ok *)
+  let test_default_state () =
+    let __context = Test_common.make_test_database () in
+    let vm = Test_common.make_vm ~__context () in
+    let state = Db.VM.get_secureboot_certificates_state ~__context ~self:vm in
+    Alcotest.(check string)
+      "default state is ok" "ok"
+      (Record_util.vm_secureboot_certificates_state_to_string state)
+
+  (* Test schedule when state is update_required -> update_scheduled *)
+  let test_schedule_from_update_required () =
+    let __context = Test_common.make_test_database () in
+    let vm = Test_common.make_vm ~__context () in
+    (* Set the state to update_required *)
+    Db.VM.set_secureboot_certificates_state ~__context ~self:vm
+      ~value:`update_required ;
+    (* Call the schedule function *)
+    Xapi_vm.schedule_secureboot_certs_state_update ~__context ~self:vm ;
+    (* Check that the state is now update_scheduled *)
+    let state = Db.VM.get_secureboot_certificates_state ~__context ~self:vm in
+    Alcotest.(check string)
+      "state is update_scheduled" "update_scheduled"
+      (Record_util.vm_secureboot_certificates_state_to_string state)
+
+  (* Test schedule when state is ok -> raises OPERATION_NOT_ALLOWED *)
+  let test_schedule_from_ok_raises () =
+    let __context = Test_common.make_test_database () in
+    let vm = Test_common.make_vm ~__context () in
+    (* State is ok by default *)
+    Alcotest.check_raises "raises operation_not_allowed"
+      Api_errors.(
+        Server_error
+          ( operation_not_allowed
+          , ["VM.secureboot_certificates_state is ok, expected update_required"]
+          )
+      )
+      (fun () ->
+        Xapi_vm.schedule_secureboot_certs_state_update ~__context ~self:vm
+      )
+
+  (* Test schedule when state is error -> raises OPERATION_NOT_ALLOWED *)
+  let test_schedule_from_error_raises () =
+    let __context = Test_common.make_test_database () in
+    let vm = Test_common.make_vm ~__context () in
+    Db.VM.set_secureboot_certificates_state ~__context ~self:vm ~value:`error ;
+    Alcotest.check_raises "raises operation_not_allowed"
+      Api_errors.(
+        Server_error
+          ( operation_not_allowed
+          , [
+              "VM.secureboot_certificates_state is error, expected \
+               update_required"
+            ]
+          )
+      )
+      (fun () ->
+        Xapi_vm.schedule_secureboot_certs_state_update ~__context ~self:vm
+      )
+
+  (* Test schedule when state is already update_scheduled -> idempotent *)
+  let test_schedule_from_update_scheduled_is_idempotent () =
+    let __context = Test_common.make_test_database () in
+    let vm = Test_common.make_vm ~__context () in
+    Db.VM.set_secureboot_certificates_state ~__context ~self:vm
+      ~value:`update_scheduled ;
+    (* Should not raise, should be idempotent *)
+    Xapi_vm.schedule_secureboot_certs_state_update ~__context ~self:vm ;
+    let state = Db.VM.get_secureboot_certificates_state ~__context ~self:vm in
+    Alcotest.(check string)
+      "state remains update_scheduled" "update_scheduled"
+      (Record_util.vm_secureboot_certificates_state_to_string state)
+
+  let tests =
+    [
+      ("test_default_state", `Quick, test_default_state)
+    ; ("test_schedule_from_update_required", `Quick, test_schedule_from_update_required)
+    ; ("test_schedule_from_ok_raises", `Quick, test_schedule_from_ok_raises)
+    ; ("test_schedule_from_error_raises", `Quick, test_schedule_from_error_raises)
+    ; ( "test_schedule_from_update_scheduled_is_idempotent"
+      , `Quick
+      , test_schedule_from_update_scheduled_is_idempotent
+      )
+    ]
+end
+
+let tests =
+  [
+    ("test_vm_set_bios_strings", VMSetBiosStrings.tests)
+  ; ("test_vm_secureboot_certificates_state", VMSecurebootCertificatesState.tests)
+  ]

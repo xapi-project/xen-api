@@ -687,8 +687,9 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~is_vmss_snapshot:false ~appliance ~start_delay ~shutdown_delay ~order
     ~suspend_SR ~version ~generation_id ~hardware_platform_version
     ~has_vendor_device ~requires_reboot:false ~reference_label ~domain_type
-    ~pending_guidances:[] ~recommended_guidances:[]
-    ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
+    ~secureboot_certificates_state:`ok ~pending_guidances:[]
+    ~recommended_guidances:[] ~pending_guidances_recommended:[]
+    ~pending_guidances_full:[] ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref ;
   update_memory_overhead ~__context ~vm:vm_ref ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:vm_ref ;
@@ -898,13 +899,38 @@ let add_to_VCPUs_params_live ~__context ~self:_ ~key:_ ~value:_ =
        (Api_errors.not_implemented, ["add_to_VCPUs_params_live"])
     )
 
-let set_NVRAM ~__context ~self ~value = Db.VM.set_NVRAM ~__context ~self ~value
+(* TODO: This function should be implemented using a C library binding
+   to varstored's certificate checking functionality for performance.
+   Currently this is a placeholder that does not check actual certificate
+   expiration. The C library will take the NVRAM content and determine
+   if certificates need updating. *)
+let update_secureboot_certificates_state ~__context ~self =
+  (* Only update if the current state is not already update_scheduled
+     or error - those states should not be automatically changed *)
+  let current_state =
+    Db.VM.get_secureboot_certificates_state ~__context ~self
+  in
+  match current_state with
+  | `update_scheduled | `error ->
+      (* Don't change scheduled or error states *)
+      ()
+  | `ok | `update_required ->
+      (* TODO: Call C library to check certificate expiration status
+         from NVRAM content and update the state accordingly.
+         For now, this is a no-op placeholder. *)
+      ()
+
+let set_NVRAM ~__context ~self ~value =
+  Db.VM.set_NVRAM ~__context ~self ~value ;
+  update_secureboot_certificates_state ~__context ~self
 
 let remove_from_NVRAM ~__context ~self ~key =
-  Db.VM.remove_from_NVRAM ~__context ~self ~key
+  Db.VM.remove_from_NVRAM ~__context ~self ~key ;
+  update_secureboot_certificates_state ~__context ~self
 
 let add_to_NVRAM ~__context ~self ~key ~value =
-  Db.VM.add_to_NVRAM ~__context ~self ~key ~value
+  Db.VM.add_to_NVRAM ~__context ~self ~key ~value ;
+  update_secureboot_certificates_state ~__context ~self
 
 (* Use set_memory_dynamic_range instead *)
 let set_memory_target_live ~__context ~self:_ ~target:_ = ()
@@ -1657,7 +1683,8 @@ let set_NVRAM_EFI_variables ~__context ~self ~value =
       let key = "EFI-variables" in
       let nvram = Db.VM.get_NVRAM ~__context ~self in
       let value = (key, value) :: List.remove_assoc key nvram in
-      Db.VM.set_NVRAM ~__context ~self ~value
+      Db.VM.set_NVRAM ~__context ~self ~value ;
+      update_secureboot_certificates_state ~__context ~self
   )
 
 let restart_device_models ~__context ~self =
@@ -1739,6 +1766,33 @@ let get_secureboot_readiness ~__context ~self =
           )
       )
     )
+
+let schedule_secureboot_certs_state_update ~__context ~self =
+  let current_state =
+    Db.VM.get_secureboot_certificates_state ~__context ~self
+  in
+  match current_state with
+  | `update_required ->
+      Db.VM.set_secureboot_certificates_state ~__context ~self
+        ~value:`update_scheduled
+  | `ok | `error ->
+      raise
+        Api_errors.(
+          Server_error
+            ( operation_not_allowed
+            , [
+                Printf.sprintf
+                  "VM.secureboot_certificates_state is %s, expected \
+                   update_required"
+                  (Record_util.vm_secureboot_certificates_state_to_string
+                     current_state
+                  )
+              ]
+            )
+        )
+  | `update_scheduled ->
+      (* Already scheduled, do nothing *)
+      ()
 
 let sysprep ~__context ~self ~unattend ~timeout =
   let uuid = Db.VM.get_uuid ~__context ~self in

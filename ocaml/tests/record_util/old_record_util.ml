@@ -178,6 +178,16 @@ let vm_secureboot_readiness_to_string = function
   | `certs_incomplete ->
       "certs_incomplete"
 
+let vm_secureboot_certificates_state_to_string = function
+  | `ok ->
+      "ok"
+  | `update_required ->
+      "update_required"
+  | `update_scheduled ->
+      "update_scheduled"
+  | `error ->
+      "error"
+
 let pool_guest_secureboot_readiness_to_string = function
   | `ready ->
       "ready"

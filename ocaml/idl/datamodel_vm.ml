@@ -2444,6 +2444,39 @@ let get_secureboot_readiness =
     ~doc:"Return the secureboot readiness of the VM"
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let vm_secureboot_certificates_state =
+  Enum
+    ( "vm_secureboot_certificates_state"
+    , [
+        ( "ok"
+        , "The VM's certificates do not need to be updated (including the case \
+           where Secure Boot does not apply to this VM, e.g. no UEFI)."
+        )
+      ; ( "update_required"
+        , "The Secure Boot certificates are due to expire or have already \
+           expired."
+        )
+      ; ( "update_scheduled"
+        , "XS will trigger an update of the certificates whenever the VM \
+           boots. This includes VM.start, VM.reboot and a guest-triggered \
+           reboot."
+        )
+      ; ( "error"
+        , "Something has gone wrong with the certificate update process."
+        )
+      ]
+    )
+
+let schedule_secureboot_certs_state_update =
+  call ~name:"schedule_secureboot_certs_state_update" ~lifecycle:[]
+    ~params:[(Ref _vm, "self", "The VM")]
+    ~doc:
+      "Schedule a Secure Boot certificates update for this VM. If \
+       VM.secureboot_certificates_state is update_required, sets the field to \
+       update_scheduled."
+    ~errs:[Api_errors.operation_not_allowed]
+    ~allowed_roles:_R_VM_ADMIN ()
+
 (** VM (or 'guest') configuration: *)
 let t =
   create_obj ~in_db:true ~in_oss_since:oss_since_303 ~persist:PersistEverything
@@ -2582,6 +2615,7 @@ let t =
       ; restart_device_models
       ; set_uefi_mode
       ; get_secureboot_readiness
+      ; schedule_secureboot_certs_state_update
       ; set_blocked_operations
       ; add_to_blocked_operations
       ; remove_from_blocked_operations
@@ -3152,6 +3186,12 @@ let t =
             "NVRAM" ~default_value:(Some (VMap []))
             "initial value for guest NVRAM (containing UEFI variables, etc). \
              Cannot be changed while the VM is running"
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:vm_secureboot_certificates_state
+            ~default_value:(Some (VEnum "ok"))
+            "secureboot_certificates_state"
+            "The state of the Secure Boot certificates of a VM, showing \
+             whether an update is required, already scheduled, or not needed"
         ; field ~qualifier:DynamicRO
             ~lifecycle:
               [
