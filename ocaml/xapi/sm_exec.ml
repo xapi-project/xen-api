@@ -320,30 +320,30 @@ let methodResponse xml =
 (****************************************************************************************)
 (* Functions that actually execute the python backends *)
 
+let create_session ~__context sr =
+  let host = !Xapi_globs.localhost_ref in
+  let session =
+    Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false
+      ~is_local_superuser:true ~subject:Ref.null ~auth_user_sid:""
+      ~auth_user_name:sm_username ~rbac_permissions:[]
+  in
+  (* Give this session access to this particular SR *)
+  Option.iter
+    (fun sr ->
+      Db.Session.add_to_other_config ~__context ~self:session
+        ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr)
+    )
+    sr ;
+  session
+
 let with_session ~traceparent sr f =
   Server_helpers.exec_with_new_task "sm_exec"
     ~origin:(Internal_Traced traceparent) (fun __context ->
-      let create_session () =
-        let host = !Xapi_globs.localhost_ref in
-        let session =
-          Xapi_session.login_no_password ~__context ~uname:None ~host
-            ~pool:false ~is_local_superuser:true ~subject:Ref.null
-            ~auth_user_sid:"" ~auth_user_name:sm_username ~rbac_permissions:[]
-        in
-        (* Give this session access to this particular SR *)
-        Option.iter
-          (fun sr ->
-            Db.Session.add_to_other_config ~__context ~self:session
-              ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr)
-          )
-          sr ;
-        session
-      in
-      let destroy_session session_id =
+      let session_id = create_session ~__context sr in
+      let destroy_session () =
         Xapi_session.destroy_db_session ~__context ~self:session_id
       in
-      let session_id = create_session () in
-      finally (fun () -> f session_id) (fun () -> destroy_session session_id)
+      finally (fun () -> f session_id) destroy_session
   )
 
 let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
