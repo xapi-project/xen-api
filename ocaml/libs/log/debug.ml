@@ -211,13 +211,6 @@ let init_logs () =
      calling [output_log] too often. *)
   Logs.set_level (Some Logs.Warning)
 
-let rec split_c c str =
-  try
-    let i = String.index str c in
-    String.sub str 0 i
-    :: split_c c (String.sub str (i + 1) (String.length str - i - 1))
-  with Not_found -> [str]
-
 let log_backtrace_exn ?(level = Syslog.Err) ?(msg = "error") exn bt =
   (* We already got the backtrace in the `bt` argument when called from with_thread_associated.
      Log that, and remove `exn` from the backtraces table.
@@ -234,7 +227,7 @@ let log_backtrace_exn ?(level = Syslog.Err) ?(msg = "error") exn bt =
     else
       bt
   in
-  let all = split_c '\n' Backtrace.(to_string_hum bt) in
+  let all = String.split_on_char '\n' Backtrace.(to_string_hum bt) in
   (* Write to the log line at a time *)
   output_log "backtrace" level msg
     (Printf.sprintf "Raised %s" (Printexc.to_string exn)) ;
