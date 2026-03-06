@@ -1337,6 +1337,7 @@ let gen_cmds rpc session_id =
           ; "not-before"
           ; "not-after"
           ; "fingerprint"
+          ; "purpose"
           ]
           rpc session_id
       )
@@ -1952,6 +1953,38 @@ let pool_set_update_sync_enabled _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   let value = get_bool_param params "value" in
   Client.Pool.set_update_sync_enabled ~rpc ~session_id ~self:pool ~value
+
+let pool_install_trusted_certificate fd _printer rpc session_id params =
+  let self = get_pool_with_default rpc session_id params "uuid" in
+  let filename = List.assoc "filename" params in
+  let ca = get_bool_param params ~default:true "ca" in
+  let purpose =
+    List.assoc_opt "purpose" params
+    |> Option.map (fun ss ->
+        String.split_on_char ',' ss
+        |> List.map Record_util.certificate_purpose_of_string
+    )
+    |> function
+    | Some purposes ->
+        purposes
+    | None ->
+        []
+  in
+  match get_client_file fd filename with
+  | Some cert ->
+      Client.Pool.install_trusted_certificate ~rpc ~session_id ~self ~ca ~cert
+        ~purpose
+  | None ->
+      marshal fd (Command (PrintStderr "Failed to read certificate\n")) ;
+      raise (ExitWithError 1)
+
+let pool_uninstall_trusted_certificate _printer rpc session_id params =
+  let self = get_pool_with_default rpc session_id params "uuid" in
+  let cert_uuid = List.assoc "certificate-uuid" params in
+  let certificate =
+    Client.Certificate.get_by_uuid ~rpc ~session_id ~uuid:cert_uuid
+  in
+  Client.Pool.uninstall_trusted_certificate ~rpc ~session_id ~self ~certificate
 
 let vdi_type_of_string = function
   | "system" ->
@@ -5416,7 +5449,7 @@ let with_license_server_changes printer rpc session_id params hosts f =
           hosts
   ) ;
   try f rpc session_id with
-  | Api_errors.Server_error (name, [_; msg])
+  | Api_errors.Server_error (name, [msg1; msg2])
     when name = Api_errors.license_checkout_error ->
       (* Put back original license_server_details *)
       List.iter
@@ -5425,7 +5458,7 @@ let with_license_server_changes printer rpc session_id params hosts f =
             ~value:license_server
         )
         current_license_servers ;
-      printer (Cli_printer.PStderr (msg ^ "\n")) ;
+      printer (Cli_printer.PStderr (Printf.sprintf "%s: %s\n" msg1 msg2)) ;
       raise (ExitWithError 1)
   | Api_errors.Server_error (name, _) as e
     when name = Api_errors.invalid_edition ->

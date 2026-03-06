@@ -357,6 +357,12 @@ functor
       else
         Printf.sprintf " (%s)" s
 
+    let raise_for_invalid cls ref =
+      raise
+        (Api_errors.Server_error
+           (Api_errors.handle_invalid, [cls; Ref.string_of ref])
+        )
+
     let pool_uuid ~__context pool =
       try
         if Pool_role.is_master () then
@@ -655,6 +661,14 @@ functor
         else
           Ref.string_of observer
       with _ -> "invalid"
+
+    let certificate_uuid ~__context certificate =
+      try
+        if Pool_role.is_master () then
+          Db.Certificate.get_uuid ~__context ~self:certificate
+        else
+          Ref.string_of certificate
+      with _ -> raise_for_invalid "certificate" certificate
 
     module Session = struct
       include Local.Session
@@ -1219,6 +1233,57 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_ssh_auto_mode ~__context ~self ~value
+
+      let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs ~doc:"Pool.install_trusted_certificate"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info "Pool.install_trusted_certificate: pool='%s' ca='%b' purpose=[%s]"
+          (pool_uuid ~__context self)
+          ca
+          (List.map Record_util.certificate_purpose_to_string purpose
+          |> String.concat "; "
+          ) ;
+        Local.Pool.install_trusted_certificate ~__context ~self ~ca ~cert
+          ~purpose
+
+      let uninstall_trusted_certificate ~__context ~self ~certificate =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs ~doc:"Pool.uninstall_trusted_certificate"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info "Pool.uninstall_trusted_certificate: pool='%s' certificate='%s'"
+          (pool_uuid ~__context self)
+          (certificate_uuid ~__context certificate) ;
+        Local.Pool.uninstall_trusted_certificate ~__context ~self ~certificate
+
+      let exchange_trusted_certificates_on_join ~__context ~self ~ca ~import
+          ~export =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs
+          ~doc:"Pool.exchange_trusted_certificates_on_join"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info
+          "Pool.exchange_trusted_certificates_on_join: pool='%s' ca=%b \
+           export=[%s]"
+          (pool_uuid ~__context self)
+          ca
+          (List.map (certificate_uuid ~__context) export |> String.concat ";") ;
+        Local.Pool.exchange_trusted_certificates_on_join ~__context ~self ~ca
+          ~import ~export
+
+      let exchange_crls_on_join ~__context ~self ~import ~export =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`exchange_crls_on_join ~doc:"Pool.exchange_crls_on_join"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info "Pool.exchange_crls_on_join: pool='%s' import=[%s] export=[%s]"
+          (pool_uuid ~__context self)
+          (String.concat ";" (List.map fst import))
+          (String.concat ";" export) ;
+        Local.Pool.exchange_crls_on_join ~__context ~self ~import ~export
     end
 
     module VM = struct

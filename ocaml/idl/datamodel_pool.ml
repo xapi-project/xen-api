@@ -47,6 +47,9 @@ let operations =
            host"
         )
       ; ("eject", "Ejection of a host from the pool is under way")
+      ; ( "exchange_crls_on_join"
+        , "Indicates this pool is exchanging CRLs with a new joiner"
+        )
       ]
     )
 
@@ -1620,6 +1623,91 @@ let set_ssh_auto_mode =
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let install_trusted_certificate =
+  call ~name:"install_trusted_certificate"
+    ~doc:"Install a trusted TLS certificate, pool-wide."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Bool
+        , "ca"
+        , "The trusted certificate is a root CA certificate used to verify a \
+           chain (true), or a leaf certificate used for certificate pinning \
+           (false)"
+        )
+      ; (String, "cert", "The certificate in PEM format")
+      ; ( Set Datamodel_certificate.certificate_purpose
+        , "purpose"
+        , "The purpose of the certificate"
+        )
+      ]
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~lifecycle:[] ()
+
+let uninstall_trusted_certificate =
+  call ~name:"uninstall_trusted_certificate"
+    ~doc:"Uninstall a trusted TLS certificate, pool-wide."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Ref _certificate
+        , "certificate"
+        , "The reference of the trusted certificate to be uninstalled"
+        )
+      ]
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~lifecycle:[] ()
+
+let trusted_certs = Map (String, Set String)
+
+let exchange_trusted_certificates_on_join =
+  call ~name:"exchange_trusted_certificates_on_join"
+    ~doc:
+      "Exchange the trusted TLS certificates which are referred by \
+       [certificates]."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; (Bool, "ca", "true for 'ca' or false for 'pinned'")
+      ; ( trusted_certs
+        , "import"
+        , "The trusted TLS certificates to be installed."
+        )
+      ; ( Set (Ref _certificate)
+        , "export"
+        , "The references of the trusted TLS certificates to be returned."
+        )
+      ]
+    ~result:(trusted_certs, "The contents of these trusted TLS certificates.")
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~hide_from_docs:true ~lifecycle:[] ()
+
+let exchange_crls_on_join =
+  call ~name:"exchange_crls_on_join"
+    ~doc:
+      "Install the TLS CA-issued Certificate Revocation Lists (CRLs) provided \
+       in [import] and return the CRLs referenced by [export]."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( certs
+        , "import"
+        , "The TLS CA-issued Certificate Revocation Lists (CRLs) to be \
+           installed."
+        )
+      ; ( Set String
+        , "export"
+        , "The names of the installed TLS CA-issued Certificate Revocation \
+           Lists (CRLs) to be returned."
+        )
+      ]
+    ~result:
+      ( certs
+      , "The contents of the TLS CA-issued Certificate Revocation Lists (CRLs)."
+      )
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~hide_from_docs:true ~lifecycle:[] ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true
@@ -1719,6 +1807,10 @@ let t =
       ; set_ssh_enabled_timeout
       ; set_console_idle_timeout
       ; set_ssh_auto_mode
+      ; install_trusted_certificate
+      ; uninstall_trusted_certificate
+      ; exchange_trusted_certificates_on_join
+      ; exchange_crls_on_join
       ]
     ~contents:
       ([
