@@ -212,12 +212,13 @@ let init_logs () =
   Logs.set_level (Some Logs.Warning)
 
 let log_backtrace_exn ?(level = Syslog.Err) ?(msg = "error") exn bt =
-  (* We already got the backtrace in the `bt` argument when called from with_thread_associated.
-     Log that, and remove `exn` from the backtraces table.
-     If with_backtraces was not nested then looking at `bt` is the only way to get
-     a proper backtrace, otherwise exiting from `with_backtraces` would've removed the backtrace
-     from the thread-local backtraces table, and we'd always just log a message complaining about
-     with_backtraces not being called, which is not true because it was.
+  (* We already got the backtrace in the `bt` argument when called from
+     with_thread_associated. Log that, and remove `exn` from the backtraces
+     table. If with_backtraces was not nested then looking at `bt` is the only
+     way to get a proper backtrace, otherwise exiting from `with_backtraces`
+     would've removed the backtrace from the thread-local backtraces table, and
+     we'd always just log a message complaining about with_backtraces not being
+     called, which is not true because it was.
   *)
   let bt' = Backtrace.remove exn in
   (* bt could be empty, but bt' would contain a non-empty warning, so compare 'bt' here *)
