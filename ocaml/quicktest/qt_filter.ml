@@ -346,3 +346,17 @@ let vm_template template_name =
       | Some vm_template ->
           [(name, speed, test vm_template)]
   )
+
+(* We only select the first two compatible SRs and generate a single
+   migration path. This test validates that migration works in this
+   environment, but does not attempt to exhaustively test all possible
+   (src, dst) combinations. *)
+let migration_path constraints =
+  for_each (fun (name, speed, test) ->
+      let srs = SR.list_srs constraints in
+      match srs with
+      | src :: dst :: _ ->
+          [(name, speed, test (src, dst))]
+      | _ ->
+          []
+  )
