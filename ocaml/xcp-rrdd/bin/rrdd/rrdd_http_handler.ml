@@ -3,6 +3,8 @@ module D = Debug.Make (struct let name = "rrdd_http_handler" end)
 open D
 open Rrdd_shared
 
+type uuids_filter = All | Zero | Only of string list
+
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let content_hdr_of_mime mime =
@@ -113,9 +115,18 @@ let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 (* Get an XML/JSON document (as a string) representing the updates since the
    specified start time. *)
 let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
-    ~(cfopt : Rrd.cf_type option) ~(is_host : string) ~(vm_uuid : string)
-    ~(sr_uuid : string) () =
+    ~(cfopt : Rrd.cf_type option) ~(is_host : string) ~(vm_uuids : uuids_filter)
+    ~(sr_uuids : uuids_filter) () =
   with_lock mutex (fun () ->
+      let apply_uuids_filter filter seq =
+        match filter with
+        | All ->
+            seq
+        | Zero ->
+            Seq.empty
+        | Only uuids ->
+            Seq.filter (fun (k, _) -> List.mem k uuids) seq
+      in
       let prefixandrrds =
         let vm_rrds = Hashtbl.to_seq vm_rrds in
         let sr_rrds = Hashtbl.to_seq sr_rrds in
@@ -133,25 +144,11 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
           else
             []
         in
-        let vmsandrrds =
-          if vm_uuid = "all" then
-            vm_rrds
-          else if vm_uuid = "none" then
-            Seq.empty
-          else
-            Seq.filter (fun (k, _) -> k = vm_uuid) vm_rrds
-        in
+        let vmsandrrds = apply_uuids_filter vm_uuids vm_rrds in
         let vm_rrds_altered =
           Seq.map (fun (k, v) -> ("vm:" ^ k ^ ":", v.rrd)) vmsandrrds
         in
-        let srsandrrds =
-          if sr_uuid = "all" then
-            sr_rrds
-          else if sr_uuid = "none" then
-            Seq.empty
-          else
-            Seq.filter (fun (k, _) -> k = sr_uuid) sr_rrds
-        in
+        let srsandrrds = apply_uuids_filter sr_uuids sr_rrds in
         let sr_rrds_altered =
           Seq.map (fun (k, v) -> ("sr:" ^ k ^ ":", v.rrd)) srsandrrds
         in
@@ -160,6 +157,8 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
       Rrd_updates.export ~json prefixandrrds start interval cfopt
   )
 
+(* Filter UUID of XAPI objet. If no object is passed in the query it returns EMPTY,
+*)
 (* Writes XML/JSON representing the updates since the specified start time to
    the file descriptor that corresponds to the client HTTP connection. *)
 let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
@@ -171,30 +170,28 @@ let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   let interval =
     try Int64.of_string (List.assoc "interval" query) with _ -> 0L
   in
-  let query_associated_value key lst =
-    try List.assoc key lst with _ -> "none"
+  let uuids_filter_of key query ~default =
+    match
+      List.filter_map
+        (fun (k, v) ->
+          if k = key then
+            Some v
+          else
+            None
+        )
+        query
+    with
+    | [] ->
+        default
+    | uuids ->
+        Only uuids
   in
-  let is_host =
-    if List.mem_assoc "host" query then
-      query_associated_value "host" query
-    else
-      "none"
-  in
-  let vm_uuid =
-    if List.mem_assoc "vm_uuid" query then
-      query_associated_value "vm_uuid" query
-    else
-      "all"
-  in
-  let sr_uuid =
-    if List.mem_assoc "sr_uuid" query then
-      query_associated_value "sr_uuid" query
-    else
-      "none"
-  in
+  let is_host = Option.value (List.assoc_opt "host" query) ~default:"none" in
+  let vm_uuids = uuids_filter_of "vm_uuid" query ~default:All in
+  let sr_uuids = uuids_filter_of "sr_uuid" query ~default:Zero in
   let json = client_prefers_json req in
   let reply =
-    get_host_stats ~json ~start ~interval ~cfopt ~is_host ~vm_uuid ~sr_uuid ()
+    get_host_stats ~json ~start ~interval ~cfopt ~is_host ~vm_uuids ~sr_uuids ()
   in
   let headers =
     List.concat
