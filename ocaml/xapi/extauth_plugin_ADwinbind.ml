@@ -89,12 +89,14 @@ let err_msg_to_tag_map =
 
 type domain_info = {
     service_name: string
+  ; user: string
   ; workgroup: string option
         (* For upgrade case, the legacy db does not contain workgroup *)
   ; netbios_name: string option
         (* Persist netbios_name to support hostname change *)
   ; ldaps: bool (* Use ldaps instead of ldap *)
   ; machine_pwd_last_change_time: float option
+  ; ou: string option
 }
 
 let generic_error msg =
@@ -198,6 +200,7 @@ let get_domain_info_from_db () =
     Db.Host.get_external_auth_service_name ~__context ~self:host
   in
   let config = Db.Host.get_external_auth_configuration ~__context ~self:host in
+  let user = List.assoc "user" config in
   let workgroup = List.assoc_opt "workgroup" config in
   let netbios_name = List.assoc_opt "netbios_name" config in
   let machine_pwd_last_change_time =
@@ -205,7 +208,16 @@ let get_domain_info_from_db () =
     |> Option.map (fun s -> float_of_string s)
   in
   let ldaps = Helpers.ldaps_enabled_in_config ~config in
-  {service_name; workgroup; netbios_name; ldaps; machine_pwd_last_change_time}
+  let ou = List.assoc_opt "ou" config in
+  {
+    service_name
+  ; user
+  ; workgroup
+  ; netbios_name
+  ; ldaps
+  ; machine_pwd_last_change_time
+  ; ou
+  }
 
 let update_extauth_configuration ~__context ~k ~v =
   let self = Helpers.get_localhost ~__context in
@@ -778,7 +790,7 @@ let query_domain_workgroup ~domain =
     workgroup_from_server kdc |> Result.get_ok
   with _ -> raise (Auth_service_error (E_LOOKUP, err_msg))
 
-let config_winbind_daemon ~workgroup ~netbios_name ~domain ~ldaps =
+let config_winbind_daemon domain_info =
   let smb_config = "/etc/samba/smb.conf" in
   let extra_conf = "/etc/samba/smb.extra.conf" in
   (* Will change to following config after trusted certs feature
@@ -790,12 +802,17 @@ let config_winbind_daemon ~workgroup ~netbios_name ~domain ~ldaps =
   let scan_trusted_domains =
     string_of_bool !Xapi_globs.winbind_scan_trusted_domains
   in
-  let ldaps_conf =
-    match ldaps with Some v when v = true -> "ldaps" | _ -> "seal"
-  in
 
-  ( match (workgroup, netbios_name, domain) with
-    | Some wkgroup, Some netbios, Some dom ->
+  ( match domain_info with
+    | Some
+        {
+          service_name= dom
+        ; workgroup= Some wkgroup
+        ; netbios_name= Some netbios
+        ; ldaps
+        ; _
+        } ->
+        let ldaps_conf = match ldaps with true -> "ldaps" | _ -> "seal" in
         [
           Printf.sprintf "# This file is managed by xapi, update %s instead"
             extra_conf
@@ -844,8 +861,7 @@ let clear_winbind_config () =
   if !Xapi_globs.winbind_keep_configuration then
     ()
   else
-    config_winbind_daemon ~workgroup:None ~netbios_name:None ~domain:None
-      ~ldaps:None
+    config_winbind_daemon None
 
 let from_config ~name ~err_msg ~config_params =
   match List.assoc_opt name config_params with
@@ -878,33 +894,44 @@ let assert_domain_equal_service_name ~service_name ~config_params =
 let extract_ou_config ~config_params =
   try
     let ou = from_config ~name:"ou" ~err_msg:"" ~config_params in
-    ([("ou", ou)], [Printf.sprintf "createcomputer=%s" ou])
-  with Auth_service_error _ -> ([], [])
+    (Some ou, [Printf.sprintf "createcomputer=%s" ou])
+  with Auth_service_error _ -> (None, [])
 
-let persist_extauth_config ~domain ~user ~ou_conf ~workgroup ~netbios_name
-    ~machine_pwd_last_change_time ~ldaps =
+let persist_extauth_config ~domain_info =
   let value =
-    match
-      ( domain
-      , user
-      , workgroup
-      , netbios_name
-      , machine_pwd_last_change_time
-      , ldaps
-      )
-    with
-    | Some dom, Some u, Some wkg, Some netbios, Some pwd_time, Some ldaps ->
+    match domain_info with
+    | None ->
+        []
+    | Some
+        {
+          service_name
+        ; user
+        ; workgroup
+        ; netbios_name
+        ; machine_pwd_last_change_time
+        ; ldaps
+        ; ou
+        } -> (
         [
-          ("domain", dom)
-        ; ("user", u)
-        ; ("workgroup", wkg)
-        ; ("netbios_name", netbios)
-        ; ("machine_pwd_last_change_time", pwd_time)
+          ("domain", service_name)
+        ; ("user", user)
         ; ("ldaps", string_of_bool ldaps)
         ]
-        @ ou_conf
-    | _ ->
-        []
+        @ (match workgroup with Some w -> [("workgroup", w)] | None -> [])
+        @ ( match netbios_name with
+          | Some n ->
+              [("netbios_name", n)]
+          | None ->
+              []
+          )
+        @ (match ou with Some o -> [("ou", o)] | None -> [])
+        @
+        match machine_pwd_last_change_time with
+        | Some t ->
+            [("machine_pwd_last_change_time", string_of_float t)]
+        | None ->
+            []
+      )
   in
   Server_helpers.exec_with_new_task "update external_auth_configuration"
   @@ fun __context ->
@@ -990,29 +1017,34 @@ module Winbind = struct
   let configure ~__context =
     (* Refresh winbind configuration to handle upgrade from PBIS
      * The winbind configuration needs to be refreshed before start winbind daemon *)
-    let {service_name; workgroup; netbios_name; ldaps; _} =
-      get_domain_info_from_db ()
-    in
+    let domain_info = get_domain_info_from_db () in
     let netbios_name =
-      match netbios_name with
+      match domain_info.netbios_name with
       | None ->
           Migrate_from_pbis.migrate_netbios_name ~__context
       | Some name ->
           name
     in
     let workgroup =
-      match workgroup with
+      match domain_info.workgroup with
       | None ->
-          let workgroup = query_domain_workgroup ~domain:service_name in
+          let workgroup =
+            query_domain_workgroup ~domain:domain_info.service_name
+          in
           (* Persist the workgroup to avoid lookup again on next startup *)
           update_workgroup ~__context ~workgroup ;
           workgroup
       | Some workgroup ->
           workgroup
     in
-    config_winbind_daemon ~domain:(Some service_name)
-      ~workgroup:(Some workgroup) ~netbios_name:(Some netbios_name)
-      ~ldaps:(Some ldaps)
+    let domain_info =
+      {
+        domain_info with
+        netbios_name= Some netbios_name
+      ; workgroup= Some workgroup
+      }
+    in
+    config_winbind_daemon (Some domain_info)
 
   let init_service ~__context =
     if is_ad_enabled ~__context then (
@@ -1548,7 +1580,10 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
 
     assert_hostname_valid ~hostname:netbios_name ;
 
-    let {service_name; _} = get_domain_info_from_db () in
+    let service_name =
+      Helpers.get_localhost ~__context |> fun self ->
+      Db.Host.get_external_auth_service_name ~__context ~self
+    in
     assert_domain_equal_service_name ~service_name ~config_params ;
 
     let workgroup =
@@ -1557,11 +1592,20 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     in
     let ldaps = Helpers.ldaps_enabled_in_config ~config:config_params in
 
-    config_winbind_daemon ~domain:(Some service_name)
-      ~workgroup:(Some workgroup) ~netbios_name:(Some netbios_name)
-      ~ldaps:(Some ldaps) ;
+    let ou, ou_param = extract_ou_config ~config_params in
+    let domain_info =
+      {
+        service_name
+      ; user
+      ; workgroup= Some workgroup
+      ; netbios_name= Some netbios_name
+      ; machine_pwd_last_change_time= Some (Unix.time ())
+      ; ldaps
+      ; ou
+      }
+    in
 
-    let ou_conf, ou_param = extract_ou_config ~config_params in
+    config_winbind_daemon (Some domain_info) ;
 
     let args =
       [
@@ -1587,11 +1631,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       (* Need to restart to refresh cache *)
       Winbind.restart ~timeout:5. ~wait_until_success:true ;
       Winbind.check_ready_to_serve ~timeout:300. ;
-      let machine_pwd_last_change_time = Unix.time () |> string_of_float in
-      persist_extauth_config ~domain:(Some service_name) ~user:(Some user)
-        ~ou_conf ~workgroup:(Some workgroup)
-        ~machine_pwd_last_change_time:(Some machine_pwd_last_change_time)
-        ~netbios_name:(Some netbios_name) ~ldaps:(Some ldaps) ;
+      persist_extauth_config ~domain_info:(Some domain_info) ;
       (* Trigger right now *)
       RotateMachinePassword.trigger_rotate ~start:0. ;
       ConfigHosts.join ~domain:service_name ~name:netbios_name ;
@@ -1612,8 +1652,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     | Xapi_systemctl.Systemctl_fail _ ->
         let msg = Printf.sprintf "Failed to start %s" Winbind.name in
         error "Start daemon error: %s" msg ;
-        config_winbind_daemon ~domain:None ~workgroup:None ~netbios_name:None
-          ~ldaps:None ;
+        config_winbind_daemon None ;
         ConfigHosts.leave ~domain:service_name ~name:netbios_name ;
         raise (Auth_service_error (E_GENERIC, msg))
     | e ->
@@ -1648,8 +1687,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     ) ;
 
     (* Clean extauth config *)
-    persist_extauth_config ~domain:None ~user:None ~ou_conf:[] ~workgroup:None
-      ~machine_pwd_last_change_time:None ~netbios_name:None ~ldaps:None ;
+    persist_extauth_config ~domain_info:None ;
     RotateMachinePassword.stop_rotate () ;
     (* The caller disable external auth even disable machine account failed,
      * We run clear_machine_account after some necessary resources get cleared *)

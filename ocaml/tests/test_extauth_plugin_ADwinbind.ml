@@ -18,12 +18,11 @@ module ExtractOuConfig = Generic.MakeStateless (struct
   module Io = struct
     type input_t = (string * string) list
 
-    type output_t = (string * string) list * string list
+    type output_t = string option * string list
 
     let string_of_input_t = Test_printers.(assoc_list string string)
 
-    let string_of_output_t =
-      Test_printers.(pair (assoc_list string string) (list string))
+    let string_of_output_t = Test_printers.(pair (option string) (list string))
   end
 
   let transform x = Extauth_plugin_ADwinbind.extract_ou_config ~config_params:x
@@ -31,13 +30,13 @@ module ExtractOuConfig = Generic.MakeStateless (struct
   let tests =
     `QuickAndAutoDocumented
       [
-        ([("auth-type", "AD"); ("service-name", "conappada.local")], ([], []))
+        ([("auth-type", "AD"); ("service-name", "conappada.local")], (None, []))
       ; ( [
             ("auth-type", "AD")
           ; ("service-name", "conappada.local")
           ; ("ou", "TOU")
           ]
-        , ([("ou", "TOU")], ["createcomputer=TOU"])
+        , (Some "TOU", ["createcomputer=TOU"])
         )
       ]
 end)
