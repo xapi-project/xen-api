@@ -34,7 +34,7 @@ module AuthADWinbind : sig val methods : Auth_signature.t end
 
 (* Expose function to make compiler happy for unittest *)
 val extract_ou_config :
-  config_params:(string * string) list -> (string * string) list * string list
+  config_params:(string * string) list -> string option * string list
 
 val domainify_uname : domain:string -> string -> string
 
