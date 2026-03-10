@@ -187,7 +187,9 @@ CAMLprim value stub_xenctrlext_domain_send_s3resume(value xch_val,
     xc_interface *xch = xch_of_val(xch_val);
     int domain = Int_val(domid);
 
+    caml_release_runtime_system();
     xcext_domain_send_s3resume(xch, domain);
+    caml_acquire_runtime_system();
     CAMLreturn(Val_unit);
 }
 
@@ -200,7 +202,10 @@ CAMLprim value stub_xenctrlext_domain_set_timer_mode(value xch_val,
     int id_c = Int_val(id);
     int mode_c = Int_val(mode);
 
+    caml_release_runtime_system();
     ret = xcext_domain_set_timer_mode(xch, id_c, mode_c);
+    caml_acquire_runtime_system();
+
     if (ret < 0)
         failwith_xc(xch);
     CAMLreturn(Val_unit);
@@ -231,7 +236,9 @@ CAMLprim value stub_xenctrlext_domain_set_target(value xch_val,
     int domain = Int_val(domid);
     int target_c = Int_val(target);
 
+    caml_release_runtime_system();
     int retval = xc_domain_set_target(xch, domain, target_c);
+    caml_acquire_runtime_system();
     if (retval)
         failwith_xc(xch);
     CAMLreturn(Val_unit);
