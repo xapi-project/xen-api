@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup XenAPI environment
         uses: ./.github/workflows/setup-xapi-environment
@@ -142,9 +144,11 @@ jobs:
       - name: Build Java SDK
         shell: bash
         run: |
-          xapi_version="${{ inputs.xapi_version }}"
+          xapi_version="${INPUTS_XAPI_VERSION}"
           xapi_version="${xapi_version//v/}"
           mkdir -p target && mvn -f source/xen-api/pom.xml -B -Drevision=$xapi_version-prerelease clean package && mv source/xen-api/target/*.jar target/
+        env:
+          INPUTS_XAPI_VERSION: ${{ inputs.xapi_version }}
 
       - name: Store Java SDK
         uses: actions/upload-artifact@v4
@@ -162,7 +166,9 @@ jobs:
     steps:
       - name: Strip 'v' prefix from xapi version
         shell: pwsh
-        run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        run: echo "XAPI_VERSION_NUMBER=$("$env:INPUTS_XAPI_VERSION".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        env:
+          INPUTS_XAPI_VERSION: ${{ inputs.xapi_version }}
 
       - name: Retrieve C# SDK source
         uses: actions/download-artifact@v4
@@ -192,7 +198,7 @@ jobs:
           dotnet build source/src/XenServer.csproj `
           --disable-build-servers `
           --configuration Release `
-          -p:Version=${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned `
+          -p:Version=$env:XAPI_VERSION_NUMBER-prerelease-unsigned `
           --verbosity=normal
 
       - name: Store C# SDK
@@ -215,7 +221,9 @@ jobs:
     steps:
       - name: Strip 'v' prefix from xapi version
         shell: pwsh
-        run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        run: echo "XAPI_VERSION_NUMBER=$("$env:INPUTS_XAPI_VERSION".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        env:
+          INPUTS_XAPI_VERSION: ${{ inputs.xapi_version }}
 
       - name: Retrieve PowerShell SDK source
         uses: actions/download-artifact@v4
@@ -238,7 +246,7 @@ jobs:
         shell: pwsh
         run: |
           dotnet nuget add source --name local ${{ github.workspace }}\csharp
-          dotnet add source/src package XenServer.NET --version ${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned
+          dotnet add source/src package XenServer.NET --version $env:XAPI_VERSION_NUMBER-prerelease-unsigned
 
       - name: Build PowerShell SDK (.NET ${{ matrix.dotnet }})
         shell: pwsh
@@ -246,14 +254,14 @@ jobs:
           dotnet build source/src/XenServerPowerShell.csproj `
              --disable-build-servers `
              --configuration Release `
-             -p:Version=${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned `
+             -p:Version=$env:XAPI_VERSION_NUMBER-prerelease-unsigned `
              -p:TargetFramework=net${{ matrix.dotnet }}.0 `
              --verbosity=normal`
 
       - name: Update SDK and PS versions in "XenServerPSModule.psd1"
         shell: pwsh
         run: |
-          (Get-Content "source\XenServerPSModule.psd1") -replace "@SDK_VERSION@","${{ env.XAPI_VERSION_NUMBER }}" | Set-Content -Path "source\XenServerPSModule.psd1"
+          (Get-Content "source\XenServerPSModule.psd1") -replace "@SDK_VERSION@","$env:XAPI_VERSION_NUMBER" | Set-Content -Path "source\XenServerPSModule.psd1"
           (Get-Content "source\XenServerPSModule.psd1") -replace "@PS_VERSION@","7.0" | Set-Content -Path "source\XenServerPSModule.psd1"
 
       - name: Move binaries to destination folder
