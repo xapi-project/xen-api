@@ -46,6 +46,9 @@ module NUMAResource = struct
 
   let min_memory r1 r2 = {r1 with memfree= min r1.memfree r2.memfree}
 
+  let shrink_memory r mem =
+    {r with memfree= Int64.max 0L (Int64.sub r.memfree mem)}
+
   let pp_dump =
     Fmt.(
       Dump.record

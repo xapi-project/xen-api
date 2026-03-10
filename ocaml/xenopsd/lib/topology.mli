@@ -56,6 +56,9 @@ module NUMAResource : sig
   val min_memory : t -> t -> t
   (** [min_memory a b] is [a] with the memory set to the minimum of [a] and [b] *)
 
+  val shrink_memory : t -> int64 -> t
+  (** [shrink_memory a mem] is [a] with the memory set to [max 0 (a-mem)] *)
+
   val pp_dump : t Fmt.t
   (** [pp_dump ppf v] pretty-prints [v] on [ppf] *)
 end
@@ -88,6 +91,8 @@ module NUMA : sig
 
   (** A NUMA node index. Distinct from an int to avoid mixing with CPU numbers *)
   type node = private Node of int
+
+  module NodeMap : Map.S with type key = node
 
   val make :
        distances:int array array
