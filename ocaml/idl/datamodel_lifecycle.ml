@@ -151,6 +151,8 @@ let prototyped_of_field = function
       Some "24.10.0"
   | "VM", "recommended_guidances" ->
       Some "23.18.0"
+  | "VM", "secureboot_certificates_state" ->
+      Some "26.6.0-next"
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "vm_console_idle_timeout" ->
@@ -234,7 +236,7 @@ let prototyped_of_message = function
   | "PCI", "disable_dom0_access" ->
       Some "24.14.0"
   | "message", "destroy_all" ->
-      Some "26.5.0-next"
+      Some "26.6.0"
   | "message", "destroy_many" ->
       Some "22.19.0"
   | "VTPM", "set_contents" ->
@@ -287,6 +289,8 @@ let prototyped_of_message = function
       Some "24.0.0"
   | "VM", "sysprep" ->
       Some "25.24.0"
+  | "VM", "schedule_secureboot_certs_state_update" ->
+      Some "26.6.0-next"
   | "VM", "get_secureboot_readiness" ->
       Some "24.17.0"
   | "VM", "set_uefi_mode" ->
