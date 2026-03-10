@@ -2760,6 +2760,19 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "vm-schedule-secureboot-certs-state-update"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help=
+          "Schedule a Secure Boot certificates update for the specified VM. \
+           The VM must be in the 'update_required' state for this to take \
+           effect."
+      ; implementation=
+          No_fd Cli_operations.vm_schedule_secureboot_certs_state_update
+      ; flags= []
+      }
+    )
   ; ( "vm-group-create"
     , {
         reqd= ["name-label"; "placement"]

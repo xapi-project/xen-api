@@ -2346,6 +2346,12 @@ let vm_record rpc session_id vm =
           )
           ~get_map:(fun () -> (x ()).API.vM_NVRAM)
           ()
+      ; make_field ~name:"secureboot-certificates-state"
+          ~get:(fun () ->
+            Record_util.vm_secureboot_certificates_state_to_string
+              (x ()).API.vM_secureboot_certificates_state
+          )
+          ()
       ; make_field ~name:"PV-kernel"
           ~get:(fun () -> (x ()).API.vM_PV_kernel)
           ~set:(fun value ->
