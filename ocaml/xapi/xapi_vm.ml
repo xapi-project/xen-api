@@ -899,26 +899,43 @@ let add_to_VCPUs_params_live ~__context ~self:_ ~key:_ ~value:_ =
        (Api_errors.not_implemented, ["add_to_VCPUs_params_live"])
     )
 
-(* TODO: This function should be implemented using a C library binding
-   to varstored's certificate checking functionality for performance.
-   Currently this is a placeholder that does not check actual certificate
-   expiration. The C library will take the NVRAM content and determine
-   if certificates need updating. *)
 let update_secureboot_certificates_state ~__context ~self =
-  (* Only update if the current state is not already update_scheduled
-     or error - those states should not be automatically changed *)
+  (* Only update if the current state is not already update_scheduled —
+     that state is set by schedule_secureboot_certs_state_update and must
+     not be silently overwritten by a background NVRAM scan. *)
   let current_state =
     Db.VM.get_secureboot_certificates_state ~__context ~self
   in
   match current_state with
-  | `update_scheduled | `error ->
-      (* Don't change scheduled or error states *)
+  | `update_scheduled ->
       ()
-  | `ok | `update_required ->
-      (* TODO: Call C library to check certificate expiration status
-         from NVRAM content and update the state accordingly.
-         For now, this is a no-op placeholder. *)
-      ()
+  | `ok | `update_required | `error ->
+      let nvram = Db.VM.get_NVRAM ~__context ~self in
+      let new_state =
+        match List.assoc_opt "EFI-variables" nvram with
+        | None ->
+            (* No EFI variable store present: Secure Boot does not apply *)
+            `ok
+        | Some efi_vars -> (
+          try
+            let data = Bytes.of_string efi_vars in
+            match Certcheck.check_expiration data with
+            | Certcheck.Ok | Certcheck.NoCerts ->
+                (* Valid certs, or no certs (Secure Boot N/A) *)
+                `ok
+            | Certcheck.Expired | Certcheck.NotYetValid ->
+                `update_required
+            | Certcheck.ParseError | Certcheck.InternalError ->
+                `error
+          with exn ->
+            warn "update_secureboot_certificates_state: unexpected exception: %s"
+              (Printexc.to_string exn) ;
+            `error
+        )
+      in
+      if new_state <> current_state then
+        Db.VM.set_secureboot_certificates_state ~__context ~self
+          ~value:new_state
 
 let set_NVRAM ~__context ~self ~value =
   Db.VM.set_NVRAM ~__context ~self ~value ;

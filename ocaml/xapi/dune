@@ -233,6 +233,7 @@
   xapi-stdext-threads.scheduler
   xapi-stdext-unix
   xapi-stdext-zerocheck
+  xapi-certcheck
   xapi-tracing
   xapi-tracing-export
   xapi_version

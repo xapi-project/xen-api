@@ -915,3 +915,14 @@
  (depends
   (alcotest :with-test)
   (odoc :with-doc)))
+
+(package
+ (name xapi-certcheck)
+ (synopsis "OCaml bindings for libvarstored-certcheck")
+ (description
+  "Provides OCaml bindings to varstored's certificate checking library, \
+allowing xapi to inspect UEFI Secure Boot certificate expiration state \
+from a VM's NVRAM variable store.")
+ (depends
+  (alcotest :with-test)
+  (odoc :with-doc)))

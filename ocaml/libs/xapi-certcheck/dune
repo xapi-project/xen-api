@@ -1,0 +1,14 @@
+(library
+ (name certcheck)
+ (public_name xapi-certcheck)
+ (wrapped false)
+ (modules certcheck)
+ (foreign_stubs
+  (language c)
+  (names certcheck_stubs))
+ (c_library_flags (:standard -L/lib64 -lvarstored-certcheck)))
+
+(tests
+ (names test_certcheck)
+ (modules test_certcheck)
+ (libraries alcotest certcheck unix))
