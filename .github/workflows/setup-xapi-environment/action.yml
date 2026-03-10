@@ -70,4 +70,6 @@ runs:
 
     - name: Configure
       shell: bash
-      run: opam exec -- ./configure --xapi_version="${{ inputs.xapi_version }}"
+      run: opam exec -- ./configure --xapi_version="${INPUTS_XAPI_VERSION}"
+      env:
+        INPUTS_XAPI_VERSION: ${{ inputs.xapi_version }}
