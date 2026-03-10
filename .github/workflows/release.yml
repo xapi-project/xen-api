@@ -30,7 +30,7 @@ jobs:
 
       - name: Generate python package for XenAPI
         run: |
-          echo "export XAPI_VERSION=${{ github.ref_name }}" > config.mk
+          echo "export XAPI_VERSION=${GITHUB_REF_NAME}" > config.mk
           make python
 
       - name: Store python distribution artifacts
@@ -111,7 +111,7 @@ jobs:
       - name: Create release ${{ github.ref_name }}
         shell: bash
         run: |
-          gh release create ${{ github.ref_name }} --repo ${{ github.repository }} --generate-notes dist/* \
+          gh release create "${GITHUB_REF_NAME}" --repo ${{ github.repository }} --generate-notes dist/* \
           PowerShell-SDK-7.x-prerelease-unsigned.zip \
           Go-SDK-prerelease-unsigned.zip \
           libxenserver-prerelease.tar.gz libxenserver-prerelease.src.tar.gz
