@@ -3,7 +3,7 @@
  (public_name xapi-certcheck)
  (wrapped false)
  (modules certcheck)
- (libraries cstruct fmt ptime unix x509))
+ (libraries fmt ptime unix x509))
 
 (tests
  (names test_certcheck)

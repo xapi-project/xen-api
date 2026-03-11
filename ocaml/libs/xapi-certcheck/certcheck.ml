@@ -251,8 +251,7 @@ let dn_to_string dn = Format.asprintf "%a" X509.Distinguished_name.pp dn
 (* Check a single DER-encoded X.509 certificate against [check_ptime].
    Returns (is_expired, is_not_yet_valid, cert_count, cert_info option). *)
 let check_one_cert der var_label check_ptime collect_info =
-  let cs = Cstruct.of_bytes der in
-  match X509.Certificate.decode_der cs with
+  match X509.Certificate.decode_der (Bytes.to_string der) with
   | Error _ ->
       (false, false, 0, None)
   | Ok cert ->
