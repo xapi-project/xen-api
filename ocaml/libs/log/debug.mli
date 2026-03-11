@@ -31,9 +31,6 @@ val with_thread_named : string -> ('a -> 'b) -> 'a -> 'b
 
 module type BRAND = sig val name : string end
 
-val gettimestring : unit -> string
-(** The current time of day in a format suitable for logging *)
-
 val set_facility : Syslog.facility -> unit
 (** Set the syslog facility that will be used by this program. *)
 

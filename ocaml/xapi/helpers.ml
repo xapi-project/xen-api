@@ -126,6 +126,10 @@ let call_script ?(log_output = Always) ?env ?stdin ?timeout script args =
           (String.concat " " (filter_args args))
           message stdout stderr ;
       raise e
+  | e ->
+      debug "%s: unexpected exception raised: %s" __FUNCTION__
+        (ExnHelper.string_of_exn e) ;
+      raise e
 
 (** Construct a descriptive network name (used as name_label) for a give network interface. *)
 let choose_network_name_for_pif device = function
