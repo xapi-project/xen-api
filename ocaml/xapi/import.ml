@@ -2141,12 +2141,16 @@ let check_references ~__context (table : table) =
         (Diagnostic.show_path path)
         (Ref.string_of r)
   in
-  let rec go (clazz, _, r) =
-    match get_snapshot ~clazz ~r with
-    | Some record ->
-        Diagnostic.visit_references check_reference clazz record
-    | _ ->
-        debug "Could not find imported object %s" r
+  let go (clazz, _, r) =
+    (* Ref.null will lead to a get_record failure *)
+    if Ref.of_string r = Ref.null then
+      ()
+    else
+      match get_snapshot ~clazz ~r with
+      | Some record ->
+          Diagnostic.visit_references check_reference clazz record
+      | _ ->
+          debug "Could not find imported object %s" r
   in
   List.iter go table
 

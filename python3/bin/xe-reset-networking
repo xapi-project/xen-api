@@ -91,6 +91,7 @@ if __name__ == "__main__":
     parser.add_option("--gateway", help="Gateway for new management interface", dest="gateway", default='')
     parser.add_option("--gateway-v6", help="IPv6 Gateway for new management interface", dest="gateway_v6", default='')
     parser.add_option("--dns", help="DNS server for new management interface", dest="dns", default='')
+    parser.add_option("--keep-interface-name-rules", help="Keep (do NOT reset) the interface name rules", dest="keep_interface_name_rules", action="store_const", const=True, default=False)
     (options, args) = parser.parse_args()
 
     # Determine pool role
@@ -174,6 +175,10 @@ if __name__ == "__main__":
     if not os.access('/tmp/fist_network_reset_no_warning', os.F_OK):
         configuration = []
         configuration.append("Management interface:   " + device)
+        if not options.keep_interface_name_rules:
+            configuration.append("Reset interface name rules: Yes")
+        else:
+            configuration.append("Reset interface name rules: No")
         configuration.append("IP configuration mode:  " + options.mode)
         configuration.append("IPv6 configuration mode:" + options.mode_v6)
         if vlan != None:
@@ -288,8 +293,9 @@ Type 'no' to cancel.
     if rename_script_exists:
         # Reset the domain 0 network interface naming configuration
         # back to a fresh-install state for the currently-installed
-        # hardware.
-        os.system(f"{RENAME_SCRIPT} --reset-to-install")
+        # hardware (unless prevented by the user).
+        if not options.keep_interface_name_rules:
+            os.system(f"{RENAME_SCRIPT} --reset-to-install")
 
     # Reboot
     os.system("mount -o remount,rw / && reboot -f")
