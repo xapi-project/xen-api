@@ -918,11 +918,15 @@
 
 (package
  (name xapi-certcheck)
- (synopsis "OCaml bindings for libvarstored-certcheck")
+ (synopsis "Pure OCaml UEFI Secure Boot certificate checking")
  (description
-  "Provides OCaml bindings to varstored's certificate checking library, \
-allowing xapi to inspect UEFI Secure Boot certificate expiration state \
-from a VM's NVRAM variable store.")
+  "Checks UEFI Secure Boot certificate expiration state from a VM's NVRAM \
+variable store using the pure-OCaml x509 library (no OpenSSL dependency).")
  (depends
+  cstruct
+  fmt
+  ptime
+  unix
+  x509
   (alcotest :with-test)
   (odoc :with-doc)))

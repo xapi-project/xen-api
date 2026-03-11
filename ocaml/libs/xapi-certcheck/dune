@@ -3,10 +3,7 @@
  (public_name xapi-certcheck)
  (wrapped false)
  (modules certcheck)
- (foreign_stubs
-  (language c)
-  (names certcheck_stubs))
- (c_library_flags (:standard -L/lib64 -lvarstored-certcheck)))
+ (libraries cstruct fmt ptime unix x509))
 
 (tests
  (names test_certcheck)
