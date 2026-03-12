@@ -36,7 +36,7 @@ CAMLprim value stub_openfile_direct(value filename, value rw, value perm){
 
   const char *filename_c = strdup(String_val(filename));
 
-  caml_release_runtime_system();
+  int perm_c = Int_val(perm);
   int flags = 0;
 #if defined(O_DIRECT)
   flags |= O_DIRECT;
@@ -46,7 +46,8 @@ CAMLprim value stub_openfile_direct(value filename, value rw, value perm){
   } else {
     flags |= O_RDONLY;
   }
-  fd = open(filename_c, flags, Int_val(perm));
+  caml_release_runtime_system();
+  fd = open(filename_c, flags, perm_c);
   caml_acquire_runtime_system();
 
   free((void*)filename_c);
