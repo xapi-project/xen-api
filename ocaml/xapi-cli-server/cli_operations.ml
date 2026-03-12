@@ -4895,7 +4895,17 @@ let vm_migrate printer rpc session_id params =
                 Some sr
             | None ->
                 find_most_free_space (local_non_iso_srs ())
-          with _ -> None
+          with exn ->
+            printer
+              (Cli_printer.PMsg
+                 (Printf.sprintf
+                    "Couldn't compute preferred SR, continuing with the \
+                     user-provided VDI mapping. The reason is: %s"
+                    (Printexc.to_string exn)
+                 )
+              ) ;
+
+            None
         in
         let vdi_map =
           match preferred_sr with
