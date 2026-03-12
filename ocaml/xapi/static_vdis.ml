@@ -23,30 +23,26 @@ include Xapi_database.Static_vdis_list
 
 (** Generate the static configuration and attach the VDI now *)
 let permanent_vdi_attach ~__context ~vdi ~reason =
-  info "permanent_vdi_attach: vdi = %s; sr = %s" (Ref.string_of vdi)
+  let uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+  info "permanent_vdi_attach: vdi = %s ( %s ); sr = %s" (Ref.string_of vdi) uuid
     (Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi)) ;
   (* Disallow attaching VDIs that only have changed block tracking metadata *)
   if Db.VDI.get_type ~__context ~self:vdi = `cbt_metadata then (
     error
       "Static_vdis.permanent_vdi_attach: the given VDI has type cbt_metadata" ;
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.vdi_incompatible_type
-         , [Ref.string_of vdi; Record_util.vdi_type_to_string `cbt_metadata]
-         )
-      )
+    let param =
+      [Ref.string_of vdi; Record_util.vdi_type_to_string `cbt_metadata]
+    in
+    raise Api_errors.(Server_error (vdi_incompatible_type, param))
   ) ;
   ignore
     (Helpers.call_script
        ~timeout:Mtime.Span.(1 * min)
-       !Xapi_globs.static_vdis
-       ["add"; Db.VDI.get_uuid ~__context ~self:vdi; reason]
+       !Xapi_globs.static_vdis ["add"; uuid; reason]
     ) ;
   (* VDI will be attached on next boot; attach it now too *)
   Xapi_stdext_std.Xstringext.String.rtrim
-    (Helpers.call_script !Xapi_globs.static_vdis
-       ["attach"; Db.VDI.get_uuid ~__context ~self:vdi]
-    )
+    (Helpers.call_script !Xapi_globs.static_vdis ["attach"; uuid])
 
 (** Detach the VDI (by reference) now and destroy the static configuration *)
 let permanent_vdi_detach ~__context ~vdi =
