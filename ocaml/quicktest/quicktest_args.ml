@@ -22,7 +22,16 @@ let using_unix_domain_socket = ref true
 
 let http = Xmlrpc_client.xmlrpc ~version:"1.1" "/"
 
+let update_http http =
+  let headers = Quicktest_trace_rpc.RPC.http_headers () in
+  Http.Request.
+    {
+      http with
+      additional_headers= List.rev_append headers http.additional_headers
+    }
+
 let rpc_remote xml =
+  let http = update_http http in
   Xmlrpc_client.XMLRPC_protocol.rpc ~srcstr:"quicktest" ~dststr:"xapi"
     ~transport:
       (SSL
@@ -34,6 +43,7 @@ let rpc_remote xml =
     ~http xml
 
 let rpc_unix_domain xml =
+  let http = update_http http in
   Xmlrpc_client.XMLRPC_protocol.rpc ~srcstr:"quicktest" ~dststr:"xapi"
     ~transport:(Unix Xapi_globs.unix_domain_socket) ~http xml
 
