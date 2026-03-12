@@ -6,7 +6,7 @@ pids and uuids
 
   $ export PYTHONPATH=../xapi-storage/python/; ./main.exe --root=$PWD/test --self-test-only=true 2>&1 >/dev/null | sed -E 's/\[[0-9]+\]/[PID]/g' | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/UUID/g'
   [INFO] {"method":"Plugin.query","params":[{"dbg":"debug"}],"id":2}
-  [INFO] $TESTCASE_ROOT/test/volume/org.xen.xapi.storage.dummyv5/Plugin.Query[PID] succeeded: {"plugin": "dummy", "name": "dummy SR plugin", "description": "Dummy v5 SR for unit tests.", "vendor": "Citrix Systems Inc", "copyright": "(C) 2018 Citrix Inc", "version": "1.0", "required_api_version": "5.0", "features": ["SR_ATTACH", "SR_DETACH", "SR_CREATE", "SR_PROBE", "VDI_CREATE", "VDI_DESTROY"], "configuration": {}, "required_cluster_stack": []}
+  [INFO] $TESTCASE_ROOT/test/volume/org.xen.xapi.storage.dummyv5/Plugin.Query[PID] succeeded: {"plugin": "dummy", "name": "dummy SR plugin", "description": "Dummy v5 SR for unit tests.", "vendor": "Citrix Systems Inc", "copyright": "(C) 2018 Citrix Inc", "version": "1.0", "required_api_version": "5.0", "features": ["SR_ATTACH", "SR_DETACH", "SR_CREATE", "SR_PROBE", "VDI_CREATE", "VDI_DESTROY"], "configuration": {}, "required_cluster_stack": [], "supported_image_formats": []}
   
   [INFO] {"method":"Plugin.diagnostics","params":[{"dbg":"debug"}],"id":4}
   [INFO] $TESTCASE_ROOT/test/volume/org.xen.xapi.storage.dummyv5/Plugin.diagnostics[PID] succeeded: "Dummy diagnostics"
