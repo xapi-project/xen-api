@@ -28,11 +28,24 @@ val to_string_hum: t -> string
     stash away a copy of the backtrace buffer if there is any risk
     of us raising another (or even the same) exception) *)
 
+module V1 : sig
+  val with_backtraces : (unit -> 'a) -> [ `Ok of 'a | `Error of (exn * t) ]
+  [@@deprecated "V2.with_backtraces"]
+end
+
+module V2 : sig
+  val with_backtraces : finally:(('a, exn * t) result -> 'a) -> (unit -> 'a) ->  'a
+  (** [with_backtraces thread finally] Allows backtraces to be recorded within
+      [thread]. [finally] is executed whenever [thread] finishes, this allows
+      users to use the stacktrace before it's dropped from the cache, for
+      example, to log it. *)
+end
+
 val with_backtraces: (unit -> 'a) -> [ `Ok of 'a | `Error of (exn * t) ]
 (** Allow backtraces to be recorded for this thread. All new threads
     must be wrapped in this for the backtrace tracking to work.
     It is acceptable to nest these wrappers; it will not affect the
-    backtrace recording behaviour. *)
+    backtrace recording behaviour. Please change to [V2.with_backtraces] *)
 
 val is_important: exn -> unit
 (** Declare that the backtrace is important for debugging and should be

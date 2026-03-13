@@ -27,12 +27,6 @@ module Mutex = struct
     r
 end
 
-let rec split_c c str =
-  try
-    let i = String.index str c in
-    String.sub str 0 i :: (split_c c (String.sub str (i+1) (String.length str - i - 1)))
-  with Not_found -> [str]
-
 type frame = {
   process: string;
   filename: string;
@@ -52,7 +46,9 @@ let to_string_hum xs =
     Buffer.add_string results (Printf.sprintf "%d/%d %s %s file %s, line %d" i xs' x.process (if first_line then "Raised at" else "Called from") x.filename x.line);
     Buffer.add_string results "\n";
     loop false (i + 1) xs in
-  loop true 1 xs
+  match xs with
+  | [] -> Printf.sprintf "%s: Thread %d has no backtrace table" !my_name Thread.(id (self ()))
+  | _ -> loop true 1 xs
 
 type table = {
   backtraces: t array;
@@ -68,11 +64,11 @@ let max_backtraces = 100
 
 let frame_of_string process x =
   try
-    begin match split_c '"' x with
+    begin match String.split_on_char '"' x with
     | [ _; filename; rest ] ->
-      begin match split_c ',' rest with
+      begin match String.split_on_char ',' rest with
       | [ _; line_n; _ ] ->
-        begin match split_c ' ' line_n with
+        begin match String.split_on_char ' ' line_n with
         | _ :: _ :: n :: _ ->
           { process; filename; line = int_of_string n }
         | _ ->
@@ -88,7 +84,7 @@ let frame_of_string process x =
 
 let get_backtrace_401 () =
   Printexc.get_backtrace ()
-  |> split_c '\n'
+  |> String.split_on_char '\n'
   |> List.filter (fun x -> x <> "")
   |> List.map (frame_of_string !my_name)
 
@@ -147,65 +143,110 @@ let remove t exn =
       bt :: acc
   ) [] |> remove_dups |> List.concat
 
-let per_thread_backtraces = Hashtbl.create 37
-let per_thread_backtraces_m = Mutex.create ()
 
-let with_lock f x =
-  Mutex.lock per_thread_backtraces_m;
-  try
-    let result = f x in
-    Mutex.unlock per_thread_backtraces_m;
-    result
-  with e ->
-    Mutex.unlock per_thread_backtraces_m;
-    raise e
+module IntMap = Map.Make (Int)
 
-let with_backtraces f =
-  let id = Thread.(id (self ())) in
-  let tbl = with_lock
-    (fun () ->
-      let tbl =
-        if Hashtbl.mem per_thread_backtraces id
-        then Hashtbl.find per_thread_backtraces id
-        else make () in
-      (* If we nest these functions we add multiple bindings
-         to the same mutable table which is ok *)
-      Hashtbl.add per_thread_backtraces id tbl;
-      tbl
-    ) () in
-  try
-    let result = f () in
-    with_lock (Hashtbl.remove per_thread_backtraces) id;
-    `Ok result
-  with e ->
-    let bt = get tbl e in
-    with_lock (Hashtbl.remove per_thread_backtraces) id;
-    `Error(e, bt)
+module ThreadLocalTable = struct
+  (* The map values behave like stacks here, with shadowing as in Hashtbl.
+     A Hashtbl is not used here, in order to avoid taking the lock in `find`. *)
+  type 'a t = {mutable tbl: 'a list IntMap.t; m: Mutex.t}
 
-let with_table f default =
-  let id = Thread.(id (self ())) in
-  match with_lock (fun () ->
-    if Hashtbl.mem per_thread_backtraces id
-    then Some (Hashtbl.find per_thread_backtraces id)
-    else None
-  ) () with
-  | None -> default ()
-  | Some tbl -> f tbl
+  let make () =
+    let tbl = IntMap.empty in
+    let m = Mutex.create () in
+    {tbl; m}
 
-let is_important exn = with_table (fun tbl -> is_important tbl exn) (fun () -> ())
+  let add t v =
+    let id = Thread.(id (self ())) in
+    Mutex.execute t.m (fun () ->
+        t.tbl <-
+          IntMap.update id
+            (function Some v' -> Some (v :: v') | None -> Some [v])
+            t.tbl
+    )
 
-let add exn bt = with_table (fun tbl -> add tbl exn bt) (fun () -> ())
+  let remove t =
+    let id = Thread.(id (self ())) in
+    Mutex.execute t.m (fun () ->
+        t.tbl <-
+          IntMap.update id
+            (function
+              | Some [_] ->
+                  None
+              | Some (_hd :: tl) ->
+                  Some tl
+              | Some [] | None ->
+                  None
+              )
+            t.tbl
+    )
 
-let warning () =
-  [ { process = !my_name;
-      filename = Printf.sprintf "(Thread %d has no backtrace table. Was with_backtraces called?" Thread.(id (self ()));
-      line = 0 } ]
+  let find t =
+    let id = Thread.(id (self ())) in
+    IntMap.find_opt id t.tbl
+    |> Option.fold ~none:None ~some:(function v :: _ -> Some v | [] -> None)
+end
 
-let remove exn = with_table (fun tbl -> remove tbl exn) warning
+let per_thread_backtraces = ThreadLocalTable.make ()
 
-let get exn = with_table (fun tbl -> get tbl exn) warning
+let ( let@ ) f x = f x
+
+let try_result f = try Ok (f ()) with exn -> Error exn
+
+let with_backtraces_common f with_table =
+  let tbl =
+    let tbl = 
+      match ThreadLocalTable.find per_thread_backtraces with
+      | Some tbl -> tbl
+      | None -> make ()
+    in
+    (* If we nest these functions we add multiple bindings
+       to the same mutable table which is ok *)
+    ThreadLocalTable.add per_thread_backtraces tbl;
+    tbl
+  in
+  let finally () = ThreadLocalTable.remove per_thread_backtraces in
+  Fun.protect ~finally (fun () -> with_table tbl (try_result f))
+
+module V1 = struct
+  let with_backtraces f = 
+    let with_table tbl = function
+      | Ok ok -> `Ok ok 
+      | Error e -> `Error (e, get tbl e)
+    in
+    with_backtraces_common f with_table
+end
+
+module V2 = struct
+  let with_backtraces ~finally f =
+    let with_table tbl result =
+      result
+      |> Result.map_error (function e -> (e, get tbl e))
+      |> finally
+    in
+    with_backtraces_common f with_table
+end
+
+let with_backtraces = V1.with_backtraces
+
+let is_important exn =
+  ThreadLocalTable.find per_thread_backtraces
+  |> Option.iter (fun tbl -> is_important tbl exn)
+
+let add exn bt =
+  ThreadLocalTable.find per_thread_backtraces
+  |> Option.iter (fun tbl -> add tbl exn bt)
+
+let remove exn =
+  ThreadLocalTable.find per_thread_backtraces
+  |> Option.fold ~some:(fun tbl -> remove tbl exn) ~none:empty
+
+let get exn =
+  ThreadLocalTable.find per_thread_backtraces
+  |> Option.fold ~some:(fun tbl -> get tbl exn) ~none:empty
 
 let reraise old newexn =
+  is_important old;
   add newexn (remove old);
   raise newexn
 
