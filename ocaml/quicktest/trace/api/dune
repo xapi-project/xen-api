@@ -9,7 +9,7 @@
     threads.posix
     sexplib
     sexplib0
-    backtrace
+    xapi-log.backtrace
     xapi-client
     xapi-consts
     xapi-types

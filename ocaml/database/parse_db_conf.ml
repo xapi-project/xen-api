@@ -173,8 +173,9 @@ let parse_db_conf s =
     sanity_check !connections ;
     !connections
   with exn ->
+    let bt = Printexc.get_raw_backtrace () in
     error "Database config parse failed: %s" (Printexc.to_string exn) ;
-    Backtrace.reraise exn Cannot_parse_database_config_file
+    Printexc.raise_with_backtrace Cannot_parse_database_config_file bt
 
 let get_db_conf path =
   if Sys.file_exists path then

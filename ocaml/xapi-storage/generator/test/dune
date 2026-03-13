@@ -19,5 +19,5 @@
     (:x storage_test.exe)
     (source_tree ../../rpc-light)
   )
-  (action (run %{x}))
+  (action (run %{x} -v))
 )
