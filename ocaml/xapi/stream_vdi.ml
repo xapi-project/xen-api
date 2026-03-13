@@ -306,37 +306,86 @@ let send_one ofd (__context : Context.t) rpc session_id progress refresh_session
           | Ok (Some (driver, path)) when driver = "vhd" || driver = "qcow2"
             -> (
             try
-              (* Read backing file headers, then only read and write
-                 allocated clusters from the bitmap *)
-              let cluster_size, cluster_list =
-                match driver with
-                | "vhd" ->
-                    Vhd_tool_wrapper.parse_header path
-                | "qcow2" ->
-                    Qcow_tool_wrapper.parse_header path
-                | _ ->
-                    failwith (Printf.sprintf "%s: unreachable" __FUNCTION__)
-              in
-              let set =
-                get_allocated_chunks_from_clusters cluster_size cluster_list
-              in
-              (* First and last chunks are always written - it's a limitation
-                 of the XVA format *)
               let last_chunk =
                 Int64.((to_int size - to_int chunk_size + 1) / to_int chunk_size)
               in
-              let set = set |> ChunkSet.add 0 |> ChunkSet.add last_chunk in
-              ChunkSet.iter
-                (fun this_chunk_no ->
-                  let offset = Int64.(mul (of_int this_chunk_no) chunk_size) in
-                  let _ =
-                    write_chunk this_chunk_no offset
-                      ~write_check:(fun _ _ -> true)
-                      ~seek:true ~timeout_workaround:false
-                  in
-                  ()
-                )
-                set
+              if !Xapi_globs.vhd_legacy_blocks_format then
+                (* Read backing file headers, then only read and write
+                 allocated clusters from the bitmap *)
+                let cluster_size, cluster_list =
+                  match driver with
+                  | "vhd" ->
+                      Vhd_tool_wrapper.parse_header path
+                  | "qcow2" ->
+                      Qcow_tool_wrapper.parse_header path
+                  | _ ->
+                      failwith (Printf.sprintf "%s: unreachable" __FUNCTION__)
+                in
+                let set =
+                  get_allocated_chunks_from_clusters cluster_size cluster_list
+                in
+                (* First and last chunks are always written - it's a limitation
+                 of the XVA format *)
+                let set = set |> ChunkSet.add 0 |> ChunkSet.add last_chunk in
+                ChunkSet.iter
+                  (fun this_chunk_no ->
+                    let offset =
+                      Int64.(mul (of_int this_chunk_no) chunk_size)
+                    in
+                    let _ =
+                      write_chunk this_chunk_no offset
+                        ~write_check:(fun _ _ -> true)
+                        ~seek:true ~timeout_workaround:false
+                    in
+                    ()
+                  )
+                  set
+              else
+                let cluster_size, cluster_list =
+                  match driver with
+                  | "vhd" ->
+                      Vhd_tool_wrapper.parse_header_interval path
+                  | "qcow2" ->
+                      Qcow_tool_wrapper.parse_header_interval path
+                  | _ ->
+                      failwith (Printf.sprintf "%s: unreachable" __FUNCTION__)
+                in
+                let process_chunk chunk_no ~force =
+                  if force || (chunk_no <> 0 && chunk_no <> last_chunk) then
+                    let offset = Int64.(mul (of_int chunk_no) chunk_size) in
+                    let _ =
+                      write_chunk chunk_no offset
+                        ~write_check:(fun _ _ -> true)
+                        ~seek:true ~timeout_workaround:false
+                    in
+                    ()
+                in
+
+                process_chunk 0 ~force:true ;
+
+                let chunk_size = Int64.to_int chunk_size in
+                let chunks_in_cluster =
+                  (cluster_size + chunk_size - 1) / chunk_size
+                in
+                (* Iterate over allocated intervals, copying every cluster inside *)
+                List.iter
+                  (fun (cluster_no_left, cluster_no_right) ->
+                    let calc_chunk cluster =
+                      let cluster_offset = cluster * cluster_size in
+                      let chunk_no = cluster_offset / chunk_size in
+                      chunk_no
+                    in
+                    let left_chunk_no = calc_chunk cluster_no_left in
+                    let right_chunk_no =
+                      calc_chunk cluster_no_right + chunks_in_cluster - 1
+                    in
+                    for i = left_chunk_no to right_chunk_no do
+                      process_chunk i ~force:false
+                    done
+                  )
+                  cluster_list ;
+
+                process_chunk last_chunk ~force:true
             with e ->
               debug "%s: Falling back to reading the whole raw disk after %s"
                 __FUNCTION__ (Printexc.to_string e) ;

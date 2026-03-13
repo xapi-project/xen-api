@@ -36,7 +36,7 @@ val stream :
   Common.t -> StreamCommon.t -> [> `Error of bool * string | `Ok of unit]
 
 val read_headers :
-  Common.t -> string -> [> `Error of bool * string | `Ok of unit]
+  Common.t -> string -> legacy:bool -> [> `Error of bool * string | `Ok of unit]
 
 val serve :
      Common.t
