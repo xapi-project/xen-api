@@ -272,6 +272,9 @@ val enable_external_auth :
 val disable_external_auth :
   __context:Context.t -> pool:'a -> config:API.string_to_string_map -> unit
 
+val external_auth_set_ldaps :
+  __context:Context.t -> pool:'a -> ldaps:bool -> force:bool -> unit
+
 val detect_nonhomogeneous_external_auth_in_pool : __context:Context.t -> unit
 
 val run_detect_nonhomogeneous_external_auth_in_pool : unit -> unit

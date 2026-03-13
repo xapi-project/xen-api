@@ -6946,6 +6946,12 @@ let pool_disable_external_auth _printer rpc session_id params =
   let config = read_map_params "config" params in
   Client.Pool.disable_external_auth ~rpc ~session_id ~pool ~config
 
+let pool_external_auth_set_ldaps _printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let ldaps = get_bool_param params "ldaps" in
+  let force = get_bool_param params ~default:false "force" in
+  Client.Pool.external_auth_set_ldaps ~rpc ~session_id ~pool ~ldaps ~force
+
 let pool_get_guest_secureboot_readiness printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   let result =
