@@ -293,6 +293,25 @@ let failed ~__context exn =
             "`failure"
         )
 
+let reraise ~__context ~task exn =
+  Backtrace.is_important exn ;
+  let () =
+    (* best-effort: retrieve existing backtrace and join with local *)
+    try
+      let remote_bt =
+        Db_actions.DB_Action.Task.get_backtrace ~__context ~self:task
+        |> Sexplib.Sexp.of_string
+        |> Backtrace.t_of_sexp
+      in
+      let local_bt = Backtrace.remove exn in
+      (* start with remote Backtrace *)
+      Backtrace.add exn remote_bt ;
+      (* add back local *)
+      Backtrace.add exn local_bt
+    with _ -> ()
+  in
+  raise exn
+
 type id = Sm of string | Xenops of string * string
 
 (* queue name * id *)

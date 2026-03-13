@@ -55,3 +55,5 @@ val create_chipset_info : __context:Context.t -> host_info -> unit
 
 val create_updates_requiring_reboot_info :
   __context:Context.t -> host:[`host] Ref.t -> unit
+
+val set_backtrace_name : string -> unit

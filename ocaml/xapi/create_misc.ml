@@ -134,6 +134,11 @@ let count_cpus () =
   in
   Unixext.file_lines_fold count 0 cpuinfo
 
+let set_backtrace_name this_host_name =
+  let pid = Unix.getpid () in
+  let name = Printf.sprintf "%s[%d] @ %s" Sys.argv.(0) pid this_host_name in
+  Backtrace.set_my_name name
+
 let read_localhost_info ~__context =
   let open Xapi_xenops_queue in
   let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
@@ -155,6 +160,7 @@ let read_localhost_info ~__context =
     try Some (Xapi_inventory.lookup k) with _ -> None
   in
   let this_host_name = Networking_info.get_hostname () in
+  set_backtrace_name this_host_name ;
   let open Xapi_inventory in
   let open Xenops_interface.Host in
   {
