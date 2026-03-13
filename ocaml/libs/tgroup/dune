@@ -2,7 +2,7 @@
  (name tgroup)
  (modules tgroup)
  (public_name tgroup)
- (libraries unix xapi-log xapi-stdext-unix xapi-stdext-std))
+ (libraries astring unix xapi-log xapi-stdext-unix))
 
 (test
  (name test_tgroup)
