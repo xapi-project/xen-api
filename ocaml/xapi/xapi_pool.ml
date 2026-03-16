@@ -3708,8 +3708,16 @@ let set_repositories ~__context ~self ~value =
     )
     value ;
   Db.Pool.set_repositories ~__context ~self ~value ;
-  if Db.Pool.get_repositories ~__context ~self = [] then
+  if Db.Pool.get_repositories ~__context ~self = [] then (
     Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch ;
+    (* The host.latest_synced_updates_applied can't be refreshed by
+       pool.sync_updates. So reset it here. *)
+    Db.Host.get_all ~__context
+    |> List.iter (fun h ->
+        Db.Host.set_latest_synced_updates_applied ~__context ~self:h
+          ~value:`unknown
+    )
+  ) ;
   disable_unsupported_periodic_sync_updates ~__context ~self ~repos:value
 
 let add_repository ~__context ~self ~value =
