@@ -2090,16 +2090,20 @@ let update_vdi_links ~__context state =
     let tbl = Hashtbl.create 16 in
     let go (_, a, b) = Hashtbl.replace tbl a (Ref.of_string b) in
     List.iter go state.table ;
-    fun r ->
-      Hashtbl.find_opt tbl (Ref.string_of r) |> Option.value ~default:Ref.null
+    fun r -> Hashtbl.find_opt tbl (Ref.string_of r)
   in
   let update x =
     let x_r = Db.VDI.get_record ~__context ~self:x in
-    let parent = resolve_import x_r.API.vDI_parent in
-    let snapshot_of = resolve_import x_r.API.vDI_snapshot_of in
-    Db.VDI.set_parent ~__context ~self:x ~value:parent ;
-    Db.VDI.set_snapshot_of ~__context ~self:x ~value:snapshot_of ;
-    Db.VDI.set_is_a_snapshot ~__context ~self:x ~value:(snapshot_of <> Ref.null)
+    resolve_import x_r.API.vDI_parent
+    |> Option.iter (fun parent ->
+        Db.VDI.set_parent ~__context ~self:x ~value:parent
+    ) ;
+    resolve_import x_r.API.vDI_snapshot_of
+    |> Option.iter (fun snapshot_of ->
+        Db.VDI.set_snapshot_of ~__context ~self:x ~value:snapshot_of ;
+        Db.VDI.set_is_a_snapshot ~__context ~self:x
+          ~value:(snapshot_of <> Ref.null)
+    )
   in
   let go (cls, _, r) =
     if cls = Datamodel_common._vdi then update (Ref.of_string r)
