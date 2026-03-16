@@ -1963,6 +1963,7 @@ let eject_self ~__context ~host =
       (Db.Pool.get_current_operations ~__context ~self:pool)
   then
     raise Api_errors.(Server_error (not_supported_during_upgrade, [])) ;
+  let last_update_hash = Db.Host.get_last_update_hash ~__context ~self:host in
   if Pool_role.is_master () then
     raise Cannot_eject_master
   else (* Fail the operation if any VMs are running here (except dom0) *)
@@ -2093,6 +2094,8 @@ let eject_self ~__context ~host =
         pif.API.pIF_ipv6_configuration_mode
       |> String.uncapitalize_ascii
     in
+    Localdb.put "last_update_hash" last_update_hash ;
+    debug "Saved last_update_hash %S to localdb." last_update_hash ;
     let write_first_boot_management_interface_configuration_file () =
       (* During firstboot, now inventory has an empty MANAGEMENT_INTERFACE *)
       let bridge = "" in
