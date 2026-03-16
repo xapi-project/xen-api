@@ -23,13 +23,6 @@
 #include <unistd.h>
 #include <stdint.h>
 
-#include <caml/alloc.h>
-#include <caml/memory.h>
-#include <caml/signals.h>
-#include <caml/fail.h>
-#include <caml/callback.h>
-#include <caml/bigarray.h>
-
 #include "blkgetsize.h"
 #ifdef __linux__
 #include <linux/fs.h>

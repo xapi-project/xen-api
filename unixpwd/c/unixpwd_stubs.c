@@ -20,6 +20,7 @@
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/memory.h>
+#include <caml/threads.h>
 
 #include "unixpwd.h"
 
@@ -33,7 +34,9 @@ caml_unixpwd_getpwd(value caml_user)
     CAMLlocal1(pw);
 
     user = String_val(caml_user);
+    caml_release_runtime_system();
     passwd = unixpwd_getpwd(user);
+    caml_acquire_runtime_system();
     if (passwd == NULL && errno != 0)
         caml_failwith(strerror(errno));
     if (passwd == NULL)
@@ -53,7 +56,9 @@ caml_unixpwd_getspw(value caml_user)
     CAMLlocal1(pw);
 
     user = String_val(caml_user);
+    caml_release_runtime_system();
     passwd = unixpwd_getspw(user);
+    caml_acquire_runtime_system();
     if (passwd == NULL && errno != 0)
         caml_failwith(strerror(errno));
     if (passwd == NULL)
@@ -75,7 +80,9 @@ caml_unixpwd_get(value caml_user)
     CAMLlocal1(pw);
 
     user = String_val(caml_user);
+    caml_release_runtime_system();
     passwd = unixpwd_get(user);
+    caml_acquire_runtime_system();
     if (passwd == NULL && errno != 0)
         caml_failwith(strerror(errno));
     if (passwd == NULL)
@@ -96,7 +103,11 @@ caml_unixpwd_setpwd(value caml_user, value caml_password)
 
     user = String_val(caml_user);
     password = caml_stat_strdup(String_val(caml_password));
+
+    caml_release_runtime_system();
     rc = unixpwd_setpwd(user, password);
+    caml_acquire_runtime_system();
+
     caml_stat_free(password);
     if (rc != 0)
         caml_failwith(strerror(rc));
@@ -113,7 +124,9 @@ caml_unixpwd_setspw(value caml_user, value caml_password)
 
     user = String_val(caml_user);
     password = caml_stat_strdup(String_val(caml_password));
+    caml_release_runtime_system();
     rc = unixpwd_setspw(user, password);
+    caml_acquire_runtime_system();
     caml_stat_free(password);
     if (rc != 0)
         caml_failwith(strerror(rc));
