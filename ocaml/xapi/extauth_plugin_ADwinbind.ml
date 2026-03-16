@@ -90,12 +90,12 @@ let err_msg_to_tag_map =
 module DomainInfo = struct
   type t = {
       service_name: string
-    ; user: string
+    ; user: string option
     ; workgroup: string option
           (* For upgrade case, the legacy db does not contain workgroup *)
     ; netbios_name: string option
           (* Persist netbios_name to support hostname change *)
-    ; ldaps: bool (* Use ldaps instead of ldap *)
+    ; ldaps: bool option (* Use LDAPS instead of LDAP *)
     ; machine_pwd_last_change_time: float option
     ; ou: string option
   }
@@ -108,14 +108,14 @@ module DomainInfo = struct
     let config =
       Db.Host.get_external_auth_configuration ~__context ~self:host
     in
-    let user = List.assoc "user" config in
+    let user = List.assoc_opt "user" config in
     let workgroup = List.assoc_opt "workgroup" config in
     let netbios_name = List.assoc_opt "netbios_name" config in
     let machine_pwd_last_change_time =
       List.assoc_opt "machine_pwd_last_change_time" config
       |> Option.map (fun s -> float_of_string s)
     in
-    let ldaps = Helpers.ldaps_enabled_in_config ~config in
+    let ldaps = Some (Helpers.ldaps_enabled_in_config ~config) in
     let ou = List.assoc_opt "ou" config in
     {
       service_name
@@ -141,27 +141,20 @@ module DomainInfo = struct
           ; machine_pwd_last_change_time
           ; ldaps
           ; ou
-          } -> (
+          } ->
           [
-            ("domain", service_name)
-          ; ("user", user)
-          ; ("ldaps", string_of_bool ldaps)
-          ]
-          @ (match workgroup with Some w -> [("workgroup", w)] | None -> [])
-          @ ( match netbios_name with
-            | Some n ->
-                [("netbios_name", n)]
-            | None ->
-                []
+            Some ("domain", service_name)
+          ; user |> Option.map (fun u -> ("user", u))
+          ; workgroup |> Option.map (fun w -> ("workgroup", w))
+          ; netbios_name |> Option.map (fun nn -> ("netbios_name", nn))
+          ; machine_pwd_last_change_time
+            |> Option.map (fun t ->
+                ("machine_pwd_last_change_time", string_of_float t)
             )
-          @ (match ou with Some o -> [("ou", o)] | None -> [])
-          @
-          match machine_pwd_last_change_time with
-          | Some t ->
-              [("machine_pwd_last_change_time", string_of_float t)]
-          | None ->
-              []
-        )
+          ; ldaps |> Option.map (fun l -> ("ldaps", string_of_bool l))
+          ; ou |> Option.map (fun ou -> ("ou", ou))
+          ]
+          |> List.concat_map (function Some x -> [x] | None -> [])
     in
     Helpers.get_localhost ~__context |> fun self ->
     Db.Host.set_external_auth_configuration ~__context ~self ~value ;
@@ -171,10 +164,10 @@ end
 
 type domain_info = DomainInfo.t = {
     service_name: string
-  ; user: string
+  ; user: string option
   ; workgroup: string option
   ; netbios_name: string option
-  ; ldaps: bool
+  ; ldaps: bool option
   ; machine_pwd_last_change_time: float option
   ; ou: string option
 }
@@ -304,12 +297,14 @@ let workgroup_from_server kdc =
     Error (Auth_service_error (E_LOOKUP, err_msg))
 
 let kdc_of_domain_checked domain =
-  try
-    kdcs_of_domain domain
-    (* Does not trust DNS as it may cache some invalid kdcs, CA-360951 *)
-    |> List.find (fun kdc -> workgroup_from_server kdc |> Result.is_ok)
-  with Not_found ->
-    raise (generic_ex "No valid kdc found for domain %s" domain)
+  kdcs_of_domain domain
+  (* Does not trust DNS as it may cache some invalid kdcs, CA-360951 *)
+  |> List.find_opt (fun kdc -> workgroup_from_server kdc |> Result.is_ok)
+  |> function
+  | Some x ->
+      x
+  | None ->
+      raise (generic_ex "No valid kdc found for domain %s" domain)
 
 module Ldap = struct
   module Escape = struct
@@ -562,21 +557,16 @@ module Ldap = struct
         Error (generic_ex "Failed to lookup sid from username %s" name)
 
   let ping_domain domain =
-    try
+    match
       kdcs_of_domain domain
-      |> List.find (fun kdc ->
+      |> List.find_opt (fun kdc ->
           query_sid ~name:krbtgt ~kdc:(KDC.server kdc) |> Result.is_ok
       )
-      |> ignore ;
-      Ok ()
     with
-    | Not_found ->
+    | Some _ ->
+        Ok ()
+    | None ->
         Error (generic_ex "Failed to ping domain %s: all kdcs failed" domain)
-    | Auth_signature.Auth_service_error (code, msg) ->
-        Error (Auth_signature.Auth_service_error (code, msg))
-    | e ->
-        Error
-          (Auth_signature.Auth_service_error (E_GENERIC, Printexc.to_string e))
 end
 
 module Wbinfo = struct
@@ -882,7 +872,9 @@ let config_winbind_daemon domain_info =
         ; ldaps
         ; _
         } ->
-        let ldaps_conf = match ldaps with true -> "ldaps" | _ -> "seal" in
+        let ldaps_conf =
+          match ldaps with Some true -> "ldaps" | _ -> "seal"
+        in
         [
           Printf.sprintf "# This file is managed by xapi, update %s instead"
             extra_conf
@@ -1041,17 +1033,17 @@ module Winbind = struct
        it the perfect target for such a test using a username (Administrator account can be renamed) *)
     try
       Helpers.retry_until_timeout ~timeout
-        (Printf.sprintf "Checking if %s is ready" name)
+        (Printf.sprintf "%s: Checking if %s is ready" __FUNCTION__ name)
         Wbinfo.can_resolve_krbtgt ;
-      debug "Service %s is ready" name
+      debug "%s: Service %s is ready" __FUNCTION__ name
     with e ->
       let msg =
         Printf.sprintf
-          "%s is not ready after checking for %f seconds, error: %s" name
-          timeout
+          "%s: %s is not ready after checking for %f seconds, error: %s"
+          __FUNCTION__ name timeout
           (ExnHelper.string_of_exn e)
       in
-      error "Service not ready error: %s" msg ;
+      error "%s: Service not ready error: %s" __FUNCTION__ msg ;
       raise (Auth_service_error (E_GENERIC, msg))
 
   let configure ~__context ?(domain_info = DomainInfo.of_db ~__context) () =
@@ -1160,19 +1152,19 @@ module Winbind = struct
         debug "Skip setting machine account encryption type to DC"
 end
 
-(* Set or unset ldaps for external authentication *)
+(* Enable or disable LDAPS for external authentication *)
 let set_ldaps ~__context ~ldaps ~force =
   debug "%s:%d set_ldaps ldaps=%b force=%b" __FUNCTION__ __LINE__ ldaps force ;
   let old_domain_info = DomainInfo.of_db ~__context in
 
-  (* Check if ldaps is already set to the desired value *)
-  if old_domain_info.ldaps = ldaps && not force then
+  (* Check if LDAPS is already set to the desired value *)
+  if old_domain_info.ldaps = Some ldaps && not force then
     raise (generic_ex "ldaps is already %s" (string_of_bool ldaps)) ;
 
-  let new_domain_info = {old_domain_info with ldaps} in
+  let new_domain_info = {old_domain_info with ldaps= Some ldaps} in
   (* Apply new configuration to winbind daemon for trial *)
   Winbind.configure ~__context ~domain_info:new_domain_info () ;
-  (* Verify the new ldap(s) setting works *)
+  (* Verify the new LDAP(S) setting works *)
   match Ldap.ping_domain new_domain_info.service_name with
   | Ok () ->
       (* Ping succeeded, persist the new domain_info *)
@@ -1480,7 +1472,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let* {user_name; gecos; gid; _} = Wbinfo.uid_info_of_uid uid in
     let sam_uname = user_name in
     let* domain_netbios, user = user_of_sam user_name in
-    (* permit unnkown domain if ldap query failed, update subject task will update it later *)
+    (* permit unknown domain if LDAP query failed, update subject task will update it later *)
     let domain =
       domain_name_of_netbios ~__context domain_netbios |> Result.to_option
     in
@@ -1638,13 +1630,13 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       (* Query new domain workgroup during join domain *)
       query_domain_workgroup ~domain:service_name
     in
-    let ldaps = Helpers.ldaps_enabled_in_config ~config:config_params in
+    let ldaps = Some (Helpers.ldaps_enabled_in_config ~config:config_params) in
 
     let ou, ou_param = extract_ou_config ~config_params in
     let domain_info =
       {
         service_name
-      ; user
+      ; user= Some user
       ; workgroup= Some workgroup
       ; netbios_name= Some netbios_name
       ; machine_pwd_last_change_time= Some (Unix.time ())
@@ -1770,12 +1762,6 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       Called internally when xapi is doing a clean exit.
   *)
   let on_xapi_exit ~__context:_ () = ()
-
-  (* unit set_ldaps(__context, ldaps, force)
-  
-      Called to set or unset ldaps for external authentication
-  *)
-  let set_ldaps ~__context ~ldaps ~force = set_ldaps ~__context ~ldaps ~force
 
   (* Implement the single value required for the module signature *)
   let methods =

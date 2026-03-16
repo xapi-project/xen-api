@@ -3129,18 +3129,13 @@ let external_auth_set_ldaps ~__context ~pool:_ ~ldaps ~force =
   let assert_can_set_ldaps () =
     (* Pool level check *)
     let assert_ad_enabled () =
-      match
-        List.find_opt
-          (fun host -> not (Helpers.is_ad_enabled ~__context ~host))
-          hosts
-      with
-      | Some host ->
-          raise
-            (Api_errors.Server_error
-               (Api_errors.auth_is_disabled, [Ref.string_of host])
-            )
-      | None ->
-          ()
+      List.find_opt
+        (fun host -> not (Helpers.is_ad_enabled ~__context ~host))
+        hosts
+      |> Option.fold ~none:() ~some:(fun host ->
+          let host = Ref.string_of host in
+          raise Api_errors.(Server_error (auth_is_disabled, [host]))
+      )
     in
     assert_ad_enabled ()
   in
@@ -3151,58 +3146,42 @@ let external_auth_set_ldaps ~__context ~pool:_ ~ldaps ~force =
         host ;
       Ok host
     with
-    | Api_errors.Server_error (err, [host_msg]) ->
+    | Api_errors.Server_error (_, [host_msg]) ->
         let msg = Printf.sprintf "%s: %s" (Ref.string_of host) host_msg in
-        debug "Failed to set ldaps for host %s" msg ;
-        Error (host, err, msg)
+        debug "%s failed to set ldaps for host %s" __FUNCTION__ msg ;
+        Error (host, msg)
     | e ->
         let msg =
           Printf.sprintf "%s: %s" (Ref.string_of host)
             (ExnHelper.string_of_exn e)
         in
-        debug "Failed to set ldaps for host %s" msg ;
-        (* Set error to pool_auth_set_ldaps_failed as genernal error *)
-        Error (host, Api_errors.pool_auth_set_ldaps_failed, msg)
+        debug "%s failed to set ldaps for host %s" __FUNCTION__ msg ;
+        Error (host, msg)
   in
   with_lock Xapi_globs.serialize_pool_enable_disable_extauth @@ fun () ->
   assert_can_set_ldaps () ;
-  let succeeded, failed =
-    List.map set_ldap_on hosts
-    |> List.partition_map (function
-      | Ok x ->
-          Either.Left x
-      | Error x ->
-          Either.Right x
+  let raise_failed host msg =
+    raise
+      Api_errors.(
+        Server_error (pool_auth_set_ldaps_failed, [Ref.string_of host; msg])
       )
   in
-  match failed with
-  | [] ->
-      debug "ldaps setting applied successfully to all hosts in the pool"
-  | (host, err, msg) :: _ ->
-      debug "Failed to set ldaps for at least one host in the pool %s: %s"
-        (Ref.string_of host) msg ;
-      ( match current_ldaps = ldaps with
-      | true ->
-          ()
-      | false ->
-          (* Rollback: revert ldaps to original state on all succeeded hosts *)
-          debug "Reverting to %B" current_ldaps ;
-          List.iter
-            (fun succeeded_host ->
-              try
-                call_fn_on_host ~__context
-                  (Client.Host.external_auth_set_ldaps ~ldaps:current_ldaps
-                     ~force:true
-                  )
-                  succeeded_host
-              with e ->
-                warn "Failed to revert ldaps on host %s: %s"
-                  (Ref.string_of succeeded_host)
-                  (ExnHelper.string_of_exn e)
-            )
-            succeeded
-      ) ;
-      raise (Api_errors.Server_error (err, [Ref.string_of host; msg]))
+  let revert host =
+    try
+      call_fn_on_host ~__context
+        (Client.Host.external_auth_set_ldaps ~ldaps:current_ldaps ~force:true)
+        host
+    with e ->
+      warn "Failed to revert ldaps on host %s: %s" (Ref.string_of host)
+        (ExnHelper.string_of_exn e)
+  in
+  match Listext.List.try_map_collect set_ldap_on hosts with
+  | Ok _ ->
+      debug "%s succeed to set pool ldaps to %b" __FUNCTION__ ldaps
+  | Error (_, (host, msg)) when current_ldaps = ldaps ->
+      raise_failed host msg
+  | Error (hs, (host, msg)) ->
+      List.iter revert hs ; raise_failed host msg
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_pool ~__context =

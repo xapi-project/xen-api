@@ -1026,6 +1026,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Hidden]
       }
     )
+  ; ( "host-external-auth-set-ldaps"
+    , {
+        reqd= ["host-uuid"; "ldaps"]
+      ; optn= ["force"]
+      ; help= "Sets or unsets ldaps for external authentication in a host"
+      ; implementation= No_fd Cli_operations.host_external_auth_set_ldaps
+      ; flags= [Hidden]
+      }
+    )
   ; ( "host-refresh-pack-info"
     , {
         reqd= ["host-uuid"]

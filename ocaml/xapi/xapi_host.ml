@@ -1980,7 +1980,7 @@ let disable_external_auth ~__context ~host ~config ~force =
   disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
     ~force ()
 
-(* Set or unset ldaps for external authentication on a host *)
+(* Enable or disable LDAPS for external authentication on a host *)
 let external_auth_set_ldaps ~__context ~host:_ ~ldaps ~force =
   let assert_can_set_ldaps () =
     (* Host level check *)
