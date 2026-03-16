@@ -2050,8 +2050,8 @@ let external_auth_set_ldaps =
       [
         ( Published
         , "26.6.0-next"
-        , "This call sets or unsets ldaps for external authentication on the \
-           host"
+        , "This call enables or disables LDAPS for external authentication on \
+           the host"
         )
       ]
     ~versioned_params:
@@ -2059,14 +2059,14 @@ let external_auth_set_ldaps =
         {
           param_type= Ref _host
         ; param_name= "host"
-        ; param_doc= "The host whose ldaps configuration should be set"
+        ; param_doc= "The host whose LDAPS configuration should be set"
         ; param_release= numbered_release "26.6.0-next"
         ; param_default= None
         }
       ; {
           param_type= Bool
         ; param_name= "ldaps"
-        ; param_doc= "Whether to enable or disable ldaps"
+        ; param_doc= "Whether to enable or disable LDAPS"
         ; param_release= numbered_release "26.6.0-next"
         ; param_default= None
         }
@@ -2079,7 +2079,8 @@ let external_auth_set_ldaps =
         }
       ]
     ~doc:
-      "This call sets or unsets ldaps for external authentication on the host"
+      "This call enables or disables LDAPS for external authentication on the \
+       host"
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let set_license_params =
