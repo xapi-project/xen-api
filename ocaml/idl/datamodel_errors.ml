@@ -734,7 +734,9 @@ let _ =
   error Api_errors.auth_unknown_type ["type"]
     ~doc:"Unknown type of external authentication." () ;
   error Api_errors.auth_is_disabled []
-    ~doc:"External authentication is disabled, unable to resolve subject name."
+    ~doc:"External authentication is disabled" () ;
+  error Api_errors.auth_invalid_certs ["message"]
+    ~doc:"The certificates are invalid to setup TLS connection to Windows AD."
     () ;
   error Api_errors.auth_enable_failed ["message"]
     ~doc:"The host failed to enable external authentication." () ;
@@ -749,6 +751,8 @@ let _ =
   error Api_errors.auth_enable_failed_invalid_ou ["message"]
     ~doc:"The host failed to enable external authentication." () ;
   error Api_errors.auth_enable_failed_invalid_account ["message"]
+    ~doc:"The host failed to enable external authentication." () ;
+  error Api_errors.auth_enable_failed_invalid_certs ["message"]
     ~doc:"The host failed to enable external authentication." () ;
   error Api_errors.auth_disable_failed ["message"]
     ~doc:"The host failed to disable external authentication." () ;
@@ -839,7 +843,9 @@ let _ =
     ~doc:"The pool failed to enable external authentication." () ;
   error Api_errors.pool_auth_enable_failed_invalid_account ["host"; "message"]
     ~doc:"The pool failed to enable external authentication." () ;
-  error Api_errors.pool_auth_set_ldaps_failed ["host"; "message"]
+  error Api_errors.pool_auth_enable_failed_invalid_certs ["host"; "message"]
+    ~doc:"The pool failed to enable external authentication." () ;
+  error Api_errors.auth_set_ldaps_failed ["host"; "message"]
     ~doc:"The pool failed to set LDAPS configuration." () ;
   error Api_errors.pool_auth_disable_failed ["host"; "message"]
     ~doc:

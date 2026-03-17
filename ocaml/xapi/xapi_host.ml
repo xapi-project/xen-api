@@ -1981,16 +1981,18 @@ let disable_external_auth ~__context ~host ~config ~force =
     ~force ()
 
 (* Enable or disable LDAPS for external authentication on a host *)
-let external_auth_set_ldaps ~__context ~host:_ ~ldaps ~force =
-  let assert_can_set_ldaps () =
-    (* Host level check *)
-    let assert_certs () = () in
-    assert_certs ()
+let external_auth_set_ldaps ~__context ~host ~ldaps ~force =
+  let open Api_errors in
+  let auth_error_to_set_ldaps_error f =
+    try f ()
+    with Server_error (code, params) when code = auth_service_error ->
+      raise (Server_error (auth_set_ldaps_failed, Ref.string_of host :: params))
   in
 
   (* Just dispatch to the backend *)
   with_lock serialize_host_enable_disable_extauth @@ fun () ->
-  assert_can_set_ldaps () ;
+  auth_error_to_set_ldaps_error @@ fun () ->
+  Extauth.call_with_exception_handler @@ fun () ->
   (Ext_auth.d ()).set_ldaps ~__context ~ldaps ~force
 
 module Static_vdis_list = Xapi_database.Static_vdis_list

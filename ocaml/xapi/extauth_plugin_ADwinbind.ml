@@ -22,6 +22,7 @@ end)
 open D
 open Xapi_stdext_std.Xstringext
 open Auth_signature
+module Listext = Xapi_stdext_std.Listext
 module Scheduler = Xapi_stdext_threads_scheduler.Scheduler
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
@@ -81,9 +82,13 @@ let debug_level () =
   |> string_of_int
 
 let err_msg_to_tag_map =
+  let open Auth_signature in
   [
-    ("not a properly formed account name", Auth_signature.E_INVALID_ACCOUNT)
-  ; ("bad username or authentication", Auth_signature.E_CREDENTIALS)
+    ("not a properly formed account name", E_INVALID_ACCOUNT)
+  ; ("bad username or authentication", E_CREDENTIALS)
+  ; ( "Windows cannot verify the digital signature for this file"
+    , E_INVALID_CERTS
+    )
     (* Some other errors *)
   ]
 
@@ -264,6 +269,12 @@ let tag_from_err_msg msg =
       v
   | None ->
       Auth_signature.E_GENERIC
+
+let auth_ex_of_msg errmsg fmt =
+  let tag = tag_from_err_msg errmsg in
+  Printf.ksprintf
+    (fun msg -> Auth_signature.(Auth_service_error (tag, msg)))
+    fmt
 
 let update_extauth_configuration ~__context ~k ~v =
   let self = Helpers.get_localhost ~__context in
@@ -549,24 +560,25 @@ module Ldap = struct
       |> Xapi_cmd_result.of_output ~sep:':' ~key
       |> fun x -> Ok x
     with
-    | Forkhelpers.Spawn_internal_error (_, stdout, _) ->
-        Error (generic_ex "Ldap query sid failed: %s" stdout)
+    | Forkhelpers.Spawn_internal_error (err, out, _) ->
+        Error
+          (auth_ex_of_msg err "Failed to do ldap(s) query for %s %s" name out)
     | Not_found ->
         Error (generic_ex "%s not found in ldap result" key)
     | _ ->
         Error (generic_ex "Failed to lookup sid from username %s" name)
 
   let ping_domain domain =
-    match
-      kdcs_of_domain domain
-      |> List.find_opt (fun kdc ->
-          query_sid ~name:krbtgt ~kdc:(KDC.server kdc) |> Result.is_ok
+    kdcs_of_domain domain
+    |> Listext.List.try_map_any (fun kdc ->
+        query_sid ~name:krbtgt ~kdc:(KDC.server kdc)
+    )
+    |> Result.map_error (function
+      | e :: _ ->
+          e
+      | [] ->
+          generic_ex "Failed to ping domain %s" domain
       )
-    with
-    | Some _ ->
-        Ok ()
-    | None ->
-        Error (generic_ex "Failed to ping domain %s: all kdcs failed" domain)
 end
 
 module Wbinfo = struct
@@ -1161,24 +1173,22 @@ let set_ldaps ~__context ~ldaps ~force =
   if old_domain_info.ldaps = Some ldaps && not force then
     raise (generic_ex "ldaps is already %s" (string_of_bool ldaps)) ;
 
+  (* check certificate exists *)
   let new_domain_info = {old_domain_info with ldaps= Some ldaps} in
   (* Apply new configuration to winbind daemon for trial *)
   Winbind.configure ~__context ~domain_info:new_domain_info () ;
   (* Verify the new LDAP(S) setting works *)
   match Ldap.ping_domain new_domain_info.service_name with
-  | Ok () ->
+  | Ok _ ->
       (* Ping succeeded, persist the new domain_info *)
+      debug "%s ping domain succeed" __FUNCTION__ ;
       DomainInfo.to_db ~__context ~domain_info:(Some new_domain_info)
   | Error e ->
       (* Ping failed, restore the old configuration *)
       Winbind.configure ~__context ~domain_info:old_domain_info () ;
-      raise
-        (generic_ex
-           "ldap(s) verification failed for domain %s: %s, restored old \
-            configuration"
-           new_domain_info.service_name
-           (ExnHelper.string_of_exn e)
-        )
+      debug "%s ldap(s) verification failed, restored old configure"
+        __FUNCTION__ ;
+      raise e
 
 module RotateMachinePassword = struct
   let task_name = "Rotating machine password"
