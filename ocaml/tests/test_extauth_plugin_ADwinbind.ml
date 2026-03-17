@@ -90,6 +90,8 @@ module Errtag = Generic.MakeStateless (struct
           "E_INVALID_OU"
       | E_INVALID_ACCOUNT ->
           "E_INVALID_ACCOUNT"
+      | E_INVALID_CERTS ->
+          "E_INVALID_CERTS"
   end
 
   let transform = Extauth_plugin_ADwinbind.tag_from_err_msg
