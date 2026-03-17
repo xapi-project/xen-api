@@ -75,7 +75,7 @@ exception Usage
 let usage () =
   let help =
     Printf.sprintf
-      {|Usage: 
+      {|Usage:
   %s <command>
     [ -s <server> ]            XenServer host
     [ -p <port> ]              XenServer port number
@@ -86,6 +86,7 @@ let usage () =
     [ --debug-on-fail ]        Enable debug output only on failure
     [ --minimal ]              Output only values in a comma-separated lists
     [ --traceparent <value> ]  Distributed tracing context
+    [ --trace ]                Show task stacktrace on failure
     [ <other arguments> ... ]  Command-specific options
 
 A full list of commands can be obtained by running
