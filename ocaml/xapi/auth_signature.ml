@@ -31,6 +31,7 @@ type auth_service_error_tag =
   | E_UNAVAILABLE
   | E_INVALID_OU
   | E_INVALID_ACCOUNT
+  | E_INVALID_CERTS
 
 exception Auth_service_error of auth_service_error_tag * string
 
@@ -52,6 +53,8 @@ let suffix_of_tag errtag =
       Api_errors.auth_suffix_invalid_ou
   | E_INVALID_ACCOUNT ->
       Api_errors.auth_suffix_invalid_account
+  | E_INVALID_CERTS ->
+      Api_errors.auth_suffix_invalid_certs
 
 (* required fields in subject.other_config *)
 let subject_information_field_subject_name = "subject-name"
