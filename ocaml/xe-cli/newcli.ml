@@ -84,6 +84,7 @@ let usage () =
     [ --nossl ]                Disable SSL/TLS
     [ --debug ]                Enable debug output
     [ --debug-on-fail ]        Enable debug output only on failure
+    [ --minimal ]              Output only values in a comma-separated lists
     [ --traceparent <value> ]  Distributed tracing context
     [ <other arguments> ... ]  Command-specific options
 
