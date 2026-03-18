@@ -18,7 +18,7 @@
     rresult
     unix
     x509
-    xapi-backtrace
+    backtrace
     xapi-consts
     xapi-log
     xapi-inventory

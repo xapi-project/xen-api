@@ -32,7 +32,7 @@
     threads.posix
     uuid
     unix
-    xapi-backtrace
+    backtrace
     xapi-consts
     xapi-datamodel
     xapi-idl

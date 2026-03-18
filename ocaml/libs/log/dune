@@ -12,7 +12,7 @@
    ptime
    ptime.clock
    threads.posix
-   xapi-backtrace
+   backtrace
    unix
  )
  (wrapped false)

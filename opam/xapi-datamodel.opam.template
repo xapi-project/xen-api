@@ -17,7 +17,6 @@ depends: [
   "rpclib"
   "base-threads"
   "sexplib0"
-  "xapi-backtrace"
   "xapi-consts"
   "xapi-schema"
   "clock"

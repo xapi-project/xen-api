@@ -48,7 +48,7 @@
   unix
   uuidm
   uri
-  xapi-backtrace
+  backtrace
   xapi-consts
   xapi-idl
   xapi-idl.guard.privileged

@@ -26,7 +26,6 @@ depends: [
   "tgroup"
   "uri"
   "uuid" {= version}
-  "xapi-backtrace"
   "xapi-idl" {= version}
   "xapi-log" {= version}
   "xapi-stdext-pervasives" {= version}
