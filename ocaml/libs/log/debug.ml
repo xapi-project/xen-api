@@ -135,6 +135,10 @@ let facility = ref Syslog.Daemon
 
 let set_facility f = facility := f
 
+let set_backtrace_name this_host_name =
+  let name = Printf.sprintf "%s @ %s" Sys.argv.(0) this_host_name in
+  Backtrace.set_my_name name
+
 let get_facility () = !facility
 
 let output_log brand level priority s =

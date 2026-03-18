@@ -262,6 +262,18 @@ let cancel ~__context =
   let@ self = operate_on_db_task ~__context in
   cancel_this ~__context ~self
 
+let store_backtrace ~__context exn =
+  D.log_and_ignore_exn @@ fun () ->
+  let@ self = operate_on_db_task ~__context in
+  let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
+  match status with
+  | `pending ->
+      (* store backtrace, for message-forwarding to read on the coordinator *)
+      Db_actions.DB_Action.Task.set_backtrace ~__context ~self
+        ~value:(Sexplib.Sexp.to_string Backtrace.(sexp_of_t (get exn)))
+  | _ ->
+      ()
+
 let failed ~__context exn =
   let backtrace = Printexc.get_raw_backtrace () in
   let@ () = finally_complete_tracing ~error:(exn, backtrace) __context in
@@ -292,6 +304,24 @@ let failed ~__context exn =
           else
             "`failure"
         )
+
+let reraise ~__context ~task exn =
+  Backtrace.is_important exn ;
+  let () =
+    D.log_and_ignore_exn @@ fun () ->
+    (* best-effort: retrieve existing backtrace and join with local *)
+    let remote_bt =
+      Db_actions.DB_Action.Task.get_backtrace ~__context ~self:task
+      |> Sexplib.Sexp.of_string
+      |> Backtrace.t_of_sexp
+    in
+    let local_bt = Backtrace.remove exn in
+    (* start with remote Backtrace *)
+    Backtrace.add exn remote_bt ;
+    (* add back local *)
+    Backtrace.add exn local_bt
+  in
+  raise exn
 
 type id = Sm of string | Xenops of string * string
 

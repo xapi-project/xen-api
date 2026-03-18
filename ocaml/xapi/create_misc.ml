@@ -155,6 +155,7 @@ let read_localhost_info ~__context =
     try Some (Xapi_inventory.lookup k) with _ -> None
   in
   let this_host_name = Networking_info.get_hostname () in
+  Debug.set_backtrace_name this_host_name ;
   let open Xapi_inventory in
   let open Xenops_interface.Host in
   {

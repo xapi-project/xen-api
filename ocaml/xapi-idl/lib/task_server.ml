@@ -207,6 +207,8 @@ functor
       try SMap.find id !(tasks.task_map)
       with _ -> raise (Interface.does_not_exist ("task", id))
 
+    let backtrace_of t = t.backtrace
+
     let to_interface_task t =
       {
         Interface.Task.id= t.id

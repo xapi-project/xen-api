@@ -55,8 +55,12 @@ val cancel_this : __context:Context.t -> self:API.ref_task -> unit
 
 val cancel : __context:Context.t -> unit
 
+val store_backtrace : __context:Context.t -> exn -> unit
+
 val failed : __context:Context.t -> exn -> unit
 (** Call this when a task fails with [exn] *)
+
+val reraise : __context:Context.t -> task:API.ref_task -> exn -> 'a
 
 val init : unit -> unit
 

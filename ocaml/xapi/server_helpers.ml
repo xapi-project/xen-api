@@ -89,11 +89,17 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward ?quiet f
     with
     | Api_errors.Server_error (a, _) as e when a = Api_errors.task_cancelled ->
         Backtrace.is_important e ;
-        if need_complete then TaskHelper.cancel ~__context ;
+        if need_complete then
+          TaskHelper.cancel ~__context
+        else
+          TaskHelper.store_backtrace ~__context e ;
         raise e
     | e ->
         Backtrace.is_important e ;
-        if need_complete then TaskHelper.failed ~__context e ;
+        if need_complete then
+          TaskHelper.failed ~__context e
+        else
+          TaskHelper.store_backtrace ~__context e ;
         raise e
   in
   let@ () =
