@@ -1,0 +1,24 @@
+opam-version: "2.0"
+synopsis: "A simple library for recording and managing backtraces"
+description: """\
+This allows backtraces from multiple processes to be combined together
+and pretty-printed."""
+maintainer: "xen-api@lists.xen.org"
+authors: "xen-api@lists.xen.org"
+license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
+tags: "org:xapi-project"
+homepage: "https://github.com/xapi-project/backtrace"
+bug-reports: "https://github.com/xapi-project/backtrace/issues"
+depends: [
+  "ocaml"
+  "dune" {>= "2.7"}
+  "base-threads"
+  "ppx_deriving_rpc"
+  "ppx_sexp_conv" {>= "v0.11.0"}
+  "rpclib"
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+dev-repo: "git+https://github.com/xapi-project/backtrace.git"
