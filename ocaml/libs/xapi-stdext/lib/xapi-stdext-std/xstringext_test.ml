@@ -72,4 +72,27 @@ let test_rtrim =
   in
   ("rtrim", List.map test spec)
 
-let () = Alcotest.run "Xstringext" [test_split; test_rtrim]
+let test_replace =
+  let spec =
+    [
+      (("*", "WILDCHAR", ""), "")
+    ; (("*", "", "*"), "")
+    ; (("*", "WILDCHAR", "*"), "WILDCHAR")
+    ; (("*", "WILDCHAR", "**"), "WILDCHARWILDCHAR")
+    ; (("*", "WILDCHAR", "***"), "WILDCHARWILDCHARWILDCHAR")
+    ; (({|"|}, "", ""), "")
+    ; (({|"|}, "", "a"), "a")
+    ; (({|"|}, "", {|"a"|}), "a")
+    ; (({|"|}, "", {|a"a|}), "aa")
+    ]
+  in
+  let test ((char, by, case), expected) =
+    let name =
+      Printf.sprintf "replace %S by %S in %S is %S" char (String.escaped by)
+        (String.escaped case) (String.escaped expected)
+    in
+    test_string (XString.replace char by) (name, case, expected)
+  in
+  ("replace", List.map test spec)
+
+let () = Alcotest.run "Xstringext" [test_split; test_rtrim; test_replace]
