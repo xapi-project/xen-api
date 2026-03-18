@@ -1,5 +1,5 @@
 (library
-  (name test_lib)
+  (name backtrace_test_lib)
   (modules log)
   (libraries backtrace)
   )
@@ -7,7 +7,7 @@
 (executable
   (name raiser)
   (modules raiser)
-  (libraries test_lib)
+  (libraries backtrace_test_lib backtrace)
   )
 
 (cram (deps ./raiser.exe))
