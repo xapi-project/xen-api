@@ -24,8 +24,12 @@ let log_backtrace_exn exn bt =
   List.iter output_log all
 
 let with_thread_associated_old desc f x =
-  let result = 
-    let@ () = begin [@alert "-deprecated"] Backtrace.V1.with_backtraces end in
+  let result =
+    let@ () =
+      begin[@alert "-deprecated"]
+        Backtrace.V1.with_backtraces
+      end
+    in
     try f x with e -> Backtrace.is_important e ; raise e
   in
   match result with
@@ -40,7 +44,7 @@ let with_thread_associated_old desc f x =
       raise exn
 
 let with_thread_associated desc f x =
-  let print_backtrace = function 
+  let print_backtrace = function
     | Ok result ->
         result
     | Error (exn, bt) ->

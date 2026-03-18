@@ -12,13 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t [@@deriving sexp]
 (** A backtrace from a particular thread. *)
+type t [@@deriving sexp]
 
-val empty: t
+val empty : t
 (** An empty backtrace *)
 
-val to_string_hum: t -> string
+val to_string_hum : t -> string
 (** Produce a human-readable printable/loggable version of the
     backtrace. *)
 
@@ -29,53 +29,53 @@ val to_string_hum: t -> string
     of us raising another (or even the same) exception) *)
 
 module V1 : sig
-  val with_backtraces : (unit -> 'a) -> [ `Ok of 'a | `Error of (exn * t) ]
-  [@@deprecated "V2.with_backtraces"]
-end
+  val with_backtraces : (unit -> 'a) -> [`Ok of 'a | `Error of exn * t]
+  [@@deprecated "V2.with_backtraces"] end
 
 module V2 : sig
-  val with_backtraces : finally:(('a, exn * t) result -> 'a) -> (unit -> 'a) ->  'a
+  val with_backtraces :
+    finally:(('a, exn * t) result -> 'a) -> (unit -> 'a) -> 'a
   (** [with_backtraces thread finally] Allows backtraces to be recorded within
       [thread]. [finally] is executed whenever [thread] finishes, this allows
       users to use the stacktrace before it's dropped from the cache, for
       example, to log it. *)
 end
 
-val with_backtraces: (unit -> 'a) -> [ `Ok of 'a | `Error of (exn * t) ]
+val with_backtraces : (unit -> 'a) -> [`Ok of 'a | `Error of exn * t]
 (** Allow backtraces to be recorded for this thread. All new threads
     must be wrapped in this for the backtrace tracking to work.
     It is acceptable to nest these wrappers; it will not affect the
     backtrace recording behaviour. Please change to [V2.with_backtraces] *)
 
-val is_important: exn -> unit
+val is_important : exn -> unit
 (** Declare that the backtrace is important for debugging and should be
     permanently associated with the exception. Call this function in
     an exception handler where you might need to re-raise the same
     exception at the end after performing some cleanup, which could
     clear the current backtrace buffer.*)
 
-val get: exn -> t
+val get : exn -> t
 (** Get a copy of the backtrace associated with [exn] *)
 
-val add: exn -> t -> unit
+val add : exn -> t -> unit
 (** Associate additional backtrace with an exception. This allows
     you to combine a backtrace from another process with your current
     backtrace. *)
 
-val reraise: exn -> exn -> 'a
+val reraise : exn -> exn -> 'a
 (** [reraise old new] associates the backtrace of [old] with [new]
     and throws [new]. Use this if you need to 'launder' an exception
     e.g. you may want to catch Not_found and throw a more descriptive
     exception instead without losing the backtrace. *)
 
-val remove: exn -> t
+val remove : exn -> t
 (** Get a backtrace associated with [exn] and remove it from the tables.
     Use this when you want to print/log or otherwise record the final
     backtrace. *)
 
 (** {2 Administrivia} *)
 
-val set_my_name: string -> unit
+val set_my_name : string -> unit
 (** Every backtrace line will include a name for this process. By default it
     will be the executable name, but it could also include the process ID
     and host. *)
@@ -84,10 +84,8 @@ val set_my_name: string -> unit
     This allows backtraces from other languages (e.g. python) to be converted
     into OCaml-style backtraces. *)
 
-module Interop: sig
-
-  val of_json: string -> string -> t
+module Interop : sig
+  val of_json : string -> string -> t
   (** [of_json source_name json]: unmarshals a json-format backtrace from
       [source_name] *)
 end
-
