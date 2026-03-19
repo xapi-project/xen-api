@@ -951,6 +951,12 @@ functor
           (pool_uuid ~__context pool) ;
         Local.Pool.disable_external_auth ~__context ~pool
 
+      let external_auth_set_ldaps ~__context ~pool ~ldaps ~force =
+        info "Pool.external_auth_set_ldaps: pool = '%s'; ldaps = %b; force = %b"
+          (pool_uuid ~__context pool)
+          ldaps force ;
+        Local.Pool.external_auth_set_ldaps ~__context ~pool ~ldaps ~force
+
       let enable_redo_log ~__context ~sr =
         info "Pool.enable_redo_log: pool = '%s'; sr_uuid = '%s'"
           (current_pool_uuid ~__context)
@@ -3736,6 +3742,16 @@ functor
         let local_fn = Local.Host.disable_external_auth ~host ~config ~force in
         let remote_fn =
           Client.Host.disable_external_auth ~host ~config ~force
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
+
+      let external_auth_set_ldaps ~__context ~host ~ldaps ~force =
+        info "Host.external_auth_set_ldaps: host = '%s'; ldaps = %b; force = %b"
+          (host_uuid ~__context host)
+          ldaps force ;
+        let local_fn = Local.Host.external_auth_set_ldaps ~host ~ldaps ~force in
+        let remote_fn =
+          Client.Host.external_auth_set_ldaps ~host ~ldaps ~force
         in
         do_op_on ~local_fn ~__context ~host ~remote_fn
 

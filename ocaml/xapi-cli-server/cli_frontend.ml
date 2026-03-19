@@ -283,6 +283,17 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-external-auth-set-ldaps"
+    , {
+        reqd= ["ldaps"]
+      ; optn= ["uuid"; "force"]
+      ; help=
+          "Sets or unsets ldaps for external authentication in all the hosts \
+           in a pool"
+      ; implementation= No_fd Cli_operations.pool_external_auth_set_ldaps
+      ; flags= []
+      }
+    )
   ; ( "pool-initialize-wlb"
     , {
         reqd=
@@ -1012,6 +1023,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= ["config:"]
       ; help= "Disables external authentication in a host"
       ; implementation= No_fd Cli_operations.host_disable_external_auth
+      ; flags= [Hidden]
+      }
+    )
+  ; ( "host-external-auth-set-ldaps"
+    , {
+        reqd= ["host-uuid"; "ldaps"]
+      ; optn= ["force"]
+      ; help= "Sets or unsets ldaps for external authentication in a host"
+      ; implementation= No_fd Cli_operations.host_external_auth_set_ldaps
       ; flags= [Hidden]
       }
     )

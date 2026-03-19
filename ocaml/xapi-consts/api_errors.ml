@@ -1090,6 +1090,8 @@ let pool_auth_enable_failed_invalid_account =
 let pool_auth_enable_failed_duplicate_hostname =
   add_error $ pool_auth_enable_failed ^ "_DUPLICATE_HOSTNAME"
 
+let pool_auth_set_ldaps_failed = add_error "POOL_AUTH_SET_LDAPS_FAILED"
+
 let pool_auth_disable_failed =
   add_error $ pool_auth_prefix ^ auth_disable_failed
 

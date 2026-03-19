@@ -839,6 +839,8 @@ let _ =
     ~doc:"The pool failed to enable external authentication." () ;
   error Api_errors.pool_auth_enable_failed_invalid_account ["host"; "message"]
     ~doc:"The pool failed to enable external authentication." () ;
+  error Api_errors.pool_auth_set_ldaps_failed ["host"; "message"]
+    ~doc:"The pool failed to set LDAPS configuration." () ;
   error Api_errors.pool_auth_disable_failed ["host"; "message"]
     ~doc:
       "The pool failed to disable the external authentication of at least one \
