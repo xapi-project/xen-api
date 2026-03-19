@@ -14,7 +14,6 @@ depends: [
   "dune" {>= "3.15"}
   "fmt"
   "logs"
-  "xapi-backtrace"
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"
   "alcotest" {with-test}

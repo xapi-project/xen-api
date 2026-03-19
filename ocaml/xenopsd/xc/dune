@@ -36,7 +36,7 @@
   uri
   uuid
   uuidm
-  xapi-backtrace
+  backtrace
   xapi-idl
   xapi-idl.memory
   xapi-idl.network

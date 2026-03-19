@@ -53,7 +53,7 @@
   httpsvr
   unix
   uuid
-  xapi-backtrace
+  backtrace
   xapi-datamodel
   xapi-log
   (re_export xapi-schema)

@@ -6,7 +6,7 @@
     integers
     polly
     unix
-    xapi-backtrace
+    backtrace
     threads.posix
     unix-errno
     unix-errno.unix

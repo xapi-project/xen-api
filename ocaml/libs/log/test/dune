@@ -1,6 +1,6 @@
 (executable
  (name log_test)
- (libraries log threads.posix xapi-backtrace))
+ (libraries log threads.posix backtrace))
 
 (cram
  (package xapi-log)

@@ -95,7 +95,7 @@
   xapi_aux
   xapi-stdext-std
   xapi-stdext-pervasives
-  xapi-backtrace
+  backtrace
   xapi-datamodel
   xapi-consts
   xapi_version
@@ -196,7 +196,7 @@
   uuidm
   x509
   xapi_aux
-  xapi-backtrace
+  backtrace
   (re_export xapi-consts)
   xapi-consts.xapi_version
   xapi-client
@@ -282,7 +282,7 @@
   xapi-log
   xapi-stdext-encodings
   xapi-consts
-  xapi-backtrace
+  backtrace
   clock
   rpclib.json)
  (wrapped false))
@@ -306,7 +306,7 @@
   tracing
   tracing_propagator
   unix
-  xapi-backtrace
+  backtrace
   xapi-client
   xapi-consts
   xapi-datamodel
