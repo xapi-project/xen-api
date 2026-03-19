@@ -52,6 +52,13 @@ let create_localhost ~__context info =
   in
   (* me = None on firstboot only *)
   if me = None then
+    (* Restore the host.last_update_hash when this is an ejected host. *)
+    let last_update_hash =
+      let k = "last_update_hash" in
+      let x = Localdb.get k |> Option.value ~default:"" in
+      (try Localdb.del k with _ -> ()) ;
+      x
+    in
     let (_ : API.ref_host) =
       Xapi_host.create ~__context ~uuid:info.uuid ~name_label:info.hostname
         ~name_description:"" ~hostname:info.hostname ~address:ip
@@ -59,7 +66,7 @@ let create_localhost ~__context info =
         ~external_auth_configuration:[] ~license_params:[] ~edition:""
         ~license_server:[("address", "localhost"); ("port", "27000")]
         ~local_cache_sr:Ref.null ~chipset_info:[] ~ssl_legacy:false
-        ~last_software_update:Date.epoch ~last_update_hash:""
+        ~last_software_update:Date.epoch ~last_update_hash
         ~ssh_enabled:Constants.default_ssh_enabled
         ~ssh_enabled_timeout:Constants.default_ssh_enabled_timeout
         ~ssh_expiry:Date.epoch
