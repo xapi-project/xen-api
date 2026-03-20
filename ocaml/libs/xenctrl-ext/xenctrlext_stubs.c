@@ -606,7 +606,7 @@ CAMLprim value stub_xenctrlext_domain_claim_pages(value xch_val,
     the_errno = errno;
     caml_acquire_runtime_system();
 
-    if (rcl < 0) {
+    if (rc < 0) {
         raise_unix_errno_msg(the_errno,
                              "Error when trying to claim memory pages");
     }
