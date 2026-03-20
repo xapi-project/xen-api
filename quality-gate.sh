@@ -3,7 +3,7 @@
 set -e
 
 list-hd () {
-  N=239
+  N=241
   LIST_HD=$(git grep -r --count 'List.hd' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$LIST_HD" -eq "$N" ]; then
     echo "OK counted $LIST_HD List.hd usages"
@@ -44,7 +44,7 @@ mli-files () {
 }
 
 structural-equality () {
-  N=7
+  N=8
   EQ=$(git grep -r --count ' == ' -- '**/*.ml' ':!ocaml/sdk-gen/**/*.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$EQ" -eq "$N" ]; then
     echo "OK counted $EQ usages of ' == '"

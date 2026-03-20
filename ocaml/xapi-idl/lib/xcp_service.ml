@@ -443,6 +443,7 @@ let configure_common ~options ~resources arg_parse_fn =
   (* Register the Logs reporter to ensure we get log messages from libraries
      using Logs *)
   Debug.init_logs () ;
+  let () = try Unix.gethostname () |> Debug.set_backtrace_name with _ -> () in
   let resources = default_resources @ resources in
   let config_spec = common_options @ options @ to_opt resources in
   (* It's very confusing if there are duplicate key names *)

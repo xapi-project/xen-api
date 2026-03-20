@@ -7,7 +7,7 @@
    stunnel
    unix
    uri
-   xapi-backtrace
+   backtrace
    xapi-consts
    xapi-log
    xapi-stdext-pervasives

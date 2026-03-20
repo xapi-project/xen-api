@@ -3446,19 +3446,17 @@ let events_from_xapi () =
                           if resident_here then
                             Xenopsd_metadata.update ~__context ~self:vm
                             |> ignore
-                        with e ->
-                          if not (Db.is_valid_ref __context vm) then
+                        with
+                        | e when not (Db.is_valid_ref __context vm) ->
                             debug
                               "VM %s has been removed: event on it will be \
-                               ignored"
-                              (Ref.string_of vm)
-                          else (
+                               ignored: %S"
+                              (Ref.string_of vm) (Printexc.to_string e)
+                        | e ->
                             error
                               "Caught %s while processing XenAPI event for VM \
                                %s"
-                              (Printexc.to_string e) (Ref.string_of vm) ;
-                            raise e
-                          )
+                              (Printexc.to_string e) (Ref.string_of vm)
                       )
                     | {ty= "host"; reference= t; _} when t = localhost' ->
                         debug

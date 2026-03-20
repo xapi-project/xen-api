@@ -20,7 +20,6 @@ depends: [
   "logs" {with-test}
   "qcheck-core" {>= "0.21.2" & with-test}
   "odoc" {with-doc}
-  "xapi-backtrace"
   "unix-errno"
   "xapi-stdext-pervasives" {= version}
   "polly"

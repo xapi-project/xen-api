@@ -34,7 +34,7 @@
   unix
   uuid
   uri
-  xapi-backtrace
+  backtrace
   xapi-consts.xapi_version
   xapi-idl.updates
   xapi-log
@@ -60,7 +60,7 @@
   tracing_propagator
   unix
   uri
-  xapi-backtrace
+  backtrace
   xapi-log
   xapi-stdext-pervasives
   xapi-stdext-threads
@@ -84,7 +84,7 @@
   stunnel
   threads.posix
   unix
-  xapi-backtrace
+  backtrace
   xapi-log
   xapi-stdext-pervasives
   xapi-stdext-unix))

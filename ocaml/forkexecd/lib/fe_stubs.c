@@ -20,6 +20,8 @@
 #include <limits.h>
 #include <sys/wait.h>
 
+#include <caml/mlvalues.h>
+#include <caml/threads.h>
 #include <caml/fail.h>
 #include <caml/memory.h>
 #include <caml/unixsupport.h>
@@ -213,7 +215,7 @@ caml_safe_exec_with_helper(value args, value environment)
     }
 
     // potentially slow section, release Ocaml engine
-    caml_enter_blocking_section();
+    caml_release_runtime_system();
 
     safe_exec_result res;
     int err = safe_exec_with_helper(&res, c_args, c_envs);
@@ -221,7 +223,7 @@ caml_safe_exec_with_helper(value args, value environment)
     free(c_envs);
     free(c_args);
 
-    caml_leave_blocking_section();
+    caml_acquire_runtime_system();
 
     // error, notify with an exception
     if (err != 0)
@@ -395,7 +397,7 @@ caml_pidwaiter_waitpid(value timeout_value, value pid_value)
     double timeout = timeout_value == Val_none ? 0 : Double_val(Some_val(timeout_value));
     pid_t pid = Int_val(pid_value);
 
-    caml_enter_blocking_section();
+    caml_release_runtime_system();
 
     bool timed_out = false;
     int err = 0;
@@ -407,7 +409,7 @@ caml_pidwaiter_waitpid(value timeout_value, value pid_value)
             timed_out = true;
     }
 
-    caml_leave_blocking_section();
+    caml_acquire_runtime_system();
 
     if (err)
         unix_error(err, "waitpid", Nothing);

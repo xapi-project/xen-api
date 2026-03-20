@@ -70,7 +70,6 @@ depends: [
   "uutf"
   "uuidm"
   "x509"
-  "xapi-backtrace"
   "xapi-client" {= version}
   "xapi-cli-protocol" {= version}
   "xapi-consts" {= version}

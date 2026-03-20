@@ -53,7 +53,6 @@ depends: [
   "uuidm"
   "uutf"
   "x509"
-  "xapi-backtrace"
   "xapi-log"
   "xapi-types"
   "xapi-stdext-pervasives"

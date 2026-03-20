@@ -3,5 +3,5 @@
   (public_name xapi-stdext-pervasives)
   (libraries
     logs
-    xapi-backtrace)
+    backtrace)
 )
