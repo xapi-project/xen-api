@@ -9,6 +9,8 @@
    fmt
    mtime
    logs
+   ptime
+   ptime.clock
    threads.posix
    xapi-backtrace
    unix

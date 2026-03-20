@@ -74,13 +74,8 @@ let tasks : task ThreadLocalTable.t = ThreadLocalTable.make ()
 let names : string ThreadLocalTable.t = ThreadLocalTable.make ()
 
 let gettimestring () =
-  let time = Unix.gettimeofday () in
-  let tm = Unix.gmtime time in
-  let msec = time -. floor time in
-  Printf.sprintf "%d%.2d%.2dT%.2d:%.2d:%.2d.%.3dZ|" (1900 + tm.Unix.tm_year)
-    (tm.Unix.tm_mon + 1) tm.Unix.tm_mday tm.Unix.tm_hour tm.Unix.tm_min
-    tm.Unix.tm_sec
-    (int_of_float (1000.0 *. msec))
+  let now = Ptime_clock.now () in
+  Fmt.str "%a|" Ptime.(pp_rfc3339 ~frac_s:3 ~tz_offset_s:0 ()) now
 
 (** [escape str] efficiently escapes non-printable characters and in addition
     the backslash character. The function is efficient in the sense that it will
@@ -216,20 +211,14 @@ let init_logs () =
      calling [output_log] too often. *)
   Logs.set_level (Some Logs.Warning)
 
-let rec split_c c str =
-  try
-    let i = String.index str c in
-    String.sub str 0 i
-    :: split_c c (String.sub str (i + 1) (String.length str - i - 1))
-  with Not_found -> [str]
-
 let log_backtrace_exn ?(level = Syslog.Err) ?(msg = "error") exn bt =
-  (* We already got the backtrace in the `bt` argument when called from with_thread_associated.
-     Log that, and remove `exn` from the backtraces table.
-     If with_backtraces was not nested then looking at `bt` is the only way to get
-     a proper backtrace, otherwise exiting from `with_backtraces` would've removed the backtrace
-     from the thread-local backtraces table, and we'd always just log a message complaining about
-     with_backtraces not being called, which is not true because it was.
+  (* We already got the backtrace in the `bt` argument when called from
+     with_thread_associated. Log that, and remove `exn` from the backtraces
+     table. If with_backtraces was not nested then looking at `bt` is the only
+     way to get a proper backtrace, otherwise exiting from `with_backtraces`
+     would've removed the backtrace from the thread-local backtraces table, and
+     we'd always just log a message complaining about with_backtraces not being
+     called, which is not true because it was.
   *)
   let bt' = Backtrace.remove exn in
   (* bt could be empty, but bt' would contain a non-empty warning, so compare 'bt' here *)
@@ -239,7 +228,7 @@ let log_backtrace_exn ?(level = Syslog.Err) ?(msg = "error") exn bt =
     else
       bt
   in
-  let all = split_c '\n' Backtrace.(to_string_hum bt) in
+  let all = String.split_on_char '\n' Backtrace.(to_string_hum bt) in
   (* Write to the log line at a time *)
   output_log "backtrace" level msg
     (Printf.sprintf "Raised %s" (Printexc.to_string exn)) ;

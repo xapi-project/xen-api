@@ -34,10 +34,13 @@ let internal_role_local_root = "_local_root_"
 
 (* the output of this function is used as input by the automatic tests *)
 let writer_csv static_permissions_roles =
-  Printf.sprintf "%s,PERMISSION/ROLE,%s\n"
-    (let t = Debug.gettimestring () in
-     String.sub t 0 (String.length t - 1)
-    )
+  let now =
+    let now = Ptime_clock.now () in
+    let str = Fmt.str "%a" Ptime.(pp_rfc3339 ~frac_s:3 ~tz_offset_s:0 ()) now in
+    (* remove separators between Year, Month, and Day; to keep old logging format *)
+    Astring.String.filter (function '-' -> false | _ -> true) str
+  in
+  Printf.sprintf "%s,PERMISSION/ROLE,%s\n" now
     (* role titles are ordered by roles in roles_all *)
     (List.fold_left (fun rr r -> rr ^ r ^ ",") "" Datamodel_roles.roles_all)
   ^ List.fold_left

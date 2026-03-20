@@ -24,6 +24,7 @@ open D
 module Rrdd = Rrd_client.Client
 module Date = Clock.Date
 module Delay = Xapi_stdext_threads.Threadext.Delay
+module Listext = Xapi_stdext_std.Listext.List
 module Unixext = Xapi_stdext_unix.Unixext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
@@ -1274,34 +1275,32 @@ let attach_statefiles ~__context statevdis =
   (* First GC any existing statefiles: these are not needed any more *)
   info "Detaching any existing statefiles: these are not needed any more" ;
   Xha_statefile.detach_existing_statefiles ~__context ;
-  let paths = ref [] in
-  (let cur_vdi_str = ref "" in
-   try
-     List.iter
-       (fun vdi ->
-         cur_vdi_str := Ref.string_of vdi ;
-         info "Attempting to permanently attach statefile VDI: %s"
-           (Ref.string_of vdi) ;
-         paths :=
-           Static_vdis.permanent_vdi_attach ~__context ~vdi
-             ~reason:Xha_statefile.reason
-           :: !paths
-       )
-       statevdis
-   with e ->
-     error "Caught exception attaching statefile: %s" (ExnHelper.string_of_exn e) ;
-     List.iter
-       (fun vdi ->
-         Helpers.log_exn_continue
-           (Printf.sprintf "detaching statefile: %s" (Ref.string_of vdi))
-           (fun () -> Static_vdis.permanent_vdi_detach ~__context ~vdi)
-           ()
-       )
-       statevdis ;
-     raise
-       (Api_errors.Server_error (Api_errors.vdi_not_available, [!cur_vdi_str]))
-  ) ;
-  !paths
+  let attach vdi =
+    let uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+    info "Attempting to permanently attach statefile VDI: %s" uuid ;
+    try
+      let path =
+        Static_vdis.permanent_vdi_attach ~__context ~vdi
+          ~reason:Xha_statefile.reason
+      in
+      Ok (path, (vdi, uuid))
+    with e -> Error (e, (vdi, uuid))
+  in
+  let detach_after_error (vdi, uuid) =
+    Helpers.log_exn_continue
+      (Printf.sprintf "%s: statefile VDI %s" __FUNCTION__ uuid)
+      (fun () -> Static_vdis.permanent_vdi_detach ~__context ~vdi)
+      ()
+  in
+  match Listext.try_map_collect attach statevdis with
+  | Ok paths_and_vdis ->
+      List.map fst paths_and_vdis
+  | Error (paths_and_vdis, (e, ((_, uuid_e) as vdi_e))) ->
+      error "%s: Unable to attach VDI %s. Reason: %s" __FUNCTION__ uuid_e
+        (ExnHelper.string_of_exn e) ;
+      let maybe_detachable = vdi_e :: List.map snd paths_and_vdis in
+      List.iter detach_after_error maybe_detachable ;
+      raise Api_errors.(Server_error (vdi_not_available, [uuid_e]))
 
 (** Attach the metadata VDI and return the resulting path in dom0 *)
 let attach_metadata_vdi ~__context vdi =
