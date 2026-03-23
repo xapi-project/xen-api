@@ -3117,7 +3117,7 @@ let disable_external_auth ~__context ~pool:_ ~config =
       )
   )
 
-(* Set or unset ldaps for external authentication on all hosts in the pool *)
+(* Enable or disable LDAPS for external authentication on all hosts in the pool *)
 let external_auth_set_ldaps ~__context ~pool:_ ~ldaps ~force =
   let host = Helpers.get_master ~__context in
   let current_ldaps =
@@ -3126,46 +3126,19 @@ let external_auth_set_ldaps ~__context ~pool:_ ~ldaps ~force =
   in
 
   let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
-  let assert_can_set_ldaps () =
-    (* Pool level check *)
-    let assert_ad_enabled () =
-      List.find_opt
-        (fun host -> not (Helpers.is_ad_enabled ~__context ~host))
-        hosts
-      |> Option.fold ~none:() ~some:(fun host ->
-          let host = Ref.string_of host in
-          raise Api_errors.(Server_error (auth_is_disabled, [host]))
-      )
-    in
-    assert_ad_enabled ()
-  in
   let set_ldap_on host =
     try
       call_fn_on_host ~__context
         (Client.Host.external_auth_set_ldaps ~ldaps ~force)
         host ;
       Ok host
-    with
-    | Api_errors.Server_error (_, [host_msg]) ->
-        let msg = Printf.sprintf "%s: %s" (Ref.string_of host) host_msg in
-        debug "%s failed to set ldaps for host %s" __FUNCTION__ msg ;
-        Error (host, msg)
-    | e ->
-        let msg =
-          Printf.sprintf "%s: %s" (Ref.string_of host)
-            (ExnHelper.string_of_exn e)
-        in
-        debug "%s failed to set ldaps for host %s" __FUNCTION__ msg ;
-        Error (host, msg)
+    with e ->
+      debug "%s failed to set ldaps for host %s: %s" __FUNCTION__
+        (Ref.string_of host)
+        (ExnHelper.string_of_exn e) ;
+      Error (host, e)
   in
   with_lock Xapi_globs.serialize_pool_enable_disable_extauth @@ fun () ->
-  assert_can_set_ldaps () ;
-  let raise_failed host msg =
-    raise
-      Api_errors.(
-        Server_error (pool_auth_set_ldaps_failed, [Ref.string_of host; msg])
-      )
-  in
   let revert host =
     try
       call_fn_on_host ~__context
@@ -3175,13 +3148,14 @@ let external_auth_set_ldaps ~__context ~pool:_ ~ldaps ~force =
       warn "Failed to revert ldaps on host %s: %s" (Ref.string_of host)
         (ExnHelper.string_of_exn e)
   in
+  (* Set ldaps to host and host will perform the necessary checks *)
   match Listext.List.try_map_collect set_ldap_on hosts with
   | Ok _ ->
       debug "%s succeed to set pool ldaps to %b" __FUNCTION__ ldaps
-  | Error (_, (host, msg)) when current_ldaps = ldaps ->
-      raise_failed host msg
-  | Error (hs, (host, msg)) ->
-      List.iter revert hs ; raise_failed host msg
+  | Error (_, (_, e)) when current_ldaps = ldaps ->
+      raise e
+  | Error (hs, (_, e)) ->
+      List.iter revert hs ; raise e
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_pool ~__context =
