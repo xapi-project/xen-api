@@ -32,6 +32,15 @@
  (name zstd))
 
 (package
+ (name tls)
+ (synopsis "TLS policy types and format-specific string renderers")
+ (description
+  "Provides TLS policy types and renderers for GnuTLS priority strings and OpenSSL cipher lists.")
+ (depends
+  (ocaml
+   (>= 4.14))))
+
+(package
  (name clock)
  (synopsis "Xapi's library for managing time")
  (authors "Jonathan Ludlam" "Pau Ruiz Safont")
