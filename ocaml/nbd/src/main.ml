@@ -92,8 +92,8 @@ let init_tls_get_server_ctx ~certfile =
   let certfile = require_str "certfile" certfile in
   Some
     (Nbd_unix.TlsServer
-       (Nbd_unix.init_tls_get_ctx ~curve:"secp384r1" ~certfile
-          ~ciphersuites:Constants.good_ciphersuites ()
+       (Nbd_unix.init_tls_get_ctx ~curve:Tls_policy.Openssl.default_curve
+          ~certfile ~ciphersuites:Tls_policy.Openssl.default_ciphers ()
        )
     )
 

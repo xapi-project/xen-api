@@ -952,6 +952,8 @@ let config_winbind_daemon domain_info =
         ; "tls trust system cas = yes"
         ; "tls verify peer = ca_and_name_if_available"
         ; tls_ca
+        ; Printf.sprintf "tls priority = %s"
+            (Tls_policy.Gnutls.default_policy ())
         ; Printf.sprintf "winbind scan trusted domains = %s"
             scan_trusted_domains
         ; "winbind use krb5 enterprise principals = yes"

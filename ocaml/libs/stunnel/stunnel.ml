@@ -222,9 +222,9 @@ let config_file ?(accept = None) config host port =
          )
        ; [Printf.sprintf "connect=%s:%d" host port]
        ; [
-           "sslVersion = TLSv1.2"
-         ; "ciphers = " ^ Constants.good_ciphersuites
-         ; "curve = secp384r1"
+           Printf.sprintf "sslVersion = %s" Tls_policy.Openssl.default_version
+         ; Printf.sprintf "ciphers = %s" Tls_policy.Openssl.default_ciphers
+         ; Printf.sprintf "curve = %s" Tls_policy.Openssl.default_curve
          ]
        ; ( match config with
          | None ->
