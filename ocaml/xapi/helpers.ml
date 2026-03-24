@@ -431,8 +431,8 @@ end
  * partially applied, returning a function of type 'Rpc.request -> Rpc.response'.
  * The body is therefore not evaluated until the RPC call is actually being
  * made. *)
-let make_rpc ~__context rpc : Rpc.response =
-  let subtask_of = Ref.string_of (Context.get_task_id __context) in
+let make_rpc' ~subtask_of ?task_id ~__context rpc : Rpc.response =
+  let subtask_of = Ref.string_of subtask_of in
   let open Xmlrpc_client in
   let tracing = Context.set_client_span __context in
   let dorpc, path =
@@ -449,6 +449,7 @@ let make_rpc ~__context rpc : Rpc.response =
     else
       SSL
         ( SSL.make ~use_stunnel_cache:true ~verify_cert:(Stunnel_client.pool ())
+            ?task_id:(Option.map Ref.string_of task_id)
             ()
         , Pool_role.get_master_address ()
         , !Constants.https_port
@@ -456,18 +457,19 @@ let make_rpc ~__context rpc : Rpc.response =
   in
   dorpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
 
+(* erase optional labeled arguments for partial applications to work *)
+let make_rpc ~__context rpc =
+  make_rpc' ~subtask_of:(Context.get_task_id __context) ~__context rpc
+
 let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
-  let subtask_of = Ref.string_of (Context.get_task_id __context) in
+  let subtask_of = Context.get_task_id __context in
   Server_helpers.exec_with_new_task "timeboxed_rpc"
     ~subtask_of:(Context.get_task_id __context) (fun __context ->
       (* Note we need a new task here because the 'resources' (including stunnel pid) are
        * associated with the task. To avoid conflating the stunnel with any real resources
        * the task has acquired we make a new one specifically for the stunnel pid *)
-      let open Xmlrpc_client in
-      let tracing = Context.set_client_span __context in
-      let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
-      let http = TraceHelper.inject_span_into_req tracing http in
       let task_id = Context.get_task_id __context in
+
       let cancel () =
         let resources =
           Locking_helpers.Thread_state.get_acquired_resources_by_task task_id
@@ -477,20 +479,9 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
       let module Scheduler = Xapi_stdext_threads_scheduler.Scheduler in
       Scheduler.add_to_queue (Ref.string_of task_id) Scheduler.OneShot timeout
         cancel ;
-      let transport =
-        if Pool_role.is_master () then
-          Unix Xapi_globs.unix_domain_socket
-        else
-          SSL
-            ( SSL.make ~verify_cert:(Stunnel_client.pool ())
-                ~use_stunnel_cache:true ~task_id:(Ref.string_of task_id) ()
-            , Pool_role.get_master_address ()
-            , !Constants.https_port
-            )
-      in
-      let result =
-        XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
-      in
+
+      let result = make_rpc' ~subtask_of ~task_id ~__context rpc in
+
       Scheduler.remove_from_queue (Ref.string_of task_id) ;
       result
   )
