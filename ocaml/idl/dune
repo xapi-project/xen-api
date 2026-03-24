@@ -13,7 +13,7 @@
     sexplib0
     sexpr
     threads
-    backtrace
+    xapi-log.backtrace
     xapi-consts
     xapi-schema
     clock

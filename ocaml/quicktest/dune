@@ -30,7 +30,7 @@
     threads.posix
     unix
     uuid
-    backtrace
+    xapi-log.backtrace
     xapi-client
     xapi-consts
     xapi-datamodel
