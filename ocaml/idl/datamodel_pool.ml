@@ -2196,9 +2196,8 @@ let t =
         ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 1L))
             ~lifecycle:[] "ext_auth_max_threads"
             "Maximum number of threads to use for external (AD) authentication"
-        ; field ~qualifier:DynamicRO ~ty:Bool
-            ~default_value:(Some (VBool false)) ~lifecycle:[]
-            "ext_auth_cache_enabled"
+        ; field ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool true))
+            ~lifecycle:[] "ext_auth_cache_enabled"
             "Specifies whether external authentication caching is enabled for \
              this pool or not"
         ; field ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 50L))
