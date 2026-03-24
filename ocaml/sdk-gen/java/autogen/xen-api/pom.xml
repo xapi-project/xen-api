@@ -8,7 +8,7 @@
     <packaging>jar</packaging>
     <name>XenServer Java SDK</name>
     <description>Mavenized build of the XenServer SDK for Java.</description>
-    <url>https://docs.xenserver.com/en-us/xenserver/8/developer</url>
+    <url>https://docs.xenserver.com/en-us/xenserver/developer</url>
     <organization>
         <name>Cloud Software Group, Inc.</name>
         <url>https://www.cloud.com</url>
