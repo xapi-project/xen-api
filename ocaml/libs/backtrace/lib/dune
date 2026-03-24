@@ -1,6 +1,6 @@
 (library
  (name backtrace)
-  (package xapi-log)
+ (public_name xapi-log.backtrace)
   (flags (:standard -w -39-32))
   (libraries
     rpclib.core rpclib.json threads.posix)

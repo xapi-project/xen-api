@@ -27,7 +27,7 @@
    uri
    uuidm
    xapi_timeslice
-   backtrace
+   xapi-log.backtrace
    xapi-consts
    xapi-log
    xapi-open-uri
@@ -57,7 +57,7 @@
    tracing
    threads.posix
    unix
-   backtrace
+   xapi-log.backtrace
    xapi-idl
    xapi-log
    xapi-stdext-pervasives

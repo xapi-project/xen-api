@@ -279,7 +279,10 @@ let open_connection_fd host port =
   | ai :: _ -> (
       let s = socket ai.ai_family ai.ai_socktype 0 in
       try connect s ai.ai_addr ; s
-      with e -> Backtrace.is_important e ; close s ; raise e
+      with e ->
+        let bt = Printexc.get_raw_backtrace () in
+        close s ;
+        Printexc.raise_with_backtrace e bt
     )
 
 let open_connection_unix_fd filename =
@@ -287,7 +290,10 @@ let open_connection_unix_fd filename =
   try
     let addr = Unix.ADDR_UNIX filename in
     Unix.connect s addr ; s
-  with e -> Backtrace.is_important e ; Unix.close s ; raise e
+  with e ->
+    let bt = Printexc.get_raw_backtrace () in
+    Unix.close s ;
+    Printexc.raise_with_backtrace e bt
 
 module CBuf = struct
   (** A circular buffer constructed from a string *)

@@ -235,6 +235,7 @@
   fmt
   logs
   mtime
+  rpclib
   (xapi-stdext-pervasives (= :version))))
 
 (package
