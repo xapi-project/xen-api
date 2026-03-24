@@ -250,7 +250,7 @@ namespace XenAPI
 
         public string JsonRpcUrl { get; private set; }
 
-        private void Rpc(string callName, JToken parameters, JsonSerializer serializer)
+        protected void Rpc(string callName, JToken parameters, JsonSerializer serializer)
         {
             Rpc<object>(callName, parameters, serializer);
         }
@@ -527,7 +527,7 @@ namespace XenAPI
             };
         }
 
-        private JsonSerializer CreateSerializer(IList<JsonConverter> converters)
+        protected JsonSerializer CreateSerializer(IList<JsonConverter> converters)
         {
             var settings = CreateSettings(converters);
             return JsonSerializer.Create(settings);

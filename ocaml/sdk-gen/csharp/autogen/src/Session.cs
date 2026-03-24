@@ -88,8 +88,7 @@ namespace XenAPI
 
             //in the following do not copy over the ConnectionGroupName
 
-            if (session.JsonRpcClient != null &&
-                (APIVersion == API_Version.API_2_6 || APIVersion >= API_Version.API_2_8))
+            if (APIVersion == API_Version.API_2_6 || APIVersion >= API_Version.API_2_8)
             {
                 JsonRpcClient = new JsonRpcClient(session.Url)
                 {
@@ -106,7 +105,12 @@ namespace XenAPI
                     ServerCertificateValidationCallback = session.JsonRpcClient.ServerCertificateValidationCallback
                 };
             }
-            CopyADFromSession(session);
+
+            //copy AD details
+            IsLocalSuperuser = session.IsLocalSuperuser;
+            SessionSubject = session.SessionSubject;
+            UserSid = session.UserSid;
+            Permissions = session.Permissions;
         }
 
         #endregion
@@ -118,14 +122,7 @@ namespace XenAPI
 
         private void SetupSessionDetails()
         {
-            SetAPIVersion();
-            SetADDetails();
-            SetRbacPermissions();
-        }
-
-        private void SetAPIVersion()
-        {
-            Dictionary<XenRef<Pool>, Pool> pools = Pool.get_all_records(this);
+            var pools = Pool.get_all_records(this);
 
             if (pools.Values.Count > 0)
             {
@@ -134,74 +131,25 @@ namespace XenAPI
                 APIVersion = Helper.GetAPIVersion(host.API_version_major, host.API_version_minor);
             }
 
-            if (JsonRpcClient != null)
-            {
-                if (APIVersion == API_Version.API_2_6)
-                    JsonRpcClient.JsonRpcVersion = JsonRpcVersion.v1;
-                else if (APIVersion >= API_Version.API_2_8)
-                    JsonRpcClient.JsonRpcVersion = JsonRpcVersion.v2;
-            }
-        }
+            //the SDK cannot connect to servers with API < 2.5 because JsonRPC was not available
 
-        private void CopyADFromSession(Session session)
-        {
-            IsLocalSuperuser = session.IsLocalSuperuser;
-            SessionSubject = session.SessionSubject;
-            UserSid = session.UserSid;
-            Roles = session.Roles;
-            Permissions = session.Permissions;
-        }
+            if (APIVersion == API_Version.API_2_6)
+                JsonRpcClient.JsonRpcVersion = JsonRpcVersion.v1;
+            else if (APIVersion >= API_Version.API_2_8)
+                JsonRpcClient.JsonRpcVersion = JsonRpcVersion.v2;
 
-        /// <summary>
-        /// Applies only to API 1.6 (george) and above.
-        /// </summary>
-        private void SetADDetails()
-        {
-            if (APIVersion < API_Version.API_1_6)
+            IsLocalSuperuser = get_is_local_superuser(this, opaque_ref);
+
+            if (!IsLocalSuperuser)
             {
-                IsLocalSuperuser = true;
-                return;
+                SessionSubject = get_subject(this, opaque_ref);
+                UserSid = get_auth_user_sid(this, opaque_ref);
+
+                // Cache the details of this user to avoid making server calls later
+                UserDetails.UpdateDetails(UserSid, this);
             }
 
-            IsLocalSuperuser = get_is_local_superuser();
-            if (IsLocalSuperuser)
-                return;
-
-            SessionSubject = get_subject(this, opaque_ref);
-            UserSid = get_auth_user_sid();
-
-            // Cache the details of this user to avoid making server calls later
-            // For example, some users get access to the pool through a group subject and will not be in the main cache
-            UserDetails.UpdateDetails(UserSid, this);
-        }
-
-        /// <summary>
-        /// Applies only to API 1.7 (midnight-ride) and above.
-        /// Older versions have no RBAC, only AD.
-        /// </summary>
-        private void SetRbacPermissions()
-        {
-            if (APIVersion < API_Version.API_1_7)
-                return;
-
-            // allRoles will contain every role on the server, permissions contains the subset of those that are available to this session.
-            Permissions = Session.get_rbac_permissions(this, opaque_ref);
-            Dictionary<XenRef<Role>, Role> allRoles = Role.get_all_records(this);
-            // every Role object is either a single api call (a permission) or has subroles and contains permissions through its descendants.
-            // We take out the parent Roles (VM-Admin etc.) into the Session.Roles field
-            foreach (string s in Permissions)
-            {
-                foreach (XenRef<Role> xr in allRoles.Keys)
-                {
-                    Role r = allRoles[xr];
-                    if (r.subroles.Count > 0 && r.name_label == s)
-                    {
-                        r.opaque_ref = xr.opaque_ref;
-                        Roles.Add(r);
-                        break;
-                    }
-                }
-            }
+            Permissions = get_rbac_permissions(this, opaque_ref);
         }
 
         public override void UpdateFrom(Session update)
@@ -316,17 +264,11 @@ namespace XenAPI
         public string UserSid { get; private set; }
 
         /// <summary>
-        /// All permissions associated with the session at the time of log in. This is the list xapi uses until the session is logged out;
+        /// All permissions associated with the session at the time of log in.
+        /// This is the list xapi uses until the session is logged out;
         /// even if the permitted roles change on the server side, they don't apply until the next session.
         /// </summary>
         public string[] Permissions { get; private set; }
-
-        /// <summary>
-        /// All roles associated with the session at the time of log in. Do not rely on roles for determining what a user can do,
-        /// instead use Permissions. This list should only be used for UI purposes.
-        /// </summary>
-        [JsonConverter(typeof(XenRefListConverter<Role>))]
-        public List<Role> Roles { get; private set; } = new List<Role>();
 
         #endregion
 
@@ -337,9 +279,7 @@ namespace XenAPI
 
         public static Session get_record(Session session, string sessionOpaqueRef)
         {
-            Session newSession = new Session(session.Url) { opaque_ref = sessionOpaqueRef };
-            newSession.SetAPIVersion();
-            return newSession;
+            return session.JsonRpcClient.session_get_record(session.opaque_ref, sessionOpaqueRef);
         }
 
         public void login_with_password(string username, string password)
@@ -353,7 +293,6 @@ namespace XenAPI
             try
             {
                 opaque_ref = JsonRpcClient.session_login_with_password(username, password, version);
-
                 SetupSessionDetails();
             }
             catch (Failure exn)
@@ -375,7 +314,6 @@ namespace XenAPI
             try
             {
                 opaque_ref = JsonRpcClient.session_login_with_password(username, password, version, originator);
-
                 SetupSessionDetails();
             }
             catch (Failure exn)
@@ -392,6 +330,7 @@ namespace XenAPI
             }
         }
 
+        [Obsolete("Use method login_with_password(string username, string password, string version) instead")]
         public void login_with_password(string username, string password, API_Version version)
         {
             login_with_password(username, password, Helper.APIVersionString(version));
@@ -406,23 +345,18 @@ namespace XenAPI
 
         public void logout()
         {
-            logout(this);
+            session_logout(this, opaque_ref);
+            opaque_ref = null;
         }
-
-        /// <summary>
-        /// Log out of the given session2, using this session for the connection.
-        /// </summary>
-        /// <param name="session2">The session to log out</param>
+        
+        [Obsolete("Use static method session_logout(Session session, string opaqueRef) instead")]
         public void logout(Session session2)
         {
             logout(session2.opaque_ref);
             session2.opaque_ref = null;
         }
 
-        /// <summary>
-        /// Log out of the session with the given reference, using this session for the connection.
-        /// </summary>
-        /// <param name="self">The session to log out</param>
+        [Obsolete("Use static method session_logout(Session session, string opaqueRef) instead")]
         public void logout(string self)
         {
             if (self == null)
@@ -431,17 +365,25 @@ namespace XenAPI
             JsonRpcClient.session_logout(self);
         }
 
-        public void local_logout()
+        public static void session_logout(Session session, string opaqueRef)
         {
-            local_logout(this);
+            session.JsonRpcClient.session_logout(opaqueRef);
         }
 
+        public void local_logout()
+        {
+            session_local_logout(this, opaque_ref);
+            opaque_ref = null;
+        }
+
+        [Obsolete("Use static method session_local_logout(Session session, string opaqueRef) instead")]
         public void local_logout(Session session2)
         {
             local_logout(session2.opaque_ref);
             session2.opaque_ref = null;
         }
 
+        [Obsolete("Use static method session_local_logout(Session session, string opaqueRef) instead")]
         public void local_logout(string opaqueRef)
         {
             if (opaqueRef == null)
@@ -450,22 +392,23 @@ namespace XenAPI
             JsonRpcClient.session_local_logout(opaqueRef);
         }
 
+        public static void session_local_logout(Session session, string opaqueRef)
+        {
+            session.JsonRpcClient.session_local_logout(opaqueRef);
+        }
+
+        [Obsolete("Use static method Session.change_password instead")]
         public void change_password(string oldPassword, string newPassword)
         {
             change_password(this, oldPassword, newPassword);
         }
 
-        /// <summary>
-        /// Change the password on the given session2, using this session for the connection.
-        /// </summary>
-        /// <param name="session2">The session to change</param>
-        /// <param name="oldPassword"></param>
-        /// <param name="newPassword"></param>
-        public void change_password(Session session2, string oldPassword, string newPassword)
+        public static void change_password(Session session, string oldPassword, string newPassword)
         {
-            JsonRpcClient.session_change_password(session2.opaque_ref, oldPassword, newPassword);
+            session.JsonRpcClient.session_change_password(session.opaque_ref, oldPassword, newPassword);
         }
 
+        [Obsolete("Use static method Session.get_this_host instead")]
         public string get_this_host()
         {
             return get_this_host(this, opaque_ref);
@@ -476,6 +419,7 @@ namespace XenAPI
             return session.JsonRpcClient.session_get_this_host(session.opaque_ref, self ?? "");
         }
 
+        [Obsolete("Use static method Session.get_this_user instead")]
         public string get_this_user()
         {
             return get_this_user(this, opaque_ref);
@@ -486,6 +430,7 @@ namespace XenAPI
             return session.JsonRpcClient.session_get_this_user(session.opaque_ref, self ?? "");
         }
 
+        [Obsolete("Use static method Session.get_is_local_superuser instead")]
         public bool get_is_local_superuser()
         {
             return get_is_local_superuser(this, opaque_ref);
@@ -501,6 +446,7 @@ namespace XenAPI
             return session.JsonRpcClient.session_get_rbac_permissions(session.opaque_ref, self ?? "");
         }
 
+        [Obsolete("Use static method Session.get_last_active instead")]
         public DateTime get_last_active()
         {
             return get_last_active(this, opaque_ref);
@@ -511,6 +457,7 @@ namespace XenAPI
             return session.JsonRpcClient.session_get_last_active(session.opaque_ref, self ?? "");
         }
 
+        [Obsolete("Use static method Session.get_pool instead")]
         public bool get_pool()
         {
             return get_pool(this, opaque_ref);
@@ -521,6 +468,7 @@ namespace XenAPI
             return session.JsonRpcClient.session_get_pool(session.opaque_ref, self ?? "");
         }
 
+        [Obsolete("Use static method Session.get_subject instead")]
         public XenRef<Subject> get_subject()
         {
             return get_subject(this, opaque_ref);
@@ -531,6 +479,7 @@ namespace XenAPI
             return session.JsonRpcClient.session_get_subject(session.opaque_ref, self ?? "");
         }
 
+        [Obsolete("Use static method Session.get_auth_user_sid instead")]
         public string get_auth_user_sid()
         {
             return get_auth_user_sid(this, opaque_ref);
@@ -541,8 +490,7 @@ namespace XenAPI
             return session.JsonRpcClient.session_get_auth_user_sid(session.opaque_ref, self ?? "");
         }
 
-        #region AD SID enumeration and bootout
-
+        [Obsolete("Use static method Session.get_all_subject_identifiers instead")]
         public string[] get_all_subject_identifiers()
         {
             return get_all_subject_identifiers(this);
@@ -553,6 +501,7 @@ namespace XenAPI
             return session.JsonRpcClient.session_get_all_subject_identifiers(session.opaque_ref);
         }
 
+        [Obsolete("Use static method Session.async_get_all_subject_identifiers instead")]
         public XenRef<Task> async_get_all_subject_identifiers()
         {
             return async_get_all_subject_identifiers(this);
@@ -563,17 +512,18 @@ namespace XenAPI
             return session.JsonRpcClient.async_session_get_all_subject_identifiers(session.opaque_ref);
         }
 
-        public string logout_subject_identifier(string subjectIdentifier)
+        [Obsolete("Use static method Session.logout_subject_identifier instead")]
+        public void logout_subject_identifier(string subjectIdentifier)
         {
-            return logout_subject_identifier(this, subjectIdentifier);
+            logout_subject_identifier(this, subjectIdentifier);
         }
 
-        public static string logout_subject_identifier(Session session, string subjectIdentifier)
+        public static void logout_subject_identifier(Session session, string subjectIdentifier)
         {
             session.JsonRpcClient.session_logout_subject_identifier(session.opaque_ref, subjectIdentifier);
-            return string.Empty;
         }
 
+        [Obsolete("Use static method Session.async_logout_subject_identifier instead")]
         public XenRef<Task> async_logout_subject_identifier(string subjectIdentifier)
         {
             return async_logout_subject_identifier(this, subjectIdentifier);
@@ -584,10 +534,7 @@ namespace XenAPI
             return session.JsonRpcClient.async_session_logout_subject_identifier(session.opaque_ref, subjectIdentifier);
         }
 
-        #endregion
-
-        #region other_config stuff
-
+        [Obsolete("Use static method Session.get_other_config instead")]
         public Dictionary<string, string> get_other_config()
         {
             return get_other_config(this, opaque_ref);
@@ -598,6 +545,7 @@ namespace XenAPI
             return session.JsonRpcClient.session_get_other_config(session.opaque_ref, self ?? "");
         }
 
+        [Obsolete("Use static method Session.set_other_config instead")]
         public void set_other_config(Dictionary<string, string> otherConfig)
         {
             set_other_config(this, opaque_ref, otherConfig);
@@ -608,6 +556,7 @@ namespace XenAPI
             session.JsonRpcClient.session_set_other_config(session.opaque_ref, self ?? "", otherConfig);
         }
 
+        [Obsolete("Use static method Session.add_to_other_config instead")]
         public void add_to_other_config(string key, string value)
         {
             add_to_other_config(this, opaque_ref, key, value);
@@ -618,6 +567,7 @@ namespace XenAPI
             session.JsonRpcClient.session_add_to_other_config(session.opaque_ref, self ?? "", key ?? "", value ?? "");
         }
 
+        [Obsolete("Use static method Session.remove_from_other_config instead")]
         public void remove_from_other_config(string key)
         {
             remove_from_other_config(this, opaque_ref, key);
@@ -627,7 +577,5 @@ namespace XenAPI
         {
             session.JsonRpcClient.session_remove_from_other_config(session.opaque_ref, self ?? "", key ?? "");
         }
-
-        #endregion
     }
 }
