@@ -1067,6 +1067,8 @@ let winbind_scan_trusted_domains = ref false
 
 let winbind_keep_configuration = ref false
 
+let serialize_auth_service = ref true
+
 let winbind_ldap_query_subject_timeout = ref Mtime.Span.(20 * s)
 
 let tdb_tool = ref "/usr/bin/tdbtool"
@@ -1671,6 +1673,13 @@ let other_options =
     , (fun () -> string_of_bool !winbind_keep_configuration)
     , "Whether to clear winbind configuration when join domain failed or leave \
        domain"
+    )
+  ; ( "serialize_auth_service"
+    , Arg.Bool (fun b -> serialize_auth_service := b)
+    , (fun () -> string_of_bool !serialize_auth_service)
+    , "Serialize AD external auth operations under a mutex (default: true). \
+       Set to false only if configure (enable/disable/set-ldaps) and \
+       authenticate calls are never concurrent to improve performance."
     )
   ; ( "hsts_max_age"
     , Arg.Set_int hsts_max_age

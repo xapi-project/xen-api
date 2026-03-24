@@ -29,9 +29,24 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let krbtgt = "KRBTGT"
 
-let ( let* ) = Result.bind
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-let ( let@ ) = ( @@ )
+(* Mutex for serializing AD external auth operations.
+ * Write ops (enable/disable/set_ldaps) modify winbind config and domain state.
+ * Read ops (authenticate/query) query AD via wbinfo.
+ * A plain Mutex serializes both. The [serialize_auth_service] config key
+ * (default: true) can be set to false to skip locking under concurrent load,
+ * but only when configure and authenticate calls are never concurrent. *)
+let serialize_ext_auth_lock = Mutex.create ()
+
+let cond_sync_ext_auth f =
+  match !Xapi_globs.serialize_auth_service with
+  | true ->
+      with_lock serialize_ext_auth_lock f
+  | false ->
+      f ()
+
+let ( let* ) = Result.bind
 
 let ( <!> ) x f = Rresult.R.reword_error f x
 
@@ -1166,6 +1181,8 @@ end
 
 (* Enable or disable LDAPS for external authentication *)
 let set_ldaps ~__context ~ldaps ~force =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
+  cond_sync_ext_auth @@ fun () ->
   debug "%s:%d set_ldaps ldaps=%b force=%b" __FUNCTION__ __LINE__ ldaps force ;
   let old_domain_info = DomainInfo.of_db ~__context in
 
@@ -1410,7 +1427,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       Raises Not_found (*Subject_cannot_be_resolved*) if authentication is not succesful.
   *)
   let get_subject_identifier ~__context subject_name =
-    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+    Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
+    cond_sync_ext_auth @@ fun () ->
     maybe_raise (get_subject_identifier' ~__context subject_name)
 
   (* subject_id Authenticate_username_password(string username, string password)
@@ -1425,7 +1443,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   *)
 
   let authenticate_username_password ~__context uname password =
-    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+    Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
+    cond_sync_ext_auth @@ fun () ->
     (* the `wbinfo --krb5auth` expects the username to be in either SAM or UPN format.
      * we use wbinfo to try to convert the provided [uname] into said format.
      * as a last ditch attempt, we try to auth with the provided [uname]
@@ -1564,7 +1583,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       Raises Not_found (*Subject_cannot_be_resolved*) if subject_id cannot be resolved by external auth service
   *)
   let query_subject_information ~__context (sid : string) =
-    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+    Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
+    cond_sync_ext_auth @@ fun () ->
     let res =
       let* name = Wbinfo.name_of_sid sid in
       match name with
@@ -1587,7 +1607,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       supports nested groups (as AD does for example)
   *)
   let query_group_membership ~__context subject_identifier =
-    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+    Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
+    cond_sync_ext_auth @@ fun () ->
     maybe_raise (Wbinfo.user_domgroups subject_identifier)
 
   let assert_join_domain_user_format uname =
@@ -1614,7 +1635,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
           does not need long-term.]
   *)
   let on_enable ~__context config_params =
-    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+    Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
+    cond_sync_ext_auth @@ fun () ->
     let user =
       from_config ~name:"user" ~err_msg:"enable requires user" ~config_params
     in
@@ -1725,7 +1747,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       within the body of the on_disable method)
   *)
   let on_disable ~__context config_params =
-    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+    Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
+    cond_sync_ext_auth @@ fun () ->
     let user = List.assoc_opt "user" config_params in
     let pass = List.assoc_opt "pass" config_params in
     let {service_name; netbios_name; _} = DomainInfo.of_db ~__context in
@@ -1753,8 +1776,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       starting for the first time after a host boot
   *)
   let on_xapi_initialize ~__context _system_boot =
-    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
-
+    Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
+    cond_sync_ext_auth @@ fun () ->
     Winbind.start ~timeout:5. ~wait_until_success:true ;
     RotateMachinePassword.trigger_rotate ~__context ~start:5. ;
     Winbind.check_ready_to_serve ~timeout:300. ;
