@@ -230,6 +230,8 @@ let _ =
     ~doc:"The network is incompatible with bond" () ;
   error Api_errors.network_incompatible_with_tunnel ["network"]
     ~doc:"The network is incompatible with tunnel" () ;
+  error Api_errors.network_incompatible_with_trunks ["network"]
+    ~doc:"The network is incompatible with VIF using trunks." () ;
   error Api_errors.pool_joining_host_has_network_sriovs []
     ~doc:"The host joining the pool must not have any network SR-IOVs." () ;
 
