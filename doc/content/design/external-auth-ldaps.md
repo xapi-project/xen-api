@@ -91,8 +91,9 @@ Given `ldaps` default to `false`, this feature is **NOT** enabled until explicit
 
 #### 3.1.2 Error code
 Following new error codes added to indicate ldaps enable related error
-- AUTH_NO_CERT,  no certs can be used for ldaps, refer to 4.1.2 for certs finding.
-- AUTH_INVALID_CERT, found certs, but none of the certs can be used to connect to DC
+- POOL_AUTH_ENABLE_FAILED_NO_CERTS,  no certs can be used for ldaps, refer to 4.1.2 for certs finding.
+- POOL_AUTH_ENABLE_FAILED_INVALID_CERTS, found certs, but none of the certs can be used to connect to DC
+**Note**: Current error code handing infrustrucure requires the error code prefix with POOL_AUTH_ENABLE_FAILED
 
 ### 3.2 Set/Get Pool LDAPS Status
 
@@ -137,7 +138,7 @@ This API may raise following errors
 - AUTH_NO_CERT, no certs found to enable ldaps, refer to 4.1.2 for certs finding
 - AUTH_INVALID_CERT, found certs, but none of the certs can be used to connect to DC
 - AUTH_IS_DISABLED, AD is not enabled
-- AUTH_LDAPS_PING_FAILED,  failed to do ldaps query on all DCs with valid certs
+- AUTH_SET_LDAPS_FAILED,  Failed to set ldaps, the error message contains the details like ldap query on domain failed
 
 #### 3.2.2 Get Pool LDAPS Status
 
@@ -211,24 +212,6 @@ This design is following [trusted-certificates.md](https://github.com/xapi-proje
 - `pool.external_auth_set_ldaps` API
 - (Re)join domain
 
-### 4.2 Xapi Configuration
-
-#### 4.2.1 winbind-tls-verify-peer
-
-For security, xapi asks winbind to verify CA certificate. `ca_and_name_if_available` is the default.
-
-However, user may want to disable this verification for debug purpose.
-
-`winbind-tls-verify-peer` is introduced for xapi configuration, and the possible values are `no_check`, `ca_only`, `ca_and_name_if_available`, `ca_and_name` and `as_strict_as_possible`.
- The configured value will override  `tls verify peer` value in xapi generated samba configuration. Refer to [smb.conf](https://www.samba.org/samba/docs/current/man-html/smb.conf.5.html) for the details.
-
-
-**Note:** This item is not intended for public documentation. This is only for debug purpose, or system tuning for specific scenarios from engineering/support team.
-
-#### 4.2.2 ad-warning-message-interval
-
-xapi sends warning message to user with this interval on LDAP query failure. Default to 1 week. Refer to section "Session revalidate" for the details.
-
 ## 5. Session Revalidate
 
 xapi LDAP queries domain user status (if user has been added to manage XenServer) at configurable interval, and destroys the session created by domain user if user no longer in healthy status.
@@ -238,23 +221,11 @@ However, the LDAP query may fail due to various issues as follows:
 - Temporary network issues
 - CA certificate is not properly configured, or expired, etc.
 
-Instead of destroying user session for stability, a warning message will be sent to user with the details at configurable interval `ad-warning-message-interval`.
-
-- If no LDAP error, do nothing
-- If error happens, send the warning message if:
-  - first time see the error through xapi start up (so no need to persist last send time) or
-  - `current_time - last_sent_time > winbind_warning_message_interval`
-
-The message is defined as follows:
-- name: AD_DC_LDAP_CHECK
-- priority: Warning
-- cls: `Host
-- Body: LDAP(S) query check to `<DC>` of `<domain>` failed from `<host>` of `<pool>`
+Instead of destroying user session for stability, a warning will be printed in xensource.log
 
 Note:
 - The backend session revalidate check only performs on pool coordinator, thus the backend LDAP(S) query check only on coordinator
 - `external_auth_set_ldaps` perform LDAP(S) query check on every host
-- All previous AD_DC_LDAP_CHECK warning of a host will be cleaned on a successful LDAP(s) query from that host
 
 ## 6. Pool Join/Leave
 
