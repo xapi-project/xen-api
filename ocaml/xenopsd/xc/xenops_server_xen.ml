@@ -5026,6 +5026,7 @@ module VIF = struct
                         (vif.carrier
                         && vif.locking_mode <> Xenops_interface.Vif.Disabled
                         )
+                      ~trunks:vif.trunks
                       ~extra_private_keys:
                         ((id :: vif.extra_private_keys)
                         @ locking_mode
@@ -5466,6 +5467,58 @@ module VIF = struct
               Some Needs_unplug
           with Xenopsd_error Device_not_connected -> None
         )
+    )
+
+  let set_trunks _task vm vif trunks =
+    debug "set_trunks: enter" ;
+    with_xc_and_xs (fun xc xs ->
+        match vif.backend with
+        | Network.Sriov _ ->
+            raise (Xenopsd_error (Unimplemented "network SR-IOV"))
+        | Network.Local _ | Network.Remote _ ->
+            let open Device_common in
+            (* If the device is gone then this is ok *)
+            let device = device_by_id xc xs vm Vif (id_of vif) in
+            let trunks_str =
+              String.concat "," (List.map Int64.to_string trunks)
+            in
+            let setup port_name =
+              debug "set_trunks: setup: %s trunks=[%s]" port_name trunks_str ;
+              try
+                if trunks = [] then
+                  ignore
+                    (run !Xc_resources.ovs_vsctl
+                       ["clear"; "Port"; port_name; "trunks"]
+                    )
+                else
+                  ignore
+                    (run !Xc_resources.ovs_vsctl
+                       [
+                         "set"
+                       ; "Port"
+                       ; port_name
+                       ; Printf.sprintf "trunks=%s" trunks_str
+                       ]
+                    )
+              with exc ->
+                if String.starts_with ~prefix:"tap" port_name then
+                  (* Might not exists if the VM has PV drivers loaded. *)
+                  ()
+                else
+                  raise exc
+            in
+            let devid = string_of_int device.frontend.devid in
+            let di = Xenctrl.domain_getinfo xc device.frontend.domid in
+            let port_list =
+              Printf.sprintf "vif%d.%s" device.frontend.domid devid
+              ::
+              ( if VM.get_domain_type ~xs di = Vm.Domain_HVM then
+                  [Printf.sprintf "tap%d.%s" device.frontend.domid devid]
+                else
+                  []
+              )
+            in
+            List.iter setup port_list
     )
 end
 

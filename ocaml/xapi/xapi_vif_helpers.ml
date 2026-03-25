@@ -237,8 +237,8 @@ let m = Mutex.create () (* prevents duplicate VIFs being created by accident *)
 let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
     ~qos_algorithm_type ~qos_algorithm_params ~currently_attached ~locking_mode
     ~ipv4_allowed ~ipv6_allowed ~ipv4_configuration_mode ~ipv4_addresses
-    ~ipv4_gateway ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway :
-    API.ref_VIF =
+    ~ipv4_gateway ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway ~trunks
+    : API.ref_VIF =
   let () = debug "VIF.create running" in
   if Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network then
     Pool_features.assert_enabled ~__context ~f:Features.Network_sriov ;
@@ -270,6 +270,10 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
   in
   if not (Helpers.is_valid_MAC mAC) then
     raise (Api_errors.Server_error (Api_errors.mac_invalid, [mAC])) ;
+  (* Check we can use trunks on the network. *)
+  if trunks <> [] then
+    Xapi_pif_helpers.assert_network_compatible_with_trunks_on_pif ~__context
+      ~network ;
   (* Make people aware that non-shared networks being added to VMs makes them not agile *)
   let pool = Helpers.get_pool ~__context in
   ( if
@@ -341,7 +345,7 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
           ~metrics ~locking_mode ~ipv4_allowed ~ipv6_allowed
           ~ipv4_configuration_mode ~ipv4_addresses ~ipv4_gateway
           ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway
-          ~reserved_pci:Ref.null
+          ~reserved_pci:Ref.null ~trunks
       in
       ()
   ) ;
@@ -397,7 +401,7 @@ let copy ~__context ~vm ~preserve_mac_address vif =
       ~ipv4_gateway:all.API.vIF_ipv4_gateway
       ~ipv6_configuration_mode:all.API.vIF_ipv6_configuration_mode
       ~ipv6_addresses:all.API.vIF_ipv6_addresses
-      ~ipv6_gateway:all.API.vIF_ipv6_gateway
+      ~ipv6_gateway:all.API.vIF_ipv6_gateway ~trunks:all.API.vIF_trunks
   in
   let expr =
     Xapi_database.Db_filter_types.(Eq (Field "VIF", Literal (Ref.string_of vif)))

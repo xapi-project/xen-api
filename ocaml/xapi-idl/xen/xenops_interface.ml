@@ -363,6 +363,8 @@ module Vif = struct
     type t = site * server list * interface [@@deriving rpcty]
   end
 
+  type trunks = int64 list [@@deriving rpcty]
+
   type t = {
       id: id [@default "", ""]
     ; position: int [@default 0]
@@ -380,6 +382,7 @@ module Vif = struct
           [@default default_ipv6_configuration]
     ; pvs_proxy: PVS_proxy.t option [@default None]
     ; vlan: int64 option [@default None]
+    ; trunks: trunks [@default []]
   }
   [@@deriving rpcty]
 
@@ -1078,6 +1081,11 @@ module XenopsAPI (R : RPC) = struct
       let proxy_p = Param.mk ~name:"proxy" (option Vif.PVS_proxy.t) in
       declare "VIF.set_pvs_proxy" []
         (debug_info_p @-> vif_id_p @-> proxy_p @-> returning task_id_p err)
+
+    let set_trunks =
+      let trunks_p = Param.mk ~name:"trunks" Vif.trunks in
+      declare "VIF.set_trunks" []
+        (debug_info_p @-> vif_id_p @-> trunks_p @-> returning task_id_p err)
   end
 
   module VGPU = struct
