@@ -214,6 +214,9 @@ let network_has_incompatible_sriov_pifs =
 let network_has_incompatible_vlan_on_sriov_pifs =
   add_error "NETWORK_HAS_INCOMPATIBLE_VLAN_ON_SRIOV_PIFS"
 
+let network_incompatible_with_trunks =
+  add_error "NETWORK_INCOMPATIBLE_WITH_TRUNKS"
+
 let operation_not_allowed = add_error "OPERATION_NOT_ALLOWED"
 
 let operation_blocked = add_error "OPERATION_BLOCKED"

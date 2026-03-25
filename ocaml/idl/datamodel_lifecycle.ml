@@ -101,6 +101,8 @@ let prototyped_of_field = function
       Some "26.1.14"
   | "SM", "host_pending_features" ->
       Some "24.37.0"
+  | "VIF", "trunks" ->
+      Some "26.1.17-next"
   | "host", "timezone" ->
       Some "26.0.0"
   | "host", "ntp_custom_servers" ->
@@ -247,6 +249,12 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VDI", "revert" ->
       Some "26.1.14"
+  | "VIF", "set_trunks" ->
+      Some "26.1.17-next"
+  | "VIF", "remove_trunks" ->
+      Some "26.1.17-next"
+  | "VIF", "add_trunks" ->
+      Some "26.1.17-next"
   | "host", "set_servertime" ->
       Some "26.0.0"
   | "host", "get_ntp_synchronized" ->
