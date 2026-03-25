@@ -272,6 +272,9 @@ module type S = sig
 
     val get_device_action_request :
       Vm.id -> Vif.t -> device_action_request option
+
+    val set_trunks :
+      Xenops_task.task_handle -> Vm.id -> Vif.t -> Vif.trunks -> unit
   end
 
   module VGPU : sig

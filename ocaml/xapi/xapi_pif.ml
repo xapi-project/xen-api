@@ -501,6 +501,10 @@ let pool_introduce ~__context ~device ~network ~host ~mAC ~mTU ~vLAN ~physical
     ~vLAN_master_of ~management ~other_config ~disallow_unplug
     ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type ~managed
     ~properties =
+  (* Check we introduce PIF on compatible network (no VIF using trunks) *)
+  if vLAN <> -1L then
+    Xapi_pif_helpers.assert_network_compatible_with_trunks_on_vif ~__context
+      ~network ;
   let pif_ref = Ref.make () in
   let metrics = make_pif_metrics ~__context in
   let () =
@@ -539,6 +543,10 @@ let introduce_internal ?network ?(physical = true) ~t ~__context ~host ~mAC ~mTU
     | Some x ->
         x
   in
+  (* Check we introduce PIF on compatible network (no VIF using trunks) *)
+  if vLAN <> -1L then
+    Xapi_pif_helpers.assert_network_compatible_with_trunks_on_vif ~__context
+      ~network:net_ref ;
   let metrics =
     match metrics with None -> make_pif_metrics ~__context | Some m -> m
   in

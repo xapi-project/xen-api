@@ -33,7 +33,7 @@ let unplug_force ~__context ~self = Xapi_xenops.vif_unplug ~__context ~self true
 
 let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
     ~currently_attached ~qos_algorithm_type ~qos_algorithm_params ~locking_mode
-    ~ipv4_allowed ~ipv6_allowed : API.ref_VIF =
+    ~ipv4_allowed ~ipv6_allowed ~trunks : API.ref_VIF =
   (* TODO: Raise bad power state error (once all API clients make sure to onlu call the needed params in the create method) when:
      - power_state = `Halted and currently_attached = true
   *)
@@ -49,7 +49,7 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
     ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params
     ~locking_mode ~ipv4_allowed ~ipv6_allowed ~ipv4_configuration_mode:`None
     ~ipv4_addresses:[] ~ipv4_gateway:"" ~ipv6_configuration_mode:`None
-    ~ipv6_addresses:[] ~ipv6_gateway:""
+    ~ipv6_addresses:[] ~ipv6_gateway:"" ~trunks
 
 let destroy ~__context ~self = destroy ~__context ~self
 
@@ -95,6 +95,9 @@ let move ~__context ~self ~network =
              )
           )
   ) ;
+  if Db.VIF.get_trunks ~__context ~self <> [] then
+    Xapi_pif_helpers.assert_network_compatible_with_trunks_on_pif ~__context
+      ~network ;
   move_internal ~__context ~network ~active self
 
 let change_locking_config ~__context ~self ~licence_check f =
@@ -217,3 +220,36 @@ let configure_ipv6 ~__context ~self ~mode ~address ~gateway =
   Db.VIF.set_ipv6_gateway ~__context ~self ~value:gateway ;
   if device_active ~__context ~self then
     Xapi_xenops.vif_set_ipv6_configuration ~__context ~self
+
+(** Checks that Network associated to VIF is not backed on PIF with VLAN. *)
+let assert_vif_compatible_with_trunks ~__context ~self =
+  let network = Db.VIF.get_network ~__context ~self in
+  Xapi_pif_helpers.assert_network_compatible_with_trunks_on_pif ~__context
+    ~network
+
+let add_trunks ~__context ~self ~value =
+  Xapi_vlan.assert_valid_VLAN_tag value ;
+  assert_vif_compatible_with_trunks ~__context ~self ;
+  let current = Db.VIF.get_trunks ~__context ~self in
+  if not (List.mem value current) then (
+    Db.VIF.set_trunks ~__context ~self ~value:(value :: current) ;
+    if device_active ~__context ~self then
+      Xapi_xenops.vif_set_trunks ~__context ~self
+  )
+
+let remove_trunks ~__context ~self ~value =
+  let current = Db.VIF.get_trunks ~__context ~self in
+  if List.mem value current then (
+    let value = List.filter (( <> ) value) current in
+    Db.VIF.set_trunks ~__context ~self ~value ;
+    if device_active ~__context ~self then
+      Xapi_xenops.vif_set_trunks ~__context ~self
+  )
+
+let set_trunks ~__context ~self ~value =
+  if value <> [] then assert_vif_compatible_with_trunks ~__context ~self ;
+  let value = Listext.setify value in
+  List.iter Xapi_vlan.assert_valid_VLAN_tag value ;
+  Db.VIF.set_trunks ~__context ~self ~value ;
+  if device_active ~__context ~self then
+    Xapi_xenops.vif_set_trunks ~__context ~self
