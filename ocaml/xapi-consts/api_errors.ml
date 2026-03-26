@@ -1025,6 +1025,8 @@ let auth_is_disabled = add_error "AUTH_IS_DISABLED"
 
 let auth_invalid_certs = add_error "AUTH_INVALID_CERTS"
 
+let auth_no_certs = add_error "AUTH_NO_CERTS"
+
 let auth_suffix_wrong_credentials = "_WRONG_CREDENTIALS"
 
 let auth_suffix_permission_denied = "_PERMISSION_DENIED"
@@ -1038,6 +1040,8 @@ let auth_suffix_invalid_ou = "_INVALID_OU"
 let auth_suffix_invalid_account = "_INVALID_ACCOUNT"
 
 let auth_suffix_invalid_certs = "_INVALID_CERTS"
+
+let auth_suffix_no_certs = "_NO_CERTS"
 
 let auth_enable_failed = add_error "AUTH_ENABLE_FAILED"
 
@@ -1061,6 +1065,9 @@ let auth_enable_failed_invalid_account =
 
 let auth_enable_failed_invalid_certs =
   add_error $ auth_enable_failed ^ auth_suffix_invalid_certs
+
+let auth_enable_failed_no_certs =
+  add_error $ auth_enable_failed ^ auth_suffix_no_certs
 
 let auth_disable_failed = add_error "AUTH_DISABLE_FAILED"
 
@@ -1096,6 +1103,9 @@ let pool_auth_enable_failed_invalid_account =
 
 let pool_auth_enable_failed_invalid_certs =
   add_error $ pool_auth_enable_failed ^ auth_suffix_invalid_certs
+
+let pool_auth_enable_failed_no_certs =
+  add_error $ pool_auth_enable_failed ^ auth_suffix_no_certs
 
 let pool_auth_enable_failed_duplicate_hostname =
   add_error $ pool_auth_enable_failed ^ "_DUPLICATE_HOSTNAME"

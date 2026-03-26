@@ -77,10 +77,12 @@ let auth_ex uname =
   let msg = Printf.sprintf "failed to authenticate user '%s'" uname in
   Auth_signature.(Auth_failure msg)
 
-let generic_ex fmt =
+let gen_ex tag fmt =
   Printf.ksprintf
-    (fun msg -> Auth_signature.(Auth_service_error (E_GENERIC, msg)))
+    (fun msg -> Auth_signature.(Auth_service_error (tag, msg)))
     fmt
+
+let generic_ex fmt = gen_ex E_GENERIC fmt
 
 let net_cmd = !Xapi_globs.net_cmd
 
@@ -89,6 +91,31 @@ let wb_cmd = !Xapi_globs.wb_cmd
 let tdb_tool = !Xapi_globs.tdb_tool
 
 let domain_krb5_dir = Filename.concat Xapi_globs.samba_dir "lock/smb_krb5"
+
+(* Legacy certificates folder *)
+let certs_dir = "/etc/stunnel/certs"
+
+let ldaps_ca_bundle = "/etc/trusted-certs/ca-bundle-ldaps.pem"
+
+let general_ca_bundle = "/etc/trusted-certs/ca-bundle-general.pem"
+
+(** Return the best available CA bundle/cert path, in priority order:
+    ldaps-specific bundle > general bundle > legacy certs dir.
+    Returns [None] if none exist. *)
+
+let ca_bundle_path () =
+  [ldaps_ca_bundle; general_ca_bundle; certs_dir]
+  |> List.find_opt Sys.file_exists
+
+let assert_ca_exists = function
+  | true ->
+      ca_bundle_path ()
+      |> Option.to_result
+           ~none:(gen_ex E_NO_CERTS "No certs to setup TLS connection to DC")
+      |> maybe_raise
+      |> ignore
+  | false ->
+      ()
 
 let debug_level () =
   clamp
@@ -880,16 +907,10 @@ let query_domain_workgroup ~domain =
 let config_winbind_daemon domain_info =
   let smb_config = "/etc/samba/smb.conf" in
   let extra_conf = "/etc/samba/smb.extra.conf" in
-  (* Will change to following config after trusted certs feature
-  tls cafile = /etc/trusted-certs/ca-bundle-[ldaps|general].pem
-  *)
-  let certs_dir = "/etc/stunnel/certs" in
   let string_of_bool = function true -> "yes" | false -> "no" in
-
   let scan_trusted_domains =
     string_of_bool !Xapi_globs.winbind_scan_trusted_domains
   in
-
   ( match domain_info with
     | Some
         {
@@ -901,6 +922,17 @@ let config_winbind_daemon domain_info =
         } ->
         let ldaps_conf =
           match ldaps with Some true -> "ldaps" | _ -> "seal"
+        in
+        let tls_ca =
+          match ca_bundle_path () with
+          | Some path when Sys.is_directory path ->
+              Printf.sprintf "tls ca directories = %s" path
+          | Some path ->
+              Printf.sprintf "tls cafile = %s" path
+          | None ->
+              (* Presuming assert_ca_exists is called before reach here,
+                 so ldaps is not enabled here, this item does not matter *)
+              Printf.sprintf "tls cafile = %s" ldaps_ca_bundle
         in
         [
           Printf.sprintf "# This file is managed by xapi, update %s instead"
@@ -916,10 +948,10 @@ let config_winbind_daemon domain_info =
         ; "winbind refresh tickets = yes"
         ; "winbind enum groups = no"
         ; "winbind enum users = no"
-        ; Printf.sprintf "client ldap sasl wrapping= %s" ldaps_conf
+        ; Printf.sprintf "client ldap sasl wrapping = %s" ldaps_conf
         ; "tls trust system cas = yes"
         ; "tls verify peer = ca_and_name_if_available"
-        ; Printf.sprintf "tls ca directories = %s" certs_dir
+        ; tls_ca
         ; Printf.sprintf "winbind scan trusted domains = %s"
             scan_trusted_domains
         ; "winbind use krb5 enterprise principals = yes"
@@ -1190,7 +1222,8 @@ let set_ldaps ~__context ~ldaps ~force =
   if old_domain_info.ldaps = Some ldaps && not force then
     raise (generic_ex "ldaps is already %s" (string_of_bool ldaps)) ;
 
-  (* check certificate exists *)
+  assert_ca_exists ldaps ;
+
   let new_domain_info = {old_domain_info with ldaps= Some ldaps} in
   (* Apply new configuration to winbind daemon for trial *)
   Winbind.configure ~__context ~domain_info:new_domain_info () ;
@@ -1662,7 +1695,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       (* Query new domain workgroup during join domain *)
       query_domain_workgroup ~domain:service_name
     in
-    let ldaps = Some (Helpers.ldaps_enabled_in_config ~config:config_params) in
+    let ldaps = Helpers.ldaps_enabled_in_config ~config:config_params in
+    assert_ca_exists ldaps ;
 
     let ou, ou_param = extract_ou_config ~config_params in
     let domain_info =
@@ -1672,7 +1706,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       ; workgroup= Some workgroup
       ; netbios_name= Some netbios_name
       ; machine_pwd_last_change_time= Some (Unix.time ())
-      ; ldaps
+      ; ldaps= Some ldaps
       ; ou
       }
     in

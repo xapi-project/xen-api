@@ -754,6 +754,8 @@ let _ =
     ~doc:"The host failed to enable external authentication." () ;
   error Api_errors.auth_enable_failed_invalid_certs ["message"]
     ~doc:"The host failed to enable external authentication." () ;
+  error Api_errors.auth_enable_failed_no_certs ["message"]
+    ~doc:"The host failed to enable external authentication." () ;
   error Api_errors.auth_disable_failed ["message"]
     ~doc:"The host failed to disable external authentication." () ;
   error Api_errors.auth_disable_failed_wrong_credentials ["message"]
@@ -844,6 +846,8 @@ let _ =
   error Api_errors.pool_auth_enable_failed_invalid_account ["host"; "message"]
     ~doc:"The pool failed to enable external authentication." () ;
   error Api_errors.pool_auth_enable_failed_invalid_certs ["host"; "message"]
+    ~doc:"The pool failed to enable external authentication." () ;
+  error Api_errors.pool_auth_enable_failed_no_certs ["host"; "message"]
     ~doc:"The pool failed to enable external authentication." () ;
   error Api_errors.auth_set_ldaps_failed ["host"; "message"]
     ~doc:"The pool failed to set LDAPS configuration." () ;
