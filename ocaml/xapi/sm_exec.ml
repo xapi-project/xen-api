@@ -317,34 +317,70 @@ let methodResponse xml =
   | xml ->
       XMLRPC.From.methodResponse xml
 
-(****************************************************************************************)
-(* Functions that actually execute the python backends *)
+let reusable_session = Atomic.make Ref.null
 
-let create_session ~__context sr =
-  let host = !Xapi_globs.localhost_ref in
-  let session =
-    Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false
-      ~is_local_superuser:true ~subject:Ref.null ~auth_user_sid:""
-      ~auth_user_name:sm_username ~rbac_permissions:[]
-  in
+let is_valid_session ~__context session_id =
+  if Atomic.get reusable_session = Ref.null then
+    false
+  else
+    try
+      (* Call an API function to check the session is still valid *)
+      let rpc = Helpers.make_rpc ~__context in
+      ignore (Client.Client.Pool.get_all ~rpc ~session_id) ;
+      true
+    with Api_errors.Server_error (err, _) ->
+      debug "%s: Invalid session: %s" __FUNCTION__ err ;
+      false
+
+let session_access ~__context session sr =
   (* Give this session access to this particular SR *)
   Option.iter
     (fun sr ->
       Db.Session.add_to_other_config ~__context ~self:session
         ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr)
     )
-    sr ;
+    sr
+
+let create_session ~__context =
+  let host = !Xapi_globs.localhost_ref in
+  let session =
+    Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false
+      ~is_local_superuser:true ~subject:Ref.null ~auth_user_sid:""
+      ~auth_user_name:sm_username ~rbac_permissions:[]
+  in
   session
+
+let rec get_session ~__context sr =
+  let session = Atomic.get reusable_session in
+  if is_valid_session ~__context session then
+    session
+  else
+    let new_session = create_session ~__context in
+    if Atomic.compare_and_set reusable_session session new_session then (
+      session_access ~__context session sr ;
+      new_session
+    ) else (
+      Xapi_session.destroy_db_session ~__context ~self:new_session ;
+      (get_session [@tailcall]) ~__context sr
+    )
 
 let with_session ~traceparent sr f =
   Server_helpers.exec_with_new_task "sm_exec"
     ~origin:(Internal_Traced traceparent) (fun __context ->
-      let session_id = create_session ~__context sr in
-      let destroy_session () =
-        Xapi_session.destroy_db_session ~__context ~self:session_id
-      in
-      finally (fun () -> f session_id) destroy_session
+      if !Xapi_globs.reuse_pool_sessions then
+        let session_id = get_session ~__context sr in
+        f session_id
+      else
+        let session_id = create_session ~__context in
+        let () = session_access ~__context session_id sr in
+        let destroy_session () =
+          Xapi_session.destroy_db_session ~__context ~self:session_id
+        in
+        finally (fun () -> f session_id) destroy_session
   )
+
+(****************************************************************************************)
+(* Functions that actually execute the python backends *)
 
 let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
     (call : call) =
