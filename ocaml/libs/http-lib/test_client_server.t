@@ -12,5 +12,5 @@
   1
   $ grep "backtrace" result -c
   11
-  $ grep "Called from" result -c
+  $ grep -E "Called from|Re-raised at" result -c
   8
