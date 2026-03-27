@@ -489,18 +489,36 @@ def main():
         action="store_true",
     )
     parser.add_argument(
-        "--json-header",
-        dest="json_header",
-        help="stdin contains a JSON of pre-parsed QCOW2 information"
-        "(virtual_size, data_clusters, cluster_bits)",
-        action="store_true",
+        "--json-header-map",
+        dest="json_header_map",
+        help="File descriptor that contains a JSON of pre-parsed QCOW2"
+        "data clusters information for input_file",
+        type=int,
+        default=None,
     )
     parser.add_argument(
-        "--json-header-diff",
-        dest="json_header_diff",
-        metavar="json_header_diff",
-        help="File descriptor that contains a JSON of pre-parsed QCOW2 "
-        "information for the diff_file_name",
+        "--json-header-info",
+        dest="json_header_info",
+        help="File descriptor that contains a JSON of pre-parsed QCOW2"
+        "virtual size, cluster size information for input_file",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--json-header-diff-map",
+        dest="json_header_diff_map",
+        metavar="json_header_diff_map",
+        help="File descriptor that contains a JSON of pre-parsed QCOW2"
+        "data clusters for diff_file_name",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--json-header-diff-info",
+        dest="json_header_diff_info",
+        metavar="json_header_diff_info",
+        help="File descriptor that contains a JSON of pre-parsed QCOW2"
+        "virtual size, cluster size information for diff_file_name",
         type=int,
         default=None,
     )
@@ -513,28 +531,30 @@ def main():
     nonzero_clusters = None
     diff_virtual_size = None
     diff_nonzero_clusters = None
-    if args.json_header:
-        json_header = json.load(sys.stdin)
+
+    def parse_json_files(info_fd, map_fd):
+        map_f = os.fdopen(map_fd)
+        info_f = os.fdopen(info_fd)
+        map_json = json.load(map_f)
+        info_json = json.load(info_f)
+
         try:
-            virtual_size = json_header['virtual_size']
-            source_cluster_size = 2 ** json_header['cluster_bits']
-            if source_cluster_size != args.cluster_size:
-                args.cluster_size = source_cluster_size
-            nonzero_clusters = json_header['data_clusters']
-        except KeyError as e:
-            raise RuntimeError(f'Incomplete JSON - missing value for {str(e)}') from e
-    if args.json_header_diff:
-        f = os.fdopen(args.json_header_diff)
-        json_header = json.load(f)
-        try:
-            diff_virtual_size = json_header['virtual_size']
-            if 2 ** json_header['cluster_bits'] == args.cluster_size:
-                diff_nonzero_clusters = json_header['data_clusters']
+            virt_size = info_json['virtual-size']
+            cluster_size = info_json['cluster-size']
+            if cluster_size == args.cluster_size:
+                clusters = [ [int(el["start"] / cluster_size), int((el["start"] + el["length"]) / cluster_size) - 1] for el in map_json if el["data"] ]
             else:
                 sys.exit(f"[Error] Cluster size in the files being compared are "
-                         f"different: {2**json_header['cluster_bits']} vs. {args.cluster_size}")
+                         f"different: {info_json['cluster-size']} vs. {args.cluster_size}")
+            return virt_size, clusters
         except KeyError as e:
             raise RuntimeError(f'Incomplete JSON for the diff - missing value for {str(e)}') from e
+
+
+    if args.json_header_info and args.json_header_map:
+        virtual_size, nonzero_clusters = parse_json_files(args.json_header_info, args.json_header_map)
+    if args.json_header_diff_info and args.json_header_diff_map:
+        diff_virtual_size, diff_nonzero_clusters = parse_json_files(args.json_header_diff_info, args.json_header_diff_map)
 
     if not os.path.exists(args.input_file):
         sys.exit(f"[Error] {args.input_file} does not exist.")
