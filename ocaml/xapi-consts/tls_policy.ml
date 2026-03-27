@@ -28,7 +28,7 @@ type policy = {
   ; server_preference: bool
 }
 
-(* ---- Default XenServer policy ------------------------------------------- *)
+(* ---- Default policy ------------------------------------------- *)
 
 let default =
   {

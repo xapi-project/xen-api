@@ -16,12 +16,12 @@
 
     Usage:
     {[
-      let () = print_endline (Tls.Gnutls.default_policy ())
-      let () = print_endline (Tls.Openssl.default_policy ())
-      let () = print_endline Tls.Openssl.default_curve
+      let () = print_endline (Tls_policy.Gnutls.default_policy ())
+      let () = print_endline (Tls_policy.Openssl.default_policy ())
+      let () = print_endline Tls_policy.Openssl.default_curve
       (* or with a custom policy: *)
       let my_policy = { ... }
-      let () = print_endline (Tls.Openssl.string_of_policy my_policy)
+      let () = print_endline (Tls_policy.Openssl.string_of_policy my_policy)
     ]} *)
 
 type version = TLS_1_2 | TLS_1_3
