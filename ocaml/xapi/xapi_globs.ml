@@ -845,6 +845,8 @@ let qcow_to_stdout = ref "/opt/xensource/libexec/qcow2-to-stdout.py"
 
 let qcow_stream_tool = ref "qcow-stream-tool"
 
+let qemu_img = ref "/usr/lib64/xen/bin/qemu-img"
+
 let fence = ref "fence"
 
 let host_bugreport_upload = ref "host-bugreport-upload"
@@ -2020,6 +2022,7 @@ module Resources = struct
     ; ("vhd-tool", vhd_tool, "Path to vhd-tool")
     ; ("qcow_to_stdout", qcow_to_stdout, "Path to qcow-to-stdout script")
     ; ("qcow_stream_tool", qcow_stream_tool, "Path to qcow-stream-tool")
+    ; ("qemu-img", qemu_img, "Path to qemu-img")
     ; ("fence", fence, "Path to fence binary, used for HA host fencing")
     ; ( "host-bugreport-upload"
       , host_bugreport_upload
