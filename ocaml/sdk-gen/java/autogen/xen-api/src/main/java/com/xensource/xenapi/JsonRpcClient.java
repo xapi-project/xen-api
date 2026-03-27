@@ -53,15 +53,14 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Provides a JSON-RPC v2.0 client for making remote procedure calls to xapi's backend URL.
- * <br />
+ * <br>
  * This class enables the communication to the JSON-RPC backend. The client utilizes the HttpClient class for
  * sending HTTP POST requests with JSON payloads and the ObjectMapper class from the Jackson library for
  * serialization and deserialization of JSON data.
- * <br />
+ * <br>
  * The client can be customised by passing it as a parameter to corresponding constructor, enabling custom
  * handling of requests.
- * <br />
- * <br />
+ * <br>
  * By default, the timeout for requests is set to {@value #DEFAULT_REQUEST_TIMEOUT}. The default timeout for connecting to the
  * JSON-RPC backend is set to {@value #DEFAULT_CONNECTION_TIMEOUT} seconds. The maximum number of concurrent connections handled
  * by the underlying {@link PoolingHttpClientConnectionManager} is {@value #MAX_CONCURRENT_CONNECTIONS}.

@@ -40,50 +40,46 @@ import java.util.regex.Pattern;
  */
 public class Types
 {
-   /**
-    * Interface for all Record classes
-    */
-   public interface Record
-   {
-       /**
-        * Convert a Record to a Map
-        */
-       Map<String, Object> toMap();
-   }
-   /**
-    * Base class for all XenAPI Exceptions
-    */
-   public static class XenAPIException extends IOException {
-       public final String shortDescription;
-       public final String[] errorDescription;
-       XenAPIException(String shortDescription)
-       {
-           this.shortDescription = shortDescription;
-           this.errorDescription = null;
-       }
-       XenAPIException(String[] errorDescription)
-       {
-           this.errorDescription = errorDescription;
-           if (errorDescription.length > 0)
-           {
-               shortDescription = errorDescription[0];
-           } else
-           {
-               shortDescription = "";
-           }
-       }
-       public String toString()
-       {
-           if (errorDescription == null)
-           {
-               return shortDescription;
-           } else if (errorDescription.length == 0)
-           {
-               return "";
-           }
+    /**
+     * Interface for all Record classes
+     */
+    public interface Record
+    {
+        /**
+         * Convert a Record to a Map
+         */
+        Map<String, Object> toMap();
+    }
+    /**
+     * Base class for all XenAPI Exceptions
+     */
+    public static class XenAPIException extends IOException {
+        public final String shortDescription;
+        public final String[] errorDescription;
+
+        XenAPIException(String shortDescription) {
+            this.shortDescription = shortDescription;
+            this.errorDescription = null;
+        }
+
+        XenAPIException(String[] errorDescription) {
+            this.errorDescription = errorDescription;
+            if (errorDescription.length > 0) {
+                shortDescription = errorDescription[0];
+            } else {
+                shortDescription = "";
+            }
+        }
+
+        public String toString() {
+            if (errorDescription == null) {
+                return shortDescription;
+            } else if (errorDescription.length == 0) {
+                return "";
+            }
+
            StringBuilder sb = new StringBuilder();
-           for (int i = 0; i < errorDescription.length - 1; i++)
-           {
+           for (int i = 0; i < errorDescription.length - 1; i++) {
                sb.append(errorDescription[i]);
            }
            sb.append(errorDescription[errorDescription.length - 1]);
@@ -91,33 +87,30 @@ public class Types
        }
    }
 
-   /**
-    * Thrown if the response from the server contains an invalid status.
-    */
-   public static class BadServerResponse extends XenAPIException
-   {
-       public BadServerResponse(JsonRpcResponseError responseError)
-       {
-           super(String.valueOf(responseError));
-       }
-   }
+    /**
+     * Thrown if the response from the server contains an invalid status.
+     */
+    public static class BadServerResponse extends XenAPIException {
+        public BadServerResponse(JsonRpcResponseError responseError) {
+            super(String.valueOf(responseError));
+        }
+    }
 
-   /**
-   * Checks the provided server response was successful. If the call
-   * failed, throws a XenAPIException. If the server
-   * returned an invalid response, throws a BadServerResponse.
-   * Otherwise, returns the server response as passed in.
-   */
-   public static void checkError(JsonRpcResponseError response) throws XenAPIException, BadServerResponse
-   {
+    /**
+     * Checks the provided server response was successful. If the call
+     * failed, throws a XenAPIException. If the server
+     * returned an invalid response, throws a BadServerResponse.
+     * Otherwise, returns the server response as passed in.
+     */
+    public static void checkError(JsonRpcResponseError response) throws XenAPIException, BadServerResponse {
         var errorData = response.data;
-        if(errorData.length == 0){
+        if(errorData.length == 0) {
             throw new BadServerResponse(response);
         }
         var errorName = response.message;
 
         {{#errors}}
-        if (errorName.equals("{{{name}}}")){
+        if (errorName.equals("{{{name}}}")) {
             {{#err_params}}
             String p{{{index}}} = errorData.length > {{{index}}} ? errorData[{{{index}}}] : "";
             {{/err_params}}
@@ -180,36 +173,11 @@ public class Types
         /**
          * Create a new BadAsyncResult
          */
-        public BadAsyncResult(String result)
-        {
+        public BadAsyncResult(String result) {
             super(result);
             this.result = result;
         }
     }
-
-    {{#types}}
-    /**
-    * Converts an {@link Object} to a {@link {{{name}}}} object.
-    * <br />
-    * This method takes an {@link Object} as input and attempts to convert it into a {@link {{{name}}}} object.
-    * If the input object is null, the method returns null. Otherwise, it creates a new {@link {{{name}}}}
-    * object using the input object's {@link String} representation.
-    * <br />
-    * @param object The {@link Object} to be converted to a {@link {{{name}}}} object.
-    * @return A {@link {{{name}}}} object created from the input {@link Object}'s {@link String} representation,
-    *         or null if the input object is null.
-    * @deprecated this method will not be publicly exposed in future releases of this package.
-    */
-    @Deprecated{{#suppress_unchecked_warning}}
-    @SuppressWarnings("unchecked"){{/suppress_unchecked_warning}}
-    public static {{{name}}} {{{method_name}}}(Object object) {
-        if (object == null) {
-            return null;
-        }
-        {{{method_body}}}
-    }
-
-    {{/types}}
 
     {{#types}}{{#generate_reference_task_result_func}}
     /**
@@ -218,12 +186,13 @@ public class Types
      * @param task The task from which to fetch the result.
      * @param connection The connection
      * @return the instantiated object if a valid value was found, null otherwise.
-     * @throws BadServerResponse Thrown if the response from the server contains an invalid status.
+     * @throws BadServerResponse if the response from the server contains an invalid status.
      * @throws XenAPIException if the call failed.
-     * @throws IOException if an error occurs during a send or receive. This includes cases where a payload is invalid JSON.
+     * @throws IOException if an error occurs during send or receive. This includes cases where a payload is invalid JSON.
      */
     public static {{class_name}} to{{class_name}}(Task task, Connection connection) throws IOException {
-        return Types.to{{class_name}}(parseResult(task.getResult(connection)));
+        String result = parseResult(task.getResult(connection));
+        return result == null || result.isEmpty() ? null : new {{class_name}}(result);
     }
 
     {{/generate_reference_task_result_func}}
@@ -237,17 +206,5 @@ public class Types
         }
 
         return matcher.group(1);
-    }
-
-    public static EventBatch toEventBatch(Object object) {
-      if (object == null) {
-          return null;
-      }
-      Map map = (Map) object;
-      EventBatch batch = new EventBatch();
-      batch.token = toString(map.get("token"));
-      batch.validRefCounts = map.get("valid_ref_counts");
-      batch.events = toSetOfEventRecord(map.get("events"));
-      return batch;
     }
 }
