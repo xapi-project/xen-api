@@ -235,7 +235,7 @@
   fmt
   logs
   mtime
-  xapi-backtrace
+  rpclib
   (xapi-stdext-pervasives (= :version))))
 
 (package
@@ -322,7 +322,6 @@
   uuidm
   uutf
   x509
-  xapi-backtrace
   xapi-log
   xapi-types
   xapi-stdext-pervasives
@@ -451,7 +450,6 @@
   uutf
   uuidm
   x509
-  xapi-backtrace
   (xapi-client
    (= :version))
   (xapi-cli-protocol
@@ -764,7 +762,6 @@
   uri
   (uuid
    (= :version))
-  xapi-backtrace
   (xapi-idl
    (= :version))
   (xapi-log
@@ -795,7 +792,6 @@
   rpclib
   (uuid
    (= :version))
-  xapi-backtrace
   (xapi-log
    (= :version))
   (xapi-stdext-pervasives
@@ -842,7 +838,7 @@
    (>= 4.08))
   logs
   (odoc :with-doc)
-  xapi-backtrace))
+  ))
 
 (package
  (name xapi-stdext-std)
@@ -902,7 +898,6 @@
     (>= 0.21.2)
     :with-test))
   (odoc :with-doc)
-  xapi-backtrace
   unix-errno
   (xapi-stdext-pervasives
    (= :version))

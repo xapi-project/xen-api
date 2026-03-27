@@ -34,7 +34,7 @@
     tar
     threads.posix
     unix
-    xapi-backtrace
+    xapi-log.backtrace
     xapi-consts
     xapi_version
     xapi_database

@@ -5,6 +5,7 @@
   bench_throttle2
   bench_cached_reads
   bench_vdi_allowed_operations
+  bench_backtrace
   bench_pool_field)
  (libraries
   dune-build-info
@@ -26,7 +27,9 @@
   tests_common
   log
   unix
+  xapi-log.backtrace
   xapi_database
   xapi_datamodel
   xapi_internal
+  xapi-stdext-pervasives
   xapi-stdext-threads))

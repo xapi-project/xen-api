@@ -3,7 +3,6 @@
   (public_name safe-resources)
   (libraries
     logs
-    xapi-backtrace
     fmt
     threads.posix
     unix

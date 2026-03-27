@@ -1,7 +1,5 @@
 (library
   (name xapi_stdext_pervasives)
   (public_name xapi-stdext-pervasives)
-  (libraries
-    logs
-    xapi-backtrace)
+  (libraries logs)
 )

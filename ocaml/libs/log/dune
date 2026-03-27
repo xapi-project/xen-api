@@ -5,6 +5,7 @@
    (language c)
    (names syslog_stubs))
  (libraries
+   ambient-context.thread_local
    astring
    fmt
    mtime
@@ -12,8 +13,8 @@
    ptime
    ptime.clock
    threads.posix
-   xapi-backtrace
    unix
+   xapi-log.backtrace
  )
  (wrapped false)
 )

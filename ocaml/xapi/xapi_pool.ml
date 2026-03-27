@@ -1963,6 +1963,7 @@ let eject_self ~__context ~host =
       (Db.Pool.get_current_operations ~__context ~self:pool)
   then
     raise Api_errors.(Server_error (not_supported_during_upgrade, [])) ;
+  let last_update_hash = Db.Host.get_last_update_hash ~__context ~self:host in
   if Pool_role.is_master () then
     raise Cannot_eject_master
   else (* Fail the operation if any VMs are running here (except dom0) *)
@@ -2093,6 +2094,8 @@ let eject_self ~__context ~host =
         pif.API.pIF_ipv6_configuration_mode
       |> String.uncapitalize_ascii
     in
+    Localdb.put "last_update_hash" last_update_hash ;
+    debug "Saved last_update_hash %S to localdb." last_update_hash ;
     let write_first_boot_management_interface_configuration_file () =
       (* During firstboot, now inventory has an empty MANAGEMENT_INTERFACE *)
       let bridge = "" in
@@ -3628,11 +3631,12 @@ let perform ~local_fn ~__context ~host ~remote_fn =
     in
     let task_id = Option.map Ref.string_of task_opt in
     let tracing = Context.set_client_span __context in
-    let http = xmlrpc ?task_id ~version:"1.0" "/" in
+    let dorpc, path = Helpers.choose_rpc () in
+    let http = xmlrpc ?task_id ~version:"1.0" path in
     let http = Helpers.TraceHelper.inject_span_into_req tracing http in
     let port = !Constants.https_port in
     let transport = SSL (SSL.make ~verify_cert ?task_id (), hostname, port) in
-    XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
+    dorpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
   in
   let open Message_forwarding in
   do_op_on_common ~local_fn ~__context ~host ~remote_fn
@@ -3745,8 +3749,16 @@ let set_repositories ~__context ~self ~value =
     )
     value ;
   Db.Pool.set_repositories ~__context ~self ~value ;
-  if Db.Pool.get_repositories ~__context ~self = [] then
+  if Db.Pool.get_repositories ~__context ~self = [] then (
     Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch ;
+    (* The host.latest_synced_updates_applied can't be refreshed by
+       pool.sync_updates. So reset it here. *)
+    Db.Host.get_all ~__context
+    |> List.iter (fun h ->
+        Db.Host.set_latest_synced_updates_applied ~__context ~self:h
+          ~value:`unknown
+    )
+  ) ;
   disable_unsupported_periodic_sync_updates ~__context ~self ~repos:value
 
 let add_repository ~__context ~self ~value =

@@ -15,7 +15,6 @@ depends: [
   "ppx_deriving_rpc"
   "rpclib"
   "uuid" {= version}
-  "xapi-backtrace"
   "xapi-log" {= version}
   "xapi-stdext-pervasives" {= version}
   "xapi-stdext-unix" {= version}

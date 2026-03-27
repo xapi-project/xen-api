@@ -23,7 +23,7 @@ let finally fct clean_f =
   let result =
     try fct ()
     with exn ->
-      Backtrace.is_important exn ;
+      let bt = Printexc.get_raw_backtrace () in
       ( try
           (* We catch and log exceptions raised by clean_f to avoid shadowing
              the original exception raised by fct *)
@@ -36,7 +36,7 @@ let finally fct clean_f =
                 (Printexc.to_string cleanup_exn)
           )
       ) ;
-      raise exn
+      Printexc.raise_with_backtrace exn bt
   in
   clean_f () ; result
 

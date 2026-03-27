@@ -132,7 +132,7 @@
 * Namespace everything under Stdext. This is a backwards incompatible change.
 
 ## 0.13.0 (20-Nov-2014):
-* Depend on Backtrace from xapi-backtrace
+* Depend on Backtrace from backtrace
 * Add an opam file
 
 ## 0.12.0 (26-Sep-2014):

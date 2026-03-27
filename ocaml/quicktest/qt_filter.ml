@@ -17,11 +17,12 @@ let vdi_count = Hashtbl.create 4
 let count_vdis rpc session_id sr =
   Client.Client.SR.scan ~rpc ~session_id ~sr ;
   let managed_vdis =
-    Client.Client.SR.get_VDIs ~rpc ~session_id ~self:sr
+    let expr =
+      Printf.sprintf {|field "SR"="%s" and field "managed" = "true"|}
+        (Ref.string_of sr)
+    in
+    Client.Client.VDI.get_all_records_where ~rpc ~session_id ~expr
     (* NB vhd backends may delete records beneath us *)
-    |> Valid_ref_list.filter (fun vdi ->
-        Client.Client.VDI.get_managed ~rpc ~session_id ~self:vdi
-    )
   in
   List.length managed_vdis
 
@@ -47,7 +48,14 @@ let init () =
   Client.Client.SR.get_all_records ~rpc:!A.rpc ~session_id:!session_id
   |> List.iter (fun (ref, sr) ->
       if test_sr_uuid = "" || sr.API.sR_uuid = test_sr_uuid then
-        if List.mem `scan sr.API.sR_allowed_operations then
+        if
+          List.(
+            mem `scan sr.API.sR_allowed_operations
+            && (mem `vdi_create sr.API.sR_allowed_operations
+               || mem `vdi_destroy sr.API.sR_allowed_operations
+               )
+          )
+        then
           let before = count_vdis !A.rpc !session_id ref in
           Hashtbl.add vdi_count sr.API.sR_uuid before
   )
@@ -61,7 +69,14 @@ let finish () =
       match Hashtbl.find_opt vdi_count sr.API.sR_uuid with
       | Some before ->
           if test_sr_uuid = "" || sr.API.sR_uuid = test_sr_uuid then
-            if List.mem `scan sr.API.sR_allowed_operations then
+            if
+              List.(
+                mem `scan sr.API.sR_allowed_operations
+                && (mem `vdi_create sr.API.sR_allowed_operations
+                   || mem `vdi_destroy sr.API.sR_allowed_operations
+                   )
+              )
+            then
               let after = count_vdis !A.rpc !session_id ref in
               if after <> before then
                 failwith
@@ -104,15 +119,15 @@ module SR = struct
       (* Even though the SM backend may expose a VDI_CREATE capability attempts
          to actually create a VDI will fail in (eg) the tools SR and any that
          happen to be R/O NFS exports *)
+      let is_iso_sr =
+        Client.Client.SR.get_content_type ~rpc ~session_id ~self:sr = "iso"
+      in
       let avoid_vdi_create session_id sr =
         let other_config =
           Client.Client.SR.get_other_config ~rpc ~session_id ~self:sr
         in
         let is_tools_sr =
           Client.Client.SR.get_is_tools_sr ~rpc ~session_id ~self:sr
-        in
-        let is_iso_sr =
-          Client.Client.SR.get_content_type ~rpc ~session_id ~self:sr = "iso"
         in
         let special_key = "quicktest-no-VDI_CREATE" in
         let is_marked =
@@ -155,13 +170,13 @@ module SR = struct
         else
           ops
       in
-      (ops, caps, sm.API.sM_required_api_version)
+      (ops, caps, sm.API.sM_required_api_version, is_iso_sr)
     in
-    let allowed_operations, capabilities, required_sm_api_version =
+    let allowed_operations, capabilities, required_sm_api_version, is_iso =
       get_sr_features session_id sr
     in
     let open Qt in
-    {sr; allowed_operations; capabilities; required_sm_api_version}
+    {sr; allowed_operations; capabilities; required_sm_api_version; is_iso}
 
   let list_srs_connected_to_localhost rpc session_id =
     let is_attached =
@@ -234,11 +249,27 @@ module SR = struct
 
   let sr_filter f srs () = List.filter f (srs ())
 
+  let iso_srs () =
+    with_xapi_query @@ fun () ->
+    Lazy.force all_srs
+    |> List.filter (fun sr_info ->
+        Client.Client.SR.get_content_type ~rpc:!A.rpc ~session_id:!session_id
+          ~self:sr_info.Qt.sr
+        = "iso"
+    )
+
   let not_iso =
     sr_filter (fun sr_info ->
         Client.Client.SR.get_content_type ~rpc:!A.rpc ~session_id:!session_id
           ~self:sr_info.Qt.sr
         <> "iso"
+    )
+
+  let is_iso =
+    sr_filter (fun sr_info ->
+        Client.Client.SR.get_content_type ~rpc:!A.rpc ~session_id:!session_id
+          ~self:sr_info.Qt.sr
+        = "iso"
     )
 
   let is_empty = function [] -> true | _ :: _ -> false
@@ -248,10 +279,11 @@ module SR = struct
         List.mem `vdi_create sr_info.Qt.allowed_operations
         && List.mem `vdi_destroy sr_info.Qt.allowed_operations
         || not
-             (is_empty
+             (Seq.is_empty
                 (Client.Client.SR.get_VDIs ~rpc:!A.rpc ~session_id:!session_id
                    ~self:sr_info.Qt.sr
-                |> List.filter (fun vdi ->
+                |> List.to_seq
+                |> Seq.filter (fun vdi ->
                     not
                       (Client.Client.VDI.get_missing ~rpc:!A.rpc
                          ~session_id:!session_id ~self:vdi
@@ -330,9 +362,9 @@ module SR = struct
   let list_srs srs = with_xapi_query srs
 
   let f srs tcs =
-    for_each
-      (fun test_case -> List.map (specialise test_case) (list_srs srs))
-      tcs
+    let srs = list_srs srs in
+    if srs = [] then Printf.eprintf "No SRs found that match condition\n" ;
+    for_each (fun test_case -> List.map (specialise test_case) srs) tcs
 end
 
 let sr = SR.f
@@ -342,7 +374,38 @@ let vm_template template_name =
       with_xapi_query @@ fun () ->
       match Qt.VM.Template.find !A.rpc !session_id template_name with
       | None ->
+          Printf.eprintf "Template not found: %S\n" template_name ;
           []
       | Some vm_template ->
           [(name, speed, test vm_template)]
   )
+
+let find_memtest_iso ~prefix srs =
+  with_xapi_query @@ fun () ->
+  let isos =
+    srs
+    |> List.concat_map @@ fun iso_info ->
+       let expr =
+         Printf.sprintf {|field "SR" = "%s"|} (Ref.string_of iso_info.Qt.sr)
+       in
+       Client.Client.VDI.get_all_records_where ~rpc:!A.rpc
+         ~session_id:!session_id ~expr
+       |> List.filter (fun (_, iso) ->
+           String.starts_with ~prefix iso.API.vDI_name_label
+       )
+  in
+  isos
+  |> List.sort (fun (_, a) (_, b) ->
+      -String.compare a.API.vDI_name_label b.API.vDI_name_label
+  )
+
+let memtest_iso ?(prefix = "memtest") tcs =
+  let isos = find_memtest_iso ~prefix (SR.iso_srs ()) in
+  tcs
+  |> for_each @@ fun (name, speed, test) ->
+     match isos with
+     | [] ->
+         []
+     | (_, iso) :: _ ->
+         Printf.eprintf "Choosing ISO %S\n%!" iso.API.vDI_name_label ;
+         [(name, speed, test iso)]

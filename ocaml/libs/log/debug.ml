@@ -82,6 +82,14 @@ let gettimestring () =
     allocate a new string only when necessary *)
 let escape = Astring.String.Ascii.escape
 
+let remote_context = Ambient_context_thread_local.Thread_local.create ()
+
+let set_remote_context = function
+  | None ->
+      Ambient_context_thread_local.Thread_local.remove remote_context
+  | Some context ->
+      Ambient_context_thread_local.Thread_local.set remote_context context
+
 let format include_time brand priority message =
   let id = get_thread_id () in
   let task, name =
@@ -97,13 +105,17 @@ let format include_time brand priority message =
     | Some {desc; client= Some client} ->
         (desc, Printf.sprintf "%s->%s" client name)
   in
-  Printf.sprintf "[%s%5s||%d %s|%s|%s] %s"
+  let remote_context =
+    Ambient_context_thread_local.Thread_local.get remote_context
+    |> Option.value ~default:""
+  in
+  Printf.sprintf "[%s%5s|%s|%d %s|%s|%s] %s"
     ( if include_time then
         gettimestring ()
       else
         ""
     )
-    priority id name task brand message
+    priority remote_context id name task brand message
 
 let print_debug = ref false
 
@@ -134,6 +146,10 @@ let is_disabled brand level =
 let facility = ref Syslog.Daemon
 
 let set_facility f = facility := f
+
+let set_backtrace_name this_host_name =
+  let name = Printf.sprintf "%s @ %s" Sys.argv.(0) this_host_name in
+  Backtrace.set_my_name name
 
 let get_facility () = !facility
 

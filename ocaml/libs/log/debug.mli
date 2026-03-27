@@ -29,10 +29,16 @@ val with_thread_associated :
 val with_thread_named : string -> ('a -> 'b) -> 'a -> 'b
 (** Do an action with a name associated with the current thread *)
 
+val set_remote_context : string option -> unit
+(** [set_remote_context context] sets the remote context, will be logged as the 2nd field *)
+
 module type BRAND = sig val name : string end
 
 val set_facility : Syslog.facility -> unit
 (** Set the syslog facility that will be used by this program. *)
+
+val set_backtrace_name : string -> unit
+(** Set the hostname for backtraces *)
 
 val disable : ?level:Syslog.level -> string -> unit
 (** [disable brand] Suppress all log output from the given [brand]. Specifying a

@@ -14,7 +14,7 @@ depends: [
   "fmt"
   "logs"
   "mtime"
-  "xapi-backtrace"
+  "rpclib"
   "xapi-stdext-pervasives" {= version}
   "odoc" {with-doc}
 ]

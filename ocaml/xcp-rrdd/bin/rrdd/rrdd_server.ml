@@ -696,6 +696,7 @@ module Plugin = struct
           incr_skip_count uid plugin ;
           (* increase skip count *)
           let log e =
+            Backtrace.is_important e ;
             info "Failed to process plugin metrics file: %s (%s)"
               (P.string_of_uid ~uid) (Printexc.to_string e) ;
             log_backtrace e

@@ -319,6 +319,12 @@ let gen_module api : O.Module.t =
     ; "    | Rpc.Enum ((Rpc.String code) :: args) -> return (server_failure \
        code (List.map Rpc.string_of_rpc args))"
     ; "    | rpc -> failwith (\"Client.rpc: \" ^ Rpc.to_string rpc)"
+    ; "type client = {rpc: Rpc.call -> Rpc.response; session_id:  ref_session}"
+    ; "type 'a api = rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session \
+       -> 'a"
+    ; ""
+    ; "let call {rpc; session_id} f = f ~rpc ~session_id"
+    ; ""
     ]
   in
   let postamble =

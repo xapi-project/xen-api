@@ -245,6 +245,7 @@ let on_dom0_networking_change ~__context =
   let localhost = Helpers.get_localhost ~__context in
   if Db.Host.get_hostname ~__context ~self:localhost <> new_hostname then (
     debug "Changing Host.hostname in database to: %s" new_hostname ;
+    Debug.set_backtrace_name new_hostname ;
     Db.Host.set_hostname ~__context ~self:localhost ~value:new_hostname
   ) ;
   if
