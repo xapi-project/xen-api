@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Tls
+open Tls_policy
 
 (* ---- GnuTLS tests ------------------------------------------------------- *)
 
@@ -162,5 +162,6 @@ let openssl_tests =
   ; ("string_of_policy_raises", `Quick, test_openssl_string_of_policy_raises)
   ]
 
-let () =
-  Alcotest.run "Tls" [("Gnutls", gnutls_tests); ("Openssl", openssl_tests)]
+let tests = [("Gnutls", gnutls_tests); ("Openssl", openssl_tests)]
+
+let () = Alcotest.run "Tls_policy" tests
