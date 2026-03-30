@@ -2444,6 +2444,36 @@ let get_secureboot_readiness =
     ~doc:"Return the secureboot readiness of the VM"
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let vm_secureboot_certificates_state =
+  Enum
+    ( "vm_secureboot_certificates_state"
+    , [
+        ("ok", "Secure Boot certificate update is not required")
+      ; (
+          "update_available"
+        , "Secure Boot certificates should be updated"
+        )
+      ; (
+          "update_on_boot"
+        , "Secure Boot certificates will be updated at next VM boot"
+        )
+      ]
+    )
+
+let update_secureboot_certificates_on_boot =
+  call ~name:"update_secureboot_certificates_on_boot" ~lifecycle:[]
+    ~params:
+      [
+        (Ref _vm, "self", "The VM")
+      ; (
+          Bool
+        , "mark"
+        , "If true: mark certificates for update on next boot. If false: remove the mark"
+        )
+      ]
+    ~doc:"Mark or unmark secure boot certificate update on VM boot"
+    ~allowed_roles:_R_VM_ADMIN ()
+
 (** VM (or 'guest') configuration: *)
 let t =
   create_obj ~in_db:true ~in_oss_since:oss_since_303 ~persist:PersistEverything
@@ -2582,6 +2612,7 @@ let t =
       ; restart_device_models
       ; set_uefi_mode
       ; get_secureboot_readiness
+      ; update_secureboot_certificates_on_boot
       ; set_blocked_operations
       ; add_to_blocked_operations
       ; remove_from_blocked_operations
@@ -3152,6 +3183,10 @@ let t =
             "NVRAM" ~default_value:(Some (VMap []))
             "initial value for guest NVRAM (containing UEFI variables, etc). \
              Cannot be changed while the VM is running"
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:vm_secureboot_certificates_state "secureboot_certificates_state"
+            ~default_value:(Some (VEnum "ok"))
+            "State of Secure Boot certificates for this VM"
         ; field ~qualifier:DynamicRO
             ~lifecycle:
               [

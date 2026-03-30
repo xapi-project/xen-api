@@ -687,6 +687,7 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~is_vmss_snapshot:false ~appliance ~start_delay ~shutdown_delay ~order
     ~suspend_SR ~version ~generation_id ~hardware_platform_version
     ~has_vendor_device ~requires_reboot:false ~reference_label ~domain_type
+    ~secureboot_certificates_state:`ok
     ~pending_guidances:[] ~recommended_guidances:[]
     ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref ;
@@ -1738,7 +1739,37 @@ let get_secureboot_readiness ~__context ~self =
                 `certs_incomplete
           )
       )
-    )
+  )
+
+let update_secureboot_certificates_on_boot ~__context ~self ~mark =
+  let current = Db.VM.get_secureboot_certificates_state ~__context ~self in
+  match (mark, current) with
+  | true, `update_available ->
+      Db.VM.set_secureboot_certificates_state ~__context ~self
+        ~value:`update_on_boot
+  | false, `update_on_boot ->
+      Db.VM.set_secureboot_certificates_state ~__context ~self
+        ~value:`update_available
+  | true, _ ->
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.operation_not_allowed
+           , [
+               "Cannot set update_on_boot: VM.secureboot_certificates_state is \
+                not update_available"
+             ]
+           )
+        )
+  | false, _ ->
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.operation_not_allowed
+           , [
+               "Cannot clear update_on_boot: VM.secureboot_certificates_state \
+                is not update_on_boot"
+             ]
+           )
+        )
 
 let sysprep ~__context ~self ~unattend ~timeout =
   let uuid = Db.VM.get_uuid ~__context ~self in

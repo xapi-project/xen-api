@@ -316,6 +316,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info
     ~version:0L ~generation_id:"" ~hardware_platform_version:0L
     ~has_vendor_device:false ~requires_reboot:false ~reference_label:""
     ~domain_type:Xapi_globs.domain_zero_domain_type ~nVRAM:[]
+    ~secureboot_certificates_state:`ok
     ~pending_guidances:[] ~recommended_guidances:[]
     ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
   ensure_domain_zero_metrics_record ~__context ~domain_zero_ref host_info ;
