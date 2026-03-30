@@ -90,9 +90,20 @@ namespace XenAPI
         [Serializable]
         public class BadServerResponseException : Exception
         {
+            public int StatusCode { get; }
+            public string InitialLine { get; }
+            public string Body { get; }
+
             public BadServerResponseException() { }
 
             public BadServerResponseException(string message) : base(message) { }
+
+            public BadServerResponseException(string message, int statusCode, string initialLine, string body) : base(message)
+            {
+                StatusCode = statusCode;
+                InitialLine = initialLine;
+                Body = body;
+            }
 
             public BadServerResponseException(string message, Exception exception) : base(message, exception) { }
 
@@ -195,11 +206,16 @@ namespace XenAPI
         private static bool ReadHttpHeaders(ref Stream stream, IWebProxy proxy, bool nodelay, int timeout_ms, List<string> headers = null)
         {
             // read headers/fields
-            string line = ReadLine(stream), initialLine = line, transferEncodingField = null;
+            string line = ReadLine(stream);
+            string initialLine = line;
+            string transferEncodingField = null;
+
             if (string.IsNullOrEmpty(initialLine)) // sanity check
                 return false;
+
             if (headers == null)
                 headers = new List<string>();
+
             while (!string.IsNullOrWhiteSpace(line)) // IsNullOrWhiteSpace also checks for empty string
             {
                 line = line.TrimEnd('\r', '\n');
@@ -211,6 +227,7 @@ namespace XenAPI
 
             // read chunks
             string entityBody = "";
+
             if (!string.IsNullOrEmpty(transferEncodingField))
             {
                 int lastChunkSize = -1;
@@ -246,13 +263,9 @@ namespace XenAPI
                 entityBody = entityBody.TrimEnd('\r', '\n');
                 headers.Add(entityBody); // keep entityBody if it's needed for Digest authentication (when qop="auth-int")
             }
-            else
-            {
-                // todo: handle other transfer types, in case "Transfer-Encoding: Chunked" isn't used
-            }
 
             // handle server response
-            int code = getResultCode(initialLine);
+            int code = GetResultCode(initialLine);
             switch (code)
             {
                 case 407: // authentication error; caller must handle this case
@@ -268,17 +281,32 @@ namespace XenAPI
                     return true; // headers need to be sent again
 
                 default:
+                    var contentLengthHeader = headers
+                        .FirstOrDefault(h => h.StartsWith("Content-Length:", StringComparison.InvariantCultureIgnoreCase));
+
+                    if (contentLengthHeader != null && int.TryParse(contentLengthHeader.Substring(15).Trim(), out var len))
+                    {
+                        byte[] bytes = new byte[len];
+                        int total = 0;
+                        int read;
+
+                        while (total < len && (read = stream.Read(bytes, total, len - total)) > 0)
+                            total += read;
+
+                        entityBody = Encoding.ASCII.GetString(bytes);
+                    }
+
                     stream.Close();
-                    throw new BadServerResponseException(string.Format("Received error code {0} from the server", initialLine));
+                    throw new BadServerResponseException(string.Format("Received error code {0} from the server", initialLine), code, initialLine, entityBody);
             }
 
             return false;
         }
 
-        private static int getResultCode(string line)
+        private static int GetResultCode(string line)
         {
             string[] bits = line.Split(' ');
-            return (bits.Length < 2 ? 0 : Int32.Parse(bits[1]));
+            return bits.Length < 2 ? 0 : Int32.Parse(bits[1]);
         }
 
         public static bool UseSSL(Uri uri)
@@ -651,7 +679,7 @@ namespace XenAPI
             if (authenticatedResponse.Count == 0)
                 throw new BadServerResponseException("No response from the proxy server after authentication attempt.");
 
-            switch (getResultCode(authenticatedResponse[0]))
+            switch (GetResultCode(authenticatedResponse[0]))
             {
                 case 200:
                     break;
