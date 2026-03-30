@@ -1,0 +1,5 @@
+(test
+  (name test_tls_policy)
+  (package xapi-consts)
+  (libraries alcotest xapi-consts)
+)
