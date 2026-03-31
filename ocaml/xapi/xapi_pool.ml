@@ -1611,6 +1611,12 @@ let crl_list ~__context = Certificates.(local_list CRL)
 
 let certificate_sync = Certificates.pool_sync
 
+let ignore_error ~msg ~warn f =
+  try f ()
+  with e ->
+    debug "%s: %s" msg (Printexc.to_string e) ;
+    D.warn "%s" warn
+
 let join_common ~__context ~master_address ~master_username ~master_password
     ~force =
   assert_pooling_licensed ~__context ;
@@ -1808,23 +1814,46 @@ let join_common ~__context ~master_address ~master_username ~master_password
           error "Unable to configure SSH service on local host: %s"
             (ExnHelper.string_of_exn e)
       ) ;
+      (* Sync ldaps status before update_non_vm_metadata so that the corrected
+         value gets pushed to the coordinator as part of that sync, preventing
+         it from being overwritten when the host restarts as a slave. *)
+      ignore_error ~msg:"Failed to sync ldaps status with pool coordinator"
+        ~warn:
+          "Error whilst syncing ldaps status with pool coordinator. The \
+           pool-join operation will continue as only pool coordinator is used \
+           for ldap query. Use pool-external-auth-set-ldaps --force to fixup"
+      @@ fun () ->
+      let coordinator_ldaps =
+        Client.Host.get_external_auth_configuration ~rpc ~session_id
+          ~self:remote_coordinator
+        |> fun config -> Helpers.ldaps_enabled_in_config ~config
+      in
+      let local_ldaps =
+        Db.Host.get_external_auth_configuration ~__context ~self:me
+        |> fun config -> Helpers.ldaps_enabled_in_config ~config
+      in
+      ( match coordinator_ldaps = local_ldaps with
+      | true ->
+          ()
+      | false ->
+          Xapi_host.external_auth_set_ldaps ~__context ~host:me
+            ~ldaps:coordinator_ldaps ~force:true
+      ) ;
       (* this is where we try and sync up as much state as we can
          with the master. This is "best effort" rather than
          critical; if we fail part way through this then we carry
          on with the join *)
-      try
-        update_non_vm_metadata ~__context ~rpc ~session_id ;
-        ignore
-          (Importexport.remote_metadata_export_import ~__context ~rpc
-             ~session_id ~remote_address:master_address ~restore:true `All
-          )
-      with e ->
-        debug "Error whilst importing db objects into master; aborted: %s"
-          (Printexc.to_string e) ;
-        warn
+      ignore_error ~msg:"Error whilst importing db objects into master; aborted"
+        ~warn:
           "Error whilst importing db objects to master. The pool-join \
            operation will continue, but some of the slave's VMs may not be \
            available on the master."
+      @@ fun () ->
+      update_non_vm_metadata ~__context ~rpc ~session_id ;
+      ignore
+        (Importexport.remote_metadata_export_import ~__context ~rpc ~session_id
+           ~remote_address:master_address ~restore:true `All
+        )
     )
     (fun () -> Client.Session.logout ~rpc ~session_id) ;
 
