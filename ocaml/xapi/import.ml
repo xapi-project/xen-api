@@ -620,6 +620,14 @@ module VM : HandlerTools = struct
         else
           {vm_record with API.vM_has_vendor_device= false}
       in
+      (* If imported from an older pool without secureboot_certificates_state,
+         default to ok. The DB upgrade rule will correct it post-import. *)
+      let vm_record =
+        if vm_has_field ~x ~name:"secureboot_certificates_state" then
+          vm_record
+        else
+          {vm_record with API.vM_secureboot_certificates_state= `ok}
+      in
       let vm_record =
         {
           vm_record with
@@ -776,6 +784,23 @@ module VM : HandlerTools = struct
       ) ;
       Db.VM.set_bios_strings ~__context ~self:vm
         ~value:vm_record.API.vM_bios_strings ;
+      (* If imported from an older pool, check and set certificate state.
+         Skip default templates as per design. *)
+      ( if
+          (not (vm_has_field ~x ~name:"secureboot_certificates_state"))
+          && not vm_record.API.vM_is_default_template
+        then
+          try
+            let state =
+              Xapi_vm_helpers.check_secureboot_certificates_state ~__context
+                ~self:vm
+            in
+            Db.VM.set_secureboot_certificates_state ~__context ~self:vm
+              ~value:state
+          with e ->
+            debug "Failed to check secureboot certificate state for VM %s: %s"
+              (Ref.string_of vm) (Printexc.to_string e)
+      ) ;
       debug "Created VM: %s (was %s)" (Ref.string_of vm) x.id ;
       (* Although someone could sneak in here and attempt to power on the VM, it
          				 doesn't really matter since no VBDs have been created yet.
