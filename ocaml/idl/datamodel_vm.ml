@@ -2508,6 +2508,26 @@ let set_uefi_mode =
     ~result:(String, "Result from the varstore-sb-state call")
     ~doc:"Set the UEFI mode of a VM" ~allowed_roles:_R_POOL_ADMIN ()
 
+let vm_secureboot_certificates_state =
+  Enum
+    ( "vm_secureboot_certificates_state"
+    , [
+        ( "ok"
+        , "The VM's certificates do not need to be updated (including the case \
+           where Secure Boot does not apply to this VM, e.g. BIOS VM)."
+        )
+      ; ( "update_available"
+        , "The Secure Boot certificates are due to expire or have already \
+           expired."
+        )
+      ; ( "update_on_boot"
+        , "XS will trigger an update of the certificates whenever the VM \
+           boots. This includes VM.start, VM.reboot and a guest-triggered \
+           reboot."
+        )
+      ]
+    )
+
 let vm_secureboot_readiness =
   Enum
     ( "vm_secureboot_readiness"
@@ -3293,6 +3313,11 @@ let t =
              'average user' doesn't need to"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _vm_group))
             "groups" "VM groups associated with the VM"
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:vm_secureboot_certificates_state
+            ~default_value:(Some (VEnum "ok")) "secureboot_certificates_state"
+            "The state of the Secure Boot certificates, showing whether an \
+             update is required, already scheduled, or not needed."
         ]
       )
     ()

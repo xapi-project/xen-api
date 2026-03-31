@@ -80,6 +80,11 @@ module RPC_API (R : RPC) = struct
       ["Set the current VM's NVRAM contents"]
       (string_p @-> string_p @-> string_p @-> returning unit_p err)
 
+  let get_secureboot_certificates_state =
+    declare "VM.get_secureboot_certificates_state"
+      ["Get the current VM's Secure Boot certificates state"]
+      (string_p @-> string_p @-> returning string_p err)
+
   let message_create =
     declare "message.create"
       ["Send an alert when booting a UEFI guest fails"]

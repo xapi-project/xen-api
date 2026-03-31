@@ -1705,3 +1705,37 @@ let ensure_device_model_profile_present ~__context ~domain_type ~is_a_template
   else
     (* only add device-model to an HVM VM platform if it is not already there *)
     default :: platform
+
+let check_secureboot_certificates_state ~__context ~self =
+  let vm_uuid = Db.VM.get_uuid ~__context ~self in
+  let nvram = Db.VM.get_NVRAM ~__context ~self in
+  match List.assoc_opt "EFI-variables" nvram with
+  | None ->
+      D.info "VM %s has no EFI-variables in NVRAM, defaulting to ok" vm_uuid ;
+      `ok
+  | Some efi_vars -> (
+      let tmp_path = Filename.temp_file ("nvram-" ^ vm_uuid ^ "-") ".dat" in
+      let result =
+        finally
+          (fun () ->
+            Xapi_stdext_unix.Unixext.write_string_to_file tmp_path efi_vars ;
+            let output, _ =
+              Forkhelpers.execute_command_get_output
+                !Xapi_globs.varstore_nvram_certcheck
+                [tmp_path]
+            in
+            String.trim output
+          )
+          (fun () -> Xapi_stdext_unix.Unixext.unlink_safe tmp_path)
+      in
+      match result with
+      | "update_required" ->
+          `update_available
+      | "update_ok" ->
+          `ok
+      | other ->
+          D.warn
+            "varstore-nvram-certcheck returned unexpected output for VM %s: %s"
+            vm_uuid other ;
+          `ok
+    )

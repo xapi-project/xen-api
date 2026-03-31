@@ -57,6 +57,10 @@ let xapi_rpc call =
       expect_vm vm_rpc ;
       nvram_contents := [("EFI-variables", API.string_of_rpc contents)] ;
       ret_ok ""
+  | "VM.get_secureboot_certificates_state", [session_id_rpc; vm_rpc] ->
+      expect_session_id session_id_rpc ;
+      expect_vm vm_rpc ;
+      ret_ok "ok"
   | _ ->
       Fmt.failwith "XAPI RPC call %s not expected in test" call.Rpc.name
 

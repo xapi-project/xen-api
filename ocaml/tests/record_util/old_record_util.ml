@@ -186,6 +186,14 @@ let pool_guest_secureboot_readiness_to_string = function
   | `not_ready ->
       "not_ready"
 
+let vm_secureboot_certificates_state_to_string = function
+  | `ok ->
+      "ok"
+  | `update_available ->
+      "update_available"
+  | `update_on_boot ->
+      "update_on_boot"
+
 let pool_operation_to_string = function
   | `ha_enable ->
       "ha_enable"
