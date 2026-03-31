@@ -132,6 +132,10 @@ let tests =
       ( O.pool_guest_secureboot_readiness_to_string
       , N.pool_guest_secureboot_readiness_to_string
       )
+  ; mk __LINE__ None all_vm_secureboot_certificates_state
+      ( O.vm_secureboot_certificates_state_to_string
+      , N.vm_secureboot_certificates_state_to_string
+      )
   ; mk __LINE__ None all_pool_allowed_operations
       (O.pool_operation_to_string, N.pool_allowed_operations_to_string)
   ; mk __LINE__ None all_host_allowed_operations

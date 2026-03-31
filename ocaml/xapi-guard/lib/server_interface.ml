@@ -192,6 +192,24 @@ let make_server_varstored _persist ~cache path vm_uuid =
     )
     |> ret
   in
+  let get_secureboot_certificates_state _ _ =
+    (let* self = get_vm_ref () in
+     let* state =
+       with_xapi ~cache @@ VM.get_secureboot_certificates_state ~self
+     in
+     let state_str =
+       match state with
+       | `ok ->
+           "ok"
+       | `update_available ->
+           "update_available"
+       | `update_on_boot ->
+           "update_on_boot"
+     in
+     Lwt.return state_str
+    )
+    |> ret
+  in
   let message_create _ _name priority _cls _uuid body =
     ret
       (let* (_ : _ Ref.t) =
@@ -207,6 +225,7 @@ let make_server_varstored _persist ~cache path vm_uuid =
   let dummy_logout _ = ret @@ Lwt.return_unit in
   Server.get_NVRAM get_nvram ;
   Server.set_NVRAM set_nvram ;
+  Server.get_secureboot_certificates_state get_secureboot_certificates_state ;
   Server.message_create message_create ;
   Server.session_login dummy_login ;
   Server.session_logout dummy_logout ;
