@@ -914,6 +914,8 @@ let varstore_ls = ref "/usr/bin/varstore-ls"
 
 let varstore_dir = ref "/var/lib/varstored"
 
+let varstore_nvram_certcheck = ref "/usr/bin/varstore-nvram-certcheck"
+
 let default_auth_dir = ref "/usr/share/varstored"
 
 let allow_custom_uefi_certs = ref false
@@ -2119,6 +2121,10 @@ module Resources = struct
       )
     ; ("varstore-ls", varstore_ls, "Executed to list the UEFI variables of a VM")
     ; ("varstore_dir", varstore_dir, "Path to local varstored directory")
+    ; ( "varstore-nvram-certcheck"
+      , varstore_nvram_certcheck
+      , "Executed to check VM NVRAM Secure Boot certificate status"
+      )
     ; ( "nvidia-sriov-manage"
       , nvidia_sriov_manage_script
       , "Path to NVIDIA sriov-manage script"
