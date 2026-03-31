@@ -320,8 +320,9 @@ let methodResponse xml =
 (****************************************************************************************)
 (* Functions that actually execute the python backends *)
 
-let with_session sr f =
-  Server_helpers.exec_with_new_task "sm_exec" (fun __context ->
+let with_session ~traceparent sr f =
+  Server_helpers.exec_with_new_task "sm_exec"
+    ~origin:(Internal_Traced traceparent) (fun __context ->
       let create_session () =
         let host = !Xapi_globs.localhost_ref in
         let session =
@@ -466,8 +467,8 @@ let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
           )
   in
   if needs_session then
-    with_session call.sr_ref (fun session_id ->
-        do_call {call with session_ref= Some session_id}
+    with_session ~traceparent:(Debug_info.span_of di) call.sr_ref
+      (fun session_id -> do_call {call with session_ref= Some session_id}
     )
   else
     do_call call
