@@ -1820,8 +1820,9 @@ let join_common ~__context ~master_address ~master_username ~master_password
       ignore_error ~msg:"Failed to sync ldaps status with pool coordinator"
         ~warn:
           "Error whilst syncing ldaps status with pool coordinator. The \
-           pool-join operation will continue as only pool coordinator is used \
-           for ldap query. Use pool-external-auth-set-ldaps --force to fixup"
+           pool-join operation will continue as only the pool coordinator is \
+           used for ldap query. Use pool-external-auth-set-ldaps --force to \
+           fix up"
       @@ fun () ->
       let coordinator_ldaps =
         Client.Host.get_external_auth_configuration ~rpc ~session_id

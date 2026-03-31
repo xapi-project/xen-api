@@ -736,7 +736,12 @@ let _ =
   error Api_errors.auth_is_disabled []
     ~doc:"External authentication is disabled" () ;
   error Api_errors.auth_invalid_certs ["message"]
-    ~doc:"The certificates are invalid to setup TLS connection to Windows AD."
+    ~doc:
+      "The certificates are invalid to setup a TLS connection to Active \
+       Directory."
+    () ;
+  error Api_errors.auth_no_certs ["message"]
+    ~doc:"No certificates found to setup a TLS connection to Active Directory"
     () ;
   error Api_errors.auth_enable_failed ["message"]
     ~doc:"The host failed to enable external authentication." () ;
