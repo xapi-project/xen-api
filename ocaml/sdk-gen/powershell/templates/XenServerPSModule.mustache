@@ -67,7 +67,11 @@ FileList = @('about_XenServer.help.txt',
 
 #Public interface
 FunctionsToExport = ''
-CmdletsToExport = '*'
+CmdletsToExport = @(
+{{#cmdlets_to_export}}
+    '{{cmdlet_to_export}}'{{^is_last}},{{/is_last}}
+{{/cmdlets_to_export}}
+)
 VariablesToExport = @('Citrix.XenServer.Sessions','XenServer_Default_Session')
 AliasesToExport = '*'
 
