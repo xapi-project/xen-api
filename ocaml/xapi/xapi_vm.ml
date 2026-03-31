@@ -688,7 +688,8 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~suspend_SR ~version ~generation_id ~hardware_platform_version
     ~has_vendor_device ~requires_reboot:false ~reference_label ~domain_type
     ~pending_guidances:[] ~recommended_guidances:[]
-    ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
+    ~pending_guidances_recommended:[] ~pending_guidances_full:[]
+    ~secureboot_certificates_state:`ok ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref ;
   update_memory_overhead ~__context ~vm:vm_ref ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:vm_ref ;
