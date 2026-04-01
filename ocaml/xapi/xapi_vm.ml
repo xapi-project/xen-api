@@ -1751,6 +1751,36 @@ let get_secureboot_readiness ~__context ~self =
       )
     )
 
+let update_secureboot_certificates_on_boot ~__context ~self ~mark =
+  let current = Db.VM.get_secureboot_certificates_state ~__context ~self in
+  match (mark, current) with
+  | true, `update_available ->
+      Db.VM.set_secureboot_certificates_state ~__context ~self
+        ~value:`update_on_boot
+  | false, `update_on_boot ->
+      Db.VM.set_secureboot_certificates_state ~__context ~self
+        ~value:`update_available
+  | true, _ ->
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.operation_not_allowed
+           , [
+               "Cannot set update_on_boot: VM.secureboot_certificates_state is \
+                not update_available"
+             ]
+           )
+        )
+  | false, _ ->
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.operation_not_allowed
+           , [
+               "Cannot clear update_on_boot: VM.secureboot_certificates_state \
+                is not update_on_boot"
+             ]
+           )
+        )
+
 let sysprep ~__context ~self ~unattend ~timeout =
   let uuid = Db.VM.get_uuid ~__context ~self in
   debug "%s %S (timeout %f)" __FUNCTION__ uuid timeout ;
