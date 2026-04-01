@@ -78,7 +78,7 @@ module RPC_API (R : RPC) = struct
   let set_NVRAM =
     declare "VM.set_NVRAM_EFI_variables"
       ["Set the current VM's NVRAM contents"]
-      (string_p @-> string_p @-> string_p @-> returning unit_p err)
+      (string_p @-> string_p @-> string_p @-> string_p @-> returning unit_p err)
 
   let message_create =
     declare "message.create"

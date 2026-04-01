@@ -186,9 +186,27 @@ let make_server_varstored _persist ~cache path vm_uuid =
     )
     |> ret
   in
-  let set_nvram _ _ nvram =
+  let set_nvram _ _ nvram update =
     (let* self = get_vm_ref () in
-     with_xapi ~cache @@ VM.set_NVRAM_EFI_variables ~self ~value:nvram
+     let update_raw = update in
+     let update =
+       match update_raw with
+       | "yes" ->
+           `yes
+       | "no" ->
+           `no
+       | _ ->
+           `unspecified
+     in
+     let msg = Printf.sprintf "varstored set_nvram: update arg='%s' mapped=%s\n" update_raw
+       (match update with `yes -> "yes" | `no -> "no" | `unspecified -> "unspecified") in
+     let oc = open_out_gen [Open_creat; Open_append; Open_wronly] 0o644 "/tmp/set_nvram_debug.log" in
+     output_string oc msg ;
+     close_out oc ;
+     debug "varstored set_nvram: update arg='%s' mapped=%s" update_raw
+       (match update with `yes -> "yes" | `no -> "no" | `unspecified -> "unspecified") ;
+     with_xapi ~cache
+     @@ VM.set_NVRAM_EFI_variables ~self ~value:nvram ~update
     )
     |> ret
   in

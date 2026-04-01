@@ -52,7 +52,7 @@ let xapi_rpc call =
           ; contents= API.rpc_of_string_to_string_map !nvram_contents
           ; is_notification= false
           }
-  | "VM.set_NVRAM_EFI_variables", [session_id_rpc; vm_rpc; contents] ->
+  | "VM.set_NVRAM_EFI_variables", [session_id_rpc; vm_rpc; contents; _update] ->
       expect_session_id session_id_rpc ;
       expect_vm vm_rpc ;
       nvram_contents := [("EFI-variables", API.string_of_rpc contents)] ;
@@ -108,7 +108,7 @@ let test_change_nvram ~rpc ~session_id () =
   let* nvram0 = VM.get_NVRAM ~rpc ~session_id ~self in
   Alcotest.(check' dict) ~msg:"nvram initial" ~expected:[] ~actual:nvram0 ;
   let contents = "nvramnew" in
-  let* () = VM.set_NVRAM_EFI_variables ~rpc ~session_id ~self ~value:contents in
+  let* () = VM.set_NVRAM_EFI_variables ~rpc ~session_id ~self ~value:contents ~update:`no in
   let* nvram1 = VM.get_NVRAM ~rpc ~session_id ~self in
   Alcotest.(check' dict)
     ~msg:"nvram changed"
@@ -132,7 +132,7 @@ let test_bad_get_nvram ~rpc ~session_id () =
 
 let test_bad_set_nvram ~rpc ~session_id () =
   let* () =
-    VM.set_NVRAM_EFI_variables ~rpc ~session_id ~self:vm_bad ~value:"bad"
+    VM.set_NVRAM_EFI_variables ~rpc ~session_id ~self:vm_bad ~value:"bad" ~update:`no
   in
   let* vm_ref = VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid_str in
   let* nvram = VM.get_NVRAM ~rpc ~session_id ~self:vm_ref in
