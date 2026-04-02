@@ -80,6 +80,11 @@ module RPC_API (R : RPC) = struct
       ["Set the current VM's NVRAM contents"]
       (string_p @-> string_p @-> string_p @-> returning unit_p err)
 
+  let set_NVRAM_v2 =
+    declare "VM.set_NVRAM_EFI_variables_v2"
+      ["Set the current VM's NVRAM contents, with update flag"]
+      (string_p @-> string_p @-> string_p @-> string_p @-> returning unit_p err)
+
   let get_secureboot_certificates_state =
     declare "VM.get_secureboot_certificates_state"
       ["Get the current VM's Secure Boot certificates state"]

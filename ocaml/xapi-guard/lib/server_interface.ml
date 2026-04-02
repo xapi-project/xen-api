@@ -188,7 +188,17 @@ let make_server_varstored _persist ~cache path vm_uuid =
   in
   let set_nvram _ _ nvram =
     (let* self = get_vm_ref () in
-     with_xapi ~cache @@ VM.set_NVRAM_EFI_variables ~self ~value:nvram
+     with_xapi ~cache
+     @@ VM.set_NVRAM_EFI_variables ~self ~value:nvram ~update:`unspecified
+    )
+    |> ret
+  in
+  let set_nvram_v2 _ _ nvram update =
+    (let* self = get_vm_ref () in
+     let update =
+       match update with "yes" -> `yes | "no" -> `no | _ -> `unspecified
+     in
+     with_xapi ~cache @@ VM.set_NVRAM_EFI_variables ~self ~value:nvram ~update
     )
     |> ret
   in
@@ -225,6 +235,7 @@ let make_server_varstored _persist ~cache path vm_uuid =
   let dummy_logout _ = ret @@ Lwt.return_unit in
   Server.get_NVRAM get_nvram ;
   Server.set_NVRAM set_nvram ;
+  Server.set_NVRAM_v2 set_nvram_v2 ;
   Server.get_secureboot_certificates_state get_secureboot_certificates_state ;
   Server.message_create message_create ;
   Server.session_login dummy_login ;
