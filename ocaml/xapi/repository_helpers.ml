@@ -1086,11 +1086,57 @@ let get_livepatches_in_updateinfo ~updates_info ~component ~base_build_id =
     )
     [] updates_info
 
-(* Get all applicable livepatches which are newer than 'since' *)
-let get_accumulative_livepatches ~since ~updates_info =
-  get_livepatches_in_updateinfo ~updates_info
-    ~component:since.Livepatch.component
-    ~base_build_id:since.Livepatch.base_build_id
+(* Return true if the live patch for a component running with [base_build_id]
+   is supported in the latest relevant update. *)
+let is_supported ~(updates_info : (UpdateInfo.id_t * UpdateInfo.t) list)
+    ~(component : Livepatch.component) ~(base_build_id : string) : bool =
+  let open LivePatch in
+  let open UpdateInfo in
+  let relevant_updates =
+    (* filter out most of the irrelevant update_info *)
+    updates_info
+    |> List.filter (fun (_, x) ->
+        List.exists (fun l -> l.component = component) x.livepatches
+    )
+  in
+  relevant_updates
+  |> List.concat_map (fun (_, x) ->
+      x.livepatches
+      |> List.filter_map (fun lp ->
+          if lp.component = component then
+            Some (lp.to_version, lp.to_release)
+          else
+            None
+      )
+  )
+  |> get_latest_version_release
+  |> function
+  | Some (latest_to_version, latest_to_release) ->
+      let matched lp =
+        lp.component = component
+        && lp.to_version = latest_to_version
+        && lp.to_release = latest_to_release
+        && lp.base_build_id = base_build_id
+      in
+      relevant_updates
+      |> List.exists (fun (_, x) -> List.exists matched x.livepatches)
+  | None ->
+      false
+
+(* Get all applicable livepatches which are newer than 'since' and
+   is applicable in the latest relevant livepatch update. *)
+let get_accumulative_livepatches ~(since : Livepatch.t)
+    ~(updates_info : (UpdateInfo.id_t * UpdateInfo.t) list) =
+  let component = since.Livepatch.component in
+  let base_build_id = since.Livepatch.base_build_id in
+  (fun f ->
+    if is_supported ~updates_info ~component ~base_build_id then
+      f ()
+    else
+      []
+  )
+  @@ fun () ->
+  get_livepatches_in_updateinfo ~updates_info ~component ~base_build_id
   |> List.filter (fun (lp, _) ->
       let open LivePatch in
       match since with
