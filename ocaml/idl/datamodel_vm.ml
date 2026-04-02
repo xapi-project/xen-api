@@ -2353,7 +2353,42 @@ let set_HVM_boot_policy =
 let set_NVRAM_EFI_variables =
   call ~flags:[`Session] ~name:"set_NVRAM_EFI_variables"
     ~lifecycle:[(Published, rel_naples, "")]
-    ~params:[(Ref _vm, "self", "The VM"); (String, "value", "The value")]
+    ~versioned_params:
+      [
+        {
+          param_type= Ref _vm
+        ; param_name= "self"
+        ; param_doc= "The VM"
+        ; param_release= naples_release
+        ; param_default= None
+        }
+      ; {
+          param_type= String
+        ; param_name= "value"
+        ; param_doc= "The EFI-variables value"
+        ; param_release= naples_release
+        ; param_default= None
+        }
+      ; {
+          param_type=
+            Enum
+              ( "update_status"
+              , [
+                  ("yes", "Certificates have been updated")
+                ; ("no", "Certificates have not been changed")
+                ; ("unspecified", "Caller did not provide the update argument")
+                ]
+              )
+        ; param_name= "update"
+        ; param_doc=
+            "If 'yes', set secureboot_certificates_state to ok. If 'no', keep \
+             the current secureboot_certificates_state unchanged. If omitted \
+             (defaults to 'unspecified'), run certificate check to determine \
+             the state."
+        ; param_release= numbered_release "26.7.0-next"
+        ; param_default= Some (VEnum "unspecified")
+        }
+      ]
     ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let restart_device_models =
