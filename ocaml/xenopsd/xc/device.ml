@@ -2788,7 +2788,7 @@ module Backend = struct
         ; ["-global"; "PIIX4_PM.revision_id=0x1"]
         ; ["-global"; "ide-hd.ver=0.10.2"]
         ; mult
-            ["piix3-ide-xen"; "piix3-usb-uhci"; nic_type]
+            ["piix3-ide"; "piix3-ide-xen"; "piix3-usb-uhci"; nic_type]
             ["subvendor_id=0x5853"; "subsystem_id=0x0001"]
           |> List.concat_map (fun x -> ["-global"; x])
         ]
