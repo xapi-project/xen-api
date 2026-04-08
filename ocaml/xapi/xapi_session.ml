@@ -1589,3 +1589,84 @@ let create_from_db_file ~__context ~filename =
   in
   let db_ref = Some (Xapi_database.Db_ref.in_memory (Atomic.make db)) in
   create_readonly_session ~__context ~uname:"db-from-file" ~db_ref
+
+module SM = struct
+  let reusable_sessions : (string option, API.ref_session) Hashtbl.t =
+    Hashtbl.create 5
+
+  let sm_sessions_m = Mutex.create ()
+
+  let with_sm_sessions_lock f =
+    Xapi_stdext_threads.Threadext.Mutex.execute sm_sessions_m f
+
+  let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
+  let sm_username = "__sm__backend"
+
+  let is_valid_session ~__context session_id =
+    try
+      (* Call an API function to check the session is still valid *)
+      let rpc = Helpers.make_rpc ~__context in
+      ignore (Client.Pool.get_all ~rpc ~session_id) ;
+      true
+    with Api_errors.Server_error (err, _) ->
+      debug "%s: Invalid session: %s" __FUNCTION__ err ;
+      false
+
+  let session_access ~__context session sr =
+    (* Give this session access to this particular SR *)
+    Option.iter
+      (fun sr ->
+        Db.Session.add_to_other_config ~__context ~self:session
+          ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr)
+      )
+      sr
+
+  let create_session ~__context sr =
+    let host = !Xapi_globs.localhost_ref in
+    let session =
+      login_no_password ~__context ~uname:None ~host ~pool:false
+        ~is_local_superuser:true ~subject:Ref.null ~auth_user_sid:""
+        ~auth_user_name:sm_username ~rbac_permissions:[]
+    in
+    session_access ~__context session sr ;
+    session
+
+  let get_new_session ~__context sr =
+    let sr_key = Option.map Ref.string_of sr in
+    let new_session = create_session ~__context sr in
+    match Hashtbl.find_opt reusable_sessions sr_key with
+    | None ->
+        Hashtbl.add reusable_sessions sr_key new_session ;
+        new_session
+    | Some session ->
+        destroy_db_session ~__context ~self:new_session ;
+        session
+
+  let get_session ~__context sr =
+    let sr_key = Option.map Ref.string_of sr in
+    match Hashtbl.find_opt reusable_sessions sr_key with
+    | Some session when is_valid_session ~__context session ->
+        session
+    | Some _ ->
+        with_sm_sessions_lock (fun () ->
+            Hashtbl.remove reusable_sessions sr_key ;
+            get_new_session ~__context sr
+        )
+    | None ->
+        with_sm_sessions_lock (fun () -> get_new_session ~__context sr)
+
+  let with_session ~traceparent sr f =
+    Server_helpers.exec_with_new_task "sm_exec"
+      ~origin:(Internal_Traced traceparent) (fun __context ->
+        if !Xapi_globs.reuse_pool_sessions then
+          let session_id = get_session ~__context sr in
+          f session_id
+        else
+          let session_id = create_session ~__context sr in
+          let destroy_session () =
+            destroy_db_session ~__context ~self:session_id
+          in
+          finally (fun () -> f session_id) destroy_session
+    )
+end

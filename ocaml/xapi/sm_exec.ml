@@ -30,8 +30,6 @@ module E = Debug.Make (struct let name = "mscgen" end)
 
 let cmd_name driver = sprintf "%s/%sSR" !Xapi_globs.sm_dir driver
 
-let sm_username = "__sm__backend"
-
 let with_dbg ~name ~dbg f =
   Debug_info.with_dbg ~module_name:"Sm_exec" ~name ~dbg f
 
@@ -317,80 +315,6 @@ let methodResponse xml =
   | xml ->
       XMLRPC.From.methodResponse xml
 
-let reusable_sessions : (string option, API.ref_session) Hashtbl.t =
-  Hashtbl.create 5
-
-let sm_sessions_m = Mutex.create ()
-
-let with_sm_sessions_lock f =
-  Xapi_stdext_threads.Threadext.Mutex.execute sm_sessions_m f
-
-let is_valid_session ~__context session_id =
-  try
-    (* Call an API function to check the session is still valid *)
-    let rpc = Helpers.make_rpc ~__context in
-    ignore (Client.Client.Pool.get_all ~rpc ~session_id) ;
-    true
-  with Api_errors.Server_error (err, _) ->
-    debug "%s: Invalid session: %s" __FUNCTION__ err ;
-    false
-
-let session_access ~__context session sr =
-  (* Give this session access to this particular SR *)
-  Option.iter
-    (fun sr ->
-      Db.Session.add_to_other_config ~__context ~self:session
-        ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr)
-    )
-    sr
-
-let create_session ~__context sr =
-  let host = !Xapi_globs.localhost_ref in
-  let session =
-    Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false
-      ~is_local_superuser:true ~subject:Ref.null ~auth_user_sid:""
-      ~auth_user_name:sm_username ~rbac_permissions:[]
-  in
-  session_access ~__context session sr ;
-  session
-
-let rec get_session ~__context sr =
-  let sr_key = Option.map Ref.string_of sr in
-  let session = Hashtbl.find_opt reusable_sessions sr_key in
-  match session with
-  | Some session ->
-      if is_valid_session ~__context session then
-        session
-      else (
-        with_sm_sessions_lock (fun () -> Hashtbl.remove reusable_sessions sr_key) ;
-        (get_session [@tailcall]) ~__context sr
-      )
-  | None ->
-      let new_session = create_session ~__context sr in
-      with_sm_sessions_lock (fun () ->
-          match Hashtbl.find_opt reusable_sessions sr_key with
-          | None ->
-              Hashtbl.add reusable_sessions sr_key new_session ;
-              new_session
-          | Some session ->
-              Xapi_session.destroy_db_session ~__context ~self:new_session ;
-              session
-      )
-
-let with_session ~traceparent sr f =
-  Server_helpers.exec_with_new_task "sm_exec"
-    ~origin:(Internal_Traced traceparent) (fun __context ->
-      if !Xapi_globs.reuse_pool_sessions then
-        let session_id = get_session ~__context sr in
-        f session_id
-      else
-        let session_id = create_session ~__context sr in
-        let destroy_session () =
-          Xapi_session.destroy_db_session ~__context ~self:session_id
-        in
-        finally (fun () -> f session_id) destroy_session
-  )
-
 (****************************************************************************************)
 (* Functions that actually execute the python backends *)
 
@@ -515,8 +439,9 @@ let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
           )
   in
   if needs_session then
-    with_session ~traceparent:(Debug_info.span_of di) call.sr_ref
-      (fun session_id -> do_call {call with session_ref= Some session_id}
+    Xapi_session.SM.with_session ~traceparent:(Debug_info.span_of di)
+      call.sr_ref (fun session_id ->
+        do_call {call with session_ref= Some session_id}
     )
   else
     do_call call
