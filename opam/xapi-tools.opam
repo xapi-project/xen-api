@@ -32,6 +32,7 @@ depends: [
   "rrdd-plugin"
   "xapi-stdext-std"
   "xapi-tracing-export"
+  "xapi-work-queues"
   "xen-api-client"
   "alcotest" {with-test}
   "ppx_deriving_rpc" {with-test}
