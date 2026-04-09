@@ -4815,6 +4815,355 @@ module MergeLivepatchFailures = Generic.MakeStateless (struct
       ]
 end)
 
+module GetAccumulativeLivepatches = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = {updates_info: UpdateInfo.t list; since: Livepatch.t}
+
+    type output_t = (LivePatch.t * string) list
+
+    let fields_of_input =
+      Fmt.Dump.
+        [
+          field "updates_info"
+            (fun (r : input_t) ->
+              List.map
+                (fun x -> UpdateInfo.to_json x |> Yojson.Basic.pretty_to_string)
+                r.updates_info
+            )
+            (list string)
+        ; field "since"
+            (fun (r : input_t) ->
+              Livepatch.to_json r.since |> Yojson.Basic.pretty_to_string
+            )
+            string
+        ]
+
+    let string_of_input_t = Fmt.(str "%a" Dump.(record @@ fields_of_input))
+
+    let string_of_output_t l =
+      Fmt.(str "%a" Dump.(list (pair string string)))
+        (List.map (fun (lp, id) -> (LivePatch.to_string lp, id)) l)
+  end
+
+  let transform Io.{updates_info; since} =
+    let updates_info = List.map (fun x -> (x.UpdateInfo.id, x)) updates_info in
+    get_accumulative_livepatches ~updates_info ~since
+    |> List.map (fun (lp, x) -> (lp, x.UpdateInfo.id))
+
+  let running_build_id = "2dd4f262f044a1f5af78aaa6e71f97ce956ad74e"
+
+  let lp =
+    LivePatch.
+      {
+        component= Xen
+      ; base_build_id= ""
+      ; base_version= "4.13.4"
+      ; base_release= "10.24.xs8"
+      ; to_version= ""
+      ; to_release= ""
+      }
+
+  let update_info =
+    UpdateInfo.
+      {
+        id= ""
+      ; summary= ""
+      ; description= ""
+      ; guidance= []
+      ; guidance_applicabilities= []
+      ; spec_info= ""
+      ; url= ""
+      ; update_type= "security"
+      ; livepatches= []
+      ; issued= Clock.Date.epoch
+      ; severity= Severity.None
+      ; title= ""
+      }
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ( Io.
+            {
+              updates_info= [] (* No updates provide any live patches *)
+            ; since=
+                Livepatch.
+                  {
+                    component= Xen
+                  ; base_build_id= running_build_id
+                  ; to_version= None (* No running live patch *)
+                  ; to_release= None
+                  }
+            }
+        , []
+        )
+      ; ( Io.
+            {
+              updates_info=
+                [
+                  {
+                    update_info with
+                    id= "UPDATE-1"
+                  ; livepatches=
+                      [
+                        {
+                          lp with
+                          base_build_id= running_build_id
+                        ; to_version= "4.17.6"
+                        ; to_release= "1"
+                        }
+                      ]
+                  }
+                ]
+            ; since=
+                Livepatch.
+                  {
+                    component= Xen
+                  ; base_build_id= running_build_id
+                  ; to_version= None (* No running live patch *)
+                  ; to_release= None
+                  }
+            }
+        , [
+            ( {
+                lp with
+                base_build_id= running_build_id
+              ; to_version= "4.17.6"
+              ; to_release= "1"
+              }
+            , "UPDATE-1"
+            )
+          ]
+        )
+      ; ( Io.
+            {
+              updates_info=
+                [
+                  {
+                    update_info with
+                    id= "UPDATE-1"
+                  ; livepatches=
+                      [
+                        {
+                          lp with
+                          base_build_id= running_build_id (* Can support *)
+                        ; to_version= "4.17.6"
+                        ; to_release= "1"
+                        }
+                      ]
+                  }
+                ; {
+                    update_info with
+                    id= "UPDATE-2"
+                  ; livepatches=
+                      [
+                        {
+                          lp with
+                          base_build_id= running_build_id (* Can support *)
+                        ; to_version= "4.17.6"
+                        ; to_release= "2"
+                        }
+                      ; {
+                          lp with
+                          base_build_id=
+                            "67edb2dca295cbc1591a1802c52015e0b875812d"
+                        ; to_version= "4.17.6"
+                        ; to_release= "2"
+                        }
+                      ]
+                  }
+                ]
+            ; since=
+                Livepatch.
+                  {
+                    component= Xen
+                  ; base_build_id= running_build_id
+                  ; to_version= None (* No running live patch *)
+                  ; to_release= None
+                  }
+            }
+        , [
+            ( {
+                lp with
+                base_build_id= running_build_id
+              ; to_version= "4.17.6"
+              ; to_release= "2"
+              }
+            , "UPDATE-2"
+            )
+          ; ( {
+                lp with
+                base_build_id= running_build_id
+              ; to_version= "4.17.6"
+              ; to_release= "1"
+              }
+            , "UPDATE-1"
+            )
+          ]
+        )
+      ; ( Io.
+            {
+              updates_info=
+                [
+                  {
+                    update_info with
+                    id= "UPDATE-1"
+                  ; livepatches=
+                      [
+                        {
+                          lp with
+                          base_build_id= running_build_id (* Can support *)
+                        ; to_version= "4.17.6"
+                        ; to_release= "1"
+                        }
+                      ]
+                  }
+                ; {
+                    update_info with
+                    id= "UPDATE-2"
+                  ; livepatches=
+                      [
+                        {
+                          lp with
+                          base_build_id= running_build_id (* Can support *)
+                        ; to_version= "4.17.6"
+                        ; to_release= "2"
+                        }
+                      ; {
+                          lp with
+                          base_build_id=
+                            "67edb2dca295cbc1591a1802c52015e0b875812d"
+                        ; to_version= "4.17.6"
+                        ; to_release= "2"
+                        }
+                      ]
+                  }
+                ; {
+                    update_info with
+                    id= "UPDATE-3"
+                  ; livepatches=
+                      (* Not suppported since this update *)
+                      [
+                        {
+                          lp with
+                          base_build_id=
+                            "67edb2dca295cbc1591a1802c52015e0b875812d"
+                        ; to_version= "4.17.6"
+                        ; to_release= "3"
+                        }
+                      ; {
+                          lp with
+                          base_build_id=
+                            "332ed069fb106528e7161b31af07929375e4fdc6"
+                        ; to_version= "4.17.6"
+                        ; to_release= "3"
+                        }
+                      ]
+                  }
+                ]
+            ; since=
+                Livepatch.
+                  {
+                    component= Xen
+                  ; base_build_id= running_build_id
+                  ; to_version= None (* No running live patch *)
+                  ; to_release= None
+                  }
+            }
+        , [] (* No applicable live patches returned. *)
+        )
+      ; ( Io.
+            {
+              updates_info=
+                [
+                  {
+                    update_info with
+                    id= "UPDATE-1"
+                  ; livepatches=
+                      [
+                        {
+                          lp with
+                          base_build_id= running_build_id (* Can support *)
+                        ; to_version= "4.17.6"
+                        ; to_release= "1"
+                        }
+                      ]
+                  }
+                ; {
+                    update_info with
+                    id= "UPDATE-2"
+                  ; livepatches=
+                      [
+                        {
+                          lp with
+                          base_build_id= running_build_id (* Can support *)
+                        ; to_version= "4.17.6"
+                        ; to_release= "2"
+                        }
+                      ; {
+                          lp with
+                          base_build_id=
+                            "67edb2dca295cbc1591a1802c52015e0b875812d"
+                        ; to_version= "4.17.6"
+                        ; to_release= "2"
+                        }
+                      ]
+                  }
+                ; {
+                    update_info with
+                    id= "UPDATE-3"
+                  ; livepatches=
+                      [
+                        {
+                          lp with
+                          base_build_id=
+                            "67edb2dca295cbc1591a1802c52015e0b875812d"
+                        ; to_version= "4.17.6"
+                        ; to_release= "3"
+                        }
+                      ; {
+                          lp with
+                          base_build_id=
+                            "332ed069fb106528e7161b31af07929375e4fdc6"
+                        ; to_version= "4.17.6"
+                        ; to_release= "3"
+                        }
+                      ]
+                  }
+                ]
+            ; since=
+                Livepatch.
+                  {
+                    component= Xen
+                  ; base_build_id=
+                      "67edb2dca295cbc1591a1802c52015e0b875812d"
+                      (* The build id of the running component has been updated. *)
+                  ; to_version= None (* No running live patch *)
+                  ; to_release= None
+                  }
+            }
+        , [
+            ( {
+                lp with
+                base_build_id= "67edb2dca295cbc1591a1802c52015e0b875812d"
+              ; to_version= "4.17.6"
+              ; to_release= "3"
+              }
+            , "UPDATE-3"
+            )
+          ; ( {
+                lp with
+                base_build_id= "67edb2dca295cbc1591a1802c52015e0b875812d"
+              ; to_version= "4.17.6"
+              ; to_release= "2"
+              }
+            , "UPDATE-2"
+            )
+          ]
+        )
+      ]
+end)
+
 let tests =
   make_suite "repository_helpers_"
     [
@@ -4841,6 +5190,7 @@ let tests =
       )
     ; ("set_pending_guidances", SetPendingGuidance.tests)
     ; ("merge_livepatch_failures", MergeLivepatchFailures.tests)
+    ; ("get_accumulative_livepatches", GetAccumulativeLivepatches.tests)
     ]
 
 let () = Alcotest.run "Repository Helpers" tests
