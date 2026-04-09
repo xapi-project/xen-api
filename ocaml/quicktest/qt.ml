@@ -192,20 +192,23 @@ module VDI = struct
 
   let test_vdi_name_description = "VDI for storage quicktest"
 
-  let make rpc session_id ?(virtual_size = 4194304L) sR =
+  let make rpc session_id ?(virtual_size = 4194304L) ?backing_format sR =
+    let sm_config =
+      match backing_format with Some x -> [("image-format", x)] | None -> []
+    in
     Client.Client.VDI.create ~sR ~session_id ~rpc
       ~name_label:test_vdi_name_label
       ~name_description:test_vdi_name_description ~_type:`user ~sharable:false
       ~read_only:false ~virtual_size ~xenstore_data:[] ~other_config:[] ~tags:[]
-      ~sm_config:[]
+      ~sm_config
 
   let with_destroyed rpc session_id self f =
     Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
         Client.Client.VDI.destroy ~rpc ~session_id ~self
     )
 
-  let with_new rpc session_id ?(virtual_size = 4194304L) sr f =
-    let self = make rpc session_id ~virtual_size sr in
+  let with_new rpc session_id ?(virtual_size = 4194304L) ?backing_format sr f =
+    let self = make rpc session_id ~virtual_size ?backing_format sr in
     with_destroyed rpc session_id self (fun () -> f self)
 
   let with_any rpc session_id sr_info f =
