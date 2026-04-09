@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_pervasives.Pervasiveext
 module Unixext = Xapi_stdext_unix.Unixext
 open Datamodel_types
