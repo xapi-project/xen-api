@@ -1065,7 +1065,7 @@ let winbind_set_machine_account_kerberos_encryption_type = ref false
 
 let winbind_scan_trusted_domains = ref false
 
-let winbind_keep_configuration = ref false
+let winbind_keep_configuration = ref true
 
 let serialize_auth_service = ref true
 
