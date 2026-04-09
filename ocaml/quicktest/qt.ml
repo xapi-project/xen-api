@@ -180,7 +180,8 @@ module VDI = struct
 
   let test_vdi_name_description = "VDI for storage quicktest"
 
-  let make rpc session_id ?(virtual_size = 4194304L) ?backing_format sR =
+  let make rpc session_id ?(virtual_size = Int64.(mul (mul 4L 1024L) 1024L))
+      ?backing_format sR =
     let sm_config =
       match backing_format with Some x -> [("image-format", x)] | None -> []
     in
@@ -195,7 +196,8 @@ module VDI = struct
         Client.Client.VDI.destroy ~rpc ~session_id ~self
     )
 
-  let with_new rpc session_id ?(virtual_size = 4194304L) ?backing_format sr f =
+  let with_new rpc session_id ?(virtual_size = Int64.(mul (mul 4L 1024L) 1024L))
+      ?backing_format sr f =
     let self = make rpc session_id ~virtual_size ?backing_format sr in
     with_destroyed rpc session_id self (fun () -> f self)
 
