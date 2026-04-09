@@ -29,8 +29,8 @@ status: draft
 ## Overview
 
 We have had several customer incidents in the past that have been attributed to
-“overloading” xapi. This effectively means that a client is making requests at
-a rate that xapi cannot handle. This can result in very bad response times (“we
+“overloading” Xapi. This effectively means that a client is making requests at
+a rate that Xapi cannot handle. This can result in very bad response times (“we
 tried to shut down 20 VMs and this took 2 hours!”) and general system
 instability and unavailability.
 
@@ -39,7 +39,7 @@ either misconfigured or make improper use of the API, hammering the pool and
 breaking use of the good guys. For example, a dodgy monitoring service may
 lock out the control software, or slow down VM lifecycle operations.
 
-Part of the problem is that xapi and xenopsd are not very good at handling
+Part of the problem is that Xapi and xenopsd are not very good at handling
 load, in particular in a pool where the coordinator is often a bottleneck. A
 lot of work has already been done make the Toolstack cope better under load.
 This is important and a lot more can be done in this space.
@@ -51,7 +51,7 @@ improvements, as a complimentary approach.
 
 Last year, thread prioritisation was tried. This could be revisited, but we
 also need an approach that allows us to pose hard constraints on clients. For
-example, as an admin, I want to configure xapi to give my control panel
+example, as an admin, I want to configure Xapi to give my control panel
 unlimited access, but explicitly limit how much Monitoring App X can do.
 
 The proposal here is to do a simpler kind of per-client rate limiting at the
@@ -98,17 +98,17 @@ potentially made on multiple connections.
 ### Client classification
 In order to let pool administrators know who they should be rate limiting, we
 will also introduce a **Caller** datamodel class which tracks all requests made
-to xapi.
+to Xapi.
 
 Callers will be a high-level way of tracking clients. We allow callers to be
 identified by a number of different parameters: AD user, IP address,
-originator, user agent. When an unknown caller makes a request to xapi, we
+originator, user agent. When an unknown caller makes a request to Xapi, we
 record their data in a new row. The pool administrator will be able to merge
 related callers together and assign them labels.
 
 The caller classification allows wildcards for any field, though we require
 that at least one field be specified. This lets us, for example, combine all
-accesses from the xapi python API by specifying the user-agent .
+accesses from the Xapi python API by specifying the user-agent .
 
 A rate limiter can be associated with any number of callers, and the parameters
 of the rate limiter can either be derived from the usage patterns of the
@@ -169,9 +169,12 @@ rate limiter
 
 
 ### Matching semantics
-When a request arrives, xapi matches the request's metadata against the
-`Caller` table. Requests match a caller record iff all the request fields match the
-corresponding patterns in the record.
+When a request arrives, Xapi matches the request's metadata against the
+`Caller` table. Each field in a `Caller` record is a pattern matched against
+the corresponding field in the request using prefix matching: a pattern
+matches iff it is a prefix of the request's field value. Prefix patterns are
+specified by terminating with `*`. A pattern without `*` matches only exact
+equals. A record matches a request iff all fields match.
 
 We treat logging and rate limiting differently:
 - **Logging**: All caller records that match with an incoming request track the
@@ -179,6 +182,12 @@ We treat logging and rate limiting differently:
 - **Rate limiting**: Only the most specific match (which has rate limiting
 enabled) for any given request will trigger rate limiting and deduct tokens
 from its token bucket.
+
+The **most specific match** is the matching `Caller` record with the longest
+total prefix length across all fields. For example, a record that matches
+`user_agent` with a full value is more specific than one that matches only a
+short prefix. We resolve ties through a lexicographic ordering amongst fields:
+IP address first, then user agent.
 
 This results in the statistics being stored by callers tracking everything that
 matches, but only the most specific rate limiter to any given request will be
@@ -192,10 +201,10 @@ triggered.
 callers, as described in the implementation section.
 
 ## XAPI integration
-Calls into xapi are intercepted at two points:
+Calls into Xapi are intercepted at two points:
 - RPC calls are intercepted at dispatch, in the `do_dispatch` function within
 xapi/server_helpers.ml. At this point, we already have a session available if
-the caller is logged in, and we know which xapi call is being made.
+the caller is logged in, and we know which Xapi call is being made.
 - Other calls are intercepted by instrumenting the HTTP handlers as they are
 added to the HTTP server in the `add_handler` function within
 xapi/xapi_http.ml. Here we have less information, so the rate limiting is less
