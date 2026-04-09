@@ -1,8 +1,8 @@
 ---
-title: XAPI Rate Limiting
+title: Rate Limiting
 layout: default
 design_doc: true
-revision: 1
+revision: 2
 status: draft
 ---
 
@@ -11,12 +11,19 @@ status: draft
 - [Approach](#approach)
   - [Rate limiting](#rate-limiting)
   - [Client classification](#client-classification)
+  - [Statistics](#statistics)
 - [API design](#api-design)
+  - [Caller Datamodel](#caller-datamodel)
+  - [API functions](#api-functions)
+  - [Matching semantics](#matching-semantics)
+  - [Caller lifecycle](#caller-lifecycle)
 - [XAPI integration](#xapi-integration)
 - [Library](#library)
   - [Token bucket](#token-bucket)
   - [Rate limit queue](#rate-limit-queue)
   - [Client table](#client-table)
+- [Operational Description](#operational-description)
+- [Pool Member / Multi-Host Considerations](#pool-member-multi-host-considerations)
 <!--toc:end-->
 
 ## Overview
@@ -103,42 +110,86 @@ The caller classification allows wildcards for any field, though we require
 that at least one field be specified. This lets us, for example, combine all
 accesses from the xapi python API by specifying the user-agent .
 
-In order to assist with rate limiting, we can store statistics about callers:
-- Last request timestamp
-- Tokens used over the last (5 minutes/hour/day).
-- Most common API requests.
+A rate limiter can be associated with any number of callers, and the parameters
+of the rate limiter can either be derived from the usage patterns of the
+callers or selected from a number of preset profiles.
 
-A rate limiter can then be attached to a particular caller, and the parameters
-of the rate limiter can either be derived from the usage patterns of the caller
-or selected from a number of preset profiles.
+### Statistics
+In order to assist with rate limiting, we can store statistics about callers.
+We identify two kinds of statistics: volatile and stable. Volatile statistics
+change over time without any input, e.g. sliding windows. These will be stored
+in RRDs. By contrast, stable statistics only vary at most once per request, and
+so are safe to store in the main database.
+
+**Volatile statistics:**
+- Tokens used over the last (5 minutes/hour/day).
+- Most common requests over the last (5 minutes/hour/day).
+
+**Stable statistics:**
+- Last request timestamp
 
 ## API design
-We propose two new datamodels: **Caller** and **Rate_limit**.
+
+### Caller Datamodel
+We propose two new datamodel tables: **Caller**, which stores the data associated with each caller, and **Rate limit**, which identifies one or more callers with a rate limiter
 
 Caller:
 | Mutability | Name        | Type     | Description                                        |
 | ---------: | ----------- | -------- | ---------------------------------------------------|
-| RW         | name_label  | String   | User-assigned label for the caller                 |
-| RO         | user_agent  | String   | User agent of throttled client; use "*" for "any"  |
-| RO         | host_ip     | String   | IP address of throttled client; use "*" for "any"  |
-| RO         | last_access | DateTime | Last time the caller made a request                |
-| RO         | burst_size  | Float    | Amount of tokens that can be consumed in one burst; -1 if no rate limit is applied |
-| RO         | fill_rate   | Float    | Tokens added to the bucket per second; -1 if no rate limit is applied |
+| RW         | name_label  | String   | User-assigned label for the caller |
+| RO         | user_agent | String | user agent matching pattern  |
+| RO         | host_ip  | String | IP address matching pattern  |
+| RO         | last_access | DateTime | Last time the caller made a request        |
+| RO         | rate_limit | Ref Rate_limit | Associated rate limiter - can be null |
+
+Rate limit:
+| Mutability | Name        | Type     | Description |
+|--------: | --------------|-----------|------------------|
+| RW         | name_label  | String   | User-assigned label for the rate limiter |
+| SRO         | callers | Set (Ref Caller) | Callers associated with this rate limiter |
+| RO         | burst_size  | Float    | Amount of tokens that can be consumed in one burst |
+| RO         | fill_rate   | Float    | Tokens added to the bucket per second |
+
+### API functions
+We define the following API functions on the caller datamodel:
+- `Caller.create(name_label, user_agent, host_ip)`: Create a new caller.
+- `Caller.set_name_label(caller, name_label)`: Set name label on the caller
+- `Caller.destroy(caller)`: Destroy the caller
+
+And the following functions for the rate limiter datamodel:
+- `Rate_limit.create(name_label, callers, burst_size, fill_rate)`: Create a
+rate limiter with the supplied parameters.
+- `Rate_limit.add_caller(rate_limit, caller)`: Add a caller to the callers set
+- `Rate_limit.remove_caller(rate_limit, caller)`: Remove a caller from the callers set
+- `Rate_limit.set_burst_size(rate_limit, burst_size)`: Set the burst size for the
+  rate limiter
+- `Rate_limit.set_fill_rate(rate_limit, burst_size)`: Set the fill rate for the
+rate limiter
+- `Rate_limit.destroy(rate_limit)`: Destroy the rate limiter
 
 
-Matching semantics for `Caller` fields:
-- `user_agent` and `host_ip` are treated as match patterns, not just stored values.
-- The star (`"*"`) is a wildcard for that field (equivalent to “any”).
-- A star can be appended to the end of a field to match any string that starts with the prefix. We only allow prefix matching.
-- An incoming call is assigned to a `Caller` only if **all non-wildcard fields in that
-  caller record match** (logical AND across fields).
-- Examples:
-  - `{user_agent = "*", host_ip = "10.1.2.3"}` matches any user-agent from `10.1.2.3`.
-  - `{user_agent = "Python-xmlrpc/*", host_ip = "*"}` matches any Python
-    XML-RPC client from any IP.
-  - `{user_agent = "Python-xmlrpc/3.11", host_ip = "10.1.2.3"}` matches only calls where both fields match.
+### Matching semantics
+When a request arrives, xapi matches the request's metadata against the
+`Caller` table. Requests match a caller record iff all the request fields match the
+corresponding patterns in the record.
 
-Rate limits: We provide calls to set and remove a rate limiter. When no rate limiter is set, both parameters are negative.
+We treat logging and rate limiting differently:
+- **Logging**: All caller records that match with an incoming request track the
+  request.
+- **Rate limiting**: Only the most specific match (which has rate limiting
+enabled) for any given request will trigger rate limiting and deduct tokens
+from its token bucket.
+
+This results in the statistics being stored by callers tracking everything that
+matches, but only the most specific rate limiter to any given request will be
+triggered.
+
+### Caller lifecycle
+- When a call comes in, a new Caller is automatically created if no existing record matches.
+- Users can proactively create callers with wildcards to pre-configure rate limiting rules.
+- Toolstack startup behavior: On toolstack startup, an in-memory data structure
+  is created from the database fields which stores all the rate limiters and
+callers, as described in the implementation section.
 
 ## XAPI integration
 Calls into xapi are intercepted at two points:
