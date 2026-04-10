@@ -5,15 +5,17 @@ let with_setup rpc session_id sr vm_template f =
   print_endline (Printf.sprintf "Template has uuid: %s%!" uuid) ;
   let vdi =
     Client.Client.VDI.create ~rpc ~session_id ~name_label:"small"
-      ~name_description:__LOC__ ~sR:sr ~virtual_size:4194304L ~_type:`user
-      ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[]
-      ~sm_config:[] ~tags:[]
+      ~name_description:__LOC__ ~sR:sr
+      ~virtual_size:Int64.(mul (mul 4L 1024L) 1024L)
+      ~_type:`user ~sharable:false ~read_only:false ~other_config:[]
+      ~xenstore_data:[] ~sm_config:[] ~tags:[]
   in
   let vdi2 =
     Client.Client.VDI.create ~rpc ~session_id ~name_label:"small2"
-      ~name_description:__LOC__ ~sR:sr ~virtual_size:4194304L ~_type:`user
-      ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[]
-      ~sm_config:[] ~tags:[]
+      ~name_description:__LOC__ ~sR:sr
+      ~virtual_size:Int64.(mul (mul 4L 1024L) 1024L)
+      ~_type:`user ~sharable:false ~read_only:false ~other_config:[]
+      ~xenstore_data:[] ~sm_config:[] ~tags:[]
   in
   Qt.VM.with_new rpc session_id ~template:vm_template (fun vm ->
       print_endline (Printf.sprintf "Installed new VM") ;
