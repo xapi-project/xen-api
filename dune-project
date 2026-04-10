@@ -506,6 +506,7 @@
   cohttp
   cohttp-lwt
   conf-libssl
+  (conf-qemu-img :with-test)
   (cstruct
    (>= "3.0.0"))
   (ezxenstore

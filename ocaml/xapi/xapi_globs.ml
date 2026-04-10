@@ -845,6 +845,8 @@ let qcow_to_stdout = ref "/opt/xensource/libexec/qcow2-to-stdout.py"
 
 let qcow_stream_tool = ref "qcow-stream-tool"
 
+let qemu_img = ref "/usr/lib64/xen/bin/qemu-img"
+
 let fence = ref "fence"
 
 let host_bugreport_upload = ref "host-bugreport-upload"
@@ -1148,6 +1150,10 @@ let validate_reusable_pool_session = ref false
 
 let vm_sysprep_enabled = ref true
 (* enable VM.sysprep API *)
+
+let vhd_legacy_blocks_format = ref true
+(* If false, uses an interval-based JSON blocks format for VHD instead of the
+   legacy format which includes all the allocated clusters *)
 
 let vm_sysprep_wait = ref 5.0 (* seconds *)
 
@@ -1876,6 +1882,12 @@ let other_options =
     , (fun () -> string_of_float !vm_sysprep_wait)
     , "Time in seconds to wait for VM to recognise inserted CD"
     )
+  ; ( "vhd-legacy-blocks-format"
+    , Arg.Set vhd_legacy_blocks_format
+    , (fun () -> string_of_bool !vhd_legacy_blocks_format)
+    , "Choose whether legacy/sparse block format will be used for determining \
+       allocated VHD clusters"
+    )
   ; ( "proxy_poll_period_timeout"
     , Arg.Set_float proxy_poll_period_timeout
     , (fun () -> string_of_float !proxy_poll_period_timeout)
@@ -2010,6 +2022,7 @@ module Resources = struct
     ; ("vhd-tool", vhd_tool, "Path to vhd-tool")
     ; ("qcow_to_stdout", qcow_to_stdout, "Path to qcow-to-stdout script")
     ; ("qcow_stream_tool", qcow_stream_tool, "Path to qcow-stream-tool")
+    ; ("qemu-img", qemu_img, "Path to qemu-img")
     ; ("fence", fence, "Path to fence binary, used for HA host fencing")
     ; ( "host-bugreport-upload"
       , host_bugreport_upload
