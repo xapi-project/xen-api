@@ -93,6 +93,8 @@ let with_dbg ?attributes ?(with_thread = false) ?(module_name = "") ~name ~dbg f
   | false ->
       f_with_trace ()
 
+let span_of di = di.tracing
+
 let traceparent_of_dbg dbg =
   match String.split_on_char separator dbg with
   | [_; trace_context] -> (
