@@ -12,7 +12,7 @@ let check_tasks tasks =
 let one t ~host ~vm ~workload_vm n =
   Trace.with_ __FUNCTION__ @@ fun scope ->
   workload t ~host ~workload_vm ;
-  let vms = fill_mem_n t ~workaround_migration:true ~host ~vm ~n in
+  let vms = fill_mem_n t ~workaround_migration:false ~host ~vm ~n in
 
   let migration_host, migration_vm = List.nth vms 0 in
 
