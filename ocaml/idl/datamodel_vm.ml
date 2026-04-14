@@ -2463,6 +2463,20 @@ let vm_secureboot_certificates_state =
       ]
     )
 
+let update_secureboot_certificates_on_boot =
+  call ~name:"update_secureboot_certificates_on_boot" ~lifecycle:[]
+    ~params:
+      [
+        (Ref _vm, "self", "The VM")
+      ; (
+          Bool
+        , "mark"
+        , "If true: mark certificates for update on next boot. If false: remove the mark"
+        )
+      ]
+    ~doc:"Mark or unmark secure boot certificate update on VM boot"
+    ~allowed_roles:_R_VM_ADMIN ()
+
 let vm_secureboot_readiness =
   Enum
     ( "vm_secureboot_readiness"
@@ -2637,6 +2651,7 @@ let t =
       ; restart_device_models
       ; set_uefi_mode
       ; get_secureboot_readiness
+      ; update_secureboot_certificates_on_boot
       ; set_blocked_operations
       ; add_to_blocked_operations
       ; remove_from_blocked_operations
