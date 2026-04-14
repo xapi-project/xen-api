@@ -27,7 +27,7 @@
    uuidm
    uutf
    threads.posix
-   backtrace
+   xapi-log.backtrace
    xapi_version
    xapi-idl
    xapi-idl.storage

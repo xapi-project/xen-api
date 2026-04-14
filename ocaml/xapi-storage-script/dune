@@ -44,7 +44,7 @@
     uri
     threads.posix
     unix
-    backtrace
+    xapi-log.backtrace
     xapi-consts
     xapi-consts.xapi_version
     xapi-idl

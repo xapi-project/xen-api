@@ -3591,11 +3591,12 @@ let perform ~local_fn ~__context ~host ~remote_fn =
     in
     let task_id = Option.map Ref.string_of task_opt in
     let tracing = Context.set_client_span __context in
-    let http = xmlrpc ?task_id ~version:"1.0" "/" in
+    let dorpc, path = Helpers.choose_rpc () in
+    let http = xmlrpc ?task_id ~version:"1.0" path in
     let http = Helpers.TraceHelper.inject_span_into_req tracing http in
     let port = !Constants.https_port in
     let transport = SSL (SSL.make ~verify_cert ?task_id (), hostname, port) in
-    XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
+    dorpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
   in
   let open Message_forwarding in
   do_op_on_common ~local_fn ~__context ~host ~remote_fn

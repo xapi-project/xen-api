@@ -58,6 +58,7 @@ depends: [
   "xapi-stdext-pervasives"
   "xapi-stdext-unix"
   "xapi-stdext-zerocheck"
+  "xapi-work-queues"
   "xen-api-client"
   "xen-api-client-lwt"
   "xenctrl"

@@ -30,11 +30,33 @@ module Mutex = struct
     Mutex.unlock lock ; r
 end
 
-type frame = {process: string; filename: string; line: int} [@@deriving sexp]
+type frame = {
+    process: string
+  ; filename: string
+  ; line: int
+  ; chars_start: int [@sexp.default 0]
+  ; chars_end: int [@sexp.default 0]
+  ; name: string option [@sexp.option]
+  ; is_inline: bool [@sexp.default false]
+  ; is_raise: bool [@sexp.default false]
+}
+[@@deriving sexp]
 
 type t = frame list [@@deriving sexp]
 
 let empty = []
+
+(** [drop_wrapper str] drops anything before the last __.
+    E.g `Dune_exe__Raiser` becomes `Raiser`,
+  and `Xapi_database__Db_cache_impl` becomes `Db_cache_impl`.
+  This makes backtraces easier to read, and the ambiguity introduced can be
+  solved by looking at the filename and line number that is printed in the
+  backtrace itself.
+ *)
+let drop_wrapper str =
+  str
+  |> Astring.String.cut ~rev:true ~sep:"__"
+  |> Option.fold ~none:str ~some:snd
 
 let to_string_hum xs =
   let xs' = List.length xs in
@@ -43,16 +65,31 @@ let to_string_hum xs =
     | [] ->
         Buffer.contents results
     | x :: xs ->
+        Printf.bprintf results "%d/%d %s " i xs' x.process ;
         Buffer.add_string results
-          (Printf.sprintf "%d/%d %s %s file %s, line %d" i xs' x.process
-             ( if first_line then
-                 "Raised at"
-               else
-                 "Called from"
-             )
-             x.filename x.line
+          ( if first_line then
+              "Raised at"
+            else if x.is_raise then
+              "Re-raised at"
+            else
+              "Called from"
           ) ;
-        Buffer.add_string results "\n" ;
+        (* A standard OCaml stacktrace would look like this:
+          Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+          Called from X.bar in file "x.ml" (inlined), line 2, characters 2-17
+        *)
+        Buffer.add_char results ' ' ;
+        x.name
+        |> Option.iter (fun name ->
+            Buffer.add_string results (drop_wrapper name) ;
+            Buffer.add_string results " in "
+        ) ;
+        Printf.bprintf results "file %S" x.filename ;
+        if x.is_inline then Buffer.add_string results " (inlined)" ;
+        Printf.bprintf results ", line %d" x.line ;
+        if x.chars_start > 0 then
+          Printf.bprintf results ", characters %d-%d" x.chars_start x.chars_end ;
+        Buffer.add_char results '\n' ;
         loop false (i + 1) xs
   in
   match xs with
@@ -74,31 +111,55 @@ type table = {
    be enough. *)
 let max_backtraces = 100
 
-let frame_of_string process x =
-  try
-    begin match String.split_on_char '"' x with
-    | [_; filename; rest] -> begin
-      match String.split_on_char ',' rest with
-      | [_; line_n; _] -> begin
-        match String.split_on_char ' ' line_n with
-        | _ :: _ :: n :: _ ->
-            {process; filename; line= int_of_string n}
-        | _ ->
-            failwith (Printf.sprintf "Failed to parse line: [%s]" line_n)
-        end
-      | _ ->
-          failwith (Printf.sprintf "Failed to parse fragment: [%s]" filename)
-      end
-    | _ ->
-        failwith (Printf.sprintf "Failed to parse fragment: [%s]" x)
-    end
-  with e -> {process; filename= "(" ^ Printexc.to_string e ^ ")"; line= 0}
+let frame_of_slot slot =
+  let open Printexc in
+  match Printexc.Slot.location slot with
+  | None ->
+      None
+  | Some loc ->
+      Some
+        {
+          process= !my_name
+        ; filename= loc.filename
+        ; line= loc.line_number
+        ; chars_start= loc.start_char
+        ; chars_end= loc.end_char
+        ; name= Slot.name slot
+        ; is_inline= Slot.is_inline slot
+        ; is_raise= Slot.is_raise slot
+        }
 
-let get_backtrace_401 () =
-  Printexc.get_backtrace ()
-  |> String.split_on_char '\n'
-  |> List.filter (fun x -> x <> "")
-  |> List.map (frame_of_string !my_name)
+let frame_eq a b =
+  a.process == b.process
+  && a.line = b.line
+  && a.chars_start = b.chars_start
+  && a.chars_end = b.chars_end
+  && String.equal a.filename b.filename
+
+let[@tail_mod_cons] rec dedup_to_list' last xs =
+  match xs () with
+  | Seq.Nil ->
+      []
+  | Seq.Cons (x, xs) ->
+      if frame_eq last x then
+        dedup_to_list' x xs
+      else
+        x :: dedup_to_list' x xs
+
+let dedup_to_list seq =
+  match seq () with
+  | Seq.Nil ->
+      []
+  | Seq.Cons (x, xs) ->
+      x :: dedup_to_list' x xs
+
+let frames_of_slots slots =
+  slots |> Array.to_seq |> Seq.filter_map frame_of_slot |> dedup_to_list
+
+let get_backtrace_411 () =
+  Printexc.get_raw_backtrace ()
+  |> Printexc.backtrace_slots
+  |> Option.fold ~none:[] ~some:frames_of_slots
 
 let make () =
   let backtraces = Array.make max_backtraces [] in
@@ -117,7 +178,7 @@ let add t exn bt =
   )
 
 let is_important t exn =
-  let bt = get_backtrace_401 () in
+  let bt = get_backtrace_411 () in
   (* Deliberately clear the backtrace buffer *)
   (try raise Not_found with Not_found -> ()) ;
   add t exn bt
@@ -291,5 +352,16 @@ module Interop = struct
   let of_json source_name txt =
     txt |> Jsonrpc.of_string |> error_of_rpc |> fun e ->
     List.combine e.files e.lines
-    |> List.map (fun (filename, line) -> {process= source_name; filename; line})
+    |> List.map (fun (filename, line) ->
+        {
+          process= source_name
+        ; filename
+        ; line
+        ; chars_start= 0
+        ; chars_end= 0
+        ; name= None
+        ; is_inline= false
+        ; is_raise= false
+        }
+    )
 end
