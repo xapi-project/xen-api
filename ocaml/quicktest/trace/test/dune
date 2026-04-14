@@ -1,3 +1,4 @@
 (test
   (name tracetest)
+  (package xapi-debug)
   (libraries quicktest_trace quicktest_trace_rpc fmt.tty logs logs.fmt opentelemetry rpclib.core))

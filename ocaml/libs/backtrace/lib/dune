@@ -1,7 +1,7 @@
 (library
  (name backtrace)
-  (package xapi-log)
+ (public_name xapi-log.backtrace)
   (flags (:standard -w -39-32))
-  (libraries
+  (libraries astring
     rpclib.core rpclib.json threads.posix)
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv)))

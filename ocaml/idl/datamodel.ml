@@ -11037,7 +11037,7 @@ let http_actions =
   ; ( "get_vm_rrds"
     , ( Get
       , "/vm_rrds"
-      , true
+      , false
       , [String_query_arg "uuid"; Bool_query_arg "json"]
       , _R_READ_ONLY
       , []
@@ -11054,7 +11054,7 @@ let http_actions =
     )
     (* For XC < 8460 compatibility, remove when out of support *)
   ; ( "get_host_rrds"
-    , (Get, "/host_rrds", true, [Bool_query_arg "json"], _R_READ_ONLY, [])
+    , (Get, "/host_rrds", false, [Bool_query_arg "json"], _R_READ_ONLY, [])
     )
   ; ( Constants.get_sr_rrd
     , ( Get

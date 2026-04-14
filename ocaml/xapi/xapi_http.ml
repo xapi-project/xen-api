@@ -29,7 +29,7 @@ let validate_session __context session_id realm =
 (* Talk to the master over the network. NB we deliberately use the network rather than
    the unix domain socket because we don't want to accidentally bypass the authentication *)
 let inet_rpc xml =
-  let version = "1.1" and path = "/" in
+  let version = "1.1" in
   let http = 80 and https = !Constants.https_port in
   (* Bypass SSL for localhost, this works even if the management interface
      is disabled. *)
@@ -44,8 +44,9 @@ let inet_rpc xml =
         , https
         )
   in
+  let dorpc, path = Helpers.choose_rpc () in
   let http = xmlrpc ~version path in
-  XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
+  dorpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
 
 open Client
 open Http
