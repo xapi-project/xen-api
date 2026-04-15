@@ -87,6 +87,7 @@ depends: [
   "xapi-tracing" {= version}
   "xapi-tracing-export" {= version}
   "xapi-types" {= version}
+  "xapi-work-queues" {= version}
   "xen-api-client-lwt" {= version}
   "xenctrl"
   "xenstore_transport"

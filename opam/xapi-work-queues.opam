@@ -7,6 +7,8 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.20"}
+  "ppx_deriving_rpc"
+  "xapi-stdext-threads"
   "odoc" {with-doc}
 ]
 build: [

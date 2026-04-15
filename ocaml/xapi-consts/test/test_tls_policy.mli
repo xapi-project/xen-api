@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) Cloud Software Group, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,26 +12,4 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** tree representation *)
-type xml =
-  | Element of (string * (string * string) list * xml list)
-  | PCData of string
-
-type error_pos
-
-type error = string * error_pos
-
-exception Error of error
-
-val error : error -> string
-
-val parse_file : string -> xml
-(** input functions *)
-
-val parse_in : in_channel -> xml
-
-val parse_string : string -> xml
-
-val to_string : xml -> string
-
-val to_string_fmt : xml -> string
+val tests : unit Alcotest.test list

@@ -49,7 +49,7 @@ val of_http_req :
   -> supports_async:bool
   -> label:string
   -> http_req:Http.Request.t
-  -> fd:Unix.file_descr
+  -> fd:Unix.file_descr option
   -> unit
   -> t
 

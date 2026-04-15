@@ -1,13 +1,16 @@
 (library
   (name backtrace_test_lib)
   (modules log)
-  (libraries backtrace)
+  (libraries xapi-log.backtrace)
   )
 
 (executable
   (name raiser)
   (modules raiser)
-  (libraries backtrace_test_lib backtrace)
+  (libraries backtrace_test_lib xapi-log.backtrace)
   )
 
-(cram (deps ./raiser.exe))
+(cram
+  (package xapi-log)
+  (deps ./raiser.exe)
+)
