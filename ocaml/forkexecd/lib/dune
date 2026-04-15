@@ -12,7 +12,6 @@
    rpclib.xml
    unix
    uuid
-   backtrace
    xapi-log
    xapi-stdext-pervasives
    xapi-stdext-unix

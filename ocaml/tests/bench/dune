@@ -27,7 +27,7 @@
   tests_common
   log
   unix
-  backtrace
+  xapi-log.backtrace
   xapi_database
   xapi_datamodel
   xapi_internal

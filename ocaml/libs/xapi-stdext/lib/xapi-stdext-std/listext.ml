@@ -40,7 +40,17 @@ module List = struct
         inv_assoc k t
 
   (* Tail-recursive map. *)
-  let map_tr f l = rev (rev_map f l)
+
+  let[@tail_mod_cons] rec map_tr f l =
+    match l with
+    | [] ->
+        []
+    | [x] ->
+        [f x]
+    | x1 :: x2 :: xs ->
+        let fx1 = f x1 in
+        let fx2 = f x2 in
+        fx1 :: fx2 :: map_tr f xs
 
   let count pred l =
     fold_left

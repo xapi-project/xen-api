@@ -14,5 +14,5 @@
     ptime
     threads.posix
     unix
-    backtrace
+    xapi-log.backtrace
    ))

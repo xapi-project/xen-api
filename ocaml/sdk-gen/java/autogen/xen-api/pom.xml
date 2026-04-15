@@ -8,7 +8,7 @@
     <packaging>jar</packaging>
     <name>XenServer Java SDK</name>
     <description>Mavenized build of the XenServer SDK for Java.</description>
-    <url>https://docs.xenserver.com/en-us/xenserver/8/developer</url>
+    <url>https://docs.xenserver.com/en-us/xenserver/developer</url>
     <organization>
         <name>Cloud Software Group, Inc.</name>
         <url>https://www.cloud.com</url>
@@ -55,7 +55,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.16.1</version>
+            <version>2.21.2</version>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
@@ -90,7 +90,7 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.12.1</version>
                     <configuration>
-                        <release>11</release>
+                        <release>17</release>
                         <compilerArgs>
                             <arg>-Xlint:deprecation</arg>
                             <arg>-Xlint:unchecked</arg>

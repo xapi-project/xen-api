@@ -59,11 +59,12 @@ let remote_rpc_no_retry _context hostname (task_opt : API.ref_task option) xml =
       )
   in
   let tracing = Context.set_client_span _context in
+  let dorpc, path = Helpers.choose_rpc () in
   let http =
-    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.0" "/"
+    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.0" path
     |> Helpers.TraceHelper.inject_span_into_req tracing
   in
-  XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
+  dorpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 (* Use HTTP 1.1, use the stunnel cache and pre-verify the connection *)
 let remote_rpc_retry _context hostname (task_opt : API.ref_task option) xml =
@@ -78,11 +79,12 @@ let remote_rpc_retry _context hostname (task_opt : API.ref_task option) xml =
       )
   in
   let tracing = Context.set_client_span _context in
+  let dorpc, path = Helpers.choose_rpc () in
   let http =
-    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.1" "/"
+    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.1" path
     |> Helpers.TraceHelper.inject_span_into_req tracing
   in
-  XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
+  dorpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 let call_slave_with_session remote_rpc_fn __context host
     (task_opt : API.ref_task option) f =
@@ -206,6 +208,7 @@ let iter_with_drop ?(doc = "performing unknown operation") f xs =
 let log_exn ?(doc = "performing unknown operation") f x =
   try f x
   with e ->
+    Backtrace.is_important e ;
     debug "Caught exception while %s in message forwarder: %s" doc
       (ExnHelper.string_of_exn e) ;
     raise e
@@ -330,9 +333,10 @@ functor
     let tolerate_connection_loss fn success timeout =
       try fn ()
       with
-      | Api_errors.Server_error (ercode, params)
+      | Api_errors.Server_error (ercode, _) as e
       when ercode = Api_errors.cannot_contact_host
       ->
+        Backtrace.is_important e ;
         debug
           "Lost connection with slave during call (expected). Waiting for \
            slave to come up again." ;
@@ -344,8 +348,7 @@ functor
         let rec poll i =
           match i with
           | 0 ->
-              raise (Api_errors.Server_error (ercode, params))
-              (* give up and re-raise exn *)
+              raise e (* give up and re-raise exn *)
           | i -> (
             match success () with
             | Some result ->
@@ -1374,6 +1377,7 @@ functor
             vbds ;
           vbds
         with e ->
+          Backtrace.is_important e ;
           debug "Caught exception marking VBD for %s on VM %s: %s" doc
             (Ref.string_of vm)
             (ExnHelper.string_of_exn e) ;
@@ -1555,6 +1559,7 @@ functor
             (Helpers.will_have_qemu ~__context ~self:vm) ;
           Xapi_network_sriov_helpers.reserve_sriov_vfs ~__context ~host ~vm
         with e ->
+          Backtrace.is_important e ;
           clear_vif_reservations ~__context ~vm ;
           clear_reservations ~__context ~vm ;
           raise e
@@ -1699,6 +1704,7 @@ functor
         ) ;
         try f ()
         with exn ->
+          Backtrace.is_important exn ;
           if !restore_old_values_on_error then (
             Db.VM.set_memory_dynamic_min ~__context ~self:vm
               ~value:old_dynamic_min ;
@@ -5278,6 +5284,7 @@ functor
                 (fun (vdi, op) -> mark_vdi ~__context ~vdi ~doc ~op)
                 vdi
             with e ->
+              Backtrace.is_important e ;
               Option.iter
                 (fun (sr, op) -> SR.unmark_sr ~__context ~sr ~doc ~op)
                 sr ;
@@ -6627,6 +6634,7 @@ functor
             -> (
               match rest with
               | [] ->
+                  Backtrace.is_important e ;
                   debug
                     "Ran out of hosts to try (and no cluster host on \
                      ourselves), reporting error" ;

@@ -315,7 +315,7 @@ let owner_key = "owner"
 (* set in VBD other-config to indicate that clients can delete the attached VDI on VM uninstall if they want.. *)
 
 (* xapi-cli-server doesn't link xapi-globs *)
-let use_event_next = ref true
+let use_event_next = ref false
 
 (* the time taken to wait before restarting in a different mode for pool eject/join operations *)
 let fuse_time = ref 10.

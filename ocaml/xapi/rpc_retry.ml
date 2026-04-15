@@ -34,12 +34,13 @@ functor
   struct
     let transport = Unix Meta.server_path
 
-    let simple_rpc =
-      XMLRPC_protocol.rpc ~srcstr:Meta.client_name ~dststr:Meta.server_name
-        ~transport
-        ~http:(xmlrpc ~version:"1.0" "/")
+    let simple_rpc () =
+      let dorpc, path = Helpers.choose_rpc () in
+      dorpc ~srcstr:Meta.client_name ~dststr:Meta.server_name ~transport
+        ~http:(xmlrpc ~version:"1.0" path)
 
     let rpc call =
+      let simple_rpc = simple_rpc () in
       let rec aux ~retrying =
         let response' =
           try
