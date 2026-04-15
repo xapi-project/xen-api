@@ -18,7 +18,10 @@ module D = Debug.Make (struct let name = "dummytaskhelper" end)
 (** Every operation has an origin: either the HTTP connection it came from or
     an internal subsystem (eg synchroniser thread / event handler
     thread) *)
-type origin = Http of Http.Request.t * Unix.file_descr | Internal
+type origin =
+  | Http of Http.Request.t * Unix.file_descr
+  | Internal
+  | Internal_Traced of Tracing.Span.t option
 
 let string_of_origin = function
   | Http (req, fd) ->
@@ -32,7 +35,7 @@ let string_of_origin = function
       (* unfortunately all connections come from stunnel on localhost *)
       Printf.sprintf "HTTP request from %s with User-Agent: %s" peer
         (Option.value ~default:"unknown" req.Http.Request.user_agent)
-  | Internal ->
+  | Internal | Internal_Traced _ ->
       "Internal"
 
 (** A Context is used to represent every API invocation. It may be extended
@@ -105,7 +108,7 @@ let default_database () =
 
 let preauth ~__context =
   match __context.origin with
-  | Internal ->
+  | Internal | Internal_Traced _ ->
       None
   | Http (_, s) -> (
     match Unix.getsockname s with
@@ -203,7 +206,7 @@ let trackid ?(with_brackets = false) ?(prefix = "") __context =
   trackid_of_session ~with_brackets ~prefix __context.session_id
 
 let _client_of_origin = function
-  | Internal ->
+  | Internal | Internal_Traced _ ->
       None
   | Http (req, fd) ->
       Http_svr.client_of_req_and_fd req fd
@@ -233,7 +236,9 @@ let parent_of_origin (origin : origin) span_name =
       let* span_context = SpanContext.of_trace_context context in
       let span = Tracer.span_of_span_context span_context span_name in
       Some span
-  | _ ->
+  | Internal_Traced span ->
+      span
+  | Internal ->
       None
 
 let attribute_helper_fn f v = Option.fold ~none:[] ~some:f v
@@ -312,7 +317,7 @@ let make_attributes ?task_name ?task_id ?task_uuid ?session_id ?origin () =
   ; attribute_helper_fn
       (fun origin ->
         match origin with
-        | Internal ->
+        | Internal | Internal_Traced _ ->
             [("xs.xapi.task.origin", "internal")]
         | Http (req, s) ->
             [attr_of_req req; attr_of_fd s] |> List.concat
@@ -518,7 +523,11 @@ let get_client_ip context =
   context.client |> Option.map (fun (_, ip) -> Ipaddr.to_string ip)
 
 let get_user_agent context =
-  match context.origin with Internal -> None | Http (rq, _) -> rq.user_agent
+  match context.origin with
+  | Internal | Internal_Traced _ ->
+      None
+  | Http (rq, _) ->
+      rq.user_agent
 
 let finally_destroy_context ~__context f =
   let tracing = __context.tracing in
