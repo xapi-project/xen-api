@@ -783,12 +783,14 @@ module VM : HandlerTools = struct
       ) ;
       Db.VM.set_bios_strings ~__context ~self:vm
         ~value:vm_record.API.vM_bios_strings ;
-      (* If imported from an older pool, check and set certificate state.
-         Skip default templates as per design. *)
-      ( if
-          (not (vm_has_field ~x ~name:"secureboot_certificates_state"))
-          && not vm_record.API.vM_is_default_template
-        then
+      (* VM.create_from_record may not preserve this DynamicRO field.
+         If metadata contains it, explicitly restore it.
+         If imported from an older pool without this field, compute it from
+         imported NVRAM (skipping default templates as per design). *)
+      ( if vm_has_field ~x ~name:"secureboot_certificates_state" then
+          Db.VM.set_secureboot_certificates_state ~__context ~self:vm
+            ~value:vm_record.API.vM_secureboot_certificates_state
+        else if not vm_record.API.vM_is_default_template then
           try
             let state =
               Xapi_vm_helpers.check_secureboot_certificates_state ~__context
