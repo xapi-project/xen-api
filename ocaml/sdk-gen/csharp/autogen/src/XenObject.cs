@@ -42,9 +42,6 @@ namespace XenAPI
         /// </summary>
         public abstract void UpdateFrom(S record);
 
-        [Obsolete("Use the calls setting individual fields of the API object instead.")]
-        public abstract string SaveChanges(Session session, string serverOpaqueRef, S serverObject);
-
         public string opaque_ref { get; set; }
 
         public event PropertyChangedEventHandler PropertyChanged;
