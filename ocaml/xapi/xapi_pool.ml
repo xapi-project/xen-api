@@ -16,7 +16,6 @@ open Client
 module Date = Clock.Date
 module Listext = Xapi_stdext_std.Listext
 module Unixext = Xapi_stdext_unix.Unixext
-module Xstringext = Xapi_stdext_std.Xstringext
 
 module Pkgs = (val Pkg_mgr.get_pkg_mgr)
 

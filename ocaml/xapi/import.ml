@@ -19,7 +19,6 @@ module D = Debug.Make (struct let name = "import" end)
 
 open D
 module Listext = Xapi_stdext_std.Listext
-module Xstringext = Xapi_stdext_std.Xstringext
 module Unixext = Xapi_stdext_unix.Unixext
 open Http
 open Importexport
