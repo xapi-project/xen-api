@@ -91,7 +91,7 @@
     <value>The GPU group contains active virtual GPUs and cannot be deleted.</value>
   </data>
   <data name="HANDLE_INVALID" xml:space="preserve">
-    <value>Object has been deleted.{0}:{1}</value>
+    <value>Could not find the specified object. If it existed before, it may have recently been deleted. {0} {1}</value>
   </data>
   <data name="HA_CONSTRAINT_VIOLATION_NETWORK_NOT_SHARED" xml:space="preserve">
     <value>This operation cannot be performed because the referenced network is not properly shared. The network must either be entirely virtual or must be physically present via a currently attached PIF on every server.</value>
