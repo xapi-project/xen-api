@@ -1660,26 +1660,19 @@ let set_NVRAM_EFI_variables ~__context ~self ~value ~update =
       let value = (key, value) :: List.remove_assoc key nvram in
       Db.VM.set_NVRAM ~__context ~self ~value
   ) ;
-  (* Update secureboot_certificates_state after NVRAM is written.
-     If this fails, log and leave the state unchanged *)
-  try
-    match update with
-    | `yes ->
-        Db.VM.set_secureboot_certificates_state ~__context ~self ~value:`ok
-    | `no ->
-        () (* keep current state unchanged *)
-    | `unspecified ->
-        let new_state =
-          Xapi_vm_helpers.check_secureboot_certificates_state ~__context ~self
-        in
-        Db.VM.set_secureboot_certificates_state ~__context ~self
-          ~value:new_state
-  with e ->
-    let vm_uuid = Db.VM.get_uuid ~__context ~self in
-    debug
-      "set_NVRAM_EFI_variables: failed to update secureboot_certificates_state \
-       for VM %s: %s"
-      vm_uuid (Printexc.to_string e)
+  (* Update secureboot_certificates_state after NVRAM is written *)
+  match update with
+  | `yes ->
+      Db.VM.set_secureboot_certificates_state ~__context ~self ~value:`ok
+  | `no ->
+      () (* keep current state unchanged *)
+  | `unspecified ->
+      let new_state =
+        ( Xapi_vm_helpers.check_secureboot_certificates_state ~__context ~self
+          :> API.vm_secureboot_certificates_state
+          )
+      in
+      Db.VM.set_secureboot_certificates_state ~__context ~self ~value:new_state
 
 let restart_device_models ~__context ~self =
   let power_state = Db.VM.get_power_state ~__context ~self in

@@ -968,7 +968,7 @@ let upgrade_ca_fingerprints =
 let upgrade_secureboot_certificates_state =
   {
     description= "Set secureboot_certificates_state for existing VMs"
-  ; version= (fun _ -> true)
+  ; version= (fun x -> x < (5, 902))
   ; fn=
       (fun ~__context ->
         List.iter
@@ -989,18 +989,14 @@ let upgrade_secureboot_certificates_state =
                   ~default:false
               in
               if is_uefi && is_secureboot then
-                try
-                  let state =
-                    Xapi_vm_helpers.check_secureboot_certificates_state
+                let state =
+                  ( Xapi_vm_helpers.check_secureboot_certificates_state
                       ~__context ~self
-                  in
-                  Db.VM.set_secureboot_certificates_state ~__context ~self
-                    ~value:state
-                with e ->
-                  D.warn
-                    "Failed to check secureboot certificate state for VM %s: %s"
-                    (Db.VM.get_uuid ~__context ~self)
-                    (Printexc.to_string e)
+                    :> API.vm_secureboot_certificates_state
+                    )
+                in
+                Db.VM.set_secureboot_certificates_state ~__context ~self
+                  ~value:state
           )
           (Db.VM.get_all ~__context)
       )
