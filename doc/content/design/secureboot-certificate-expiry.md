@@ -38,6 +38,15 @@ States:
 - `update_available`: Update required
 - `update_on_boot`: Update scheduled for next boot
 
+~~~mermaid
+
+stateDiagram
+update_available --> update_on_boot : Admin marks VM for update
+update_on_boot --> ok : VM boots, update succeeds
+update_on_boot --> update_on_boot : VM boots, update fails(retain state)
+
+~~~
+
 ### 2.3 RBAC
 
 The new update API follows VM-admin-level access, aligned with existing NVRAM-related VM operations.
@@ -46,7 +55,7 @@ The new update API follows VM-admin-level access, aligned with existing NVRAM-re
 
 ### 3.1 VM Certificate State Model
 
-`VM.secureboot_certificates_state` applies to VM-class objects, including:
+`VM.secureboot_certificates_state` applies to these VM-class objects,
 
 - VMs
 - Snapshots
@@ -98,24 +107,49 @@ The certificate state must stay consistent with actual NVRAM content.
 
 Key interface change:
 
-- Extend `VM.set_NVRAM_EFI_variables` with optional parameter `update`
+- Extend `VM.set_NVRAM_EFI_variables` with optional parameter `update`, we call it `VM.set_NVRAM_EFI_variables_V2`
 
 Rules:
 
-- `update=yes` -> set state `update_available`
+- `update=yes` -> set state `ok`
 - `update=no` -> do not update state
 - omitted -> xapi runs certificate check helper and derives state
 
 This ensures compatibility when old varstored instances are still running during rolling update windows.
 
-### 3.5 Boot-time Automatic Update Path
+### 3.5 Certificate Check Helper
 
-When varstored initializes a VM and sees `secureboot_certificates_state=update_on_boot`:
+A standalone program  will be introduced, which xapi calls to determine the SecureBoot cert state
+
+Inputs:
+
+- `temp file path` which contains NVRAM EFI-variables data
+
+Behavior:
+
+- This program comes to use some common functions shared with varstored.
+- This program is launched by xapi, it is executed in a sandboxed and reduced privileges environment.
+- Xapi retrieves VM's NVRAM content from database and passes it to this program via command-line arguments.
+- If this program outputs `update_required`, xapi sets `VM.secureboot_certificates_state` to be `update_available`.
+- If this program outputs `update_ok`, xapi sets `VM.secureboot_certificates_state` to be `ok`.
+- On toolstack restart, during DB upgrade, this program is invoked to compute `VM.secureboot_certificates_state`. Since xapi process has not completed initialization at that point, this program cannot call any services of xapi.
+
+### 3.6 Boot-time Automatic Update Path
+
+When varstored initializes a VM and sees `secureboot_certificates_state=update_on_boot`, varstored does,
 
 - Perform certificate update flow during boot-time initialization
-- Write updated NVRAM and synchronize state via `VM.set_NVRAM_EFI_variables`
+- Write updated NVRAM and synchronize state via `VM.set_NVRAM_EFI_variables_V2`
 
-### 3.6 End-to-end Workflow
+The `VM.set_NVRAM_EFI_variables_V2` interface performs same as `VM.set_NVRAM_EFI_variables`, uses the existing varstored-guard process to make calls to xapi.
+
+If `VM.set_NVRAM_EFI_variables_V2` runs into error (e.g. there is something wrong with the communication with xapi),
+
+- xapi does not update VM NVRAM and `VM.secureboot_certificates_state`
+- VM boot gets stuck at the firmware initialization stage, if the issue is not fixed, rebooting the VM will still encounter the same problem
+- Once the issue is fixed, admin can continue the secureboot certificate upgrade by VM reboot
+
+### 3.7 End-to-end Workflow
 
 1. Upgrade packages (`xapi-core`, `varstored`, related components)
 2. Restart toolstack
@@ -130,3 +164,4 @@ When varstored initializes a VM and sees `secureboot_certificates_state=update_o
 - Custom certificate workflow
 - Template/snapshot feature expansion beyond state tracking and conversion behavior
 - OS-specific test-process guidance
+- VM with Secure Boot PCR7 binding (e.g. Windows bitlocker), provide customer documentation to guide how to resolve such issues
