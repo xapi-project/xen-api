@@ -1706,7 +1706,8 @@ let ensure_device_model_profile_present ~__context ~domain_type ~is_a_template
     (* only add device-model to an HVM VM platform if it is not already there *)
     default :: platform
 
-let check_secureboot_certificates_state ~__context ~self =
+let check_secureboot_certificates_state ~__context ~self :
+    [`ok | `update_available] =
   let vm_uuid = Db.VM.get_uuid ~__context ~self in
   let nvram = Db.VM.get_NVRAM ~__context ~self in
   match List.assoc_opt "EFI-variables" nvram with
@@ -1714,6 +1715,7 @@ let check_secureboot_certificates_state ~__context ~self =
       D.info "VM %s has no EFI-variables in NVRAM, defaulting to ok" vm_uuid ;
       `ok
   | Some efi_vars -> (
+    try
       let tmp_path = Filename.temp_file ("nvram-" ^ vm_uuid ^ "-") ".dat" in
       let result =
         finally
@@ -1738,4 +1740,8 @@ let check_secureboot_certificates_state ~__context ~self =
             "varstore-nvram-certcheck returned unexpected output for VM %s: %s"
             vm_uuid other ;
           `ok
-    )
+    with e ->
+      D.warn "Failed to check secureboot certificate state for VM %s: %s"
+        vm_uuid (Printexc.to_string e) ;
+      `ok
+  )

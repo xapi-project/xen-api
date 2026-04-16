@@ -144,7 +144,7 @@ let prototyped_of_field = function
   | "VM_metrics", "numa_optimised" ->
       Some "26.2.0"
   | "VM", "secureboot_certificates_state" ->
-      Some "26.7.0-next"
+      Some "26.10.0"
   | "VM", "groups" ->
       Some "24.19.1"
   | "VM", "pending_guidances_full" ->
