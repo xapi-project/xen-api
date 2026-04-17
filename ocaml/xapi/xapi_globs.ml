@@ -1853,7 +1853,7 @@ let other_options =
     , Arg.Bool (fun b -> ssh_auto_mode_default := b)
     , (fun () -> string_of_bool !ssh_auto_mode_default)
     , "Defaults to true; overridden to false via \
-       /etc/xapi.conf.d/ssh-auto-mode.conf(e.g., in XenServer 8)"
+       /etc/xapi.conf.d/ssh-auto-mode.conf (for example, in XenServer 8)"
     )
   ; ( "secure-boot-efi-path"
     , Arg.Set_string secure_boot_path
