@@ -2373,9 +2373,12 @@ let set_NVRAM_EFI_variables =
             Enum
               ( "update_status"
               , [
-                  ("yes", "Certificates have been updated")
-                ; ("no", "Certificates have not been changed")
-                ; ("unspecified", "Caller did not provide the update argument")
+                  ("yes", "Set secureboot_certificates_state to ok")
+                ; ("no", "Leave secureboot_certificates_state unchanged")
+                ; ( "unspecified"
+                  , "Check certificates and update \
+                     secureboot_certificates_state accordingly"
+                  )
                 ]
               )
         ; param_name= "update"
