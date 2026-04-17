@@ -1838,13 +1838,11 @@ module VM = struct
                         "VM = %s; using memory_dynamic_min = %Ld and \
                          memory_dynamic_max = %Ld"
                         vm.Vm.id vm.memory_dynamic_min vm.memory_dynamic_max ;
-                      ( vm.memory_dynamic_min +++ overhead_bytes
-                      , vm.memory_dynamic_max +++ overhead_bytes
-                      )
+                      (vm.memory_dynamic_min, vm.memory_dynamic_max)
                     )
               in
-              let min_kib = kib_of_bytes_used min_bytes
-              and max_kib = kib_of_bytes_used max_bytes in
+              let min_kib = kib_of_bytes_used (min_bytes +++ overhead_bytes)
+              and max_kib = kib_of_bytes_used (max_bytes +++ overhead_bytes) in
               (* XXX: we would like to be able to cancel an in-progress
                  with_reservation *)
               let dbg = Xenops_task.get_dbg task in
