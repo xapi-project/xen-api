@@ -1706,7 +1706,8 @@ let ensure_device_model_profile_present ~__context ~domain_type ~is_a_template
     (* only add device-model to an HVM VM platform if it is not already there *)
     default :: platform
 
-let check_secureboot_certificates_state ~__context ~self =
+let check_secureboot_certificates_state ~__context ~self :
+    [`ok | `update_available] =
   let vm_uuid = Db.VM.get_uuid ~__context ~self in
   let nvram = Db.VM.get_NVRAM ~__context ~self in
   match List.assoc_opt "EFI-variables" nvram with
