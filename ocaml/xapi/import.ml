@@ -792,16 +792,12 @@ module VM : HandlerTools = struct
           Db.VM.set_secureboot_certificates_state ~__context ~self:vm
             ~value:vm_record.API.vM_secureboot_certificates_state
         else if not vm_record.API.vM_is_default_template then
-          try
-            let state =
-              Xapi_vm_helpers.check_secureboot_certificates_state ~__context
-                ~self:vm
-            in
-            Db.VM.set_secureboot_certificates_state ~__context ~self:vm
-              ~value:state
-          with e ->
-            debug "Failed to check secureboot certificate state for VM %s: %s"
-              (Ref.string_of vm) (Printexc.to_string e)
+          let state =
+            Xapi_vm_helpers.check_secureboot_certificates_state ~__context
+              ~self:vm
+          in
+          Db.VM.set_secureboot_certificates_state ~__context ~self:vm
+            ~value:state
       ) ;
       debug "Created VM: %s (was %s)" (Ref.string_of vm) x.id ;
       (* Although someone could sneak in here and attempt to power on the VM, it

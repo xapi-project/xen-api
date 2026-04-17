@@ -989,18 +989,12 @@ let upgrade_secureboot_certificates_state =
                   ~default:false
               in
               if is_uefi && is_secureboot then
-                try
-                  let state =
-                    Xapi_vm_helpers.check_secureboot_certificates_state
-                      ~__context ~self
-                  in
-                  Db.VM.set_secureboot_certificates_state ~__context ~self
-                    ~value:state
-                with e ->
-                  D.warn
-                    "Failed to check secureboot certificate state for VM %s: %s"
-                    (Db.VM.get_uuid ~__context ~self)
-                    (Printexc.to_string e)
+                let state =
+                  Xapi_vm_helpers.check_secureboot_certificates_state
+                    ~__context ~self
+                in
+                Db.VM.set_secureboot_certificates_state ~__context ~self
+                  ~value:state
           )
           (Db.VM.get_all ~__context)
       )

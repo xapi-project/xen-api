@@ -1714,6 +1714,7 @@ let check_secureboot_certificates_state ~__context ~self =
       D.info "VM %s has no EFI-variables in NVRAM, defaulting to ok" vm_uuid ;
       `ok
   | Some efi_vars -> (
+    try
       let tmp_path = Filename.temp_file ("nvram-" ^ vm_uuid ^ "-") ".dat" in
       let result =
         finally
@@ -1738,4 +1739,9 @@ let check_secureboot_certificates_state ~__context ~self =
             "varstore-nvram-certcheck returned unexpected output for VM %s: %s"
             vm_uuid other ;
           `ok
+    with e ->
+      D.warn
+        "Failed to check secureboot certificate state for VM %s: %s" vm_uuid
+        (Printexc.to_string e) ;
+      `ok
     )
