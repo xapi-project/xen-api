@@ -793,10 +793,10 @@ module VM : HandlerTools = struct
             ~value:vm_record.API.vM_secureboot_certificates_state
         else if not vm_record.API.vM_is_default_template then
           let state =
-            (Xapi_vm_helpers.check_secureboot_certificates_state ~__context
-               ~self:vm
+            ( Xapi_vm_helpers.check_secureboot_certificates_state ~__context
+                ~self:vm
               :> API.vm_secureboot_certificates_state
-            )
+              )
           in
           Db.VM.set_secureboot_certificates_state ~__context ~self:vm
             ~value:state

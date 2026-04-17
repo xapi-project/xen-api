@@ -1661,19 +1661,18 @@ let set_NVRAM_EFI_variables ~__context ~self ~value ~update =
       Db.VM.set_NVRAM ~__context ~self ~value
   ) ;
   (* Update secureboot_certificates_state after NVRAM is written *)
-  ( match update with
+  match update with
   | `yes ->
       Db.VM.set_secureboot_certificates_state ~__context ~self ~value:`ok
   | `no ->
       () (* keep current state unchanged *)
   | `unspecified ->
       let new_state =
-        (Xapi_vm_helpers.check_secureboot_certificates_state ~__context ~self
+        ( Xapi_vm_helpers.check_secureboot_certificates_state ~__context ~self
           :> API.vm_secureboot_certificates_state
-        )
+          )
       in
       Db.VM.set_secureboot_certificates_state ~__context ~self ~value:new_state
-  )
 
 let restart_device_models ~__context ~self =
   let power_state = Db.VM.get_power_state ~__context ~self in

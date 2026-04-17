@@ -990,10 +990,10 @@ let upgrade_secureboot_certificates_state =
               in
               if is_uefi && is_secureboot then
                 let state =
-                  (Xapi_vm_helpers.check_secureboot_certificates_state
-                     ~__context ~self
+                  ( Xapi_vm_helpers.check_secureboot_certificates_state
+                      ~__context ~self
                     :> API.vm_secureboot_certificates_state
-                  )
+                    )
                 in
                 Db.VM.set_secureboot_certificates_state ~__context ~self
                   ~value:state

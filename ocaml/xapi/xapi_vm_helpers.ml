@@ -1741,8 +1741,7 @@ let check_secureboot_certificates_state ~__context ~self :
             vm_uuid other ;
           `ok
     with e ->
-      D.warn
-        "Failed to check secureboot certificate state for VM %s: %s" vm_uuid
-        (Printexc.to_string e) ;
+      D.warn "Failed to check secureboot certificate state for VM %s: %s"
+        vm_uuid (Printexc.to_string e) ;
       `ok
-    )
+  )
