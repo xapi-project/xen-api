@@ -1645,16 +1645,16 @@ module SM = struct
 
   let get_session ~__context sr =
     let sr_key = Option.map Ref.string_of sr in
-    match Hashtbl.find_opt reusable_sessions sr_key with
-    | Some session when is_valid_session ~__context session ->
-        session
-    | Some _ ->
-        with_sm_sessions_lock (fun () ->
+    with_sm_sessions_lock (fun () ->
+        match Hashtbl.find_opt reusable_sessions sr_key with
+        | Some session when is_valid_session ~__context session ->
+            session
+        | Some _ ->
             Hashtbl.remove reusable_sessions sr_key ;
             get_new_session ~__context sr
-        )
-    | None ->
-        with_sm_sessions_lock (fun () -> get_new_session ~__context sr)
+        | None ->
+            get_new_session ~__context sr
+    )
 
   let with_session ~traceparent sr f =
     Server_helpers.exec_with_new_task "sm_exec"
