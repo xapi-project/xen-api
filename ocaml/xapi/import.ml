@@ -620,6 +620,12 @@ module VM : HandlerTools = struct
         else
           {vm_record with API.vM_has_vendor_device= false}
       in
+      (* Always default secureboot_certificates_state to ok in the record
+         passed to create_from_record -- the actual state will be recomputed
+         below against the importing pool's certificates. *)
+      let vm_record =
+        {vm_record with API.vM_secureboot_certificates_state= `ok}
+      in
       let vm_record =
         {
           vm_record with
@@ -776,6 +782,19 @@ module VM : HandlerTools = struct
       ) ;
       Db.VM.set_bios_strings ~__context ~self:vm
         ~value:vm_record.API.vM_bios_strings ;
+      (* Always recompute secureboot_certificates_state against the
+         importing pool's certificates, since the exporting pool's state
+         is not meaningful here. *)
+      ( if not vm_record.API.vM_is_default_template then
+          let state =
+            ( Xapi_vm_helpers.check_secureboot_certificates_state ~__context
+                ~self:vm
+              :> API.vm_secureboot_certificates_state
+              )
+          in
+          Db.VM.set_secureboot_certificates_state ~__context ~self:vm
+            ~value:state
+      ) ;
       debug "Created VM: %s (was %s)" (Ref.string_of vm) x.id ;
       (* Although someone could sneak in here and attempt to power on the VM, it
          				 doesn't really matter since no VBDs have been created yet.
