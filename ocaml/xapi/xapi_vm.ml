@@ -688,7 +688,8 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~suspend_SR ~version ~generation_id ~hardware_platform_version
     ~has_vendor_device ~requires_reboot:false ~reference_label ~domain_type
     ~pending_guidances:[] ~recommended_guidances:[]
-    ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
+    ~pending_guidances_recommended:[] ~pending_guidances_full:[]
+    ~secureboot_certificates_state:`ok ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref ;
   update_memory_overhead ~__context ~vm:vm_ref ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:vm_ref ;
@@ -1650,7 +1651,7 @@ let set_HVM_boot_policy ~__context ~self ~value =
 
 let nvram = Mutex.create ()
 
-let set_NVRAM_EFI_variables ~__context ~self ~value =
+let set_NVRAM_EFI_variables ~__context ~self ~value ~update =
   with_lock nvram (fun () ->
       (* do not use remove_from_NVRAM: we do not want to
        * temporarily end up with an empty NVRAM in HA *)
@@ -1658,7 +1659,20 @@ let set_NVRAM_EFI_variables ~__context ~self ~value =
       let nvram = Db.VM.get_NVRAM ~__context ~self in
       let value = (key, value) :: List.remove_assoc key nvram in
       Db.VM.set_NVRAM ~__context ~self ~value
-  )
+  ) ;
+  (* Update secureboot_certificates_state after NVRAM is written *)
+  match update with
+  | `yes ->
+      Db.VM.set_secureboot_certificates_state ~__context ~self ~value:`ok
+  | `no ->
+      () (* keep current state unchanged *)
+  | `unspecified ->
+      let new_state =
+        ( Xapi_vm_helpers.check_secureboot_certificates_state ~__context ~self
+          :> API.vm_secureboot_certificates_state
+          )
+      in
+      Db.VM.set_secureboot_certificates_state ~__context ~self ~value:new_state
 
 let restart_device_models ~__context ~self =
   let power_state = Db.VM.get_power_state ~__context ~self in
