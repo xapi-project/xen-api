@@ -2459,7 +2459,7 @@ let vm_secureboot_certificates_state =
            expired."
         )
       ; ( "update_on_boot"
-        , "XS will trigger an update of the certificates whenever the VM \
+        , "An update of the certificates will be triggered whenever the VM \
            boots. This includes VM.start, VM.reboot and a guest-triggered \
            reboot."
         )
@@ -3246,7 +3246,7 @@ let t =
             ~ty:vm_secureboot_certificates_state
             ~default_value:(Some (VEnum "ok")) "secureboot_certificates_state"
             "The state of the Secure Boot certificates, showing whether an \
-             update is required, already scheduled, or not needed."
+             update is available, already scheduled, or not needed."
         ]
       )
     ()

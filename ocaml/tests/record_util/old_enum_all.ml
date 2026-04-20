@@ -311,9 +311,6 @@ let all_vm_secureboot_readiness =
   ; `certs_incomplete
   ]
 
-let all_vm_secureboot_certificates_state =
-  [`ok; `update_available; `update_on_boot]
-
 let all_sr_health = [`healthy; `recovering; `unreachable; `unavailable]
 
 let all_event_operation = [`add; `del; `_mod]

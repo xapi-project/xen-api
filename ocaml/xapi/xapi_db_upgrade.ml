@@ -968,7 +968,7 @@ let upgrade_ca_fingerprints =
 let upgrade_secureboot_certificates_state =
   {
     description= "Set secureboot_certificates_state for existing VMs"
-  ; version= (fun _ -> true)
+  ; version= (fun x -> x < (5, 902))
   ; fn=
       (fun ~__context ->
         List.iter
