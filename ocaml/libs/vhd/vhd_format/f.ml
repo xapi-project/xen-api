@@ -2903,23 +2903,9 @@ functor
 
       let raw ?from (vhd : fd Vhd.t) = raw_common ?from vhd
 
-      let vhd_blocks_to_json (t : fd Vhd.t) =
+      let vhd_blocks_to_json_aux (t : fd Vhd.t) blocks =
         let block_size_sectors_shift =
           t.Vhd.header.Header.block_size_sectors_shift
-        in
-        let max_table_entries = Vhd.used_max_table_entries t in
-
-        let include_block = include_block None t in
-
-        let blocks =
-          Seq.init max_table_entries Fun.id
-          |> Seq.filter_map (fun i ->
-              if include_block i then
-                Some (`Int i)
-              else
-                None
-          )
-          |> List.of_seq
         in
         let json =
           `Assoc
@@ -2933,6 +2919,52 @@ functor
         in
         let json_string = Yojson.to_string json in
         print_string json_string ; return ()
+
+      let vhd_blocks_to_json (t : fd Vhd.t) =
+        let max_table_entries = Vhd.used_max_table_entries t in
+        let blocks =
+          Seq.init max_table_entries Fun.id
+          |> Seq.filter_map (fun i ->
+              if include_block None t i then
+                Some (`Int i)
+              else
+                None
+          )
+          |> List.of_seq
+        in
+        vhd_blocks_to_json_aux t blocks
+
+      let vhd_blocks_to_json_interval (t : fd Vhd.t) =
+        let max_table_entries = Vhd.used_max_table_entries t in
+        let blocks, last_block =
+          Seq.init max_table_entries Fun.id
+          |> Seq.fold_left
+               (fun (acc, left_block) i ->
+                 if include_block None t i then
+                   match left_block with
+                   | Some _ ->
+                       (acc, left_block)
+                   | None ->
+                       (acc, Some i)
+                 else
+                   match left_block with
+                   | Some x ->
+                       (`List [`Int x; `Int (i - 1)] :: acc, None)
+                   | None ->
+                       (acc, None)
+               )
+               ([], None)
+        in
+        (* Close off the interval we were tracking we ran off the end of the seq *)
+        let blocks =
+          match last_block with
+          | Some x ->
+              `List [`Int x; `Int (max_table_entries - 1)] :: blocks
+          | None ->
+              blocks
+        in
+        let blocks = List.rev blocks in
+        vhd_blocks_to_json_aux t blocks
 
       let vhd_common ?from ?raw ?(emit_batmap = false) (t : fd Vhd.t) =
         let block_size_sectors_shift =
@@ -3173,6 +3205,8 @@ functor
         Vhd_input.vhd_common ?from ~raw vhd
 
       let blocks_json = Vhd_input.vhd_blocks_to_json
+
+      let blocks_json_interval = Vhd_input.vhd_blocks_to_json_interval
     end
 
     (* Create a VHD stream from data on t, using `include_block` guide us which blocks have data *)

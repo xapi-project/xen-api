@@ -71,3 +71,7 @@
   (section libexec_root)
   (files (get_vhd_vsize.exe as xapi/get_vhd_vsize) (sparse_dd.exe as xapi/sparse_dd))
 )
+
+(cram
+ (package vhd-tool)
+ (deps main.exe))
