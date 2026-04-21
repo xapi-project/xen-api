@@ -135,8 +135,8 @@ xe pool-external-auth-set-ldaps uuid=<uuid> ldaps=<true|false>
 
 #### 3.2.1.2 Error code
 This API may raise following errors
-- AUTH_NO_CERT, no certs found to enable ldaps, refer to 4.1.2 for certs finding
-- AUTH_INVALID_CERT, found certs, but none of the certs can be used to connect to DC
+- AUTH_NO_CERTS, no certs found to enable ldaps, refer to 4.1.2 for certs finding
+- AUTH_INVALID_CERTS, found certs, but none of the certs can be used to connect to DC
 - AUTH_IS_DISABLED, AD is not enabled
 - AUTH_SET_LDAPS_FAILED,  Failed to set ldaps, the error message contains the details like ldap query on domain failed
 
