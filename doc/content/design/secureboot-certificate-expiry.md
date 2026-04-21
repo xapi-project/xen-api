@@ -44,6 +44,7 @@ stateDiagram
 update_available --> update_on_boot : Admin marks VM for update
 update_on_boot --> ok : VM boots, update succeeds
 update_on_boot --> update_on_boot : VM boots, update fails(retain state)
+ok --> update_available : recompute state(e.g. legacy VM import)
 
 ~~~
 
