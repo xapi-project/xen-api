@@ -1335,8 +1335,14 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
               D.debug "VM = %s; domid = %d; will claim %Ld bytes = %Ld pages"
                 (Uuidx.to_string uuid) domid build_claim_bytes
                 memory.build_claim_pages ;
+              let required_free =
+                Int64.mul memory.required_host_free_mib 1048576L
+              in
               let memory = build_claim_bytes in
-              match numa_placement domid ~vcpus ~cores ~memory affinity with
+              match
+                numa_placement domid ~vcpus ~cores ~memory ~required_free
+                  affinity
+              with
               | None ->
                   (* Always perform a global claim when NUMA placement is
                      enabled, and single node claims failed or were
