@@ -1467,14 +1467,14 @@ let message_destroy_all (_ : printer) rpc session_id params =
     try Option.map Date.of_iso8601 before_str
     with _ ->
       fail
-        "invalid timestamp format for 'before' (expected RFC3339, e.g. \
+        "invalid timestamp format for 'before' (expected RFC3339, for example, \
          2025-01-01T00:00:00Z)"
   in
   let after =
     try Option.map Date.of_iso8601 after_str
     with _ ->
       fail
-        "Invalid timestamp format for 'after' (expected RFC3339, e.g. \
+        "Invalid timestamp format for 'after' (expected RFC3339, for example, \
          2025-01-01T00:00:00Z)"
   in
   let priority =

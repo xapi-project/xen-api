@@ -1,5 +1,5 @@
 /var/log/xcp-rrdd-plugins.log {
     postrotate
-        /bin/kill -HUP `cat /var/run/syslogd.pid 2> /dev/null` 2> /dev/null || true
+        /usr/bin/systemctl kill -s HUP rsyslog.service >/dev/null 2>&1 || true
     endscript
 }

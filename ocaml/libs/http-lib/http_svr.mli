@@ -49,8 +49,8 @@ end
 
 exception Generic_error of string
 
-val escape : string -> string
-(** [escape str] escapes HTML/XML special characters in [str] for safe inclusion in HTML/XML content. *)
+val escape_html : string -> string
+(** [escape_html str] escapes HTML/XML special characters in [str] for safe inclusion in HTML/XML content. *)
 
 type socket
 
