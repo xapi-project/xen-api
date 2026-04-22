@@ -578,8 +578,8 @@ let sr_attach_cmd =
     ; `P "Simple parameters may be written directly on the commandline as:"
     ; `P "key=value"
     ; `P
-        "If a particular value is stored in a file (e.g. as XML) then you may \
-         write:"
+        "If a particular value is stored in a file (for example, as XML) then \
+         you may write:"
     ; `P " key-filename=<filename containing the value>."
     ]
     @ help
@@ -595,8 +595,8 @@ let sr_detach_cmd =
       `S "DESCRIPTION"
     ; `P
         "Disconnects from a connected storage repository, and frees any \
-         associated resources (e.g. iSCSI sessions, other control connections \
-         etc)."
+         associated resources (for example, iSCSI sessions, other control \
+         connections etc)."
     ]
     @ help
   in
@@ -651,7 +651,7 @@ let vdi_create_cmd =
   let format_arg =
     let doc =
       "Request a specific format for the disk on the backend storage \
-       substrate, e.g. 'vhd' or 'raw'. Note that not all storage \
+       substrate, for example, 'vhd' or 'raw'. Note that not all storage \
        implementations support all formats. Every storage implementation will \
        use its preferred format if no override is supplied."
     in

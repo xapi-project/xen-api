@@ -1879,7 +1879,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help=
           "Calls the function within the plugin on the given vm with optional \
            arguments (args:key=value). To pass a \"value\" string with special \
-           characters in it (e.g. new line), an alternative syntax \
+           characters in it (for example, new line), an alternative syntax \
            args:key:file=local_file can be used in place, where the content of \
            local_file will be retrieved and assigned to \"key\" as a whole."
       ; implementation= With_fd Cli_operations.vm_call_plugin
@@ -1893,10 +1893,10 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help=
           "Calls function fn within the plugin on the host where the VM is \
            running with arguments (args:key=value). To pass a \"value\" string \
-           with special characters in it (e.g. new line), an alternative \
-           syntax args:key:file=local_file can be used in place, where the \
-           content of local_file will be retrieved and assigned to \"key\" as \
-           a whole."
+           with special characters in it (for example, new line), an \
+           alternative syntax args:key:file=local_file can be used in place, \
+           where the content of local_file will be retrieved and assigned to \
+           \"key\" as a whole."
       ; implementation= With_fd Cli_operations.vm_call_host_plugin
       ; flags= []
       }
@@ -2260,8 +2260,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           ; "sm-config:"
           ]
       ; help=
-          "Create an SR, also a PBD. the device-config parameters can be \
-           specified by e.g. device-config:foo=baa."
+          "Create an SR, also a PBD. The device-config parameters can be \
+           specified by device-config:foo=baa, for example."
       ; implementation= With_fd Cli_operations.sr_create
       ; flags= []
       }
@@ -2272,7 +2272,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= ["host-uuid"; "device-config:"; "sm-config:"]
       ; help=
           "Perform a storage probe.  The device-config parameters can be \
-           specified by e.g. device-config:devs=/dev/sdb1."
+           specified by device-config:devs=/dev/sdb1, for example."
       ; implementation= No_fd Cli_operations.sr_probe
       ; flags= []
       }
@@ -2283,9 +2283,9 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= ["host-uuid"; "device-config:"; "sm-config:"]
       ; help=
           "Perform a storage probe. The device-config parameters can be \
-           specified by e.g. device-config:devs=/dev/sdb1. Unlike sr-probe, \
-           this command returns results in the same human-readable format for \
-           every SR type."
+           specified by device-config:devs=/dev/sdb1, for example. Unlike \
+           sr-probe, this command returns results in the same human-readable \
+           format for every SR type."
       ; implementation= No_fd Cli_operations.sr_probe_ext
       ; flags= []
       }
