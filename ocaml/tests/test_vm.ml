@@ -251,14 +251,11 @@ module VMUpdateSecurebootCertificatesOnBoot = Generic.MakeStateful (struct
     let string_of_input_t (state, mark) =
       Printf.sprintf "(%s, mark=%b)" (string_of_state state) mark
 
-    let string_of_error (code, args) =
-      Printf.sprintf "%s(%s)" code (String.concat ", " args)
-
     let string_of_output_t = function
       | Ok state ->
           Printf.sprintf "Ok %s" (string_of_state state)
-      | Error err ->
-          Printf.sprintf "Error %s" (string_of_error err)
+      | Error (code, args) ->
+          Printf.sprintf "Error %s(%s)" code (String.concat ", " args)
   end
 
   module State = Test_state.XapiDb
@@ -281,14 +278,19 @@ module VMUpdateSecurebootCertificatesOnBoot = Generic.MakeStateful (struct
   let tests =
     `QuickAndAutoDocumented
       [
+        (* transitions *)
         ((`update_available, true), Ok `update_on_boot)
       ; ((`update_on_boot, false), Ok `update_available)
+        (* idempotent: already in desired state *)
+      ; ((`update_on_boot, true), Ok `update_on_boot)
+      ; ((`update_available, false), Ok `update_available)
+        (* irrelevant state: raises *)
       ; ( (`ok, true)
         , Error
             ( Api_errors.operation_not_allowed
             , [
                 "Cannot set update_on_boot: VM.secureboot_certificates_state \
-                 is not update_available"
+                 is not in a valid state"
               ]
             )
         )
@@ -297,7 +299,7 @@ module VMUpdateSecurebootCertificatesOnBoot = Generic.MakeStateful (struct
             ( Api_errors.operation_not_allowed
             , [
                 "Cannot clear update_on_boot: VM.secureboot_certificates_state \
-                 is not update_on_boot"
+                 is not in a valid state"
               ]
             )
         )
