@@ -2762,12 +2762,12 @@ let rec cmdtable_data : (string * cmd_spec) list =
     )
   ; ( "vm-update-secureboot-certificates-on-boot"
     , {
-        reqd= ["uuid"; "mark"]
+        reqd= ["mark"]
       ; optn= []
       ; help= "Mark/unmark secure boot certificate update for next VM boot."
       ; implementation=
           No_fd Cli_operations.vm_update_secureboot_certificates_on_boot
-      ; flags= []
+      ; flags= [Vm_selectors]
       }
     )
   ; ( "vm-group-create"
