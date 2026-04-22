@@ -90,26 +90,29 @@ let tdb_tool = !Xapi_globs.tdb_tool
 
 let domain_krb5_dir = Filename.concat Xapi_globs.samba_dir "lock/smb_krb5"
 
-(* Legacy certificates folder *)
-let certs_dir = "/etc/stunnel/certs"
+let ca_bundle_for_purpose purpose =
+  Printf.sprintf "%s/%s-%s.pem" Constants.trusted_certs_by_purpose_dir
+    Constants.trusted_certs_root_prefix purpose
 
-let ldaps_ca_bundle = "/etc/trusted-certs/ca-bundle-ldaps.pem"
+let ldaps_ca_bundle = ca_bundle_for_purpose "ldaps"
 
-let general_ca_bundle = "/etc/trusted-certs/ca-bundle-general.pem"
+let general_ca_bundle = ca_bundle_for_purpose "general"
 
-(** Return the best available CA bundle/cert path, in priority order:
-    ldaps-specific bundle > general bundle > legacy certs dir.
+(** Return the best available CA bundle path, in priority order:
+    ldaps-specific bundle > general bundle.
     Returns [None] if none exist. *)
-
 let ca_bundle_path () =
-  [ldaps_ca_bundle; general_ca_bundle; certs_dir]
-  |> List.find_opt Sys.file_exists
+  [ldaps_ca_bundle; general_ca_bundle] |> List.find_opt Sys.file_exists
 
 let assert_ca_exists = function
   | true ->
       ca_bundle_path ()
       |> Option.to_result
-           ~none:(gen_ex E_NO_CERTS "No certs to setup TLS connection to DC")
+           ~none:
+             (gen_ex E_NO_CERTS
+                "No certs to setup TLS connection to DC. Note: ldaps does not \
+                 support non-CA certs"
+             )
       |> maybe_raise
       |> ignore
   | false ->
