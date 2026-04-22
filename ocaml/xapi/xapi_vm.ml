@@ -1763,23 +1763,23 @@ let update_secureboot_certificates_on_boot ~__context ~self ~mark =
   | false, `update_on_boot ->
       Db.VM.set_secureboot_certificates_state ~__context ~self
         ~value:`update_available
-  | true, _ ->
+  | true, `update_on_boot ->
+      () (* already marked for update on boot — idempotent *)
+  | false, `update_available ->
+      () (* already cleared — idempotent *)
+  | _, _ ->
       raise
         (Api_errors.Server_error
            ( Api_errors.operation_not_allowed
            , [
-               "Cannot set update_on_boot: VM.secureboot_certificates_state is \
-                not update_available"
-             ]
-           )
-        )
-  | false, _ ->
-      raise
-        (Api_errors.Server_error
-           ( Api_errors.operation_not_allowed
-           , [
-               "Cannot clear update_on_boot: VM.secureboot_certificates_state \
-                is not update_on_boot"
+               Printf.sprintf
+                 "Cannot %s update_on_boot: VM.secureboot_certificates_state \
+                  is not in a valid state"
+                 ( if mark then
+                     "set"
+                   else
+                     "clear"
+                 )
              ]
            )
         )
