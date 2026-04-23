@@ -2760,6 +2760,16 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "vm-update-secureboot-certificates-on-boot"
+    , {
+        reqd= ["mark"]
+      ; optn= []
+      ; help= "Mark/unmark secure boot certificate update for next VM boot."
+      ; implementation=
+          No_fd Cli_operations.vm_update_secureboot_certificates_on_boot
+      ; flags= [Vm_selectors]
+      }
+    )
   ; ( "vm-group-create"
     , {
         reqd= ["name-label"; "placement"]
