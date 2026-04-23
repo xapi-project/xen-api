@@ -3135,6 +3135,13 @@ functor
         info "VM.set_NVRAM_EFI_variables: self = '%s'" (vm_uuid ~__context self) ;
         Local.VM.set_NVRAM_EFI_variables ~__context ~self ~value ~update
 
+      let set_NVRAM_EFI_variables_v2 ~__context ~self ~value ~update =
+        (* called by varstored CLI tools (which connect to XAPI directly,
+           bypassing varstored-guard); same semantics as V1 *)
+        info "VM.set_NVRAM_EFI_variables_v2: self = '%s'"
+          (vm_uuid ~__context self) ;
+        Local.VM.set_NVRAM_EFI_variables_v2 ~__context ~self ~value ~update
+
       let restart_device_models ~__context ~self =
         info "VM.restart_device_models: self = '%s'" (vm_uuid ~__context self) ;
         Local.VM.restart_device_models ~__context ~self

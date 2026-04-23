@@ -2349,6 +2349,27 @@ let set_HVM_boot_policy =
        effect when it is next started"
     ~allowed_roles:_R_VM_ADMIN ()
 
+(* Shared definitions for set_NVRAM_EFI_variables / _v2: the [update]
+   parameter has identical semantics in both, only its presence on the wire
+   differs (optional in V1, required in V2). *)
+let _update_status_enum =
+  Enum
+    ( "update_status"
+    , [
+        ("yes", "Set secureboot_certificates_state to ok")
+      ; ("no", "Leave secureboot_certificates_state unchanged")
+      ; ( "unspecified"
+        , "Check certificates and update secureboot_certificates_state \
+           accordingly"
+        )
+      ]
+    )
+
+let _update_param_doc =
+  "If 'yes', set secureboot_certificates_state to ok. If 'no', keep the \
+   current secureboot_certificates_state unchanged. If 'unspecified', run \
+   certificate check to determine the state."
+
 let set_NVRAM_EFI_variables =
   call ~flags:[`Session] ~name:"set_NVRAM_EFI_variables"
     ~lifecycle:[(Published, rel_naples, "")]
@@ -2369,27 +2390,37 @@ let set_NVRAM_EFI_variables =
         ; param_default= None
         }
       ; {
-          param_type=
-            Enum
-              ( "update_status"
-              , [
-                  ("yes", "Set secureboot_certificates_state to ok")
-                ; ("no", "Leave secureboot_certificates_state unchanged")
-                ; ( "unspecified"
-                  , "Check certificates and update \
-                     secureboot_certificates_state accordingly"
-                  )
-                ]
-              )
+          param_type= _update_status_enum
         ; param_name= "update"
         ; param_doc=
-            "If 'yes', set secureboot_certificates_state to ok. If 'no', keep \
-             the current secureboot_certificates_state unchanged. If omitted \
-             (defaults to 'unspecified'), run certificate check to determine \
-             the state."
-        ; param_release= numbered_release "26.7.0-next"
+            _update_param_doc ^ " If omitted, defaults to 'unspecified'."
+        ; param_release= numbered_release "26.10.0-next"
         ; param_default= Some (VEnum "unspecified")
         }
+      ]
+    ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
+
+(* Both the varstored daemon and the varstored CLI tools (varstore-set,
+   varstore-rm, ...) emit the same [set_NVRAM_EFI_variables_v2] call via
+   the shared xapidb-lib code. Whether that call reaches XAPI directly
+   or goes through varstored-guard depends on the [socket=] argument the
+   binary is started with: if it points at a varstored-guard per-VM
+   socket the call is relayed through guard (where V2 is already
+   registered); if it is absent (or points at XAPI's own socket) the
+   call lands on XAPI's main dispatcher. In typical deployments the
+   daemon takes the guard path and the CLI tools take the direct path,
+   but either binary can take either path. V2 must therefore be
+   registered here so the direct path works. The semantics are
+   identical to V1; the only schema difference is that [update] is a
+   mandatory parameter in V2. *)
+let set_NVRAM_EFI_variables_v2 =
+  call ~flags:[`Session] ~name:"set_NVRAM_EFI_variables_v2"
+    ~lifecycle:[(Published, "26.10.0-next", "")]
+    ~params:
+      [
+        (Ref _vm, "self", "The VM")
+      ; (String, "value", "The EFI-variables value")
+      ; (_update_status_enum, "update", _update_param_doc)
       ]
     ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
@@ -2651,6 +2682,7 @@ let t =
       ; set_domain_type
       ; set_HVM_boot_policy
       ; set_NVRAM_EFI_variables
+      ; set_NVRAM_EFI_variables_v2
       ; restart_device_models
       ; set_uefi_mode
       ; get_secureboot_readiness

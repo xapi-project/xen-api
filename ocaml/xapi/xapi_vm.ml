@@ -1674,6 +1674,11 @@ let set_NVRAM_EFI_variables ~__context ~self ~value ~update =
       in
       Db.VM.set_secureboot_certificates_state ~__context ~self ~value:new_state
 
+(* V2 has the same semantics as V1; it exists only to provide an RPC method
+   whose [update] parameter is mandatory on the wire (V1's [update] is
+   optional with default [`unspecified]). See datamodel_vm.ml. *)
+let set_NVRAM_EFI_variables_v2 = set_NVRAM_EFI_variables
+
 let restart_device_models ~__context ~self =
   let power_state = Db.VM.get_power_state ~__context ~self in
   if power_state <> `Running then
