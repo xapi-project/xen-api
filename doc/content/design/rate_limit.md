@@ -131,7 +131,7 @@ so are safe to store in the main database.
 ## API design
 
 ### Caller Datamodel
-We propose two new datamodel tables: **Caller**, which stores the data associated with each caller, and **Rate limit**, which identifies one or more callers with a rate limiter
+We propose two new datamodel tables: **Caller**, which stores the data associated with each caller, and **Rate limit**, which identifies one or more callers with a rate limiter.
 
 Caller:
 | Mutability | Name        | Type     | Description                                        |
@@ -140,21 +140,41 @@ Caller:
 | RO         | user_agent | String | user agent matching pattern  |
 | RO         | host_ip  | String | IP address matching pattern  |
 | RO         | last_access | DateTime | Last time the caller made a request        |
+| SRW         | groups     | Set String | Set of labels used for cumulative metrics |
 | RO         | rate_limit | Ref Rate_limit | Associated rate limiter - can be null |
+
+Callers identify the origin of incoming requests, and they serve a dual purpose
+of metrics gathering and providing a target for rate limiting. We allow users to query
+the metrics for an individual caller, or for all callers belonging to a given
+group. A new caller record will be added automatically whenever a request from
+an unknown origin is made to Xapi, and callers can also be added manually by
+users.
 
 Rate limit:
 | Mutability | Name        | Type     | Description |
 |--------: | --------------|-----------|------------------|
 | RW         | name_label  | String   | User-assigned label for the rate limiter |
-| SRO         | callers | Set (Ref Caller) | Callers associated with this rate limiter |
+| SRO        | callers | Set (Ref Caller) | Callers associated with this rate limiter |
 | RO         | burst_size  | Float    | Amount of tokens that can be consumed in one burst |
 | RO         | fill_rate   | Float    | Tokens added to the bucket per second |
 
+A rate limit can be applied to a group of callers, which then have a collective
+rate limit applied. Each caller can have at most one rate limiter applied,
+which then becomes stored in its `rate_limit` field. We have two distinct
+notions of groups here: rate limits store groups of callers, but groups of
+callers are also represented in their `groups` field. We do this to allow for a
+decoupling of rate limiting and data reporting, and to simplify the underlying
+code by storing direct references to objects where possible.
+
 ### API functions
-We define the following API functions on the caller datamodel:
+We define the following API functions for the caller datamodel:
 - `Caller.create(name_label, user_agent, host_ip)`: Create a new caller.
 - `Caller.set_name_label(caller, name_label)`: Set name label on the caller
 - `Caller.destroy(caller)`: Destroy the caller
+- `Caller.add_group(caller, group)`: Add caller to group
+- `Caller.remove_group(caller, group)`: Remove caller from group
+- `Caller.query_usage(caller, time_period)`: Obtain usage statistics for an individual caller
+- `Caller.query_group_usage(group, time_period)`: Obtain usage statistics for a group of callers
 
 And the following functions for the rate limiter datamodel:
 - `Rate_limit.create(name_label, callers, burst_size, fill_rate)`: Create a
@@ -165,8 +185,8 @@ rate limiter with the supplied parameters.
   rate limiter
 - `Rate_limit.set_fill_rate(rate_limit, burst_size)`: Set the fill rate for the
 rate limiter
-- `Rate_limit.destroy(rate_limit)`: Destroy the rate limiter
-
+- `Rate_limit.destroy(rate_limit)`: Destroy the rate limiter - should also
+clear the `rate_limit` field from its associated callers
 
 ### Matching semantics
 When a request arrives, Xapi matches the request's metadata against the
@@ -194,10 +214,13 @@ matches, but only the most specific rate limiter to any given request will be
 triggered.
 
 ### Caller lifecycle
-- When a call comes in, a new Caller is automatically created if no existing record matches.
-- Users can proactively create callers with wildcards to pre-configure rate limiting rules.
+- Users can proactively create callers with wildcards to identify groups of
+callers.
+- When a call comes in, a new Caller is automatically created if no existing
+**fully specified** record (no wildcards) matches. We want to store the details
+of all unique origins, even if they fall under a wildcard pattern.
 - Toolstack startup behavior: On toolstack startup, an in-memory data structure
-  is created from the database fields which stores all the rate limiters and
+is created from the database fields which stores all the rate limiters and
 callers, as described in the implementation section.
 
 ## XAPI integration
