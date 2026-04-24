@@ -242,8 +242,6 @@ let vbd_polling_idle_threshold_key = "polling-idle-threshold"
 
 (* set in VBD other-config *)
 
-let vbd_backend_local_key = "backend-local" (* set in VBD other-config *)
-
 let mac_seed = "mac_seed" (* set in a VM to generate MACs by hash chaining *)
 
 let ( ** ) = Int64.mul
