@@ -49,10 +49,12 @@ let safe_unplug rpc session_id self =
     	frontend (if so it will be linked to another frontend) *)
 let has_vbd_leaked __context vbd =
   let other_config = Db.VBD.get_other_config ~__context ~self:vbd in
+  let vm = Db.VBD.get_VM ~__context ~self:vbd in
+  let can_leak = Db.VM.get_is_control_domain ~__context ~self:vm in
   let device = Db.VBD.get_device ~__context ~self:vbd in
   let has_task = List.mem_assoc Xapi_globs.vbd_task_key other_config in
   let has_related = List.mem_assoc Xapi_globs.related_to_key other_config in
-  if (not has_task) && not has_related then (
+  if (not can_leak) || ((not has_task) && not has_related) then (
     info "Ignoring orphaned disk attached to control domain (device = %s)"
       device ;
     false
