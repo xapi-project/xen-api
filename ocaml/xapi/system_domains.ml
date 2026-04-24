@@ -23,16 +23,9 @@ open D
 
 (** If a VM is a system domain then xapi will perform lifecycle operations on demand,
     and will allow this VM to start even if a host is disabled. *)
-let system_domain_key = "is_system_domain"
 
-let bool_of_string x = try bool_of_string x with _ -> false
-
-let is_system_domain snapshot =
-  snapshot.API.vM_is_control_domain
-  ||
-  let oc = snapshot.API.vM_other_config in
-  List.mem_assoc system_domain_key oc
-  && bool_of_string (List.assoc system_domain_key oc)
+let is_system_domain snapshot = snapshot.API.vM_is_control_domain
+(* NOTE: code that recognises the other_config:is_system_domain key has been dropped *)
 
 let get_is_system_domain ~__context ~self =
   is_system_domain (Db.VM.get_record ~__context ~self)
@@ -41,15 +34,6 @@ let get_is_system_domain ~__context ~self =
    For now note that although two threads may attempt to update these keys in parallel,
    order shouldn't matter because everyone will always update them to the same value.
    It's therefore safe to throw away exceptions. *)
-
-let set_is_system_domain ~__context ~self ~value =
-  Helpers.log_exn_continue
-    (Printf.sprintf "set_is_system_domain self = %s" (Ref.string_of self))
-    (fun () ->
-      Db.VM.remove_from_other_config ~__context ~self ~key:system_domain_key ;
-      Db.VM.add_to_other_config ~__context ~self ~key:system_domain_key ~value
-    )
-    ()
 
 (** If a VM is a driver domain then it hosts backends for either disk or network
     devices. We link PBD.other_config:storage_driver_domain_key to
@@ -83,7 +67,7 @@ let vm_set_storage_driver_domain ~__context ~self ~value =
     ()
 
 let record_pbd_storage_driver_domain ~__context ~pbd ~domain =
-  set_is_system_domain ~__context ~self:domain ~value:"true" ;
+  (* set_is_system_domain ~__context ~self:domain ~value:"true" ; *)
   pbd_set_storage_driver_domain ~__context ~self:pbd
     ~value:(Ref.string_of domain) ;
   vm_set_storage_driver_domain ~__context ~self:domain ~value:(Ref.string_of pbd)
@@ -113,7 +97,7 @@ let storage_driver_domain_of_pbd ~__context ~pbd =
 
 let storage_driver_domain_of_pbd ~__context ~pbd =
   let domain = storage_driver_domain_of_pbd ~__context ~pbd in
-  set_is_system_domain ~__context ~self:domain ~value:"true" ;
+  (*  set_is_system_domain ~__context ~self:domain ~value:"true" ; *)
   pbd_set_storage_driver_domain ~__context ~self:pbd
     ~value:(Ref.string_of domain) ;
   vm_set_storage_driver_domain ~__context ~self:domain ~value:(Ref.string_of pbd) ;
