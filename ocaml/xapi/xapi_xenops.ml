@@ -678,16 +678,7 @@ module MD = struct
              )
         )
     in
-    let backend_of_vbd vbd =
-      let vbd_oc = vbd.API.vBD_other_config in
-      if List.mem_assoc Xapi_globs.vbd_backend_local_key vbd_oc then (
-        let path = List.assoc Xapi_globs.vbd_backend_local_key vbd_oc in
-        warn "Using local override for VBD backend: %s -> %s" vbd.API.vBD_uuid
-          path ;
-        Some (Local path)
-      ) else
-        disk_of_vdi ~__context ~self:vbd.API.vBD_VDI
-    in
+    let backend_of_vbd vbd = disk_of_vdi ~__context ~self:vbd.API.vBD_VDI in
     let can_attach_early =
       let sr_opt =
         try Some (Db.VDI.get_SR ~__context ~self:vbd.API.vBD_VDI)
