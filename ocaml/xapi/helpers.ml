@@ -2564,9 +2564,9 @@ let match_protected_key objname fieldname =
    entire field is usually higher than the role(s) required for
    individually-protected keys.
 
-   Task and VM's "set_other_config" are special cases where lower-privileged
-   sessions must be able to manipulate a subset of entries (those not
-   protected by a more privileged role).
+   {Task,VM}.set_other_config and VM.set_platform are special cases where
+   lower-privileged sessions must be able to manipulate a subset of entries
+   (those not protected by a more privileged role).
 *)
 let set_map_with_rbac ~__context ~self ~value ~get_fn ~set_fn ~match_protected
     ~object_name ~field_name =
