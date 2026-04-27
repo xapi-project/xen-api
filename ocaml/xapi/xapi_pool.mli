@@ -478,3 +478,12 @@ val exchange_crls_on_join :
   -> import:API.string_to_string_map
   -> export:string list
   -> API.string_to_string_map
+
+val sync_trusted_certificates_from :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> remote_pool:string
+  -> remote_session:API.ref_session
+  -> remote_certificate:string
+  -> ca:bool
+  -> unit
