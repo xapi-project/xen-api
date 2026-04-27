@@ -1,0 +1,25 @@
+[ ] Initializing inetd mode configuration
+[ ] Clients allowed=500
+[.] stunnel 5.60 on x86_64-koji-linux-gnu platform
+[.] Compiled/running with OpenSSL 3.0.9 30 May 2023
+[.] Threading:PTHREAD Sockets:POLL,IPv6 TLS:ENGINE,OCSP,SNI Auth:LIBWRAP
+[ ] errno: (*__errno_location ())
+[ ] Initializing inetd mode configuration
+[.] Reading configuration from descriptor 8
+[.] UTF-8 byte order mark not detected
+[.] FIPS mode disabled
+[ ] No PRNG seeding was required
+[ ] Initializing service [client-proxy]
+[ ] stunnel default security level set: 2
+[ ] Ciphers: ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256
+[ ] TLSv1.3 ciphersuites: TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256
+[ ] TLS options: 0x02100000 (+0x00000000, -0x00000000)
+[ ] Session resumption enabled
+[ ] No certificate or private key specified
+[!] error queue: crypto/x509/by_file.c:234: error:05880009:x509 certificate routines::PEM lib
+[!] error queue: crypto/pem/pem_info.c:169: error:0488000D:PEM routines::ASN1 lib
+[!] error queue: crypto/asn1/tasn_dec.c:349: error:0688010A:asn1 encoding routines::nested asn1 error
+[!] SSL_CTX_load_verify_locations: crypto/asn1/tasn_dec.c:1188: error:068000A8:asn1 encoding routines::wrong tag
+[!] Service [client-proxy]: Failed to initialize TLS context
+[!] Configuration failed
+[ ] Deallocating temporary section defaults
