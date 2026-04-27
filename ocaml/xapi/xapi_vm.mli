@@ -431,6 +431,13 @@ val set_NVRAM_EFI_variables :
   -> update:[`yes | `no | `unspecified]
   -> unit
 
+val set_NVRAM_EFI_variables_v2 :
+     __context:Context.t
+  -> self:API.ref_VM
+  -> value:string
+  -> update:[`yes | `no | `unspecified]
+  -> unit
+
 val restart_device_models : __context:Context.t -> self:API.ref_VM -> unit
 
 val set_uefi_mode :

@@ -198,7 +198,8 @@ let make_server_varstored _persist ~cache path vm_uuid =
      let update =
        match update with "yes" -> `yes | "no" -> `no | _ -> `unspecified
      in
-     with_xapi ~cache @@ VM.set_NVRAM_EFI_variables ~self ~value:nvram ~update
+     with_xapi ~cache
+     @@ VM.set_NVRAM_EFI_variables_v2 ~self ~value:nvram ~update
     )
     |> ret
   in
