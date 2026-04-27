@@ -2128,8 +2128,11 @@ let vdi_pool_migrate printer rpc session_id params =
   and sr =
     Client.SR.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "sr-uuid" params)
   and options =
-    []
-    (* no options implemented yet *)
+    match List.assoc_opt "dest-img-format" params with
+    | Some v ->
+        [("dest-img-format", v)]
+    | None ->
+        []
   in
   let newvdi = Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options in
   let newuuid = Client.VDI.get_uuid ~rpc ~session_id ~self:newvdi in
@@ -4675,6 +4678,7 @@ let vm_migrate_sxm_params =
   ; "remote-network"
   ; "vdi"
   ; "vgpu"
+  ; "image-format"
   ]
 
 let vm_migrate printer rpc session_id params =
@@ -4982,12 +4986,23 @@ let vm_migrate printer rpc session_id params =
         let token =
           remote Client.Host.migrate_receive ~host ~network ~options
         in
+        let vdi_format_map =
+          List.map
+            (fun (vdi_uuid, vdi_fmt) ->
+              let vdi =
+                Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid
+              in
+              (vdi, vdi_fmt)
+            )
+            (read_map_params "image-format" params)
+        in
         let new_vm =
           do_vm_op ~include_control_vms:false ~include_template_vms:true printer
             rpc session_id
             (fun vm ->
               Client.VM.migrate_send ~rpc ~session_id ~vm:(vm.getref ())
-                ~dest:token ~live:true ~vdi_map ~vif_map ~options ~vgpu_map
+                ~dest:token ~live:true ~vdi_map ~vdi_format_map ~vif_map
+                ~options ~vgpu_map
             )
             params
             (["host"; "host-uuid"; "host-name"; "live"; "force"; "copy"]
