@@ -1782,3 +1782,14 @@ let sysprep ~__context ~self ~unattend ~timeout =
       raise Api_errors.(Server_error (sysprep, [uuid; msg]))
   | exception e ->
       raise e
+
+let add_to_other_config ~__context ~self ~key ~value =
+  Db.VM.add_to_other_config ~__context ~self ~key ~value
+
+let remove_from_other_config ~__context ~self ~key =
+  Db.VM.remove_from_other_config ~__context ~self ~key
+
+let set_other_config ~__context ~self ~value =
+  Helpers.set_other_config ~__context ~self ~value
+    ~get_other_config:Db.VM.get_other_config
+    ~set_other_config:Db.VM.set_other_config ~object_name:"vm"
