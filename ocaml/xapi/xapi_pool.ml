@@ -1788,6 +1788,36 @@ let exchange_trusted_certificates ~__context ~rpc ~session_id ~remote ~local =
     )
     [`ca; `pinned]
 
+let sync_trusted_certificates_from ~__context ~self:_ ~remote_pool
+    ~remote_session ~remote_certificate ~ca =
+  let rpc =
+    Helpers.make_external_host_verified_rpc ~__context remote_pool
+      remote_certificate
+  in
+  let session_id = remote_session in
+  let cert_type =
+    if ca then
+      "ca"
+    else
+      "pinned"
+  in
+  let expr =
+    Printf.sprintf {|field "type"="%s" and field "name"=""|} cert_type
+  in
+  let export =
+    Client.Certificate.get_all_records_where ~rpc ~session_id ~expr
+    |> List.map fst
+  in
+  Client.Pool.exchange_trusted_certificates_on_join ~rpc ~session_id
+    ~self:(get_pool ~rpc ~session_id)
+    ~ca ~import:[] ~export
+  |> List.iter (fun (cert, purpose) ->
+      let purpose = purpose_of_string_list purpose in
+      install_trusted_certificate_ignore_dup ~__context
+        ~self:(Helpers.get_pool ~__context)
+        ~ca ~cert ~purpose
+  )
+
 let exchange_crls_on_join ~__context ~self:_ ~import ~export =
   List.iter (fun (name, crl) -> crl_install ~__context ~name ~cert:crl) import ;
   Cert_distrib.collect_crls ~__context ~names:export
