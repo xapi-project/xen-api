@@ -17,10 +17,6 @@
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-module D = Debug.Make (struct let name = "system_domains" end)
-
-open D
-
 (** If a VM is a system domain then xapi will perform lifecycle operations on demand,
     and will allow this VM to start even if a host is disabled. *)
 
@@ -30,126 +26,19 @@ let is_system_domain snapshot = snapshot.API.vM_is_control_domain
 let get_is_system_domain ~__context ~self =
   is_system_domain (Db.VM.get_record ~__context ~self)
 
-(* Notes on other_config keys: in the future these should become first-class fields.
-   For now note that although two threads may attempt to update these keys in parallel,
-   order shouldn't matter because everyone will always update them to the same value.
-   It's therefore safe to throw away exceptions. *)
+(* NOTE: the storage domain functionality used to be based on
+   other-config:storage_driver_domain, which has been dropped *)
 
-(** If a VM is a driver domain then it hosts backends for either disk or network
-    devices. We link PBD.other_config:storage_driver_domain_key to
-    VM.other_config:storage_driver_domain_key and we ensure the VM is marked as
-    a system domain. *)
-let storage_driver_domain_key = "storage_driver_domain"
+let pbd_of_vm ~__context:_ ~vm:_ = None
 
-let pbd_set_storage_driver_domain ~__context ~self ~value =
-  Helpers.log_exn_continue
-    (Printf.sprintf "pbd_set_storage_driver_domain self = %s"
-       (Ref.string_of self)
-    )
-    (fun () ->
-      Db.PBD.remove_from_other_config ~__context ~self
-        ~key:storage_driver_domain_key ;
-      Db.PBD.add_to_other_config ~__context ~self ~key:storage_driver_domain_key
-        ~value
-    )
-    ()
+let storage_driver_domain_of_pbd ~__context ~pbd:_ =
+  Helpers.get_domain_zero ~__context
 
-let vm_set_storage_driver_domain ~__context ~self ~value =
-  Helpers.log_exn_continue
-    (Printf.sprintf "vm_set_storage_driver_domain self = %s" (Ref.string_of self)
-    )
-    (fun () ->
-      Db.VM.remove_from_other_config ~__context ~self
-        ~key:storage_driver_domain_key ;
-      Db.VM.add_to_other_config ~__context ~self ~key:storage_driver_domain_key
-        ~value
-    )
-    ()
+let storage_driver_domain_of_vbd ~__context ~vbd:_ =
+  Helpers.get_domain_zero ~__context
 
-let record_pbd_storage_driver_domain ~__context ~pbd ~domain =
-  (* set_is_system_domain ~__context ~self:domain ~value:"true" ; *)
-  pbd_set_storage_driver_domain ~__context ~self:pbd
-    ~value:(Ref.string_of domain) ;
-  vm_set_storage_driver_domain ~__context ~self:domain ~value:(Ref.string_of pbd)
-
-let pbd_of_vm ~__context ~vm =
-  let other_config = Db.VM.get_other_config ~__context ~self:vm in
-  if List.mem_assoc storage_driver_domain_key other_config then
-    Some (Ref.of_string (List.assoc storage_driver_domain_key other_config))
-  else
-    None
-
-let storage_driver_domain_of_pbd ~__context ~pbd =
-  let other_config = Db.PBD.get_other_config ~__context ~self:pbd in
-  let dom0 = Helpers.get_domain_zero ~__context in
-  if List.mem_assoc storage_driver_domain_key other_config then (
-    let v = List.assoc storage_driver_domain_key other_config in
-    if Db.is_valid_ref __context (Ref.of_string v) then
-      Ref.of_string v
-    else
-      try Db.VM.get_by_uuid ~__context ~uuid:v
-      with _ ->
-        error "PBD %s has invalid %s key: falling back to dom0"
-          (Ref.string_of pbd) storage_driver_domain_key ;
-        dom0
-  ) else
-    dom0
-
-let storage_driver_domain_of_pbd ~__context ~pbd =
-  let domain = storage_driver_domain_of_pbd ~__context ~pbd in
-  (*  set_is_system_domain ~__context ~self:domain ~value:"true" ; *)
-  pbd_set_storage_driver_domain ~__context ~self:pbd
-    ~value:(Ref.string_of domain) ;
-  vm_set_storage_driver_domain ~__context ~self:domain ~value:(Ref.string_of pbd) ;
-  domain
-
-let storage_driver_domain_of_vbd ~__context ~vbd =
-  let dom0 = Helpers.get_domain_zero ~__context in
-  let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-  if Db.is_valid_ref __context vdi then
-    let sr = Db.VDI.get_SR ~__context ~self:vdi in
-    let sr_pbds = Db.SR.get_PBDs ~__context ~self:sr in
-    let my_pbds = List.map fst (Helpers.get_my_pbds __context) in
-    match Xapi_stdext_std.Listext.List.intersect sr_pbds my_pbds with
-    | pbd :: _ ->
-        storage_driver_domain_of_pbd ~__context ~pbd
-    | _ ->
-        dom0
-  else
-    dom0
-
-let storage_driver_domain_of_sr_type ~__context ~_type =
-  let dom0 = Helpers.get_domain_zero ~__context in
-  dom0
-
-let is_in_use ~__context ~self =
-  let other_config = Db.VM.get_other_config ~__context ~self in
-  List.mem_assoc storage_driver_domain_key other_config
-  &&
-  let pbd = Ref.of_string (List.assoc storage_driver_domain_key other_config) in
-  if Db.is_valid_ref __context pbd then
-    Db.PBD.get_currently_attached ~__context ~self:pbd
-  else
-    false
-
-let queryable ~__context transport () =
-  let open Xmlrpc_client in
-  let tracing = Context.set_client_span __context in
-  let http = xmlrpc ~version:"1.0" "/" in
-  let http = Helpers.TraceHelper.inject_span_into_req tracing http in
-  let rpc =
-    XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_smapiv2" ~transport ~http
-  in
-  let listMethods = Rpc.call "system.listMethods" [] in
-  try
-    let _ = rpc listMethods in
-    info "XMLRPC service found at %s" (string_of_transport transport) ;
-    true
-  with e ->
-    debug "Temporary failure querying storage service on %s: %s"
-      (string_of_transport transport)
-      (Printexc.to_string e) ;
-    false
+let storage_driver_domain_of_sr_type ~__context ~_type:_ =
+  Helpers.get_domain_zero ~__context
 
 type service = {uuid: string; ty: string; instance: string; url: string}
 [@@deriving rpc]
@@ -168,11 +57,6 @@ let register_service service queue =
 let unregister_service service =
   with_lock service_to_queue_m (fun () ->
       Hashtbl.remove service_to_queue service
-  )
-
-let get_service service =
-  with_lock service_to_queue_m (fun () ->
-      Hashtbl.find_opt service_to_queue service
   )
 
 let list_services () =
