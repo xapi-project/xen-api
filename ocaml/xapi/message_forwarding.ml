@@ -1265,6 +1265,21 @@ functor
           (certificate_uuid ~__context certificate) ;
         Local.Pool.uninstall_trusted_certificate ~__context ~self ~certificate
 
+      let sync_trusted_certificates_from ~__context ~self ~remote_pool
+          ~remote_session ~remote_certificate ~ca =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs
+          ~doc:"Pool.sync_trusted_certificates_from"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info
+          "Pool.sync_trusted_certificates_from: pool=%S remote_pool=%S \
+           remote_certificate=%S ca=%b"
+          (pool_uuid ~__context self)
+          remote_pool remote_certificate ca ;
+        Local.Pool.sync_trusted_certificates_from ~__context ~self ~remote_pool
+          ~remote_session ~remote_certificate ~ca
+
       let exchange_trusted_certificates_on_join ~__context ~self ~ca ~import
           ~export =
         Xapi_pool_helpers.with_pool_operation ~__context

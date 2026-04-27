@@ -1702,6 +1702,35 @@ let uninstall_trusted_certificate =
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ~lifecycle:[] ()
 
+let sync_trusted_certificates_from =
+  call ~name:"sync_trusted_certificates_from"
+    ~doc:
+      "Download trusted TLS certificates from a remote pool and install them \
+       in this pool. Certificates already present locally (matched by \
+       fingerprint and purpose) are skipped."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( String
+        , "remote_pool"
+        , "The hostname or IP address of the coordinator of the remote pool \
+           from which the certificates are downloaded"
+        )
+      ; ( Ref _session
+        , "remote_session"
+        , "A session obtained from the remote pool, used to authenticate the \
+           download"
+        )
+      ; ( String
+        , "remote_certificate"
+        , "The PEM-encoded TLS certificate of the remote pool's coordinator, \
+           used to verify the TLS connection to the remote pool."
+        )
+      ; (Bool, "ca", "true for 'ca' or false for 'pinned'")
+      ]
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~lifecycle:[] ()
+
 let trusted_certs = Map (String, Set String)
 
 let exchange_trusted_certificates_on_join =
@@ -1854,6 +1883,7 @@ let t =
       ; set_ssh_auto_mode
       ; install_trusted_certificate
       ; uninstall_trusted_certificate
+      ; sync_trusted_certificates_from
       ; exchange_trusted_certificates_on_join
       ; exchange_crls_on_join
       ]
