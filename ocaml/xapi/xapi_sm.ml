@@ -110,8 +110,14 @@ let update_from_query_result ~__context (self, r) q_result =
     let driver_filename = Sm_exec.cmd_name q_result.driver in
     let existing_features = Db.SM.get_features ~__context ~self in
     let query_features = Smint.Feature.parse_string_int64 q_result.features in
+    let removed_features =
+      Listext.List.set_difference existing_features query_features
+    in
+    List.iter
+      (fun (f, v) -> debug "%s: removing features %s:%Ld" __FUNCTION__ f v)
+      removed_features ;
     let retained_features =
-      List.filter (fun x -> List.mem x query_features) existing_features
+      Listext.List.set_difference existing_features removed_features
     in
     let new_features =
       query_features
