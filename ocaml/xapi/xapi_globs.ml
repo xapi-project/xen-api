@@ -14,8 +14,6 @@
 
 (** A central location for settings related to xapi *)
 
-module String_plain = String (* For when we don't want the Xstringext version *)
-open Xapi_stdext_std.Xstringext
 module StringSet = Set.Make (String)
 
 module D = Debug.Make (struct let name = "xapi_globs" end)
@@ -241,8 +239,6 @@ let vbd_polling_duration_key = "polling-duration" (* set in VBD other-config *)
 let vbd_polling_idle_threshold_key = "polling-idle-threshold"
 
 (* set in VBD other-config *)
-
-let vbd_backend_local_key = "backend-local" (* set in VBD other-config *)
 
 let mac_seed = "mac_seed" (* set in a VM to generate MACs by hash chaining *)
 
@@ -1108,7 +1104,7 @@ let max_traces = ref 10000
 
 let max_span_depth = ref 100
 
-let use_xmlrpc = ref true
+let use_xmlrpc = ref false
 
 let compress_tracing_files = ref true
 
@@ -1189,7 +1185,8 @@ let make_batching name ~delay_before ~delay_between =
   (config, (name, Arg.String set, get, desc))
 
 let event_from_delay, event_from_entry =
-  make_batching "event_from" ~delay_before:Mtime.Span.zero
+  make_batching "event_from"
+    ~delay_before:Mtime.Span.(50 * ms)
     ~delay_between:Mtime.Span.(50 * ms)
 
 let event_from_task_delay, event_from_task_entry =
@@ -1392,12 +1389,12 @@ let citrix_patch_key =
 
 let trusted_patch_key = ref citrix_patch_key
 
+let fields_of = Astring.(String.fields ~empty:false ~is_sep:Char.Ascii.is_white)
+
 let gen_list_option name desc of_string string_of opt =
   let parse s =
     opt := [] ;
-    try
-      String.split_f String.isspace s
-      |> List.iter (fun x -> opt := of_string x :: !opt)
+    try fields_of s |> List.iter (fun x -> opt := of_string x :: !opt)
     with e ->
       D.error "Unable to parse %s=%s (expected space-separated list) error: %s"
         name s (Printexc.to_string e)
@@ -1506,7 +1503,7 @@ let other_options =
       (fun s -> s)
       disable_dbsync_for
   ; ( "xenopsd-queues"
-    , Arg.String (fun x -> xenopsd_queues := String.split ',' x)
+    , Arg.String (fun x -> xenopsd_queues := String.split_on_char ',' x)
     , (fun () -> String.concat "," !xenopsd_queues)
     , "list of xenopsd instances to manage"
     )
@@ -1593,7 +1590,8 @@ let other_options =
   ; ( "nvidia_multi_vgpu_enabled_driver_versions"
     , Arg.String
         (fun x ->
-          nvidia_multi_vgpu_enabled_driver_versions := String.split ',' x
+          nvidia_multi_vgpu_enabled_driver_versions :=
+            String.split_on_char ',' x
         )
     , (fun () -> String.concat "," !nvidia_multi_vgpu_enabled_driver_versions)
     , "list of nvidia host driver versions with multiple vGPU supported.\n\
@@ -1861,7 +1859,7 @@ let other_options =
     , Arg.Bool (fun b -> ssh_auto_mode_default := b)
     , (fun () -> string_of_bool !ssh_auto_mode_default)
     , "Defaults to true; overridden to false via \
-       /etc/xapi.conf.d/ssh-auto-mode.conf(e.g., in XenServer 8)"
+       /etc/xapi.conf.d/ssh-auto-mode.conf (for example, in XenServer 8)"
     )
   ; ( "secure-boot-efi-path"
     , Arg.Set_string secure_boot_path

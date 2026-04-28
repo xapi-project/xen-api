@@ -877,8 +877,9 @@ module User = struct
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
         ; field ~qualifier:StaticRO
-            ~lifecycle:[(Published, rel_rio, "short name (e.g. userid)")]
-            "short_name" "short name (e.g. userid)"
+            ~lifecycle:
+              [(Published, rel_rio, "short name (for example, userid)")]
+            "short_name" "short name (for example, userid)"
         ; field
             ~lifecycle:[(Published, rel_rio, "full name")]
             "fullname" "full name"
@@ -2620,10 +2621,11 @@ module PIF = struct
               [
                 ( Published
                 , rel_rio
-                , "machine-readable name of the interface (e.g. eth0)"
+                , "machine-readable name of the interface (for example, eth0)"
                 )
               ]
-            "device" "machine-readable name of the interface (e.g. eth0)"
+            "device"
+            "machine-readable name of the interface (for example, eth0)"
         ; field ~qualifier:StaticRO ~ty:(Ref _network)
             ~lifecycle:
               [
@@ -2793,16 +2795,16 @@ module PIF = struct
                 , rel_orlando
                 , "Prevent this PIF from being unplugged; set this to notify \
                    the management tool-stack that the PIF has a special use \
-                   and should not be unplugged under any circumstances (e.g. \
-                   because you're running storage traffic over it)"
+                   and should not be unplugged under any circumstances (for \
+                   example, because you're running storage traffic over it)"
                 )
               ]
             ~qualifier:DynamicRO ~default_value:(Some (VBool false)) ~ty:Bool
             "disallow_unplug"
             "Prevent this PIF from being unplugged; set this to notify the \
              management tool-stack that the PIF has a special use and should \
-             not be unplugged under any circumstances (e.g. because you're \
-             running storage traffic over it)"
+             not be unplugged under any circumstances (for example, because \
+             you're running storage traffic over it)"
         ; field ~in_oss_since:None ~ty:(Set (Ref _tunnel))
             ~lifecycle:
               [
@@ -4143,7 +4145,9 @@ module Sr_stat = struct
       ( "sr_health"
       , [
           ("healthy", "Storage is fully available")
-        ; ("recovering", "Storage is busy recovering, e.g. rebuilding mirrors.")
+        ; ( "recovering"
+          , "Storage is busy recovering, for example, rebuilding mirrors."
+          )
         ; ( "unreachable"
           , "Storage is unreachable but may be recoverable with admin \
              intervention"
@@ -4229,7 +4233,7 @@ module Probe_result = struct
             ~ty:(Map (String, String))
             "extra_info"
             "Additional plugin-specific information about this configuration, \
-             that might be of use for an API user. This can for example \
+             that might be of use for an API user. This can, for example, \
              include the LUN or the WWPN."
         ]
       ()
@@ -4336,7 +4340,8 @@ module SR = struct
     ; {
         param_type= String
       ; param_name= "content_type"
-      ; param_doc= "The type of the new SRs content, if required (e.g. ISOs)"
+      ; param_doc=
+          "The type of the new SRs content, if required (for example, ISOs)"
       ; param_release= rio_release
       ; param_default= None
       }
@@ -4911,11 +4916,12 @@ module SR = struct
                 [
                   ( Published
                   , rel_rio
-                  , "the type of the SR's content, if required (e.g. ISOs)"
+                  , "the type of the SR's content, if required (for example, \
+                     ISOs)"
                   )
                 ]
               "content_type"
-              "the type of the SR's content, if required (e.g. ISOs)"
+              "the type of the SR's content, if required (for example, ISOs)"
           ; field ~qualifier:DynamicRO "shared" ~ty:Bool
               ~lifecycle:
                 [
@@ -6750,16 +6756,17 @@ module VBD = struct
                      VM"
                   )
                 ]
-              "device" "device seen by the guest e.g. hda1"
+              "device" "device seen by the guest, for example, hda1"
           ; field
               ~lifecycle:
                 [
                   ( Published
                   , rel_rio
-                  , "user-friendly device name e.g. 0,1,2,etc."
+                  , "user-friendly device name, for example, 0, 1, 2, etc."
                   )
                 ]
-              "userdevice" "user-friendly device name e.g. 0,1,2,etc."
+              "userdevice"
+              "user-friendly device name, for example, 0, 1, 2, etc."
           ; field ~ty:Bool
               ~lifecycle:[(Published, rel_rio, "true if this VBD is bootable")]
               "bootable" "true if this VBD is bootable"
@@ -6774,10 +6781,12 @@ module VBD = struct
                 [
                   ( Published
                   , rel_rio
-                  , "how the VBD will appear to the guest (e.g. disk or CD)"
+                  , "how the VBD will appear to the guest (for example, disk \
+                     or CD)"
                   )
                 ]
-              "type" "how the VBD will appear to the guest (e.g. disk or CD)"
+              "type"
+              "how the VBD will appear to the guest (for example, disk or CD)"
           ; field ~in_oss_since:None
               ~lifecycle:
                 [
@@ -6959,8 +6968,8 @@ module Auth = struct
           ( Published
           , rel_george
           , "This call queries the external directory service to obtain the \
-             user information (e.g. username, organization etc) from the \
-             specified subject_identifier"
+             user information (for example, username, organization etc.) from \
+             the specified subject_identifier"
           )
         ]
       ~params:
@@ -6977,8 +6986,8 @@ module Auth = struct
         )
       ~doc:
         "This call queries the external directory service to obtain the user \
-         information (e.g. username, organization etc) from the specified \
-         subject_identifier"
+         information (for example, username, organization etc.) from the \
+         specified subject_identifier"
       ~allowed_roles:_R_READ_ONLY ()
 
   let get_group_membership =
@@ -8651,8 +8660,8 @@ module Event = struct
       ~doc:
         "Blocking call which returns a new token and a (possibly empty) batch \
          of events. The returned token can be used in subsequent calls to this \
-         function. It eliminates redundant events (e.g. same field updated \
-         multiple times)."
+         function. It eliminates redundant events (for example, same field \
+         updated multiple times)."
       ~custom_marshaller:true ~flags:[`Session]
       ~result:
         ( Set (Record _event)
@@ -11037,7 +11046,7 @@ let http_actions =
   ; ( "get_vm_rrds"
     , ( Get
       , "/vm_rrds"
-      , true
+      , false
       , [String_query_arg "uuid"; Bool_query_arg "json"]
       , _R_READ_ONLY
       , []
@@ -11054,7 +11063,7 @@ let http_actions =
     )
     (* For XC < 8460 compatibility, remove when out of support *)
   ; ( "get_host_rrds"
-    , (Get, "/host_rrds", true, [Bool_query_arg "json"], _R_READ_ONLY, [])
+    , (Get, "/host_rrds", false, [Bool_query_arg "json"], _R_READ_ONLY, [])
     )
   ; ( Constants.get_sr_rrd
     , ( Get

@@ -617,7 +617,7 @@ let enable_external_auth =
       ; (String, "service_name", "The name of the service")
       ; ( String
         , "auth_type"
-        , "The type of authentication (e.g. AD for Active Directory)"
+        , "The type of authentication (for example, AD for Active Directory)"
         )
       ]
     ~doc:
@@ -1652,9 +1652,9 @@ let set_ssh_auto_mode =
         (Ref _pool, "self", "The pool")
       ; ( Bool
         , "value"
-        , "The SSH auto mode for all hosts in the pool，when set to true, SSH \
-           to normally be disabled and SSH to be enabled only in case of \
-           emergency e.g., xapi is down"
+        , "The SSH auto mode for all hosts in the pool. When true, the SSH \
+           port is closed by default and it's open only in case the API is \
+           unavailable. When false, the SSH port is always open."
         )
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
@@ -2277,7 +2277,7 @@ let t =
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "recommendations"
             "The recommended pool properties for clients to respect for \
-             optimal performance. e.g. max-vm-group=5"
+             optimal performance. For example, max-vm-group=5"
         ; field ~writer_roles:_R_POOL_OP ~qualifier:RW ~lifecycle:[]
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "license_server"
