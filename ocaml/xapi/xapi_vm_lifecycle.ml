@@ -193,10 +193,10 @@ let has_definitely_booted_pv ~vmmr =
  *  (which is advisory only) and false (more permissive) when we are potentially about
  *  to perform an operation. This makes a difference for ops that require the guest to
  *  react helpfully. *)
-let check_op_for_feature ~__context ~vmr:_ ~vmmr ~vmgmr ~power_state ~op ~ref
-    ~strict =
+let check_op_for_feature ~__context ~vmr:_ ~vmmr ~vmgmr ~op ~ref ~strict =
+  let is_live = Xapi_vm_lifecycle_helpers.is_live ~__context ~self:ref in
   let implicit_support =
-    power_state <> `Running
+    (not is_live)
     (* PV guests offer support implicitly *)
     || has_definitely_booted_pv ~vmmr
     || Xapi_pv_driver_version.(has_pv_drivers (of_guest_metrics vmgmr))
@@ -205,7 +205,7 @@ let check_op_for_feature ~__context ~vmr:_ ~vmmr ~vmgmr ~power_state ~op ~ref
   let some_err e = Some (e, [Ref.string_of ref]) in
   let lack_feature feature = not (has_feature ~vmgmr ~feature) in
   match op with
-  | `suspend | `checkpoint | `pool_migrate | `migrate_send -> (
+  | (`suspend | `checkpoint | `pool_migrate | `migrate_send) when is_live -> (
     match get_feature ~vmgmr ~feature:"data-cant-suspend-reason" with
     | Some reason ->
         Some (Api_errors.vm_non_suspendable, [Ref.string_of ref; reason])
@@ -610,8 +610,7 @@ let check_operation_error ~__context ~ref =
     (* check for any HVM guest feature needed by the op *)
     let current_error =
       check current_error (fun () ->
-          check_op_for_feature ~__context ~vmr ~vmmr ~vmgmr ~power_state ~op
-            ~ref ~strict
+          check_op_for_feature ~__context ~vmr ~vmmr ~vmgmr ~op ~ref ~strict
       )
     in
     (* VSS support has been removed *)
