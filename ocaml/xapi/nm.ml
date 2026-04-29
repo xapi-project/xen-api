@@ -679,6 +679,7 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                     ; ethtool_offload
                     ; mtu
                     ; persistent_i= persistent
+                    ; lldp= None
                     }
                   )
                 ]
