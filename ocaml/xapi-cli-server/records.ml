@@ -5463,6 +5463,12 @@ let certificate_record rpc session_id certificate =
       ; make_field ~name:"fingerprint_sha1"
           ~get:(fun () -> (x ()).API.certificate_fingerprint_sha1)
           ()
+      ; make_field ~name:"purpose"
+          ~get:(fun () ->
+            map_and_concat Record_util.certificate_purpose_to_string
+              (x ()).API.certificate_purpose
+          )
+          ()
       ]
   }
 
