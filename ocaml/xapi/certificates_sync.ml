@@ -22,7 +22,9 @@ let uninstall ~__context cert =
   file system. This creates a new entry in the database. *)
 let install ~__context ~host:_ ~type' cert =
   try
-    let ref = Certificates.Db_util.add_cert ~__context ~type' cert in
+    let ref, _ =
+      Certificates.Db_util.add_cert ~__context ~type' ~purpose:[] cert
+    in
     info "Adding host certificicate %s to database" (Ref.string_of ref) ;
     R.ok ()
   with e ->
@@ -148,7 +150,7 @@ let eject_certs_from_fs_for ~__context host =
     match Sys.file_exists file with
     | true ->
         Sys.remove file ;
-        Certificates.update_ca_bundle () ;
+        Certificates.update_all_bundles () ;
         info "removed host certificate %s" file
     | false ->
         info "host %s has no certificate %s to remove" host_uuid file

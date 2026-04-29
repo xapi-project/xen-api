@@ -37,7 +37,8 @@ type waiting_operations =
   | `eject
   | `exchange_ca_certificates_on_join
   | `exchange_certificates_on_join
-  | `get_updates ]
+  | `get_updates
+  | `exchange_crls_on_join ]
 
 type all_operations = [blocking_operations | waiting_operations]
 
@@ -77,6 +78,7 @@ let waiting_ops : waiting_operations list =
   ; `copy_primary_host_certs
   ; `eject
   ; `get_updates
+  ; `exchange_crls_on_join
   ]
 
 (* Shadow with widening coercions to allow us to query using

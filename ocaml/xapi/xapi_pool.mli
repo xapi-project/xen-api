@@ -446,3 +446,32 @@ val set_console_idle_timeout :
 
 val set_ssh_auto_mode :
   __context:Context.t -> self:API.ref_pool -> value:bool -> unit
+
+val install_trusted_certificate :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> ca:bool
+  -> cert:string
+  -> purpose:API.certificate_purpose list
+  -> unit
+
+val uninstall_trusted_certificate :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> certificate:API.ref_Certificate
+  -> unit
+
+val exchange_trusted_certificates_on_join :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> ca:bool
+  -> import:(string * string list) list
+  -> export:API.ref_Certificate list
+  -> (string * string list) list
+
+val exchange_crls_on_join :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> import:API.string_to_string_map
+  -> export:string list
+  -> API.string_to_string_map
