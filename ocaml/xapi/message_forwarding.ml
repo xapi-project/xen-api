@@ -3171,6 +3171,34 @@ functor
           ~policy (fun () ->
             forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
         )
+
+      let add_to_other_config ~__context ~self ~key ~value =
+        info "VM.add_to_other_config: self = '%s', key = '%s'"
+          (vm_uuid ~__context self) key ;
+        Local.VM.add_to_other_config ~__context ~self ~key ~value
+
+      let remove_from_other_config ~__context ~self ~key =
+        info "VM.remove_from_other_config: self = '%s', key = '%s'"
+          (vm_uuid ~__context self) key ;
+        Local.VM.remove_from_other_config ~__context ~self ~key
+
+      let set_other_config ~__context ~self ~value =
+        info "VM.set_other_config: self = '%s'" (vm_uuid ~__context self) ;
+        Local.VM.set_other_config ~__context ~self ~value
+
+      let add_to_platform ~__context ~self ~key ~value =
+        info "VM.add_to_platform: self = '%s', key = '%s'"
+          (vm_uuid ~__context self) key ;
+        Local.VM.add_to_platform ~__context ~self ~key ~value
+
+      let remove_from_platform ~__context ~self ~key =
+        info "VM.remove_from_platform: self = '%s', key = '%s'"
+          (vm_uuid ~__context self) key ;
+        Local.VM.remove_from_platform ~__context ~self ~key
+
+      let set_platform ~__context ~self ~value =
+        info "VM.set_platform: self = '%s'" (vm_uuid ~__context self) ;
+        Local.VM.set_platform ~__context ~self ~value
     end
 
     module VM_metrics = struct end
