@@ -457,3 +457,21 @@ val sysprep :
   -> unattend:SecretString.t
   -> timeout:float
   -> unit
+
+val add_to_other_config :
+  __context:Context.t -> self:API.ref_VM -> key:string -> value:string -> unit
+
+val remove_from_other_config :
+  __context:Context.t -> self:API.ref_VM -> key:string -> unit
+
+val set_other_config :
+  __context:Context.t -> self:API.ref_VM -> value:(string * string) list -> unit
+
+val add_to_platform :
+  __context:Context.t -> self:API.ref_VM -> key:string -> value:string -> unit
+
+val remove_from_platform :
+  __context:Context.t -> self:API.ref_VM -> key:string -> unit
+
+val set_platform :
+  __context:Context.t -> self:API.ref_VM -> value:(string * string) list -> unit
