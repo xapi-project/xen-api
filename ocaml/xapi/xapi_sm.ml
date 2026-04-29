@@ -109,14 +109,24 @@ let update_from_query_result ~__context (self, r) q_result =
   if _type <> "storage_access" then (
     let driver_filename = Sm_exec.cmd_name q_result.driver in
     let existing_features = Db.SM.get_features ~__context ~self in
+    let query_features = Smint.Feature.parse_string_int64 q_result.features in
+    let removed_features =
+      Listext.List.set_difference existing_features query_features
+    in
+    List.iter
+      (fun (f, v) -> debug "%s: removing features %s:%Ld" __FUNCTION__ f v)
+      removed_features ;
+    let retained_features =
+      Listext.List.set_difference existing_features removed_features
+    in
     let new_features =
-      Smint.Feature.parse_string_int64 q_result.features
+      query_features
       |> find_pending_features existing_features
       |> addto_pending_hosts_features ~__context self
       |> valid_hosts_pending_features ~__context
     in
     remove_valid_features_from_pending ~__context ~self new_features ;
-    let features = existing_features @ new_features in
+    let features = retained_features @ new_features in
     List.iter
       (fun (f, v) -> debug "%s: declaring new features %s:%Ld" __FUNCTION__ f v)
       new_features ;
