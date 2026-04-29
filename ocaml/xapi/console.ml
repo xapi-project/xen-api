@@ -265,9 +265,9 @@ let respond_console_limit_exceeded req s vm_id connected_users =
           error "The connected user list should not be empty." ;
           raise Failure
       | true, [user] ->
-          Printf.sprintf "User '%s' is" (Http_svr.escape user)
+          Printf.sprintf "User '%s' is" (Http_svr.escape_html user)
       | true, users ->
-          let escaped_users = List.map Http_svr.escape users in
+          let escaped_users = List.map Http_svr.escape_html users in
           Printf.sprintf "Users '%s' are" (String.concat ", " escaped_users)
       | false, _ ->
           "There're users"

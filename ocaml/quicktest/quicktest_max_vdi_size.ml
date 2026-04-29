@@ -1,6 +1,6 @@
 let with_max_vdi rpc session_id sr f =
   Qt.VDI.with_new rpc session_id ~virtual_size:Constants.max_vhd_size sr
-    (fun vdi ->
+    ~backing_format:"vhd" (fun vdi ->
       (* We write some data to the very end of the VDI to ensure the IO code
          gets tested with large offsets *)
       Qt.VDI.with_open rpc session_id vdi `RW (fun fd ->
@@ -43,7 +43,8 @@ let test_export_import rpc session_id sr_info () =
       |> ignore ;
       Xapi_stdext_pervasives.Pervasiveext.finally
         (fun () ->
-          Qt.VDI.with_new rpc session_id ~virtual_size sR (fun new_vdi ->
+          Qt.VDI.with_new rpc session_id ~virtual_size sR ~backing_format:format
+            (fun new_vdi ->
               let new_vdi_uuid =
                 Client.Client.VDI.get_uuid ~rpc ~session_id ~self:new_vdi
               in

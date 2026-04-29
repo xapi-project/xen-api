@@ -248,8 +248,8 @@ let get_boot_record =
       ]
     ~doc:
       "Returns a record describing the VM's dynamic state, initialised when \
-       the VM boots and updated to reflect runtime configuration changes e.g. \
-       CPU hotplug"
+       the VM boots and updated to reflect runtime configuration changes, for \
+       example CPU hotplug"
     ~result:(Record _vm, "A record describing the VM")
     ~params:[(Ref _vm, "self", "The VM whose boot-time state to return")]
     ~errs:[] ~flags:[`Session] (* no async *)
@@ -347,15 +347,16 @@ let clone =
         , rel_rio
         , "Clones the specified VM, making a new VM. Clone automatically \
            exploits the capabilities of the underlying storage repository in \
-           which the VM's disk images are stored (e.g. Copy on Write).   This \
-           function can only be called when the VM is in the Halted State."
+           which the VM's disk images are stored (for example, Copy on Write). \
+           This function can only be called when the VM is in the Halted \
+           State."
         )
       ]
     ~doc:
       "Clones the specified VM, making a new VM. Clone automatically exploits \
        the capabilities of the underlying storage repository in which the VM's \
-       disk images are stored (e.g. Copy on Write).   This function can only \
-       be called when the VM is in the Halted State."
+       disk images are stored (for example, Copy on Write). This function can \
+       only be called when the VM is in the Halted State."
     ~result:(Ref _vm, "The reference of the newly created VM.")
     ~params:
       [
@@ -418,8 +419,8 @@ let snapshot_with_quiesce =
     ~doc:
       "Snapshots the specified VM with quiesce, making a new VM. Snapshot \
        automatically exploits the capabilities of the underlying storage \
-       repository in which the VM's disk images are stored (e.g. Copy on \
-       Write)."
+       repository in which the VM's disk images are stored (for example, Copy \
+       on Write)."
     ~result:(Ref _vm, "The reference of the newly created VM.")
     ~params:
       [
@@ -464,13 +465,13 @@ let snapshot =
         , rel_orlando
         , "Snapshots the specified VM, making a new VM. Snapshot automatically \
            exploits the capabilities of the underlying storage repository in \
-           which the VM's disk images are stored (e.g. Copy on Write)."
+           which the VM's disk images are stored (for example, Copy on Write)."
         )
       ]
     ~doc:
       "Snapshots the specified VM, making a new VM. Snapshot automatically \
        exploits the capabilities of the underlying storage repository in which \
-       the VM's disk images are stored (e.g. Copy on Write)."
+       the VM's disk images are stored (for example, Copy on Write)."
     ~result:(Ref _vm, "The reference of the newly created VM.")
     ~versioned_params:
       [
@@ -532,15 +533,15 @@ let checkpoint =
         , rel_midnight_ride
         , "Checkpoints the specified VM, making a new VM. Checkpoint \
            automatically exploits the capabilities of the underlying storage \
-           repository in which the VM's disk images are stored (e.g. Copy on \
-           Write) and saves the memory image as well."
+           repository in which the VM's disk images are stored (for example, \
+           Copy on Write) and saves the memory image as well."
         )
       ]
     ~doc:
       "Checkpoints the specified VM, making a new VM. Checkpoint automatically \
        exploits the capabilities of the underlying storage repository in which \
-       the VM's disk images are stored (e.g. Copy on Write) and saves the \
-       memory image as well."
+       the VM's disk images are stored (for example, Copy on Write) and saves \
+       the memory image as well."
     ~result:(Ref _vm, "The reference of the newly created VM.")
     ~params:
       [
@@ -639,8 +640,8 @@ let start =
       ; ( Bool
         , "force"
         , "Attempt to force the VM to start. If this flag is false then the VM \
-           may fail pre-boot safety checks (e.g. if the CPU the VM last booted \
-           on looks substantially different to the current one)"
+           may fail pre-boot safety checks (for example, if the CPU the VM \
+           last booted on looks substantially different to the current one)"
         )
       ]
     ~errs:
@@ -665,7 +666,7 @@ let assert_can_boot_here =
       ; ( Changed
         , rel_quebec
         , "Does additional compatibility checks when VM powerstate is not \
-           halted (e.g. CPUID). Use this before calling VM.resume or \
+           halted (for example, CPUID). Use this before calling VM.resume or \
            VM.pool_migrate."
         )
       ]
@@ -703,13 +704,13 @@ let assert_agile =
       [
         ( Published
         , rel_orlando
-        , "Returns an error if the VM is not considered agile e.g. because it \
-           is tied to a resource local to a host"
+        , "Returns an error if the VM is not considered agile, for example, \
+           because it is tied to a resource local to a host"
         )
       ]
     ~doc:
-      "Returns an error if the VM is not considered agile e.g. because it is \
-       tied to a resource local to a host"
+      "Returns an error if the VM is not considered agile, for example, \
+       because it is tied to a resource local to a host"
     ~params:[(Ref _vm, "self", "The VM")]
     ~allowed_roles:_R_READ_ONLY ()
 
@@ -1088,8 +1089,8 @@ let start_on =
       ; ( Bool
         , "force"
         , "Attempt to force the VM to start. If this flag is false then the VM \
-           may fail pre-boot safety checks (e.g. if the CPU the VM last booted \
-           on looks substantially different to the current one)"
+           may fail pre-boot safety checks (for example, if the CPU the VM \
+           last booted on looks substantially different to the current one)"
         )
       ]
     ~errs:
@@ -1164,15 +1165,15 @@ let cleanShutdown =
         ( Published
         , rel_rio
         , "Attempt to cleanly shutdown the specified VM. (Note: this may not \
-           be supported---e.g. if a guest agent is not installed). This can \
-           only be called when the specified VM is in the Running state."
+           be supported, for example, if a guest agent is not installed). This \
+           can only be called when the specified VM is in the Running state."
         )
       ]
     ~name:"clean_shutdown"
     ~doc:
       "Attempt to cleanly shutdown the specified VM. (Note: this may not be \
-       supported---e.g. if a guest agent is not installed). This can only be \
-       called when the specified VM is in the Running state."
+       supported, for example, if a guest agent is not installed). This can \
+       only be called when the specified VM is in the Running state."
     ~params:[(Ref _vm, "vm", "The VM to shutdown")]
     ~errs:
       [
@@ -1192,15 +1193,15 @@ let cleanReboot =
         ( Published
         , rel_rio
         , "Attempt to cleanly shutdown the specified VM (Note: this may not be \
-           supported---e.g. if a guest agent is not installed). This can only \
-           be called when the specified VM is in the Running state."
+           supported, for example, if a guest agent is not installed). This \
+           can only be called when the specified VM is in the Running state."
         )
       ]
     ~name:"clean_reboot"
     ~doc:
       "Attempt to cleanly shutdown the specified VM (Note: this may not be \
-       supported---e.g. if a guest agent is not installed). This can only be \
-       called when the specified VM is in the Running state."
+       supported, for example, if a guest agent is not installed). This can \
+       only be called when the specified VM is in the Running state."
     ~params:[(Ref _vm, "vm", "The VM to shutdown")]
     ~errs:
       [
@@ -1392,8 +1393,8 @@ let resume =
       ; ( Bool
         , "force"
         , "Attempt to force the VM to resume. If this flag is false then the \
-           VM may fail pre-resume safety checks (e.g. if the CPU the VM was \
-           running on looks substantially different to the current one)"
+           VM may fail pre-resume safety checks (for example, if the CPU the \
+           VM was running on looks substantially different to the current one)"
         )
       ]
     ~errs:
@@ -1426,8 +1427,8 @@ let resume_on =
       ; ( Bool
         , "force"
         , "Attempt to force the VM to resume. If this flag is false then the \
-           VM may fail pre-resume safety checks (e.g. if the CPU the VM was \
-           running on looks substantially different to the current one)"
+           VM may fail pre-resume safety checks (for example, if the CPU the \
+           VM was running on looks substantially different to the current one)"
         )
       ]
     ~errs:
@@ -3116,7 +3117,7 @@ let t =
             ~lifecycle:[(Published, rel_ely, "")]
             ~default_value:(Some (VBool false)) "requires_reboot"
             "Indicates whether a VM requires a reboot in order to update its \
-             configuration, e.g. its memory allocation."
+             configuration, for example, its memory allocation."
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:
               [
@@ -3158,14 +3159,15 @@ let t =
                 ( Published
                 , "1.303.0"
                 , "The set of pending mandatory guidances after applying \
-                   updates, which must be applied, as otherwise there may be \
-                   e.g. VM failures"
+                   updates, which must be applied, otherwise there may be, for \
+                   example, VM failures"
                 )
               ]
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
             "The set of pending mandatory guidances after applying updates, \
-             which must be applied, as otherwise there may be e.g. VM failures"
+             which must be applied, otherwise there may be, for example, VM \
+             failures"
         ; field ~qualifier:DynamicRO ~internal_only:true
             ~lifecycle:[(Prototyped, "23.18.0", ""); (Removed, "23.24.0", "")]
             ~ty:(Set update_guidances) "recommended_guidances"
@@ -3179,9 +3181,9 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
             "pending_guidances_full" ~default_value:(Some (VSet []))
             "The set of pending full guidances after applying updates, which a \
-             user should follow to make some updates, e.g. specific hardware \
-             drivers or CPU features, fully effective, but the 'average user' \
-             doesn't need to"
+             user should follow to make some updates, for example, specific \
+             hardware drivers or CPU features, fully effective, but the \
+             'average user' doesn't need to"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _vm_group))
             "groups" "VM groups associated with the VM"
         ]

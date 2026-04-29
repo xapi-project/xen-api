@@ -179,6 +179,8 @@
   (xapi-types
    (= :version))
   (xapi-stdext-zerocheck
+    (= :version))
+  (xapi-work-queues
     (= :version)))
  (synopsis "A CLI for xapi storage services")
  (description
@@ -191,7 +193,8 @@
  (name xapi-schema))
 
 (package
-  (name xapi-work-queues))
+ (name xapi-work-queues)
+ (depends ppx_deriving_rpc xapi-stdext-threads))
 
 (package
  (name rrdd-plugin)
@@ -327,6 +330,7 @@
   xapi-stdext-pervasives
   xapi-stdext-unix
   xapi-stdext-zerocheck
+  xapi-work-queues
   xen-api-client
   xen-api-client-lwt
   xenctrl
@@ -365,6 +369,7 @@
   rrdd-plugin
   xapi-stdext-std
   xapi-tracing-export
+  xapi-work-queues
   xen-api-client
   (alcotest :with-test)
   (ppx_deriving_rpc :with-test)
@@ -482,6 +487,8 @@
   (xapi-tracing-export
    (= :version))
   (xapi-types
+   (= :version))
+  (xapi-work-queues
    (= :version))
   (xen-api-client-lwt
    (= :version))
