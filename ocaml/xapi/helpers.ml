@@ -428,7 +428,7 @@ module TraceHelper = struct
 end
 
 (** Once the server functor has been instantiated, xapi sets this reference to the appropriate
-    "fake_rpc" (loopback non-HTTP) rpc function. 
+    "fake_rpc" (loopback non-HTTP) rpc function.
     This way, internally the coordinator can short-circuit API calls without having to go over the network. *)
 let rpc_fun : (Http.Request.t -> Rpc.call -> Rpc.response) option ref = ref None
 
@@ -2462,3 +2462,185 @@ module AuthenticationCache = struct
           None
   end
 end
+
+(* Simple trie data structure that performs a favoured lookup to
+   implement a simple form of wildcard key matching. The trie is not
+   pruned during (or after) construction. *)
+module MatchTrie = struct
+  type 'a node = {arrows: (string, 'a node) Hashtbl.t; mutable value: 'a option}
+
+  let create_node () =
+    let arrows = Hashtbl.create 16 in
+    let value = None in
+    {arrows; value}
+
+  let create = create_node
+
+  let insert root ~key ~value =
+    let parts = String.split_on_char '.' key in
+    let rec extend focused = function
+      | part :: parts ->
+          let next =
+            match Hashtbl.find_opt focused.arrows part with
+            | Some node ->
+                node
+            | _ ->
+                let next = create_node () in
+                Hashtbl.replace focused.arrows part next ;
+                next
+          in
+          extend next parts
+      | [] ->
+          focused
+    in
+    let final = extend root parts in
+    final.value <- Some value
+
+  let find root ~key =
+    let parts = String.split_on_char '.' key in
+    let rec find focused = function
+      | part :: parts -> (
+        (* Wildcard edges override other edges. *)
+        match Hashtbl.find_opt focused.arrows "*" with
+        | Some _ as sink ->
+            sink
+        | _ -> (
+          match Hashtbl.find_opt focused.arrows part with
+          | Some next ->
+              (find [@tailcall]) next parts
+          | _ ->
+              None
+        )
+      )
+      | _ ->
+          Some focused
+    in
+    match find root parts with Some node -> node.value | _ -> None
+end
+
+(* Given an input key, compare against the protected keys of the
+   task.other_config field. If a protected key matches, return it.
+
+   For example, if the datamodel specifies "foo.bar.*" as a protected
+   key, then: match_protected_key ~key:"foo.bar.baz" = Some "foo.bar.*".
+
+   It must return the protected key as that is what key-related RBAC
+   entries are defined in terms of.
+*)
+let match_protected_key objname fieldname =
+  (* Attain the listing of protected keys from the datamodel at module
+     initialisation. Usually, this list is passed to Rbac.check by
+     handlers inside the auto-generated server.ml file. *)
+  let protected_keys =
+    let api = Datamodel.all_api in
+    let field = Dm_api.get_field_by_name api ~objname ~fieldname in
+    List.map fst field.field_map_keys_roles
+  in
+  (* Define the lookup function in terms of a simple trie data
+     structure - which is flexible to account for overlapping paths and
+     presence of wildcards. *)
+  let trie =
+    let root = MatchTrie.create () in
+    let add key = MatchTrie.insert root ~key ~value:key in
+    List.iter add protected_keys ;
+    root
+  in
+  MatchTrie.find trie
+
+(* The behaviour of this function, with respect to RBAC checking, must
+   match serial "remove_from" and "add_to" operations (for only the keys
+   that are changing).
+
+   There is normally no key-related RBAC checking for
+   "set_X" (e.g. set_other_config) because the required writer role for the
+   entire field is usually higher than the role(s) required for
+   individually-protected keys.
+
+   {Task,VM}.set_other_config and VM.set_platform are special cases where
+   lower-privileged sessions must be able to manipulate a subset of entries
+   (those not protected by a more privileged role).
+*)
+let set_map_with_rbac ~__context ~self ~value ~get_fn ~set_fn ~match_protected
+    ~object_name ~field_name =
+  let match_protected = match_protected field_name in
+  let module S = Set.Make (String) in
+  let create_lookup kvs =
+    let table = List.to_seq kvs |> Hashtbl.of_seq in
+    Hashtbl.find_opt table
+  in
+  let old_value = get_fn ~__context ~self in
+  let lookup_old, lookup_new = (create_lookup old_value, create_lookup value) in
+  let keys_before, keys_after =
+    let keys = List.map fst in
+    let before = keys old_value in
+    let after = keys value in
+    S.(of_list before, of_list after)
+  in
+  let keys_removed =
+    (* Keys no longer appearing in the map. The user must have the
+       "remove_from" role for each of the protected keys in the set. *)
+    S.diff keys_before keys_after
+  in
+  let keys_unchanged =
+    (* Keys that persist across the update. If any key in this set is
+       protected AND the value mapped to by the key would be changed by
+       the update, the session must have the "add_to" role. *)
+    let updated = S.inter keys_before keys_after in
+    let is_entry_unchanged key =
+      let is_same =
+        let ( let* ) = Option.bind in
+        let* old_value = lookup_old key in
+        let* new_value = lookup_new key in
+        Some (old_value = new_value)
+      in
+      Option.value ~default:false is_same
+    in
+    (* Filter out the unchanged entries, as you don't need any
+       extra privileges to maintain an entry that's already there. *)
+    S.filter is_entry_unchanged updated
+  in
+  let keys_added =
+    (* Treat all keys as new, unless they're referring to entries that
+       are unchanged across the update. *)
+    S.diff keys_after keys_unchanged
+  in
+  let permissions =
+    (* Map each of the added and removed keys to protected keys, if
+       such a key exists. *)
+    let filter keys =
+      S.filter_map (fun key -> match_protected ~key) keys |> S.elements
+    in
+    let added = filter keys_added in
+    let removed = filter keys_removed in
+    let format operation key =
+      (* All the permissions are stored in lowercase. *)
+      let key = String.lowercase_ascii key in
+      Printf.sprintf "%s.%s_%s/key:%s" object_name operation field_name key
+    in
+    (* The required permissions are defined in terms of those
+       generated for "add_to" and "remove_from" (both implemented
+       above). They can be defined as custom AND use RBAC checking within
+       server.ml because their operation is purely destructive, so it's
+       sufficient to guard the entire action with Rbac.check. *)
+    let added_perms = List.map (format "add_to") added in
+    let removed_perms = List.map (format "remove_from") removed in
+    added_perms @ removed_perms
+  in
+  (* Find the first disallowed permission, indicating that we cannot
+     perform the action. *)
+  let session_id = Context.get_session_id __context in
+  match
+    Rbac.find_first_disallowed_permission ~__context ~session_id ~permissions
+  with
+  | None ->
+      (* No disallowed permission, perform the update. *)
+      set_fn ~__context ~self ~value
+  | Some disallowed ->
+      (* Report it as an RBAC error. *)
+      let action = Printf.sprintf "%s.set_%s" object_name field_name in
+      let extra_msg = "" in
+      let extra_dmsg = "" in
+      raise
+        (Rbac.disallowed_permission_exn ~extra_dmsg ~extra_msg ~__context
+           ~permission:disallowed ~action
+        )

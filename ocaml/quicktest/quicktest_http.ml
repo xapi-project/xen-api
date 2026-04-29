@@ -102,7 +102,7 @@ module Cookies = struct
       match body with
       | first_line :: _ ->
           D.warn "expected = [%s]; received = [%s]" expected first_line ;
-          Astring.String.is_infix ~affix:first_line expected
+          Astring.String.is_infix ~affix:expected first_line
       | _ ->
           false
     in
