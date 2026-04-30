@@ -1,8 +1,8 @@
 ---
-title: XAPI Rate Limiting
+title: Rate Limiting
 layout: default
 design_doc: true
-revision: 1
+revision: 2
 status: draft
 ---
 
@@ -11,19 +11,26 @@ status: draft
 - [Approach](#approach)
   - [Rate limiting](#rate-limiting)
   - [Client classification](#client-classification)
+  - [Statistics](#statistics)
 - [API design](#api-design)
+  - [Caller Datamodel](#caller-datamodel)
+  - [API functions](#api-functions)
+  - [Matching semantics](#matching-semantics)
+  - [Caller lifecycle](#caller-lifecycle)
 - [XAPI integration](#xapi-integration)
 - [Library](#library)
   - [Token bucket](#token-bucket)
   - [Rate limit queue](#rate-limit-queue)
   - [Client table](#client-table)
+- [Operational Description](#operational-description)
+- [Pool Member / Multi-Host Considerations](#pool-member-multi-host-considerations)
 <!--toc:end-->
 
 ## Overview
 
 We have had several customer incidents in the past that have been attributed to
-“overloading” xapi. This effectively means that a client is making requests at
-a rate that xapi cannot handle. This can result in very bad response times (“we
+“overloading” Xapi. This effectively means that a client is making requests at
+a rate that Xapi cannot handle. This can result in very bad response times (“we
 tried to shut down 20 VMs and this took 2 hours!”) and general system
 instability and unavailability.
 
@@ -32,7 +39,7 @@ either misconfigured or make improper use of the API, hammering the pool and
 breaking use of the good guys. For example, a dodgy monitoring service may
 lock out the control software, or slow down VM lifecycle operations.
 
-Part of the problem is that xapi and xenopsd are not very good at handling
+Part of the problem is that Xapi and xenopsd are not very good at handling
 load, in particular in a pool where the coordinator is often a bottleneck. A
 lot of work has already been done make the Toolstack cope better under load.
 This is important and a lot more can be done in this space.
@@ -44,7 +51,7 @@ improvements, as a complimentary approach.
 
 Last year, thread prioritisation was tried. This could be revisited, but we
 also need an approach that allows us to pose hard constraints on clients. For
-example, as an admin, I want to configure xapi to give my control panel
+example, as an admin, I want to configure Xapi to give my control panel
 unlimited access, but explicitly limit how much Monitoring App X can do.
 
 The proposal here is to do a simpler kind of per-client rate limiting at the
@@ -91,60 +98,136 @@ potentially made on multiple connections.
 ### Client classification
 In order to let pool administrators know who they should be rate limiting, we
 will also introduce a **Caller** datamodel class which tracks all requests made
-to xapi.
+to Xapi.
 
 Callers will be a high-level way of tracking clients. We allow callers to be
 identified by a number of different parameters: AD user, IP address,
-originator, user agent. When an unknown caller makes a request to xapi, we
+originator, user agent. When an unknown caller makes a request to Xapi, we
 record their data in a new row. The pool administrator will be able to merge
 related callers together and assign them labels.
 
 The caller classification allows wildcards for any field, though we require
 that at least one field be specified. This lets us, for example, combine all
-accesses from the xapi python API by specifying the user-agent .
+accesses from the Xapi python API by specifying the user-agent .
 
-In order to assist with rate limiting, we can store statistics about callers:
-- Last request timestamp
+A rate limiter can be associated with any number of callers, and the parameters
+of the rate limiter can either be derived from the usage patterns of the
+callers or selected from a number of preset profiles.
+
+### Statistics
+In order to assist with rate limiting, we can store statistics about callers.
+We identify two kinds of statistics: volatile and stable. Volatile statistics
+change over time without any input, e.g. sliding windows. These will be stored
+in RRDs. By contrast, stable statistics only vary at most once per request, and
+so are safe to store in the main database.
+
+**Volatile statistics:**
 - Tokens used over the last (5 minutes/hour/day).
-- Most common API requests.
+- Most common requests over the last (5 minutes/hour/day).
 
-A rate limiter can then be attached to a particular caller, and the parameters
-of the rate limiter can either be derived from the usage patterns of the caller
-or selected from a number of preset profiles.
+**Stable statistics:**
+- Last request timestamp
 
 ## API design
-We propose two new datamodels: **Caller** and **Rate_limit**.
+
+### Caller Datamodel
+We propose two new datamodel tables: **Caller**, which stores the data associated with each caller, and **Rate limit**, which identifies one or more callers with a rate limiter.
 
 Caller:
 | Mutability | Name        | Type     | Description                                        |
 | ---------: | ----------- | -------- | ---------------------------------------------------|
-| RW         | name_label  | String   | User-assigned label for the caller                 |
-| RO         | user_agent  | String   | User agent of throttled client; use "*" for "any"  |
-| RO         | host_ip     | String   | IP address of throttled client; use "*" for "any"  |
-| RO         | last_access | DateTime | Last time the caller made a request                |
-| RO         | burst_size  | Float    | Amount of tokens that can be consumed in one burst; -1 if no rate limit is applied |
-| RO         | fill_rate   | Float    | Tokens added to the bucket per second; -1 if no rate limit is applied |
+| RW         | name_label  | String   | User-assigned label for the caller |
+| RO         | user_agent | String | user agent matching pattern  |
+| RO         | host_ip  | String | IP address matching pattern  |
+| RO         | last_access | DateTime | Last time the caller made a request        |
+| SRW         | groups     | Set String | Set of labels used for cumulative metrics |
+| RO         | rate_limit | Ref Rate_limit | Associated rate limiter - can be null |
 
+Callers identify the origin of incoming requests, and they serve a dual purpose
+of metrics gathering and providing a target for rate limiting. We allow users to query
+the metrics for an individual caller, or for all callers belonging to a given
+group. A new caller record will be added automatically whenever a request from
+an unknown origin is made to Xapi, and callers can also be added manually by
+users.
 
-Matching semantics for `Caller` fields:
-- `user_agent` and `host_ip` are treated as match patterns, not just stored values.
-- The star (`"*"`) is a wildcard for that field (equivalent to “any”).
-- A star can be appended to the end of a field to match any string that starts with the prefix. We only allow prefix matching.
-- An incoming call is assigned to a `Caller` only if **all non-wildcard fields in that
-  caller record match** (logical AND across fields).
-- Examples:
-  - `{user_agent = "*", host_ip = "10.1.2.3"}` matches any user-agent from `10.1.2.3`.
-  - `{user_agent = "Python-xmlrpc/*", host_ip = "*"}` matches any Python
-    XML-RPC client from any IP.
-  - `{user_agent = "Python-xmlrpc/3.11", host_ip = "10.1.2.3"}` matches only calls where both fields match.
+Rate limit:
+| Mutability | Name        | Type     | Description |
+|--------: | --------------|-----------|------------------|
+| RW         | name_label  | String   | User-assigned label for the rate limiter |
+| SRO        | callers | Set (Ref Caller) | Callers associated with this rate limiter |
+| RO         | burst_size  | Float    | Amount of tokens that can be consumed in one burst |
+| RO         | fill_rate   | Float    | Tokens added to the bucket per second |
 
-Rate limits: We provide calls to set and remove a rate limiter. When no rate limiter is set, both parameters are negative.
+A rate limit can be applied to a group of callers, which then have a collective
+rate limit applied. Each caller can have at most one rate limiter applied,
+which then becomes stored in its `rate_limit` field. We have two distinct
+notions of groups here: rate limits store groups of callers, but groups of
+callers are also represented in their `groups` field. We do this to allow for a
+decoupling of rate limiting and data reporting, and to simplify the underlying
+code by storing direct references to objects where possible.
+
+### API functions
+We define the following API functions for the caller datamodel:
+- `Caller.create(name_label, user_agent, host_ip)`: Create a new caller.
+- `Caller.set_name_label(caller, name_label)`: Set name label on the caller
+- `Caller.destroy(caller)`: Destroy the caller
+- `Caller.add_group(caller, group)`: Add caller to group
+- `Caller.remove_group(caller, group)`: Remove caller from group
+- `Caller.query_usage(caller, time_period)`: Obtain usage statistics for an individual caller
+- `Caller.query_group_usage(group, time_period)`: Obtain usage statistics for a group of callers
+
+And the following functions for the rate limiter datamodel:
+- `Rate_limit.create(name_label, callers, burst_size, fill_rate)`: Create a
+rate limiter with the supplied parameters.
+- `Rate_limit.add_caller(rate_limit, caller)`: Add a caller to the callers set
+- `Rate_limit.remove_caller(rate_limit, caller)`: Remove a caller from the callers set
+- `Rate_limit.set_burst_size(rate_limit, burst_size)`: Set the burst size for the
+  rate limiter
+- `Rate_limit.set_fill_rate(rate_limit, burst_size)`: Set the fill rate for the
+rate limiter
+- `Rate_limit.destroy(rate_limit)`: Destroy the rate limiter - should also
+clear the `rate_limit` field from its associated callers
+
+### Matching semantics
+When a request arrives, Xapi matches the request's metadata against the
+`Caller` table. Each field in a `Caller` record is a pattern matched against
+the corresponding field in the request using prefix matching: a pattern
+matches iff it is a prefix of the request's field value. Prefix patterns are
+specified by terminating with `*`. A pattern without `*` matches only exact
+equals. A record matches a request iff all fields match.
+
+We treat logging and rate limiting differently:
+- **Logging**: All caller records that match with an incoming request track the
+  request.
+- **Rate limiting**: Only the most specific match (which has rate limiting
+enabled) for any given request will trigger rate limiting and deduct tokens
+from its token bucket.
+
+The **most specific match** is the matching `Caller` record with the longest
+total prefix length across all fields. For example, a record that matches
+`user_agent` with a full value is more specific than one that matches only a
+short prefix. We resolve ties through a lexicographic ordering amongst fields:
+IP address first, then user agent.
+
+This results in the statistics being stored by callers tracking everything that
+matches, but only the most specific rate limiter to any given request will be
+triggered.
+
+### Caller lifecycle
+- Users can proactively create callers with wildcards to identify groups of
+callers.
+- When a call comes in, a new Caller is automatically created if no existing
+**fully specified** record (no wildcards) matches. We want to store the details
+of all unique origins, even if they fall under a wildcard pattern.
+- Toolstack startup behavior: On toolstack startup, an in-memory data structure
+is created from the database fields which stores all the rate limiters and
+callers, as described in the implementation section.
 
 ## XAPI integration
-Calls into xapi are intercepted at two points:
+Calls into Xapi are intercepted at two points:
 - RPC calls are intercepted at dispatch, in the `do_dispatch` function within
 xapi/server_helpers.ml. At this point, we already have a session available if
-the caller is logged in, and we know which xapi call is being made.
+the caller is logged in, and we know which Xapi call is being made.
 - Other calls are intercepted by instrumenting the HTTP handlers as they are
 added to the HTTP server in the `add_handler` function within
 xapi/xapi_http.ml. Here we have less information, so the rate limiting is less
