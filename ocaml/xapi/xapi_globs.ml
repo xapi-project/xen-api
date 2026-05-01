@@ -274,11 +274,6 @@ let default_template_key = "default_template"
 
 let base_template_name_key = "base_template_name"
 
-(* Keys to explain the presence of dom0 block-attached VBDs: *)
-let vbd_task_key = "task_id"
-
-let related_to_key = "related_to"
-
 let get_nbd_extents = "/opt/xensource/libexec/get_nbd_extents.py"
 
 (* other-config keys to sync over when mirroring/remapping/importing a VDI *)
