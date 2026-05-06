@@ -1,0 +1,11 @@
+2026.01.09 05:45:23 LOG5[ui]: stunnel 5.60 on x86_64-koji-linux-gnu platform
+2026.01.09 05:45:23 LOG5[ui]: Compiled/running with OpenSSL 3.0.9 30 May 2023
+2026.01.09 05:45:23 LOG5[ui]: Threading:PTHREAD Sockets:POLL,IPv6 TLS:ENGINE,OCSP,SNI Auth:LIBWRAP
+2026.01.09 05:45:23 LOG5[ui]: Reading configuration from descriptor 8
+2026.01.09 05:45:23 LOG5[ui]: UTF-8 byte order mark not detected
+2026.01.09 05:45:23 LOG5[ui]: FIPS mode disabled
+2026.01.09 05:45:23 LOG5[ui]: Configuration successful
+2026.01.09 05:45:24 LOG5[0]: Service [client-proxy] accepted connection from unnamed socket
+2026.01.09 05:45:24 LOG5[0]: s_connect: connecting 192.168.1.100:443
+2026.01.09 05:45:24 LOG3[0]: s_connect: connect 192.168.1.100:443: Connection refused
+2026.01.09 05:45:24 LOG5[0]: Connection reset: 0 byte(s) sent to TLS, 0 byte(s) sent to socket

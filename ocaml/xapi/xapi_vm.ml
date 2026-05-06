@@ -1782,3 +1782,27 @@ let sysprep ~__context ~self ~unattend ~timeout =
       raise Api_errors.(Server_error (sysprep, [uuid; msg]))
   | exception e ->
       raise e
+
+let add_to_other_config ~__context ~self ~key ~value =
+  Db.VM.add_to_other_config ~__context ~self ~key ~value
+
+let remove_from_other_config ~__context ~self ~key =
+  Db.VM.remove_from_other_config ~__context ~self ~key
+
+let set_other_config ~__context ~self ~value =
+  let match_protected = Helpers.match_protected_key "VM" in
+  Helpers.set_map_with_rbac ~__context ~self ~value
+    ~get_fn:Db.VM.get_other_config ~set_fn:Db.VM.set_other_config
+    ~match_protected ~object_name:"vm" ~field_name:"other_config"
+
+let add_to_platform ~__context ~self ~key ~value =
+  Db.VM.add_to_platform ~__context ~self ~key ~value
+
+let remove_from_platform ~__context ~self ~key =
+  Db.VM.remove_from_platform ~__context ~self ~key
+
+let set_platform ~__context ~self ~value =
+  let match_protected = Helpers.match_protected_key "VM" in
+  Helpers.set_map_with_rbac ~__context ~self ~value ~get_fn:Db.VM.get_platform
+    ~set_fn:Db.VM.set_platform ~match_protected ~object_name:"vm"
+    ~field_name:"platform"
