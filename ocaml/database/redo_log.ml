@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_unix
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute

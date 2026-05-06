@@ -5,6 +5,7 @@ type cert =
   | CA of API.ref_Certificate * API.datetime
   | Host of API.ref_host * API.datetime
   | Internal of API.ref_host * API.datetime
+  | Pinned of API.ref_Certificate * API.datetime
 
 let get_certificates rpc session_id =
   XenAPI.Certificate.get_all_records ~rpc ~session_id
@@ -22,6 +23,8 @@ let get_certificates rpc session_id =
            )
      | `ca ->
          CA (cert_ref, certificate.API.certificate_not_after)
+     | `pinned ->
+         Pinned (cert_ref, certificate.API.certificate_not_after)
 
 let certificate_description = function
   | Host _ ->
@@ -29,7 +32,9 @@ let certificate_description = function
   | Internal _ ->
       "The internal TLS server certificate"
   | CA _ ->
-      "The CA pool certificate"
+      "The pool-wide trusted root CA certificate"
+  | Pinned _ ->
+      "The pool-wide trusted pinned leaf certificate"
 
 let alert_conditions = function
   | Host _ ->
@@ -53,6 +58,13 @@ let alert_conditions = function
       ; (14, Api_messages.pool_ca_certificate_expiring_14)
       ; (30, Api_messages.pool_ca_certificate_expiring_30)
       ]
+  | Pinned _ ->
+      [
+        (0, Api_messages.pool_pinned_certificate_expired)
+      ; (7, Api_messages.pool_pinned_certificate_expiring_07)
+      ; (14, Api_messages.pool_pinned_certificate_expiring_14)
+      ; (30, Api_messages.pool_pinned_certificate_expiring_30)
+      ]
 
 let alert_message_cls_and_obj_uuid rpc session_id cert =
   match cert with
@@ -60,9 +72,11 @@ let alert_message_cls_and_obj_uuid rpc session_id cert =
       (`Host, XenAPI.Host.get_uuid ~rpc ~session_id ~self:host)
   | CA (cert, _) ->
       (`Certificate, XenAPI.Certificate.get_uuid ~rpc ~session_id ~self:cert)
+  | Pinned (cert, _) ->
+      (`Certificate, XenAPI.Certificate.get_uuid ~rpc ~session_id ~self:cert)
 
 let get_expiry = function
-  | Host (_, exp) | Internal (_, exp) | CA (_, exp) ->
+  | Host (_, exp) | Internal (_, exp) | CA (_, exp) | Pinned (_, exp) ->
       exp
 
 let alert rpc session_id =

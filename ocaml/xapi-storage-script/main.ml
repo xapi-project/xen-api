@@ -2214,7 +2214,8 @@ let description =
     [
       "Allow xapi storage adapters to be written as individual scripts."
     ; "To add a storage adapter, create a sub-directory in the --root directory"
-    ; "with the name of the adapter (e.g. org.xen.xcp.storage.mylvm) and place"
+    ; "with the name of the adapter (for example, org.xen.xcp.storage.mylvm) \
+       and place"
     ; "the scripts inside."
     ]
 

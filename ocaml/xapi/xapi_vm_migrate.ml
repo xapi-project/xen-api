@@ -1274,7 +1274,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
          ( Api_errors.operation_not_allowed
          , [
              "Copy mode is disallowed on intra pool storage migration, try \
-              efficient alternatives e.g. VM.copy/clone."
+              efficient alternatives, for example, VM.copy/clone."
            ]
          )
       ) ;
