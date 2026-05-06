@@ -70,12 +70,13 @@ module Cli = struct
   open Cmdliner
 
   let src =
-    let doc = "The trace file, e.g. /path/to/trace.ndjson" in
+    let doc = "The trace file, for example, /path/to/trace.ndjson" in
     Arg.(required & pos 0 (some string) None (info [] ~docv:"SRC" ~doc))
 
   let dst =
     let doc =
-      "The destination endpoint URL, e.g. http://localhost:9411/api/v2/spans"
+      "The destination endpoint URL, for example, \
+       http://localhost:9411/api/v2/spans"
     in
     Arg.(required & pos 1 (some string) None (info [] ~docv:"DST" ~doc))
 

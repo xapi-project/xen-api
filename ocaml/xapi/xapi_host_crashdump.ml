@@ -16,7 +16,6 @@
 *)
 
 module Listext = Xapi_stdext_std.Listext
-module Xstringext = Xapi_stdext_std.Xstringext
 module Date = Clock.Date
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_support
@@ -49,6 +48,8 @@ let delete_crashdump_dir filename =
     error "Caught exception while deleting crashdump at path %s (%s)" filename
       (ExnHelper.string_of_exn e) ;
     raise e
+
+let fields_of = Astring.(String.fields ~empty:false ~is_sep:Char.Ascii.is_white)
 
 (* Called once on host boot to resync the crash directory with the database *)
 let resynchronise ~__context ~host =
@@ -103,9 +104,7 @@ let resynchronise ~__context ~host =
       debug "Adding record corresponding to new crashdump %s" filename ;
       let cmd = Printf.sprintf "%s --bytes -s %s/%s" du crash_dir filename in
       let size =
-        match
-          Xstringext.String.(split_f isspace (Helpers.get_process_output cmd))
-        with
+        match fields_of (Helpers.get_process_output cmd) with
         | size :: _ ->
             Int64.of_string size
         | _ ->

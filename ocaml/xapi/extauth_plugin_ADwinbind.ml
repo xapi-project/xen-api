@@ -20,7 +20,6 @@ module D = Debug.Make (struct
 end)
 
 open D
-open Xapi_stdext_std.Xstringext
 open Auth_signature
 module Scheduler = Xapi_stdext_threads_scheduler.Scheduler
 
@@ -33,8 +32,6 @@ let ( let* ) = Result.bind
 let ( let@ ) = ( @@ )
 
 let ( <!> ) x f = Rresult.R.reword_error f x
-
-let ( >>| ) = Rresult.( >>| )
 
 let min_debug_level = 0
 
@@ -564,37 +561,9 @@ module Wbinfo = struct
     let* stdout = call_wbinfo args in
     Ok (String.trim stdout)
 
-  type name = User of string | Other of string
-
-  let string_of_name = function User x -> x | Other x -> x
-
-  let name_of_sid =
-    (* example:
-     * $ wbinfo -s S-1-5-21-3143668282-2591278241-912959342-502
-       CONNAPP\krbtgt 1 *)
-    (* the number returned after the name is the 'SID type' (grep for wbcSidType
-     * in samba source code). for our purposes, it is sufficient to assume that
-     * everything that is not a user is some 'other' type*)
-    let regex = Re.Perl.(compile (re {|^([^\s].*)\ (\d+)\s*$|})) in
-    let get_regex_match x =
-      Option.bind (Re.exec_opt regex x) (fun g ->
-          match Re.Group.all g with
-          | [|_; name; "1"|] ->
-              Some (User name)
-          | [|_; name; _|] ->
-              Some (Other name)
-          | _ ->
-              None
-      )
-    in
-    fun sid ->
-      let args = ["--sid-to-name"; sid] in
-      let* stdout = call_wbinfo args in
-      match get_regex_match stdout with
-      | None ->
-          Error (parsing_ex args)
-      | Some x ->
-          Ok x
+  let sid_to_name sid =
+    let args = ["--sid-to-name"; sid] in
+    call_wbinfo args
 
   let gid_of_sid sid =
     let args = ["--sid-to-gid"; sid] in
@@ -658,6 +627,70 @@ module Wbinfo = struct
     let args = ["--uid-info"; string_of_int uid] in
     let* stdout = call_wbinfo args in
     parse_uid_info stdout <!> fun () -> parsing_ex args
+end
+
+module Subject = struct
+  type t = User of string | Group of string
+
+  let string_of_subject = function User x -> x | Group x -> x
+
+  let from_wbinfo =
+    (* example:
+     * $ wbinfo -s S-1-5-21-3143668282-2591278241-912959342-502
+       CONNAPP\krbtgt 1 *)
+    (* the number returned after the name is the 'SID type' (grep for wbcSidType
+     * in samba source code). for our purposes, it is sufficient to assume that
+     * everything that is not a user is some 'other' type*)
+    let regex = Re.Perl.(compile (re {|^([^\s].*)\s+(\d+)\s*$|})) in
+    let parse_name input sid =
+      match Re.exec_opt regex input with
+      | Some g -> (
+        match Re.Group.all g with
+        | [|_; name; "1"|] ->
+            Ok (User name)
+        | [|_; name; _|] ->
+            Ok (Group name)
+        | _ ->
+            Error (generic_ex "Failed to parse output '%s' for sid %s" input sid)
+      )
+      | None ->
+          Error (generic_ex "Failed to parse output '%s' for sid %s" input sid)
+    in
+    fun sid ->
+      let* stdout = Wbinfo.sid_to_name sid in
+      parse_name stdout sid
+
+  let from_db ~__context sid =
+    let open Xapi_database.Db_filter_types in
+    match
+      Db.Subject.get_records_where ~__context
+        ~expr:(Eq (Field "subject_identifier", Literal sid))
+    with
+    | (_, r) :: _ ->
+        let other_config = r.API.subject_other_config in
+        let* name =
+          List.assoc_opt "subject-name" other_config
+          |> Option.to_result
+               ~none:(generic_ex "subject-name not found in db for sid %s" sid)
+        in
+
+        List.assoc_opt "subject-is-group" other_config
+        |> Option.map (fun s ->
+            match String.lowercase_ascii s with
+            | "true" ->
+                Group name
+            | _ ->
+                User name
+        )
+        |> Option.to_result
+             ~none:(generic_ex "subject-is-group not found in db for sid %s" sid)
+    | [] ->
+        Error (generic_ex "Subject not found in db for sid %s" sid)
+
+  let ( ||| ) a b = match a with Ok _ -> a | Error _ -> b
+
+  let of_sid ~__context sid =
+    from_db ~__context sid ||| from_wbinfo sid |> maybe_raise
 end
 
 module Migrate_from_pbis = struct
@@ -1345,14 +1378,14 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
              (Printf.sprintf "couldn't get SID from username='%s'" uname)
      in
      let* () =
-       match Wbinfo.name_of_sid sid >>| Wbinfo.string_of_name with
-       | Error e ->
+       match Subject.of_sid ~__context sid |> Subject.string_of_subject with
+       | uname ->
+           Wbinfo.kerberos_auth uname password
+       | exception e ->
            D.warn
              "authenticate_username_password: trying original uname. ex: %s"
              (Printexc.to_string e) ;
            Wbinfo.kerberos_auth orig_uname password
-       | Ok uname ->
-           Wbinfo.kerberos_auth uname password
      in
      Ok sid
     )
@@ -1460,17 +1493,19 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       it's a string*string list anyway for possible future expansion.
       Raises Not_found (*Subject_cannot_be_resolved*) if subject_id cannot be resolved by external auth service
   *)
+  (* Fallback uid/gid when the winbind daemon fails to resolve the SID *)
+  let invalid_id = -1
+
   let query_subject_information ~__context (sid : string) =
     let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     let res =
-      let* name = Wbinfo.name_of_sid sid in
-      match name with
-      | User _ ->
-          let* uid = Wbinfo.uid_of_sid sid in
+      match Subject.of_sid ~__context sid with
+      | Subject.User _ ->
+          let uid = Wbinfo.uid_of_sid sid |> Result.value ~default:invalid_id in
           query_subject_information_user uid sid
-      | Other name ->
+      | Subject.Group name ->
           (* if the name doesn't correspond to a user then it ought to be a group *)
-          let* gid = Wbinfo.gid_of_sid sid in
+          let gid = Wbinfo.gid_of_sid sid |> Result.value ~default:invalid_id in
           Ok (query_subject_information_group name gid sid)
     in
     (* we must raise Not_found here. see xapi_pool.ml:revalidate_subjects *)

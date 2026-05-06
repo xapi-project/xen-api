@@ -248,8 +248,8 @@ let get_boot_record =
       ]
     ~doc:
       "Returns a record describing the VM's dynamic state, initialised when \
-       the VM boots and updated to reflect runtime configuration changes e.g. \
-       CPU hotplug"
+       the VM boots and updated to reflect runtime configuration changes, for \
+       example CPU hotplug"
     ~result:(Record _vm, "A record describing the VM")
     ~params:[(Ref _vm, "self", "The VM whose boot-time state to return")]
     ~errs:[] ~flags:[`Session] (* no async *)
@@ -347,15 +347,16 @@ let clone =
         , rel_rio
         , "Clones the specified VM, making a new VM. Clone automatically \
            exploits the capabilities of the underlying storage repository in \
-           which the VM's disk images are stored (e.g. Copy on Write).   This \
-           function can only be called when the VM is in the Halted State."
+           which the VM's disk images are stored (for example, Copy on Write). \
+           This function can only be called when the VM is in the Halted \
+           State."
         )
       ]
     ~doc:
       "Clones the specified VM, making a new VM. Clone automatically exploits \
        the capabilities of the underlying storage repository in which the VM's \
-       disk images are stored (e.g. Copy on Write).   This function can only \
-       be called when the VM is in the Halted State."
+       disk images are stored (for example, Copy on Write). This function can \
+       only be called when the VM is in the Halted State."
     ~result:(Ref _vm, "The reference of the newly created VM.")
     ~params:
       [
@@ -418,8 +419,8 @@ let snapshot_with_quiesce =
     ~doc:
       "Snapshots the specified VM with quiesce, making a new VM. Snapshot \
        automatically exploits the capabilities of the underlying storage \
-       repository in which the VM's disk images are stored (e.g. Copy on \
-       Write)."
+       repository in which the VM's disk images are stored (for example, Copy \
+       on Write)."
     ~result:(Ref _vm, "The reference of the newly created VM.")
     ~params:
       [
@@ -464,13 +465,13 @@ let snapshot =
         , rel_orlando
         , "Snapshots the specified VM, making a new VM. Snapshot automatically \
            exploits the capabilities of the underlying storage repository in \
-           which the VM's disk images are stored (e.g. Copy on Write)."
+           which the VM's disk images are stored (for example, Copy on Write)."
         )
       ]
     ~doc:
       "Snapshots the specified VM, making a new VM. Snapshot automatically \
        exploits the capabilities of the underlying storage repository in which \
-       the VM's disk images are stored (e.g. Copy on Write)."
+       the VM's disk images are stored (for example, Copy on Write)."
     ~result:(Ref _vm, "The reference of the newly created VM.")
     ~versioned_params:
       [
@@ -532,15 +533,15 @@ let checkpoint =
         , rel_midnight_ride
         , "Checkpoints the specified VM, making a new VM. Checkpoint \
            automatically exploits the capabilities of the underlying storage \
-           repository in which the VM's disk images are stored (e.g. Copy on \
-           Write) and saves the memory image as well."
+           repository in which the VM's disk images are stored (for example, \
+           Copy on Write) and saves the memory image as well."
         )
       ]
     ~doc:
       "Checkpoints the specified VM, making a new VM. Checkpoint automatically \
        exploits the capabilities of the underlying storage repository in which \
-       the VM's disk images are stored (e.g. Copy on Write) and saves the \
-       memory image as well."
+       the VM's disk images are stored (for example, Copy on Write) and saves \
+       the memory image as well."
     ~result:(Ref _vm, "The reference of the newly created VM.")
     ~params:
       [
@@ -639,8 +640,8 @@ let start =
       ; ( Bool
         , "force"
         , "Attempt to force the VM to start. If this flag is false then the VM \
-           may fail pre-boot safety checks (e.g. if the CPU the VM last booted \
-           on looks substantially different to the current one)"
+           may fail pre-boot safety checks (for example, if the CPU the VM \
+           last booted on looks substantially different to the current one)"
         )
       ]
     ~errs:
@@ -665,7 +666,7 @@ let assert_can_boot_here =
       ; ( Changed
         , rel_quebec
         , "Does additional compatibility checks when VM powerstate is not \
-           halted (e.g. CPUID). Use this before calling VM.resume or \
+           halted (for example, CPUID). Use this before calling VM.resume or \
            VM.pool_migrate."
         )
       ]
@@ -703,13 +704,13 @@ let assert_agile =
       [
         ( Published
         , rel_orlando
-        , "Returns an error if the VM is not considered agile e.g. because it \
-           is tied to a resource local to a host"
+        , "Returns an error if the VM is not considered agile, for example, \
+           because it is tied to a resource local to a host"
         )
       ]
     ~doc:
-      "Returns an error if the VM is not considered agile e.g. because it is \
-       tied to a resource local to a host"
+      "Returns an error if the VM is not considered agile, for example, \
+       because it is tied to a resource local to a host"
     ~params:[(Ref _vm, "self", "The VM")]
     ~allowed_roles:_R_READ_ONLY ()
 
@@ -1088,8 +1089,8 @@ let start_on =
       ; ( Bool
         , "force"
         , "Attempt to force the VM to start. If this flag is false then the VM \
-           may fail pre-boot safety checks (e.g. if the CPU the VM last booted \
-           on looks substantially different to the current one)"
+           may fail pre-boot safety checks (for example, if the CPU the VM \
+           last booted on looks substantially different to the current one)"
         )
       ]
     ~errs:
@@ -1164,15 +1165,15 @@ let cleanShutdown =
         ( Published
         , rel_rio
         , "Attempt to cleanly shutdown the specified VM. (Note: this may not \
-           be supported---e.g. if a guest agent is not installed). This can \
-           only be called when the specified VM is in the Running state."
+           be supported, for example, if a guest agent is not installed). This \
+           can only be called when the specified VM is in the Running state."
         )
       ]
     ~name:"clean_shutdown"
     ~doc:
       "Attempt to cleanly shutdown the specified VM. (Note: this may not be \
-       supported---e.g. if a guest agent is not installed). This can only be \
-       called when the specified VM is in the Running state."
+       supported, for example, if a guest agent is not installed). This can \
+       only be called when the specified VM is in the Running state."
     ~params:[(Ref _vm, "vm", "The VM to shutdown")]
     ~errs:
       [
@@ -1192,15 +1193,15 @@ let cleanReboot =
         ( Published
         , rel_rio
         , "Attempt to cleanly shutdown the specified VM (Note: this may not be \
-           supported---e.g. if a guest agent is not installed). This can only \
-           be called when the specified VM is in the Running state."
+           supported, for example, if a guest agent is not installed). This \
+           can only be called when the specified VM is in the Running state."
         )
       ]
     ~name:"clean_reboot"
     ~doc:
       "Attempt to cleanly shutdown the specified VM (Note: this may not be \
-       supported---e.g. if a guest agent is not installed). This can only be \
-       called when the specified VM is in the Running state."
+       supported, for example, if a guest agent is not installed). This can \
+       only be called when the specified VM is in the Running state."
     ~params:[(Ref _vm, "vm", "The VM to shutdown")]
     ~errs:
       [
@@ -1392,8 +1393,8 @@ let resume =
       ; ( Bool
         , "force"
         , "Attempt to force the VM to resume. If this flag is false then the \
-           VM may fail pre-resume safety checks (e.g. if the CPU the VM was \
-           running on looks substantially different to the current one)"
+           VM may fail pre-resume safety checks (for example, if the CPU the \
+           VM was running on looks substantially different to the current one)"
         )
       ]
     ~errs:
@@ -1426,8 +1427,8 @@ let resume_on =
       ; ( Bool
         , "force"
         , "Attempt to force the VM to resume. If this flag is false then the \
-           VM may fail pre-resume safety checks (e.g. if the CPU the VM was \
-           running on looks substantially different to the current one)"
+           VM may fail pre-resume safety checks (for example, if the CPU the \
+           VM was running on looks substantially different to the current one)"
         )
       ]
     ~errs:
@@ -2387,7 +2388,7 @@ let set_NVRAM_EFI_variables =
              the current secureboot_certificates_state unchanged. If omitted \
              (defaults to 'unspecified'), run certificate check to determine \
              the state."
-        ; param_release= numbered_release "26.7.0-next"
+        ; param_release= numbered_release "26.12.0"
         ; param_default= Some (VEnum "unspecified")
         }
       ]
@@ -2420,6 +2421,105 @@ let sysprep =
       "Pass unattend.xml to Windows sysprep and wait for the VM to shut down \
        as part of a reboot."
     ~allowed_roles:_R_VM_ADMIN ()
+
+module Other_config = struct
+  let protected_keys =
+    [
+      ("hvm_serial", _R_POOL_ADMIN)
+    ; ("pci", _R_POOL_ADMIN)
+    ; ("folder", _R_VM_OP)
+    ; ("XenCenter.CustomFields.*", _R_VM_OP)
+    ]
+
+  let call =
+    call
+      ~lifecycle:[(Published, rel_rio, "additional configuration")]
+      ~allowed_roles:_R_VM_ADMIN
+
+  let add_to_other_config =
+    call ~name:"add_to_other_config"
+      ~doc:
+        "Add the given key-value pair to the other_config field of the given \
+         VM."
+      ~params:
+        [
+          (Ref _vm, "self", "reference to object")
+        ; (String, "key", "Key to add")
+        ; (String, "value", "Value to add")
+        ]
+      ~map_keys_roles:protected_keys ~flags:[`Session] ()
+
+  let remove_from_other_config =
+    call ~name:"remove_from_other_config"
+      ~doc:
+        "Remove the given key and its corresponding value from the \
+         other_config field of the given VM. If the key is not in that Map, \
+         then do nothing."
+      ~params:
+        [
+          (Ref _vm, "self", "reference to object")
+        ; (String, "key", "Key of entry to remove")
+        ]
+      ~map_keys_roles:protected_keys ~flags:[`Session] ()
+
+  (* map_keys_roles can't be cited here, since they're only implemented for
+   {add_to,remove_from}_other_config, RBAC handling is done in a manual
+   implementation. *)
+  let set_other_config =
+    call ~name:"set_other_config"
+      ~doc:"Set the other_config field of the given VM."
+      ~params:
+        [
+          (Ref _vm, "self", "reference to object")
+        ; (Map (String, String), "value", "New value to set")
+        ]
+      ~flags:[`Session] ()
+end
+
+module Platform = struct
+  let protected_keys = [("hvm_serial", _R_POOL_ADMIN)]
+
+  let call =
+    call
+      ~lifecycle:[(Published, rel_rio, "platform-specific configuration")]
+      ~allowed_roles:_R_VM_ADMIN
+
+  let add_to_platform =
+    call ~name:"add_to_platform"
+      ~doc:"Add the given key-value pair to the platform field of the given VM."
+      ~params:
+        [
+          (Ref _vm, "self", "reference to object")
+        ; (String, "key", "Key to add")
+        ; (String, "value", "Value to add")
+        ]
+      ~map_keys_roles:protected_keys ~flags:[`Session] ()
+
+  let remove_from_platform =
+    call ~name:"remove_from_platform"
+      ~doc:
+        "Remove the given key and its corresponding value from the platform \
+         field of the given VM. If the key is not in that Map, then do \
+         nothing."
+      ~params:
+        [
+          (Ref _vm, "self", "reference to object")
+        ; (String, "key", "Key of entry to remove")
+        ]
+      ~map_keys_roles:protected_keys ~flags:[`Session] ()
+
+  (* map_keys_roles can't be cited here, since they're only implemented for
+   {add_to,remove_from}_platform, RBAC handling is done in a manual
+   implementation. *)
+  let set_platform =
+    call ~name:"set_platform" ~doc:"Set the platform field of the given VM."
+      ~params:
+        [
+          (Ref _vm, "self", "reference to object")
+        ; (Map (String, String), "value", "New value to set")
+        ]
+      ~flags:[`Session] ()
+end
 
 let vm_uefi_mode =
   Enum
@@ -2659,6 +2759,12 @@ let t =
       ; add_to_blocked_operations
       ; remove_from_blocked_operations
       ; sysprep
+      ; Other_config.add_to_other_config
+      ; Other_config.remove_from_other_config
+      ; Other_config.set_other_config
+      ; Platform.add_to_platform
+      ; Platform.remove_from_platform
+      ; Platform.set_platform
       ]
     ~contents:
       ([
@@ -2787,9 +2893,10 @@ let t =
             ~qualifier:DynamicRO ~ty:(Set (Ref _vtpm)) "VTPMs" "virtual TPMs"
         ; namespace ~name:"PV" ~contents:pv ()
         ; namespace ~name:"HVM" ~contents:hvm ()
-        ; field
+        ; field ~qualifier:StaticRO
             ~ty:(Map (String, String))
             ~lifecycle:[(Published, rel_rio, "platform-specific configuration")]
+            ~map_keys_roles:[("hvm_serial", _R_POOL_ADMIN)]
             "platform" "platform-specific configuration"
         ; field
             ~lifecycle:
@@ -2798,13 +2905,14 @@ let t =
               ; (Deprecated, rel_boston, "Field was never used")
               ]
             "PCI_bus" "PCI bus path for pass-through devices"
-        ; field
+        ; field ~qualifier:StaticRO
             ~lifecycle:[(Published, rel_rio, "additional configuration")]
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
             ~map_keys_roles:
               [
                 ("pci", _R_POOL_ADMIN)
+              ; ("hvm_serial", _R_POOL_ADMIN)
               ; ("folder", _R_VM_OP)
               ; ("XenCenter.CustomFields.*", _R_VM_OP)
               ]
@@ -3189,7 +3297,7 @@ let t =
             ~lifecycle:[(Published, rel_ely, "")]
             ~default_value:(Some (VBool false)) "requires_reboot"
             "Indicates whether a VM requires a reboot in order to update its \
-             configuration, e.g. its memory allocation."
+             configuration, for example, its memory allocation."
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:
               [
@@ -3231,14 +3339,15 @@ let t =
                 ( Published
                 , "1.303.0"
                 , "The set of pending mandatory guidances after applying \
-                   updates, which must be applied, as otherwise there may be \
-                   e.g. VM failures"
+                   updates, which must be applied, otherwise there may be, for \
+                   example, VM failures"
                 )
               ]
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
             "The set of pending mandatory guidances after applying updates, \
-             which must be applied, as otherwise there may be e.g. VM failures"
+             which must be applied, otherwise there may be, for example, VM \
+             failures"
         ; field ~qualifier:DynamicRO ~internal_only:true
             ~lifecycle:[(Prototyped, "23.18.0", ""); (Removed, "23.24.0", "")]
             ~ty:(Set update_guidances) "recommended_guidances"
@@ -3252,9 +3361,9 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
             "pending_guidances_full" ~default_value:(Some (VSet []))
             "The set of pending full guidances after applying updates, which a \
-             user should follow to make some updates, e.g. specific hardware \
-             drivers or CPU features, fully effective, but the 'average user' \
-             doesn't need to"
+             user should follow to make some updates, for example, specific \
+             hardware drivers or CPU features, fully effective, but the \
+             'average user' doesn't need to"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _vm_group))
             "groups" "VM groups associated with the VM"
         ; field ~qualifier:DynamicRO ~lifecycle:[]

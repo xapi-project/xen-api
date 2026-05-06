@@ -1508,9 +1508,9 @@ let create_params =
     ; param_name= "pending_guidances_full"
     ; param_doc=
         "The set of pending full guidances after applying updates, which a \
-         user should follow to make some updates, e.g. specific hardware \
-         drivers or CPU features, fully effective, but the 'average user' \
-         doesn't need to"
+         user should follow to make some updates, for example, specific \
+         hardware drivers or CPU features, fully effective, but the 'average \
+         user' doesn't need to"
     ; param_release= numbered_release "26.0.0"
     ; param_default= Some (VSet [])
     }
@@ -2000,7 +2000,7 @@ let enable_external_auth =
       ; (String, "service_name", "The name of the service")
       ; ( String
         , "auth_type"
-        , "The type of authentication (e.g. AD for Active Directory)"
+        , "The type of authentication (for example, AD for Active Directory)"
         )
       ]
     ~doc:"This call enables external authentication on a host"
@@ -2628,9 +2628,9 @@ let set_ssh_auto_mode =
         (Ref _host, "self", "The host")
       ; ( Bool
         , "value"
-        , "The SSH auto mode for the host，when set to true, SSH to normally be \
-           disabled and SSH to be enabled only in case of emergency e.g., xapi \
-           is down"
+        , "The SSH auto mode for the host. When true, the SSH port is closed \
+           by default and it's open only in case the API is unavailable. When \
+           false, the SSH port is always open."
         )
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
@@ -3286,14 +3286,15 @@ let t =
                 ( Published
                 , "1.303.0"
                 , "The set of pending mandatory guidances after applying \
-                   updates, which must be applied, as otherwise there may be \
-                   e.g. VM failures"
+                   updates, which must be applied, otherwise there may be, for \
+                   example, VM failures"
                 )
               ]
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
             "The set of pending mandatory guidances after applying updates, \
-             which must be applied, as otherwise there may be e.g. VM failures"
+             which must be applied, otherwise there may be, for example, VM \
+             failures"
         ; field ~qualifier:DynamicRO
             ~lifecycle:
               [
@@ -3334,9 +3335,9 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
             "pending_guidances_full" ~default_value:(Some (VSet []))
             "The set of pending full guidances after applying updates, which a \
-             user should follow to make some updates, e.g. specific hardware \
-             drivers or CPU features, fully effective, but the 'average user' \
-             doesn't need to"
+             user should follow to make some updates, for example, specific \
+             hardware drivers or CPU features, fully effective, but the \
+             'average user' doesn't need to"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
             ~default_value:(Some (VString "")) "last_update_hash"
             "The SHA256 checksum of updateinfo of the most recently applied \
