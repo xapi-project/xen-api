@@ -2383,6 +2383,105 @@ let sysprep =
        as part of a reboot."
     ~allowed_roles:_R_VM_ADMIN ()
 
+module Other_config = struct
+  let protected_keys =
+    [
+      ("hvm_serial", _R_POOL_ADMIN)
+    ; ("pci", _R_POOL_ADMIN)
+    ; ("folder", _R_VM_OP)
+    ; ("XenCenter.CustomFields.*", _R_VM_OP)
+    ]
+
+  let call =
+    call
+      ~lifecycle:[(Published, rel_rio, "additional configuration")]
+      ~allowed_roles:_R_VM_ADMIN
+
+  let add_to_other_config =
+    call ~name:"add_to_other_config"
+      ~doc:
+        "Add the given key-value pair to the other_config field of the given \
+         VM."
+      ~params:
+        [
+          (Ref _vm, "self", "reference to object")
+        ; (String, "key", "Key to add")
+        ; (String, "value", "Value to add")
+        ]
+      ~map_keys_roles:protected_keys ~flags:[`Session] ()
+
+  let remove_from_other_config =
+    call ~name:"remove_from_other_config"
+      ~doc:
+        "Remove the given key and its corresponding value from the \
+         other_config field of the given VM. If the key is not in that Map, \
+         then do nothing."
+      ~params:
+        [
+          (Ref _vm, "self", "reference to object")
+        ; (String, "key", "Key of entry to remove")
+        ]
+      ~map_keys_roles:protected_keys ~flags:[`Session] ()
+
+  (* map_keys_roles can't be cited here, since they're only implemented for
+   {add_to,remove_from}_other_config, RBAC handling is done in a manual
+   implementation. *)
+  let set_other_config =
+    call ~name:"set_other_config"
+      ~doc:"Set the other_config field of the given VM."
+      ~params:
+        [
+          (Ref _vm, "self", "reference to object")
+        ; (Map (String, String), "value", "New value to set")
+        ]
+      ~flags:[`Session] ()
+end
+
+module Platform = struct
+  let protected_keys = [("hvm_serial", _R_POOL_ADMIN)]
+
+  let call =
+    call
+      ~lifecycle:[(Published, rel_rio, "platform-specific configuration")]
+      ~allowed_roles:_R_VM_ADMIN
+
+  let add_to_platform =
+    call ~name:"add_to_platform"
+      ~doc:"Add the given key-value pair to the platform field of the given VM."
+      ~params:
+        [
+          (Ref _vm, "self", "reference to object")
+        ; (String, "key", "Key to add")
+        ; (String, "value", "Value to add")
+        ]
+      ~map_keys_roles:protected_keys ~flags:[`Session] ()
+
+  let remove_from_platform =
+    call ~name:"remove_from_platform"
+      ~doc:
+        "Remove the given key and its corresponding value from the platform \
+         field of the given VM. If the key is not in that Map, then do \
+         nothing."
+      ~params:
+        [
+          (Ref _vm, "self", "reference to object")
+        ; (String, "key", "Key of entry to remove")
+        ]
+      ~map_keys_roles:protected_keys ~flags:[`Session] ()
+
+  (* map_keys_roles can't be cited here, since they're only implemented for
+   {add_to,remove_from}_platform, RBAC handling is done in a manual
+   implementation. *)
+  let set_platform =
+    call ~name:"set_platform" ~doc:"Set the platform field of the given VM."
+      ~params:
+        [
+          (Ref _vm, "self", "reference to object")
+        ; (Map (String, String), "value", "New value to set")
+        ]
+      ~flags:[`Session] ()
+end
+
 let vm_uefi_mode =
   Enum
     ( "vm_uefi_mode"
@@ -2586,6 +2685,12 @@ let t =
       ; add_to_blocked_operations
       ; remove_from_blocked_operations
       ; sysprep
+      ; Other_config.add_to_other_config
+      ; Other_config.remove_from_other_config
+      ; Other_config.set_other_config
+      ; Platform.add_to_platform
+      ; Platform.remove_from_platform
+      ; Platform.set_platform
       ]
     ~contents:
       ([
@@ -2714,9 +2819,10 @@ let t =
             ~qualifier:DynamicRO ~ty:(Set (Ref _vtpm)) "VTPMs" "virtual TPMs"
         ; namespace ~name:"PV" ~contents:pv ()
         ; namespace ~name:"HVM" ~contents:hvm ()
-        ; field
+        ; field ~qualifier:StaticRO
             ~ty:(Map (String, String))
             ~lifecycle:[(Published, rel_rio, "platform-specific configuration")]
+            ~map_keys_roles:[("hvm_serial", _R_POOL_ADMIN)]
             "platform" "platform-specific configuration"
         ; field
             ~lifecycle:
@@ -2725,13 +2831,14 @@ let t =
               ; (Deprecated, rel_boston, "Field was never used")
               ]
             "PCI_bus" "PCI bus path for pass-through devices"
-        ; field
+        ; field ~qualifier:StaticRO
             ~lifecycle:[(Published, rel_rio, "additional configuration")]
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
             ~map_keys_roles:
               [
                 ("pci", _R_POOL_ADMIN)
+              ; ("hvm_serial", _R_POOL_ADMIN)
               ; ("folder", _R_VM_OP)
               ; ("XenCenter.CustomFields.*", _R_VM_OP)
               ]
