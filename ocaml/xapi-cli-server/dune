@@ -9,8 +9,15 @@
 )
 
 (library
+  (name record_util)
+  (modules generated_record_utils record_util)
+  (libraries rpclib.core xapi-consts xapi-types)
+)
+
+(library
   (name xapi_cli_server)
   (modes best)
+  (modules (:standard \ generated_record_utils record_util))
   (libraries
     astring
     base64
@@ -19,6 +26,7 @@
     rpclib.core
     rpclib.xml
     re
+    record_util
     result
     rresult
     sexplib

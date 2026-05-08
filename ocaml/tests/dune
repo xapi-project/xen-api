@@ -23,6 +23,7 @@
     mirage-crypto
     mtime
     pam
+    record_util
     result
     rpclib.core
     rpclib.json
@@ -99,6 +100,7 @@
     pam
     ptime
     result
+    record_util
     rpclib.core
     rpclib.json
     rresult
