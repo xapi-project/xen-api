@@ -983,12 +983,7 @@ let upgrade_secureboot_certificates_state =
               let is_uefi =
                 List.assoc_opt "firmware" boot_params = Some "uefi"
               in
-              let platformdata = Db.VM.get_platform ~__context ~self in
-              let is_secureboot =
-                Vm_platform.is_true ~key:"secureboot" ~platformdata
-                  ~default:false
-              in
-              if is_uefi && is_secureboot then
+              if is_uefi then
                 let state =
                   ( Xapi_vm_helpers.check_secureboot_certificates_state
                       ~__context ~self
