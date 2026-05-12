@@ -835,7 +835,11 @@ let install_ca_certificate =
       ; (String, "cert", "The certificate in PEM format")
       ]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~lifecycle:[(Published, "1.290.0", "Install TLS CA certificate")]
+    ~lifecycle:
+      [
+        (Published, "1.290.0", "Install TLS CA certificate")
+      ; (Deprecated, "26.13.0", "Use Pool.install_trusted_certificate instead")
+      ]
     ()
 
 let certificate_uninstall =
@@ -887,6 +891,7 @@ let uninstall_ca_certificate =
         , "Added --force option to allow DB entries to be removed for \
            non-existent files"
         )
+      ; (Deprecated, "26.13.0", "Use Pool.uninstall_trusted_certificate instead")
       ]
     ()
 

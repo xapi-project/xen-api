@@ -1,5 +1,6 @@
 (test
  (name test_stunnel_log_scanner)
+ (package stunnel)
  (libraries
   alcotest
   astring
