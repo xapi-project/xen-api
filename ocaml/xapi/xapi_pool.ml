@@ -1689,7 +1689,7 @@ let certificate_sync ~__context =
   Certificates.sync_all_hosts ~__context (Db.Host.get_all ~__context) ;
   ()
 
-let install_trusted_certificate ~__context ~self:_ ~ca ~cert ~purpose =
+let install_trusted_certificate' ~__context ~self:_ ~ca ~cert ~purpose =
   let open Certificates in
   let certificate =
     let open Api_errors in
@@ -1713,12 +1713,18 @@ let install_trusted_certificate ~__context ~self:_ ~ca ~cert ~purpose =
     | false, true ->
         raise Api_errors.(Server_error (certificate_lacks_purpose, []))
   in
-  let (_ : API.ref_Certificate), uuid =
+  let (ref : API.ref_Certificate), uuid =
     Db_util.add_cert ~__context ~type':cert_type ~purpose certificate
   in
   let name = Certificates.name_of_uuid uuid in
   Certificates.host_install kind ~name ~cert ;
   Cert_distrib.copy_certs_to_all ~__context ;
+  ref
+
+let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose =
+  let (_ : API.ref_Certificate) =
+    install_trusted_certificate' ~__context ~self ~ca ~cert ~purpose
+  in
   ()
 
 let uninstall_trusted_certificate ~__context ~self:_ ~certificate =
@@ -1743,15 +1749,29 @@ let uninstall_trusted_certificate ~__context ~self:_ ~certificate =
   Cert_distrib.copy_certs_to_all ~__context ;
   ()
 
-let install_trusted_certificate_ignore_dup ~__context ~self ~ca ~cert ~purpose =
-  try install_trusted_certificate ~__context ~self ~ca ~cert ~purpose
+let install_trusted_certificate_ignore_dup' ~__context ~self ~ca ~cert ~purpose
+    =
+  try
+    Ok (Some (install_trusted_certificate' ~__context ~self ~ca ~cert ~purpose))
   with
   | Api_errors.(Server_error (code, [fp]))
-  when code = Api_errors.trusted_certificate_already_exists
-  ->
-    warn "%s: a trusted certificate (fingerprint=%s) exists already."
-      __FUNCTION__ fp ;
-    ()
+    when code = Api_errors.trusted_certificate_already_exists ->
+      warn "%s: a trusted certificate (fingerprint=%s) exists already."
+        __FUNCTION__ fp ;
+      Ok None
+  | e ->
+      error "%s: failed to install certificate: %s" __FUNCTION__
+        (Printexc.to_string e) ;
+      Error e
+
+let install_trusted_certificate_ignore_dup ~__context ~self ~ca ~cert ~purpose =
+  match
+    install_trusted_certificate_ignore_dup' ~__context ~self ~ca ~cert ~purpose
+  with
+  | Ok _ ->
+      ()
+  | Error e ->
+      raise e
 
 let purpose_of_string_list = List.map Record_util.certificate_purpose_of_string
 
@@ -1789,8 +1809,8 @@ let exchange_trusted_certificates ~__context ~rpc ~session_id ~remote ~local =
     )
     [`ca; `pinned]
 
-let sync_trusted_certificates_from ~__context ~self:_ ~remote_pool
-    ~remote_session ~remote_certificate ~ca =
+let sync_trusted_certificates_from ~__context ~self ~remote_pool ~remote_session
+    ~remote_certificate ~ca =
   let rpc =
     Helpers.make_external_host_verified_rpc ~__context remote_pool
       remote_certificate
@@ -1812,12 +1832,24 @@ let sync_trusted_certificates_from ~__context ~self:_ ~remote_pool
   Client.Pool.exchange_trusted_certificates_on_join ~rpc ~session_id
     ~self:(get_pool ~rpc ~session_id)
     ~ca ~import:[] ~export
-  |> List.iter (fun (cert, purpose) ->
+  |> Listext.List.try_map_collect (fun (cert, purpose) ->
       let purpose = purpose_of_string_list purpose in
-      install_trusted_certificate_ignore_dup ~__context
+      install_trusted_certificate_ignore_dup' ~__context
         ~self:(Helpers.get_pool ~__context)
         ~ca ~cert ~purpose
   )
+  |> function
+  | Ok refs ->
+      List.filter_map Fun.id refs
+  | Error (refs, e) ->
+      List.filter_map Fun.id refs
+      |> List.iter (fun ref ->
+          try uninstall_trusted_certificate ~__context ~self ~certificate:ref
+          with e ->
+            error "Can't revert the installed certificate %s: %s"
+              (Ref.string_of ref) (Printexc.to_string e)
+      ) ;
+      raise e
 
 let exchange_crls_on_join ~__context ~self:_ ~import ~export =
   List.iter (fun (name, crl) -> crl_install ~__context ~name ~cert:crl) import ;
