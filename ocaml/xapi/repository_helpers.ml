@@ -1303,6 +1303,11 @@ let reduce_guidance ~updates_info ~updates ~livepatches =
   |> GuidanceSet.reduce_cascaded_list
   |> List.map (fun (kind, s) -> (kind, GuidanceSet.elements s))
 
+(* Do not apply any live patches when RebootHost is in mandatory guidance. *)
+let can_avoid_live_patching ~updates_info ~updates =
+  eval_guidances ~updates_info ~updates ~kind:Mandatory ~livepatches:[]
+  |> GuidanceSet.mem RebootHost
+
 let consolidate_updates_of_host ~repository_name ~updates_info host
     updates_of_host =
   let latest_updates =
@@ -1334,7 +1339,11 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
    * They are only to be returned in the update list.
    *)
   let livepatches =
-    retrieve_livepatches_from_updateinfo ~updates_info ~updates:updates_of_host
+    if can_avoid_live_patching ~updates_info ~updates then
+      []
+    else
+      retrieve_livepatches_from_updateinfo ~updates_info
+        ~updates:updates_of_host
   in
   let guidance = reduce_guidance ~updates_info ~updates ~livepatches in
   let upd_ids_of_livepatches, lps = merge_livepatches ~livepatches in
