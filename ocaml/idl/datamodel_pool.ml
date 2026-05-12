@@ -1723,6 +1723,7 @@ let sync_trusted_certificates_from =
         )
       ; (Bool, "ca", "true for 'ca' or false for 'pinned'")
       ]
+    ~result:(Set (Ref _certificate), "The references of certificates synced.")
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ~lifecycle:[] ()
 

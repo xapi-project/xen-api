@@ -486,4 +486,4 @@ val sync_trusted_certificates_from :
   -> remote_session:API.ref_session
   -> remote_certificate:string
   -> ca:bool
-  -> unit
+  -> API.ref_Certificate list
