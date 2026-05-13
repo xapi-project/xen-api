@@ -268,10 +268,10 @@ alt precheck failed
 client-->>user: precheck failed
 end
 
-Note over client,coor: sync all ldaps certs
-client->>coor: pool.download_trusted_certificate
-coor-->>client:
-client->>join: pool.install_trusted_certificate
+Note over client,coor: sync trusted CA certs from coordinator to joining host
+client->>join: pool.sync_trusted_certificates_from
+join->>coor: pool.exchange_trusted_certificates_on_join
+coor-->>join:
 join-->>client:
 
 user->>client: join domain username/password
@@ -289,15 +289,11 @@ client-->>user: pool.join succeed
 
 **Detailed Steps:**
 
-1. Client find proper `ldaps certs` from pool coordinator as `certs_pool`
-   - a. find all certs `ldaps in purpose`
-   - b. if no LDAPS certs, find all `general` certs
-2. Client find all certs in joining host as `certs_joining_host`
-3. Client identify the certs needs to be synced to joining host as `certs_to_sync = certs_pool - certs_joining_host` (certs in `certs_pool`, but not in `certs_joining_host`), the certs fingerprint should be used to identify the certs
-4. Client download all `certs_to_sync`, `pool.download_trusted_certificate` from coordinator
-5. Client upload all certs to joining pool, `pool.install_trusted_certificate` to joining pool, with the same purpose
-6. Client trigger `pool.join` again with domain username and password
-7. After pool.join:
+1. Client calls `pool.sync_trusted_certificates_from` to joiner host. The call will
+   - a. download all trusted certificates from the pool, and
+   - b. install the trusted certificates into the joiner host.
+2. Client trigger `pool.join` again with domain username and password
+3. After pool.join:
    - If pool.join failed, Client call `pool.uninstall_trusted_certificate` on joining host to revert the certs
    - If pool.join succeed, do nothing as pool.join would sync the certs anyway
 
