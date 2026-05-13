@@ -3,7 +3,7 @@ title: Trusted certificates for identity validation in TLS connections
 layout: default
 design_doc: true
 revision: 2
-status: draft
+status: released (26.13.0)
 ---
 
 # Overview
