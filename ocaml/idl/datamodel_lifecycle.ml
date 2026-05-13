@@ -70,7 +70,7 @@ let prototyped_of_field = function
   | "Repository", "gpgkey_path" ->
       Some "22.12.0"
   | "Certificate", "purpose" ->
-      Some "26.1.9-next"
+      Some "26.1.12"
   | "Certificate", "fingerprint_sha1" ->
       Some "24.20.0"
   | "Certificate", "fingerprint_sha256" ->
@@ -292,13 +292,13 @@ let prototyped_of_message = function
   | "VM", "set_groups" ->
       Some "24.19.1"
   | "pool", "exchange_crls_on_join" ->
-      Some "26.1.9-next"
+      Some "26.1.12"
   | "pool", "exchange_trusted_certificates_on_join" ->
-      Some "26.1.9-next"
+      Some "26.1.12"
   | "pool", "uninstall_trusted_certificate" ->
-      Some "26.1.9-next"
+      Some "26.1.12"
   | "pool", "install_trusted_certificate" ->
-      Some "26.1.9-next"
+      Some "26.1.12"
   | "pool", "set_ssh_auto_mode" ->
       Some "25.27.0"
   | "pool", "set_console_idle_timeout" ->
