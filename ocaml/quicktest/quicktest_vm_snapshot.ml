@@ -66,14 +66,27 @@ let get_snapshot_of_vdi rpc session_id vbds n =
   let snap = get_vdi_with_user_device rpc session_id vbds n in
   Client.Client.VDI.get_snapshot_of ~rpc ~session_id ~self:snap
 
-let check_vdi_snapshot_of rpc session_id vbds ~vdi n =
-  let snapshot_of = get_snapshot_of_vdi rpc session_id vbds n in
-  assert (snapshot_of = vdi)
+let vm_ref : [`VM] Ref.t Alcotest.testable = Alcotest.testable Ref.pp ( = )
+
+let vdi_ref : [`VDI] Ref.t Alcotest.testable = Alcotest.testable Ref.pp ( = )
+
+let check_vm_snapshot_of rpc session_id ~snapshot ~vm =
+  let snapshot_of =
+    Client.Client.VM.get_snapshot_of ~rpc ~session_id ~self:snapshot
+  in
+  Alcotest.(check vm_ref)
+    "The expected VM is different from the one in snapshot_of" vm snapshot_of
+
+let check_vdi_snapshot_of rpc session vbds ~vdi n =
+  let snapshot_of = get_snapshot_of_vdi rpc session vbds n in
+  Alcotest.(check vdi_ref)
+    "The expected vdi is different from the one in snapshot_of" vdi snapshot_of
 
 let test_snapshot rpc session_id vm vdi vdi2 =
   let snapshot = take_snapshot rpc session_id vm ~origin:__FUNCTION__ in
   let vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:snapshot in
 
+  check_vm_snapshot_of rpc session_id ~snapshot ~vm ;
   check_vdi_snapshot_of rpc session_id vbds ~vdi "0" ;
   check_vdi_snapshot_of rpc session_id vbds ~vdi:vdi2 "1"
 
@@ -85,8 +98,9 @@ let test_snapshot_ignore_vdi rpc session_id vm vdi vdi2 =
   let has_been_snapshot n =
     List.exists (is_user_device rpc session_id n) vbds
   in
-
-  assert (not (has_been_snapshot "1")) ;
+  Alcotest.(check bool)
+    "The vbd with user_device 1 cannot be present in the snapshot" false
+    (has_been_snapshot "1") ;
   check_vdi_snapshot_of rpc session_id vbds ~vdi "0"
 
 let test_snapshots rpc session_id sr_info vm_template () =
