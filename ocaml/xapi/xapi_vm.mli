@@ -425,7 +425,11 @@ val set_HVM_boot_policy :
   __context:Context.t -> self:API.ref_VM -> value:string -> unit
 
 val set_NVRAM_EFI_variables :
-  __context:Context.t -> self:API.ref_VM -> value:string -> unit
+     __context:Context.t
+  -> self:API.ref_VM
+  -> value:string
+  -> update:[`yes | `no | `unspecified]
+  -> unit
 
 val restart_device_models : __context:Context.t -> self:API.ref_VM -> unit
 
@@ -434,6 +438,9 @@ val set_uefi_mode :
 
 val get_secureboot_readiness :
   __context:Context.t -> self:API.ref_VM -> API.vm_secureboot_readiness
+
+val update_secureboot_certificates_on_boot :
+  __context:Context.t -> self:API.ref_VM -> mark:bool -> unit
 
 val set_blocked_operations :
      __context:Context.t
