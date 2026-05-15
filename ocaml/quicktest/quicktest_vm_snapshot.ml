@@ -82,6 +82,10 @@ let check_vdi_snapshot_of rpc session vbds ~vdi n =
   Alcotest.(check vdi_ref)
     "The expected vdi is different from the one in snapshot_of" vdi snapshot_of
 
+let check_vdis_different expected result =
+  Alcotest.(check @@ neg vdi_ref)
+    "The VDIs after a reverting a snapshot must not be the same" expected result
+
 let test_snapshot rpc session_id vm vdi vdi2 =
   let snapshot = take_snapshot rpc session_id vm ~origin:__FUNCTION__ in
   let vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:snapshot in
@@ -103,15 +107,34 @@ let test_snapshot_ignore_vdi rpc session_id vm vdi vdi2 =
     (has_been_snapshot "1") ;
   check_vdi_snapshot_of rpc session_id vbds ~vdi "0"
 
-let test_snapshots rpc session_id sr_info vm_template () =
+let test_revert rpc session_id vm vdi vdi2 =
+  let snapshot = take_snapshot rpc session_id vm ~origin:__FUNCTION__ in
+  Client.Client.VM.revert ~rpc ~session_id ~snapshot ;
+
+  let vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:vm in
+  let vdi_after = get_vdi_with_user_device rpc session_id vbds "0" in
+  let vdi_after2 = get_vdi_with_user_device rpc session_id vbds "1" in
+
+  (* Xapi forces VDI clones, the VDIs' IDs will always change *)
+  check_vdis_different vdi vdi_after ;
+  check_vdis_different vdi2 vdi_after2
+
+let a_test with_setup tests rpc session_id sr_info vm_template () =
   let sr = sr_info.Qt.sr in
-  List.iter
-    (with_setup rpc session_id sr vm_template)
-    [test_snapshot; test_snapshot_ignore_vdi]
+  List.iter (with_setup rpc session_id sr vm_template) tests
+
+let suite name with_setup tests sr_ops =
+  let open Qt_filter in
+  [(name, `Slow, a_test with_setup tests)]
+  |> conn
+  |> sr SR.(all |> allowed_operations sr_ops)
+  |> vm_template Qt.VM.Template.other
 
 let tests () =
-  let open Qt_filter in
-  [("VM snapshot tests", `Slow, test_snapshots)]
-  |> conn
-  |> sr SR.(all |> allowed_operations [`vdi_create])
-  |> vm_template Qt.VM.Template.other
+  List.concat
+    [
+      suite "VM snapshot tests" with_setup
+        [test_snapshot; test_snapshot_ignore_vdi]
+        [`vdi_create]
+    ; suite "VM revert tests" with_setup [test_revert] [`vdi_create; `vdi_clone]
+    ]
