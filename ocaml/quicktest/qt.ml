@@ -192,7 +192,9 @@ module VDI = struct
 
   let with_destroyed rpc session_id self f =
     Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
-        Client.Client.VDI.destroy ~rpc ~session_id ~self
+        try Client.Client.VDI.destroy ~rpc ~session_id ~self
+        with Api_errors.Server_error ("HANDLE_INVALID", _) ->
+          (* Already destroyed, ignore *) ()
     )
 
   let with_new rpc session_id ?(virtual_size = Int64.(mul (mul 4L 1024L) 1024L))
