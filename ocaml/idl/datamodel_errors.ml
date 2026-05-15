@@ -738,38 +738,51 @@ let _ =
     ~doc:"Unknown type of external authentication." () ;
   error Api_errors.auth_is_disabled []
     ~doc:"External authentication is disabled" () ;
-  error Api_errors.auth_invalid_certs ["message"]
+  error Api_errors.auth_invalid_trusted_certs ["message"]
     ~doc:
       "The certificates are invalid to setup a TLS connection to Active \
        Directory."
     () ;
-  error Api_errors.auth_no_certs ["message"]
+  error Api_errors.auth_no_trusted_certs ["message"]
     ~doc:"No certificates found to setup a TLS connection to Active Directory"
     () ;
   error Api_errors.auth_enable_failed ["message"]
     ~doc:"The host failed to enable external authentication." () ;
   error Api_errors.auth_enable_failed_wrong_credentials ["message"]
-    ~doc:"The host failed to enable external authentication." () ;
+    ~doc:"The host failed to enable external authentication, wrong credentials."
+    () ;
   error Api_errors.auth_enable_failed_permission_denied ["message"]
-    ~doc:"The host failed to enable external authentication." () ;
+    ~doc:"The host failed to enable external authentication, permission denied."
+    () ;
   error Api_errors.auth_enable_failed_domain_lookup_failed ["message"]
     ~doc:"The host failed to enable external authentication." () ;
   error Api_errors.auth_enable_failed_unavailable ["message"]
     ~doc:"The host failed to enable external authentication." () ;
   error Api_errors.auth_enable_failed_invalid_ou ["message"]
-    ~doc:"The host failed to enable external authentication." () ;
+    ~doc:"The host failed to enable external authentication, invalid OU." () ;
   error Api_errors.auth_enable_failed_invalid_account ["message"]
-    ~doc:"The host failed to enable external authentication." () ;
-  error Api_errors.auth_enable_failed_invalid_certs ["message"]
-    ~doc:"The host failed to enable external authentication." () ;
-  error Api_errors.auth_enable_failed_no_certs ["message"]
-    ~doc:"The host failed to enable external authentication." () ;
+    ~doc:"The host failed to enable external authentication, invalid account."
+    () ;
+  error Api_errors.auth_enable_failed_invalid_trusted_certs ["message"]
+    ~doc:
+      "The host failed to enable external authentication, invalid trusted \
+       certificates."
+    () ;
+  error Api_errors.auth_enable_failed_no_trusted_certs ["message"]
+    ~doc:
+      "The host failed to enable external authentication, no trusted \
+       certificates"
+    () ;
   error Api_errors.auth_disable_failed ["message"]
     ~doc:"The host failed to disable external authentication." () ;
   error Api_errors.auth_disable_failed_wrong_credentials ["message"]
-    ~doc:"The host failed to disable external authentication." () ;
+    ~doc:
+      "The host failed to disable external authentication, wrong credentials."
+    () ;
   error Api_errors.auth_disable_failed_permission_denied ["message"]
-    ~doc:"The host failed to disable external authentication." () ;
+    ~doc:
+      "The host failed to disable external authentication, permission denied."
+    () ;
   error Api_errors.host_evacuate_in_progress ["host"]
     ~doc:"This host is being evacuated." () ;
 
@@ -838,9 +851,11 @@ let _ =
   error Api_errors.pool_auth_enable_failed ["host"; "message"]
     ~doc:"The pool failed to enable external authentication." () ;
   error Api_errors.pool_auth_enable_failed_wrong_credentials ["host"; "message"]
-    ~doc:"The pool failed to enable external authentication." () ;
+    ~doc:"The pool failed to enable external authentication, wrong credentials."
+    () ;
   error Api_errors.pool_auth_enable_failed_permission_denied ["host"; "message"]
-    ~doc:"The pool failed to enable external authentication." () ;
+    ~doc:"The pool failed to enable external authentication, permission denied."
+    () ;
   error Api_errors.pool_auth_enable_failed_domain_lookup_failed
     ["host"; "message"]
     ~doc:"The pool failed to enable external authentication." () ;
@@ -848,15 +863,33 @@ let _ =
     ~doc:"The pool failed to enable external authentication." () ;
   error Api_errors.pool_auth_enable_failed_duplicate_hostname
     ["host"; "message"]
-    ~doc:"The pool failed to enable external authentication." () ;
+    ~doc:
+      "The pool failed to enable external authentication, duplicate hostname."
+    () ;
   error Api_errors.pool_auth_enable_failed_invalid_ou ["host"; "message"]
-    ~doc:"The pool failed to enable external authentication." () ;
+    ~doc:"The pool failed to enable external authentication, invalid OU" () ;
   error Api_errors.pool_auth_enable_failed_invalid_account ["host"; "message"]
-    ~doc:"The pool failed to enable external authentication." () ;
-  error Api_errors.pool_auth_enable_failed_invalid_certs ["host"; "message"]
-    ~doc:"The pool failed to enable external authentication." () ;
-  error Api_errors.pool_auth_enable_failed_no_certs ["host"; "message"]
-    ~doc:"The pool failed to enable external authentication." () ;
+    ~doc:"The pool failed to enable external authentication, invalid account."
+    () ;
+  error Api_errors.pool_auth_enable_failed_invalid_trusted_certs
+    ["host"; "message"]
+    ~doc:
+      "The pool failed to enable external authentication, invalid trusted \
+       certificates."
+    () ;
+  error Api_errors.pool_auth_enable_failed_no_trusted_certs ["host"; "message"]
+    ~doc:
+      "The pool failed to enable external authentication, no trusted \
+       certificates."
+    () ;
+  error Api_errors.pool_auth_enable_failed_setup_tls_connection
+    ["host"; "message"]
+    ~doc:
+      "The pool failed to enable external authentication, failed to set up TLS \
+       connection."
+    () ;
+  error Api_errors.auth_setup_tls_connection ["message"]
+    ~doc:"Failed to set up TLS connection for external authentication." () ;
   error Api_errors.auth_set_ldaps_failed ["host"; "message"]
     ~doc:"The pool failed to set LDAPS configuration." () ;
   error Api_errors.pool_auth_disable_failed ["host"; "message"]
