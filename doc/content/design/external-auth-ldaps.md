@@ -91,9 +91,11 @@ Given `ldaps` default to `false`, this feature is **NOT** enabled until explicit
 
 #### 3.1.2 Error code
 Following new error codes added to indicate ldaps enable related error
-- POOL_AUTH_ENABLE_FAILED_NO_CERTS,  no certs can be used for ldaps, refer to 4.1.2 for certs finding.
-- POOL_AUTH_ENABLE_FAILED_INVALID_CERTS, found certs, but none of the certs can be used to connect to DC
-**Note**: Current error code handing infrustrucure requires the error code prefix with POOL_AUTH_ENABLE_FAILED
+- `POOL_AUTH_ENABLE_FAILED_NO_TRUSTED_CERTS`: no trusted certs can be used for ldaps, refer to 4.1.2 for certs finding.
+- `POOL_AUTH_ENABLE_FAILED_INVALID_TRUSTED_CERTS`: found trusted certs, but none of the certs can be used to connect to DC.
+- `POOL_AUTH_ENABLE_FAILED_SETUP_TLS_CONNECTION`: failed to set up TLS connection to DC (e.g. GnuTLS handshake failure such as `tstream_tls_sync_setup: GNUTLS ERROR`). The error message contains the underlying details reported by winbind.
+
+**Note**: Current error code handling infrastructure requires the error code prefix with `POOL_AUTH_ENABLE_FAILED`.
 
 ### 3.2 Set/Get Pool LDAPS Status
 
@@ -135,10 +137,11 @@ xe pool-external-auth-set-ldaps uuid=<uuid> ldaps=<true|false>
 
 #### 3.2.1.2 Error code
 This API may raise following errors
-- AUTH_NO_CERTS, no certs found to enable ldaps, refer to 4.1.2 for certs finding
-- AUTH_INVALID_CERTS, found certs, but none of the certs can be used to connect to DC
-- AUTH_IS_DISABLED, AD is not enabled
-- AUTH_SET_LDAPS_FAILED,  Failed to set ldaps, the error message contains the details like ldap query on domain failed
+- `AUTH_NO_TRUSTED_CERTS`: no trusted certs found to enable ldaps, refer to 4.1.2 for certs finding.
+- `AUTH_INVALID_TRUSTED_CERTS`: found trusted certs, but none of the certs can be used to connect to DC.
+- `AUTH_SETUP_TLS_CONNECTION`: failed to set up TLS CONNECTION to DC (e.g. GnuTLS handshake failure such as `tstream_tls_sync_setup: GNUTLS ERROR`). The error message contains the underlying details reported by winbind.
+- `AUTH_IS_DISABLED`: AD is not enabled.
+- `AUTH_SET_LDAPS_FAILED`: Failed to set ldaps, the error message contains the details like ldap query on domain failed.
 
 #### 3.2.2 Get Pool LDAPS Status
 
