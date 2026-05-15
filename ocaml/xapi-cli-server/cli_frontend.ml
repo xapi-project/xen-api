@@ -2272,7 +2272,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
         reqd= ["name-label"; "type"]
       ; optn=
           [
-            "host-uuid"
+            "name-description"
+          ; "host-uuid"
           ; "device-config:"
           ; "shared"
           ; "physical-size"
@@ -2324,7 +2325,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "sr-introduce"
     , {
         reqd= ["name-label"; "type"; "uuid"]
-      ; optn= ["shared"; "content-type"]
+      ; optn= ["name-description"; "shared"; "content-type"]
       ; help= "Introduces an SR (but does not create any PBDs)."
       ; implementation= No_fd Cli_operations.sr_introduce
       ; flags= []

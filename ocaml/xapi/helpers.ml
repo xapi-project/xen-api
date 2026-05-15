@@ -430,7 +430,13 @@ end
 (** Once the server functor has been instantiated, xapi sets this reference to the appropriate
     "fake_rpc" (loopback non-HTTP) rpc function.
     This way, internally the coordinator can short-circuit API calls without having to go over the network. *)
-let rpc_fun : (Http.Request.t -> Rpc.call -> Rpc.response) option ref = ref None
+let rpc_fun :
+    (Http.Request.t -> Unix.file_descr option -> Rpc.call -> Rpc.response)
+    option
+    ref =
+  ref None
+
+let register_rpc_fun rpc = rpc_fun := Some rpc
 
 let choose_rpc () =
   let open Xmlrpc_client in
@@ -452,7 +458,7 @@ let make_rpc' ~subtask_of ?task_id ~__context rpc : Rpc.response =
   let http = TraceHelper.inject_span_into_req tracing http in
   match !rpc_fun with
   | Some rpcfun when Pool_role.is_master () ->
-      rpcfun http rpc
+      rpcfun http None rpc
   | _ ->
       let transport =
         if Pool_role.is_master () then

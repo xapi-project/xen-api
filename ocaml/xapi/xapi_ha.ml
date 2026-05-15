@@ -1110,7 +1110,8 @@ let on_server_restart () =
           Helpers.touch_file !Xapi_globs.ready_file ;
           Thread.delay 10.
     done ;
-    if Pool_role.is_master () then
+    if Pool_role.is_master () then (
+      Xapi_globs.slave_emergency_mode := false ;
       if not (local_failover_decisions_are_ok ()) then (
         warn
           "ha.disable_failover_decisions flag set: not proposing myself as \
@@ -1119,7 +1120,8 @@ let on_server_restart () =
       ) else if propose_master () then
         info "ha_propose_master succeeded; continuing"
       else
-        on_master_failure () ;
+        on_master_failure ()
+    ) ;
     (* Start up the redo-log if appropriate. *)
     redo_log_ha_enabled_at_startup () ;
     debug "About to start the monitor" ;

@@ -2606,6 +2606,7 @@ let parse_host_uuid ?(default_master = true) rpc session_id params =
 
 let sr_create fd _printer rpc session_id params =
   let name_label = List.assoc "name-label" params in
+  let name_description = Listext.assoc_default "name-description" params "" in
   let shared = get_bool_param params "shared" in
   let host = parse_host_uuid ~default_master:shared rpc session_id params in
   let physical_size =
@@ -2640,21 +2641,21 @@ let sr_create fd _printer rpc session_id params =
   let sm_config = read_map_params "sm-config" params in
   let sr =
     Client.SR.create ~rpc ~session_id ~host ~device_config ~name_label
-      ~name_description:"" ~physical_size ~_type ~content_type ~shared
-      ~sm_config
+      ~name_description ~physical_size ~_type ~content_type ~shared ~sm_config
   in
   let sr_uuid = Client.SR.get_uuid ~rpc ~session_id ~self:sr in
   marshal fd (Command (Print sr_uuid))
 
 let sr_introduce printer rpc session_id params =
   let name_label = List.assoc "name-label" params in
+  let name_description = Listext.assoc_default "name-description" params "" in
   let _type = List.assoc "type" params in
   let content_type = Listext.assoc_default "content-type" params "" in
   let uuid = List.assoc "uuid" params in
   let shared = get_bool_param params "shared" in
   let sm_config = read_map_params "sm-config" params in
   let _ =
-    Client.SR.introduce ~rpc ~session_id ~uuid ~name_label ~name_description:""
+    Client.SR.introduce ~rpc ~session_id ~uuid ~name_label ~name_description
       ~_type ~content_type ~shared ~sm_config
   in
   printer (Cli_printer.PList [uuid])

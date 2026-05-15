@@ -12,7 +12,7 @@ module Helper = struct
 end
 
 (* This bit is called directly by the fake_rpc callback *)
-let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
+let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd_opt call =
   let@ req = Helper.with_tracing ~name:__FUNCTION__ req in
   (* We now have the body string, the xml and the call name, and can also tell *)
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
@@ -23,17 +23,10 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
   let is_slave = not (Pool_role.is_master ()) in
   if !Xapi_globs.slave_emergency_mode && not emergency_call then
     raise !Xapi_globs.emergency_mode_error ;
-  if
-    is_slave
-    && ((Context.is_unix_socket fd && not whitelisted)
-       || (is_himn_req req && not emergency_call)
-       )
-  then
-    forward req call is_json
-  else
+  let dispatch req =
     let response =
       let@ req = Helper.with_tracing ~name:"Server.dispatch_call" req in
-      Server.dispatch_call req (Some fd) call
+      Server.dispatch_call req fd_opt call
     in
     let translated =
       if
@@ -58,6 +51,20 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
         response
     in
     translated
+  in
+  match fd_opt with
+  | Some fd ->
+      if
+        is_slave
+        && ((Context.is_unix_socket fd && not whitelisted)
+           || (is_himn_req req && not emergency_call)
+           )
+      then
+        forward req call is_json
+      else
+        dispatch req
+  | _ ->
+      dispatch req
 
 (* debug(fmt "response = %s" response); *)
 
@@ -113,7 +120,7 @@ let callback is_json req fd _ =
       in
       Xmlrpc.call_of_string body
     in
-    let response = callback1 is_json req fd rpc in
+    let response = callback1 is_json req (Some fd) rpc in
     let response_str =
       let@ _ =
         Tracing.with_child_trace ~name:"Xmlrpc.string_of_response" span
@@ -163,7 +170,7 @@ let jsoncallback req fd _ =
     let json_rpc_version, id, rpc =
       Jsonrpc.version_id_and_call_of_string body
     in
-    let rpc_response = callback1 ~json_rpc_version true req fd rpc in
+    let rpc_response = callback1 ~json_rpc_version true req (Some fd) rpc in
     let response =
       Jsonrpc.string_of_response ~id ~version:json_rpc_version rpc_response
     in

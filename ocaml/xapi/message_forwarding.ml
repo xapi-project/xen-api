@@ -2693,13 +2693,14 @@ functor
           Client.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~options
             ~vgpu_map
         in
+        let host = List.assoc Xapi_vm_migrate._host dest |> Ref.of_string in
+        let cross_pool = not (Db.is_valid_ref __context host) in
         let migration_type =
           if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
-            let host = List.assoc Xapi_vm_migrate._host dest |> Ref.of_string in
-            if Db.is_valid_ref __context host then
-              `Live_intrapool host
-            else
+            if cross_pool then
               `Live_interpool
+            else
+              `Live_intrapool host
           else
             `Non_live
         in
@@ -2721,12 +2722,22 @@ functor
           | `Live_interpool ->
               forward_internal_async ()
               (* resources on the destination will be reserved separately *)
-          | `Non_live ->
+          | `Non_live -> (
               let snapshot = Db.VM.get_record ~__context ~self:vm in
-              fst
-                (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot
-                   ~host_op:`vm_migrate ~remote_fn ()
-                )
+              try
+                fst
+                  (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot
+                     ~host_op:`vm_migrate ~remote_fn ()
+                  )
+              with
+              | Api_errors.Server_error (code, _)
+              when code = Api_errors.no_hosts_available && cross_pool
+              ->
+                (* If non-live VM can't start anywhere in the pool, allow
+                   cross-pool migrations, with any host that can see its
+                   SRs acting as the sender *)
+                forward_to_access_srs ~local_fn ~__context ~vm ~remote_fn
+            )
           | `Live_intrapool host ->
               (* reserve resources on the destination host, then forward the call to the source. *)
               let snapshot = Db.VM.get_record ~__context ~self:vm in

@@ -159,14 +159,12 @@ let random_setup () =
   finally (fun () -> really_input chan s 0 n) (fun () -> close_in chan) ;
   Random.full_init (Array.init n (fun i -> Char.code (Bytes.get s i)))
 
-let fake_rpc2 req rpc = Api_server.Server.dispatch_call req None rpc
-
 let register_callback_fns () =
-  let fake_rpc req sock xml : Rpc.response =
-    Api_server.callback1 false req sock xml
+  let fake_rpc req fd_opt call : Rpc.response =
+    Api_server.callback1 false req fd_opt call
   in
-  Xapi_cli.rpc_fun := Some fake_rpc ;
-  Helpers.rpc_fun := Some fake_rpc2 ;
+  Xapi_cli.register_rpc_fun fake_rpc ;
+  Helpers.register_rpc_fun fake_rpc ;
   Message_forwarding.register_callback_fns ()
 
 let noevents = ref false
@@ -513,6 +511,8 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
 let start_ha () =
   try Xapi_ha.on_server_restart ()
   with e ->
+    (* Try to clean slave_emergency_mode that on_server_restart may set *)
+    if Pool_role.is_master () then Xapi_globs.slave_emergency_mode := false ;
     (* Critical that we don't continue as a master and use shared resources *)
     debug "Caught exception starting HA system: %s" (ExnHelper.string_of_exn e)
 
