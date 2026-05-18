@@ -631,6 +631,11 @@ module MIRROR : SMAPIv2_MIRROR = struct
     try
       let vdi_info = {vdi_info with sm_config= [("base_mirror", id)]} in
       let leaf = SMAPI.VDI.create dbg sr vdi_info in
+
+      List.iter
+        (fun tag -> Local.VDI.add_tags dbg sr leaf.vdi tag)
+        vdi_info.tags ;
+
       D.info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf) ;
       on_fail := (fun () -> SMAPI.VDI.destroy dbg sr leaf.vdi) :: !on_fail ;
       (* dummy VDI is created so that the leaf VDI becomes a differencing disk,
