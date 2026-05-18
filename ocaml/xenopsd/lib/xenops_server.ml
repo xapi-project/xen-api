@@ -309,13 +309,11 @@ let rec atomic_expires_after = function
   | Serial (_, _, ops) ->
       List.map atomic_expires_after ops |> List.fold_left ( +. ) 0.
   | Parallel (_, _, ops) | Nested_parallel (_, _, ops) ->
-      let chunk_count =
-        (List.length ops + max_parallel_atoms - 1) / max_parallel_atoms
-      in
-      let per_chunk =
-        List.map atomic_expires_after ops |> List.fold_left Float.max 0.
-      in
-      per_chunk *. float_of_int chunk_count
+      let expires_of = List.map atomic_expires_after in
+      let max_of = List.fold_left Float.max 0. in
+      Xenops_utils.chunks max_parallel_atoms ops
+      |> List.map (fun ops -> ops |> expires_of |> max_of)
+      |> List.fold_left ( +. ) 0.
   | _ ->
       (* 20 minutes, in seconds *)
       1200.
@@ -2096,6 +2094,7 @@ and queue_atomics_and_wait ~progress_callback dbg id ops redirector =
         (fun (task, op) ->
           let task_id = Xenops_task.id_of_handle task in
           let expiration = atomic_expires_after op in
+          debug "Task %s expires_after=%f" task_id expiration ;
           let completion =
             event_wait updates task ~from ~timeout_start expiration
               (is_task task_id) task_ended
