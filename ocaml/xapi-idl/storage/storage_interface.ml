@@ -231,6 +231,7 @@ type vdi_info = {
     persistent: bool [@default true]
   ; sharable: bool [@default false]
   ; sm_config: (string * string) list [@default []]
+  ; tags: string list [@default []]
 }
 [@@deriving rpcty]
 
