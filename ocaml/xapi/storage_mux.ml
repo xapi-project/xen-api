@@ -741,6 +741,24 @@ module Mux = struct
       end)) in
       C.VDI.remove_from_sm_config (Debug_info.to_string di) sr vdi key
 
+    let add_tags () ~dbg ~sr ~vdi ~key =
+      with_dbg ~name:"VDI.add_tags" ~dbg @@ fun di ->
+      info "VDI.add_tags dbg:%s sr:%s vdi:%s key:%s" dbg (s_of_sr sr)
+        (s_of_vdi vdi) key ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.VDI.add_tags (Debug_info.to_string di) sr vdi key
+
+    let remove_tags () ~dbg ~sr ~vdi ~key =
+      with_dbg ~name:"VDI.remove_tags" ~dbg @@ fun di ->
+      info "VDI.remove_tags dbg:%s sr:%s vdi:%s key:%s" dbg (s_of_sr sr)
+        (s_of_vdi vdi) key ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.VDI.remove_tags (Debug_info.to_string di) sr vdi key
+
     let get_url () ~dbg ~sr ~vdi =
       with_dbg ~name:"VDI.get_url" ~dbg @@ fun di ->
       info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
