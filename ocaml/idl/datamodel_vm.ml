@@ -2353,7 +2353,45 @@ let set_HVM_boot_policy =
 let set_NVRAM_EFI_variables =
   call ~flags:[`Session] ~name:"set_NVRAM_EFI_variables"
     ~lifecycle:[(Published, rel_naples, "")]
-    ~params:[(Ref _vm, "self", "The VM"); (String, "value", "The value")]
+    ~versioned_params:
+      [
+        {
+          param_type= Ref _vm
+        ; param_name= "self"
+        ; param_doc= "The VM"
+        ; param_release= naples_release
+        ; param_default= None
+        }
+      ; {
+          param_type= String
+        ; param_name= "value"
+        ; param_doc= "The EFI-variables value"
+        ; param_release= naples_release
+        ; param_default= None
+        }
+      ; {
+          param_type=
+            Enum
+              ( "update_status"
+              , [
+                  ("yes", "Set secureboot_certificates_state to ok")
+                ; ("no", "Leave secureboot_certificates_state unchanged")
+                ; ( "unspecified"
+                  , "Check certificates and update \
+                     secureboot_certificates_state accordingly"
+                  )
+                ]
+              )
+        ; param_name= "update"
+        ; param_doc=
+            "If 'yes', set secureboot_certificates_state to ok. If 'no', keep \
+             the current secureboot_certificates_state unchanged. If omitted \
+             (defaults to 'unspecified'), run certificate check to determine \
+             the state."
+        ; param_release= numbered_release "26.12.0"
+        ; param_default= Some (VEnum "unspecified")
+        }
+      ]
     ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let restart_device_models =
@@ -2507,6 +2545,40 @@ let set_uefi_mode =
       ]
     ~result:(String, "Result from the varstore-sb-state call")
     ~doc:"Set the UEFI mode of a VM" ~allowed_roles:_R_POOL_ADMIN ()
+
+let vm_secureboot_certificates_state =
+  Enum
+    ( "vm_secureboot_certificates_state"
+    , [
+        ( "ok"
+        , "The VM's certificates do not need to be updated (including the case \
+           where Secure Boot does not apply to this VM, e.g. BIOS VM)."
+        )
+      ; ( "update_available"
+        , "The Secure Boot certificates are due to expire or have already \
+           expired."
+        )
+      ; ( "update_on_boot"
+        , "An update of the certificates will be triggered whenever the VM \
+           boots. This includes VM.start, VM.reboot and a guest-triggered \
+           reboot."
+        )
+      ]
+    )
+
+let update_secureboot_certificates_on_boot =
+  call ~name:"update_secureboot_certificates_on_boot" ~lifecycle:[]
+    ~params:
+      [
+        (Ref _vm, "self", "The VM")
+      ; ( Bool
+        , "mark"
+        , "If true: mark certificates for update on next boot. If false: \
+           remove the mark"
+        )
+      ]
+    ~doc:"Mark or unmark secure boot certificate update on VM boot"
+    ~allowed_roles:_R_VM_ADMIN ()
 
 let vm_secureboot_readiness =
   Enum
@@ -2682,6 +2754,7 @@ let t =
       ; restart_device_models
       ; set_uefi_mode
       ; get_secureboot_readiness
+      ; update_secureboot_certificates_on_boot
       ; set_blocked_operations
       ; add_to_blocked_operations
       ; remove_from_blocked_operations
@@ -3293,6 +3366,11 @@ let t =
              'average user' doesn't need to"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _vm_group))
             "groups" "VM groups associated with the VM"
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:vm_secureboot_certificates_state
+            ~default_value:(Some (VEnum "ok")) "secureboot_certificates_state"
+            "The state of the Secure Boot certificates, showing whether an \
+             update is available, already scheduled, or not needed."
         ]
       )
     ()

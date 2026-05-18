@@ -145,6 +145,8 @@ let prototyped_of_field = function
       Some "26.2.0"
   | "VM_metrics", "numa_optimised" ->
       Some "26.2.0"
+  | "VM", "secureboot_certificates_state" ->
+      Some "26.13.0-next"
   | "VM", "groups" ->
       Some "24.19.1"
   | "VM", "pending_guidances_full" ->
@@ -289,6 +291,8 @@ let prototyped_of_message = function
       Some "24.0.0"
   | "VM", "sysprep" ->
       Some "25.24.0"
+  | "VM", "update_secureboot_certificates_on_boot" ->
+      Some "26.13.0-next"
   | "VM", "get_secureboot_readiness" ->
       Some "24.17.0"
   | "VM", "set_uefi_mode" ->
