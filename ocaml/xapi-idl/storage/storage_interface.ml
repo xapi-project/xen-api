@@ -999,6 +999,16 @@ module StorageAPI (R : RPC) = struct
       declare "VDI.remove_from_sm_config" []
         (dbg_p @-> sr_p @-> vdi_p @-> key_p @-> returning unit_p err)
 
+    (** [add_tags] task sr vdi key value] adds [key] to [vdi] tags *)
+    let add_tags =
+      declare "VDI.add_tags" []
+        (dbg_p @-> sr_p @-> vdi_p @-> key_p @-> returning unit_p err)
+
+    (** [remove_tags dbg sr vdi key] removes [key] from [vdi] tags *)
+    let remove_tags =
+      declare "VDI.remove_tags" []
+        (dbg_p @-> sr_p @-> vdi_p @-> key_p @-> returning unit_p err)
+
     (** [enable_cbt dbg sr vdi] enables changed block tracking for [vdi] *)
     let enable_cbt =
       declare "VDI.enable_cbt" []
@@ -1628,6 +1638,12 @@ module type Server_impl = sig
     val remove_from_sm_config :
       context -> dbg:debug_info -> sr:sr -> vdi:vdi -> key:string -> unit
 
+    val add_tags :
+      context -> dbg:debug_info -> sr:sr -> vdi:vdi -> key:string -> unit
+
+    val remove_tags :
+      context -> dbg:debug_info -> sr:sr -> vdi:vdi -> key:string -> unit
+
     val enable_cbt : context -> dbg:debug_info -> sr:sr -> vdi:vdi -> unit
 
     val disable_cbt : context -> dbg:debug_info -> sr:sr -> vdi:vdi -> unit
@@ -1831,6 +1847,12 @@ module Server (Impl : Server_impl) () = struct
     ) ;
     S.VDI.remove_from_sm_config (fun dbg sr vdi key ->
         Impl.VDI.remove_from_sm_config () ~dbg ~sr ~vdi ~key
+    ) ;
+    S.VDI.add_tags (fun dbg sr vdi key ->
+        Impl.VDI.add_tags () ~dbg ~sr ~vdi ~key
+    ) ;
+    S.VDI.remove_tags (fun dbg sr vdi key ->
+        Impl.VDI.remove_tags () ~dbg ~sr ~vdi ~key
     ) ;
     S.VDI.enable_cbt (fun dbg sr vdi -> Impl.VDI.enable_cbt () ~dbg ~sr ~vdi) ;
     S.VDI.disable_cbt (fun dbg sr vdi -> Impl.VDI.disable_cbt () ~dbg ~sr ~vdi) ;
