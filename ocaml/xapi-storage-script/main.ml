@@ -777,6 +777,7 @@ let vdi_of_volume x =
         x.Xapi_storage.Control.keys
   ; sharable= x.Xapi_storage.Control.sharable
   ; persistent= true
+  ; tags= []
   }
 
 let choose_datapath ?(persistent = true) response =
@@ -2152,6 +2153,7 @@ let self_test_plugin ~root_dir plugin =
         ; persistent= false
         ; sm_config= []
         ; sharable= false
+        ; tags= []
         }
       in
       Test.VDI.create rpc dbg sr vdi_info >>= fun vdi_info ->

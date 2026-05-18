@@ -80,6 +80,7 @@ let vdi_info_of_vdi_rec __context vdi_rec =
   ; persistent= vdi_rec.API.vDI_on_boot = `persist
   ; sharable= vdi_rec.API.vDI_sharable
   ; sm_config= vdi_rec.API.vDI_sm_config
+  ; tags= vdi_rec.API.vDI_tags
   }
 
 let redirect _sr =
