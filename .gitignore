@@ -1,4 +1,5 @@
 _build/
+_mock/
 *.bak
 *.native
 .merlin
