@@ -108,7 +108,7 @@ let assert_ca_exists = function
       ca_bundle_path ()
       |> Option.to_result
            ~none:
-             (gen_ex E_NO_CERTS
+             (gen_ex E_NO_TRUSTED_CERTS
                 "No certs to setup TLS connection to DC. Note: ldaps does not \
                  support non-CA certs"
              )
@@ -129,8 +129,9 @@ let err_msg_to_tag_map =
     ("not a properly formed account name", E_INVALID_ACCOUNT)
   ; ("bad username or authentication", E_CREDENTIALS)
   ; ( "Windows cannot verify the digital signature for this file"
-    , E_INVALID_CERTS
+    , E_INVALID_TRUSTED_CERTS
     )
+  ; ("tstream_tls_sync_setup: GNUTLS ERROR", E_FAILED_SETUP_TLS_CONNECTION)
     (* Some other errors *)
   ]
 
@@ -604,7 +605,9 @@ module Ldap = struct
     with
     | Forkhelpers.Spawn_internal_error (err, out, _) ->
         Error
-          (auth_ex_of_msg err "Failed to do ldap(s) query for %s %s" name out)
+          (auth_ex_of_msg err "Failed to do ldap(s) query for AD user %s %s"
+             name out
+          )
     | Not_found ->
         Error (generic_ex "%s not found in ldap result" key)
     | _ ->
@@ -619,7 +622,7 @@ module Ldap = struct
       | e :: _ ->
           e
       | [] ->
-          generic_ex "Failed to ping domain %s" domain
+          generic_ex "Failed to LDAP(s) ping domain %s" domain
       )
 end
 
@@ -1789,12 +1792,12 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       Winbind.set_machine_account_encryption_type netbios_name ;
       debug "Succeed to join domain %s" service_name
     with
-    | Forkhelpers.Spawn_internal_error (_, stdout, _) ->
+    | Forkhelpers.Spawn_internal_error (stderr, stdout, _) ->
         error "Join domain: %s error: %s" service_name stdout ;
         clear_winbind_config () ;
         ConfigHosts.leave ~domain:service_name ~name:netbios_name ;
         (* The configure is kept for debug purpose with max level *)
-        raise (Auth_service_error (stdout |> tag_from_err_msg, stdout))
+        raise (Auth_service_error (stderr |> tag_from_err_msg, stdout))
     | Xapi_systemctl.Systemctl_fail _ ->
         let msg = Printf.sprintf "Failed to start %s" Winbind.name in
         error "Start daemon error: %s" msg ;

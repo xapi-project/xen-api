@@ -31,8 +31,9 @@ type auth_service_error_tag =
   | E_UNAVAILABLE
   | E_INVALID_OU
   | E_INVALID_ACCOUNT
-  | E_INVALID_CERTS
-  | E_NO_CERTS
+  | E_INVALID_TRUSTED_CERTS
+  | E_NO_TRUSTED_CERTS
+  | E_FAILED_SETUP_TLS_CONNECTION
 
 exception Auth_service_error of auth_service_error_tag * string
 
@@ -54,10 +55,12 @@ let suffix_of_tag errtag =
       Api_errors.auth_suffix_invalid_ou
   | E_INVALID_ACCOUNT ->
       Api_errors.auth_suffix_invalid_account
-  | E_INVALID_CERTS ->
-      Api_errors.auth_suffix_invalid_certs
-  | E_NO_CERTS ->
-      Api_errors.auth_suffix_no_certs
+  | E_INVALID_TRUSTED_CERTS ->
+      Api_errors.auth_suffix_invalid_trusted_certs
+  | E_NO_TRUSTED_CERTS ->
+      Api_errors.auth_suffix_no_trusted_certs
+  | E_FAILED_SETUP_TLS_CONNECTION ->
+      Api_errors.auth_suffix_setup_tls_connection
 
 (* required fields in subject.other_config *)
 let subject_information_field_subject_name = "subject-name"
