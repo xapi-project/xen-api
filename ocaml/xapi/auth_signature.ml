@@ -34,6 +34,7 @@ type auth_service_error_tag =
   | E_INVALID_TRUSTED_CERTS
   | E_NO_TRUSTED_CERTS
   | E_FAILED_SETUP_TLS_CONNECTION
+  | E_NO_SUPPORT_ENCRYPT_TYPE
 
 exception Auth_service_error of auth_service_error_tag * string
 
@@ -61,6 +62,8 @@ let suffix_of_tag errtag =
       Api_errors.auth_suffix_no_trusted_certs
   | E_FAILED_SETUP_TLS_CONNECTION ->
       Api_errors.auth_suffix_setup_tls_connection
+  | E_NO_SUPPORT_ENCRYPT_TYPE ->
+      Api_errors.auth_suffix_no_support_encrypt_type
 
 (* required fields in subject.other_config *)
 let subject_information_field_subject_name = "subject-name"
