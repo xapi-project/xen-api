@@ -132,6 +132,7 @@ let err_msg_to_tag_map =
     , E_INVALID_TRUSTED_CERTS
     )
   ; ("tstream_tls_sync_setup: GNUTLS ERROR", E_FAILED_SETUP_TLS_CONNECTION)
+  ; ("KDC has no support for encryption type", E_NO_SUPPORT_ENCRYPT_TYPE)
     (* Some other errors *)
   ]
 
