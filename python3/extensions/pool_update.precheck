@@ -134,6 +134,70 @@ def parse_precheck_failure(xmldoc):
         raise PrecheckError(code, *params)
     raise PrecheckFailure(xmldoc.toxml())
 
+
+def classify_dnf_failure(output):
+    """Classify a failed `dnf install` output into a precheck exception.
+
+    Always raises; the caller is responsible for the fallback when none
+    of the known patterns match (in which case this function simply
+    returns and the caller raises PrecheckFailure(output)).
+    """
+    if ERROR_MESSAGE_DOWNLOAD_PACKAGE in output:
+        raise InvalidUpdate('Missing package(s) in the update')
+
+    # GPG patterns must only be matched when dnf5 never reached the solver.
+    # Librepo prints transient messages like
+    #   ">>> Librepo error: repomd.xml GPG signature verification error: ..."
+    # before auto-importing keys; those appear even on successful runs and
+    # also precede genuine resolution failures. If a "Failed to resolve"
+    # block is present, the real error is there, not in the GPG noise.
+    if (ERROR_MESSAGE_FAILED_TO_RESOLVE not in output
+            and any(pat in output
+                    for pat in ERROR_MESSAGE_GPGKEY_NOT_IMPORTED_PATTERNS)):
+        raise GpgkeyNotImported()
+
+    if PATCH_PRECHECK_FAILED_ISO_MOUNTED in output:
+        raise IsoMounted
+
+    if PATCH_PRECHECK_FAILED_VM_RUNNING in output:
+        raise VmRunning
+
+    m = re.search(ERROR_MESSAGE_FAILED_TO_RESOLVE + '(.+)$',
+                  output, flags=re.DOTALL)
+    if m:
+        errmsg = m.group(1)
+        errmsg = re.sub(ERROR_MESSAGE_END + '.+', '', errmsg, flags=re.DOTALL)
+        if ERROR_MESSAGE_CONFLICTS_WITH in errmsg:
+            conflicts = re.findall(
+                ERROR_MESSAGE_CONFLICTS_WITH + r'(\S+)', errmsg)
+            if conflicts:
+                raise ConflictPresent(' '.join(conflicts))
+            raise PrecheckFailure(errmsg)
+        wrong_version = re.search(
+            ERROR_MESSAGE_NOTHING_PROVIDES
+            + r'(\S+\s*[<>=]+\s*\S+) needed by (\S+)', errmsg)
+        if wrong_version:
+            required = wrong_version.group(1).strip()
+            installed = wrong_version.group(2).strip()
+            raise WrongServerVersion(required, installed)
+        prerequisites = re.findall(
+            ERROR_MESSAGE_NOTHING_PROVIDES + r'(.+?)(?: needed by | from |\n)',
+            errmsg)
+        prerequisites += re.findall(
+            ERROR_MESSAGE_REQUIRES + r'(.+?), but none of', errmsg)
+        if prerequisites:
+            raise PrerequisiteMissing(' '.join(prerequisites))
+        raise PrecheckFailure(errmsg)
+
+    regex = ERROR_XML_START + '.+' + ERROR_XML_END
+    m = re.search(regex, output, flags=re.DOTALL)
+    if m:
+        try:
+            xmldoc = xml.dom.minidom.parseString(m.group(0))
+        except Exception as e:
+            raise PrecheckFailure(output) from e
+        parse_precheck_failure(xmldoc)
+
 def execute_precheck(control_package, yum_conf_file, update_precheck_file):
     #pylint: disable=too-many-locals
     #pylint: disable=too-many-branches
@@ -164,61 +228,9 @@ def execute_precheck(control_package, yum_conf_file, update_precheck_file):
     for line in output.split('\n'):
         xcp.logger.info(line)
     if p.returncode != 0:
-        if ERROR_MESSAGE_DOWNLOAD_PACKAGE in output:
-            raise InvalidUpdate('Missing package(s) in the update')
-
-        # GPG patterns must only be matched when dnf5 never reached the solver.
-        # Librepo prints transient messages like
-        #   ">>> Librepo error: repomd.xml GPG signature verification error: ..."
-        # before auto-importing keys; those appear even on successful runs and
-        # also precede genuine resolution failures. If a "Failed to resolve"
-        # block is present, the real error is there, not in the GPG noise.
-        if (ERROR_MESSAGE_FAILED_TO_RESOLVE not in output
-                and any(pat in output
-                        for pat in ERROR_MESSAGE_GPGKEY_NOT_IMPORTED_PATTERNS)):
-            raise GpgkeyNotImported()
-
-        if PATCH_PRECHECK_FAILED_ISO_MOUNTED in output:
-            raise IsoMounted
-
-        if PATCH_PRECHECK_FAILED_VM_RUNNING in output:
-            raise VmRunning
-
-        m = re.search(ERROR_MESSAGE_FAILED_TO_RESOLVE + '(.+)$',
-                      output, flags=re.DOTALL)
-        if m:
-            errmsg = m.group(1)
-            errmsg = re.sub(ERROR_MESSAGE_END + '.+', '', errmsg, flags=re.DOTALL)
-            if ERROR_MESSAGE_CONFLICTS_WITH in errmsg:
-                conflicts = re.findall(
-                    ERROR_MESSAGE_CONFLICTS_WITH + r'(\S+)', errmsg)
-                if conflicts:
-                    raise ConflictPresent(' '.join(conflicts))
-                raise PrecheckFailure(errmsg)
-            wrong_version = re.search(
-                ERROR_MESSAGE_NOTHING_PROVIDES
-                + r'(\S+\s*[<>=]+\s*\S+) needed by (\S+)', errmsg)
-            if wrong_version:
-                required = wrong_version.group(1).strip()
-                installed = wrong_version.group(2).strip()
-                raise WrongServerVersion(required, installed)
-            prerequisites = re.findall(
-                ERROR_MESSAGE_NOTHING_PROVIDES + r'(.+?)(?: needed by | from |\n)',
-                errmsg)
-            prerequisites += re.findall(
-                ERROR_MESSAGE_REQUIRES + r'(.+?), but none of', errmsg)
-            if prerequisites:
-                raise PrerequisiteMissing(' '.join(prerequisites))
-            raise PrecheckFailure(errmsg)
-
-        regex = ERROR_XML_START + '.+' + ERROR_XML_END
-        m = re.search(regex, output, flags=re.DOTALL)
-        if m:
-            try:
-                xmldoc = xml.dom.minidom.parseString(m.group(0))
-            except Exception as e:
-                raise PrecheckFailure(output) from e
-            parse_precheck_failure(xmldoc)
+        classify_dnf_failure(output)
+        # classify_dnf_failure raises in every case it understands; if we get
+        # here it didn't match any pattern, so surface the raw dnf output.
         raise PrecheckFailure(output)
 
     if os.path.isfile(update_precheck_file):
