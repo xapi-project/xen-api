@@ -882,6 +882,13 @@ let _ =
       "The pool failed to enable external authentication, no trusted \
        certificates."
     () ;
+  error Api_errors.pool_auth_enable_failed_no_supp_encrypt_type
+    ["host"; "message"]
+    ~doc:
+      "The pool failed to enable external authentication: domain does not \
+       support encryption type, make sure AES based encryption type is enabled \
+       in kerberos authentication in AD and Administrator is not in use"
+    () ;
   error Api_errors.pool_auth_enable_failed_setup_tls_connection
     ["host"; "message"]
     ~doc:
