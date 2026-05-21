@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2025 Cloud Software Group
+ * Copyright (C) 2026 Cloud Software Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
