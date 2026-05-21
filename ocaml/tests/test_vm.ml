@@ -191,4 +191,128 @@ module VMSetBiosStrings = Generic.MakeStateful (struct
     `QuickAndAutoDocumented tests
 end)
 
-let tests = [("test_vm_set_bios_strings", VMSetBiosStrings.tests)]
+module VMSecurebootCertificatesStateField = Generic.MakeStateful (struct
+  module Io = struct
+    type input_t = [`ok | `update_available | `update_on_boot]
+
+    type output_t = [`ok | `update_available | `update_on_boot]
+
+    let string_of_state = function
+      | `ok ->
+          "ok"
+      | `update_available ->
+          "update_available"
+      | `update_on_boot ->
+          "update_on_boot"
+
+    let string_of_input_t = string_of_state
+
+    let string_of_output_t = string_of_state
+  end
+
+  module State = Test_state.XapiDb
+
+  let name_label = "secureboot-certs-state"
+
+  let load_input __context state =
+    let self = Test_common.make_vm ~__context ~name_label () in
+    Db.VM.set_secureboot_certificates_state ~__context ~self ~value:state
+
+  let extract_output __context _ =
+    let self =
+      List.nth (Db.VM.get_by_name_label ~__context ~label:name_label) 0
+    in
+    Db.VM.get_secureboot_certificates_state ~__context ~self
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        (`ok, `ok)
+      ; (`update_available, `update_available)
+      ; (`update_on_boot, `update_on_boot)
+      ]
+end)
+
+module VMUpdateSecurebootCertificatesOnBoot = Generic.MakeStateful (struct
+  module Io = struct
+    type input_t = [`ok | `update_available | `update_on_boot] * bool
+
+    type output_t =
+      ([`ok | `update_available | `update_on_boot], string * string list) result
+
+    let string_of_state = function
+      | `ok ->
+          "ok"
+      | `update_available ->
+          "update_available"
+      | `update_on_boot ->
+          "update_on_boot"
+
+    let string_of_input_t (state, mark) =
+      Printf.sprintf "(%s, mark=%b)" (string_of_state state) mark
+
+    let string_of_output_t = function
+      | Ok state ->
+          Printf.sprintf "Ok %s" (string_of_state state)
+      | Error (code, args) ->
+          Printf.sprintf "Error %s(%s)" code (String.concat ", " args)
+  end
+
+  module State = Test_state.XapiDb
+
+  let name_label = "update-secureboot-certs-on-boot"
+
+  let load_input __context (state, _) =
+    let self = Test_common.make_vm ~__context ~name_label () in
+    Db.VM.set_secureboot_certificates_state ~__context ~self ~value:state
+
+  let extract_output __context (_, mark) =
+    let self =
+      List.nth (Db.VM.get_by_name_label ~__context ~label:name_label) 0
+    in
+    try
+      Xapi_vm.update_secureboot_certificates_on_boot ~__context ~self ~mark ;
+      Ok (Db.VM.get_secureboot_certificates_state ~__context ~self)
+    with Api_errors.Server_error (code, args) -> Error (code, args)
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        (* transitions *)
+        ((`update_available, true), Ok `update_on_boot)
+      ; ((`update_on_boot, false), Ok `update_available)
+        (* idempotent: already in desired state *)
+      ; ((`update_on_boot, true), Ok `update_on_boot)
+      ; ((`update_available, false), Ok `update_available)
+        (* irrelevant state: raises *)
+      ; ( (`ok, true)
+        , Error
+            ( Api_errors.operation_not_allowed
+            , [
+                "Cannot set update_on_boot: VM.secureboot_certificates_state \
+                 is not in a valid state"
+              ]
+            )
+        )
+      ; ( (`ok, false)
+        , Error
+            ( Api_errors.operation_not_allowed
+            , [
+                "Cannot clear update_on_boot: VM.secureboot_certificates_state \
+                 is not in a valid state"
+              ]
+            )
+        )
+      ]
+end)
+
+let tests =
+  [
+    ("test_vm_set_bios_strings", VMSetBiosStrings.tests)
+  ; ( "test_vm_secureboot_certificates_state_field"
+    , VMSecurebootCertificatesStateField.tests
+    )
+  ; ( "test_vm_update_secureboot_certificates_on_boot"
+    , VMUpdateSecurebootCertificatesOnBoot.tests
+    )
+  ]

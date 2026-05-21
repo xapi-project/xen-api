@@ -446,8 +446,8 @@ let with_local_repositories ~__context f =
                   s
             in
             remove_repo_conf_file repo_name ;
-            write_yum_config ~proxy_config:[] ~source_url:None ~binary_url
-              ~repo_gpgcheck:false ~gpgkey_path ~repo_name ;
+            write_yum_config ~proxy_config:["proxy="] ~source_url:None
+              ~binary_url ~repo_gpgcheck:false ~gpgkey_path ~repo_name ;
             clean_yum_cache repo_name ;
             let Pkg_mgr.{cmd; params} =
               [

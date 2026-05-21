@@ -303,11 +303,17 @@ let rec name_of_atomic = function
   | Best_effort atomic ->
       Printf.sprintf "Best_effort (%s)" (name_of_atomic atomic)
 
+let max_parallel_atoms = 10
+
 let rec atomic_expires_after = function
   | Serial (_, _, ops) ->
       List.map atomic_expires_after ops |> List.fold_left ( +. ) 0.
   | Parallel (_, _, ops) | Nested_parallel (_, _, ops) ->
-      List.map atomic_expires_after ops |> List.fold_left Float.max 0.
+      let expires_of = List.map atomic_expires_after in
+      let max_of = List.fold_left Float.max 0. in
+      Xenops_utils.chunks max_parallel_atoms ops
+      |> List.map (fun ops -> ops |> expires_of |> max_of)
+      |> List.fold_left ( +. ) 0.
   | _ ->
       (* 20 minutes, in seconds *)
       1200.
@@ -2010,8 +2016,8 @@ and parallel_atomic ~progress_callback ~description ~nested atoms t =
   let with_tracing = id_with_tracing parallel_id t in
   debug "begin_%s" parallel_id ;
   let task_list =
-    queue_atomics_and_wait ~progress_callback ~max_parallel_atoms:10
-      with_tracing parallel_id atoms redirector
+    queue_atomics_and_wait ~progress_callback with_tracing parallel_id atoms
+      redirector
   in
   debug "end_%s" parallel_id ;
   (* make sure that we destroy all the parallel tasks that finished *)
@@ -2067,8 +2073,7 @@ and queue_atomic_int ~progress_callback dbg id op redirector =
   Redirector.push redirector id item ;
   task
 
-and queue_atomics_and_wait ~progress_callback ~max_parallel_atoms dbg id ops
-    redirector =
+and queue_atomics_and_wait ~progress_callback dbg id ops redirector =
   let from = Updates.last_id dbg updates in
   Xenops_utils.chunks max_parallel_atoms ops
   |> List.mapi (fun chunk_idx ops ->
@@ -2089,6 +2094,7 @@ and queue_atomics_and_wait ~progress_callback ~max_parallel_atoms dbg id ops
         (fun (task, op) ->
           let task_id = Xenops_task.id_of_handle task in
           let expiration = atomic_expires_after op in
+          debug "Task %s expires_after=%f" task_id expiration ;
           let completion =
             event_wait updates task ~from ~timeout_start expiration
               (is_task task_id) task_ended

@@ -3227,10 +3227,10 @@ functor
           (vm_uuid ~__context self) value ;
         Local.VM.set_HVM_boot_policy ~__context ~self ~value
 
-      let set_NVRAM_EFI_variables ~__context ~self ~value =
+      let set_NVRAM_EFI_variables ~__context ~self ~value ~update =
         (* called by varstored, bypasses VM powerstate check *)
         info "VM.set_NVRAM_EFI_variables: self = '%s'" (vm_uuid ~__context self) ;
-        Local.VM.set_NVRAM_EFI_variables ~__context ~self ~value
+        Local.VM.set_NVRAM_EFI_variables ~__context ~self ~value ~update
 
       let restart_device_models ~__context ~self =
         info "VM.restart_device_models: self = '%s'" (vm_uuid ~__context self) ;
@@ -3248,6 +3248,12 @@ functor
       let get_secureboot_readiness ~__context ~self =
         info "VM.get_secureboot_readiness: self = '%s'" (vm_uuid ~__context self) ;
         Local.VM.get_secureboot_readiness ~__context ~self
+
+      let update_secureboot_certificates_on_boot ~__context ~self ~mark =
+        info
+          "VM.update_secureboot_certificates_on_boot: self = '%s'; mark = '%b'"
+          (vm_uuid ~__context self) mark ;
+        Local.VM.update_secureboot_certificates_on_boot ~__context ~self ~mark
 
       let set_blocked_operations ~__context ~self ~value =
         info "VM.set_blocked_operations: self = '%s'" (vm_uuid ~__context self) ;
