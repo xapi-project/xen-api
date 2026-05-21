@@ -2078,23 +2078,19 @@ let join_common ~__context ~master_address ~master_username ~master_password
           "Error whilst syncing ldaps status with pool coordinator. The \
            pool-join operation will continue as only the pool coordinator is \
            used for ldap query. Use pool-external-auth-set-ldaps --force to \
-           fix up"
-      @@ fun () ->
-      let coordinator_ldaps =
-        Client.Host.get_external_auth_configuration ~rpc ~session_id
-          ~self:remote_coordinator
-        |> fun config -> Helpers.ldaps_enabled_in_config ~config
-      in
-      let local_ldaps =
-        Db.Host.get_external_auth_configuration ~__context ~self:me
-        |> fun config -> Helpers.ldaps_enabled_in_config ~config
-      in
-      ( match coordinator_ldaps = local_ldaps with
-      | true ->
-          ()
-      | false ->
-          Xapi_host.external_auth_set_ldaps ~__context ~host:me
-            ~ldaps:coordinator_ldaps ~force:true
+           fix up" (fun () ->
+          let coordinator_ldaps =
+            Client.Host.get_external_auth_configuration ~rpc ~session_id
+              ~self:remote_coordinator
+            |> fun config -> Helpers.ldaps_enabled_in_config ~config
+          in
+          let local_ldaps =
+            Db.Host.get_external_auth_configuration ~__context ~self:me
+            |> fun config -> Helpers.ldaps_enabled_in_config ~config
+          in
+          if coordinator_ldaps <> local_ldaps then
+            Xapi_host.external_auth_set_ldaps ~__context ~host:me
+              ~ldaps:coordinator_ldaps ~force:true
       ) ;
       (* this is where we try and sync up as much state as we can
          with the master. This is "best effort" rather than
@@ -2104,13 +2100,13 @@ let join_common ~__context ~master_address ~master_username ~master_password
         ~warn:
           "Error whilst importing db objects to master. The pool-join \
            operation will continue, but some of the slave's VMs may not be \
-           available on the master."
-      @@ fun () ->
-      update_non_vm_metadata ~__context ~rpc ~session_id ;
-      ignore
-        (Importexport.remote_metadata_export_import ~__context ~rpc ~session_id
-           ~remote_address:master_address ~restore:true `All
-        )
+           available on the master." (fun () ->
+          update_non_vm_metadata ~__context ~rpc ~session_id ;
+          ignore
+            (Importexport.remote_metadata_export_import ~__context ~rpc
+               ~session_id ~remote_address:master_address ~restore:true `All
+            )
+      )
     )
     (fun () -> Client.Session.logout ~rpc ~session_id) ;
 
