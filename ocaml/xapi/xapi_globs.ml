@@ -1057,7 +1057,8 @@ let winbind_machine_pwd_timeout = ref (2. *. 7. *. 24. *. 3600.)
 let winbind_update_closest_kdc_interval = ref (3600. *. 22.)
 (* every 22 hours *)
 
-let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
+let winbind_kerberos_encryption_type =
+  ref Kerberos_encryption_types.Winbind.Strong
 
 let winbind_set_machine_account_kerberos_encryption_type = ref false
 
@@ -1154,7 +1155,7 @@ let xapi_requests_cgroup =
 
 let genisoimage_path = ref "/usr/bin/genisoimage"
 
-let https_only = ref false
+let https_only = ref true
 
 (* Event.{from,next} batching delays *)
 let make_batching name ~delay_before ~delay_between =
