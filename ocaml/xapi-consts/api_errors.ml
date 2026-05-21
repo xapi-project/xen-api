@@ -1048,6 +1048,8 @@ let auth_suffix_no_trusted_certs = "_NO_TRUSTED_CERTS"
 
 let auth_suffix_setup_tls_connection = "_SETUP_TLS_CONNECTION"
 
+let auth_suffix_no_support_encrypt_type = "_NO_SUPPORT_ENCRYPT_TYPE"
+
 let auth_setup_tls_connection = add_error "AUTH_SETUP_TLS_CONNECTION"
 
 let auth_enable_failed = add_error "AUTH_ENABLE_FAILED"
@@ -1075,6 +1077,9 @@ let auth_enable_failed_invalid_trusted_certs =
 
 let auth_enable_failed_no_trusted_certs =
   add_error $ auth_enable_failed ^ auth_suffix_no_trusted_certs
+
+let auth_enable_failed_no_supp_encrypt_type =
+  add_error $ auth_enable_failed ^ auth_suffix_no_support_encrypt_type
 
 let auth_disable_failed = add_error "AUTH_DISABLE_FAILED"
 
@@ -1113,6 +1118,9 @@ let pool_auth_enable_failed_invalid_trusted_certs =
 
 let pool_auth_enable_failed_no_trusted_certs =
   add_error $ pool_auth_enable_failed ^ auth_suffix_no_trusted_certs
+
+let pool_auth_enable_failed_no_supp_encrypt_type =
+  add_error $ pool_auth_enable_failed ^ auth_suffix_no_support_encrypt_type
 
 let pool_auth_enable_failed_setup_tls_connection =
   add_error $ pool_auth_enable_failed ^ auth_suffix_setup_tls_connection

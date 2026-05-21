@@ -96,6 +96,8 @@ module Errtag = Generic.MakeStateless (struct
           "E_NO_TRUSTED_CERTS"
       | E_FAILED_SETUP_TLS_CONNECTION ->
           "E_FAILED_SETUP_TLS_CONNECTION"
+      | E_NO_SUPPORT_ENCRYPT_TYPE ->
+          "E_NO_SUPPORT_ENCRYPT_TYPE"
   end
 
   let transform = Extauth_plugin_ADwinbind.tag_from_err_msg
