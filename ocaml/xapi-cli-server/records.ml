@@ -2676,6 +2676,12 @@ let vm_record rpc session_id vm =
               Client.VM.set_groups ~rpc ~session_id ~self:vm ~value
           )
           ()
+      ; make_field ~name:"secureboot-certificates-state"
+          ~get:(fun () ->
+            Record_util.vm_secureboot_certificates_state_to_string
+              (x ()).API.vM_secureboot_certificates_state
+          )
+          ()
       ; make_field ~name:"snapshot-schedule"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_snapshot_schedule)
           ~set:(fun x ->

@@ -639,6 +639,7 @@ end
     This is useful for TOFU (Trust-On-First-Use) scenarios. *)
 let fetch_server_cert ~remote_host ~remote_port =
   try
+    let timeout = Mtime.Span.(30 * s) in
     let openssl = !Constants.openssl_path in
     (* First get the certificate with s_client *)
     let s_client_args =
@@ -650,13 +651,14 @@ let fetch_server_cert ~remote_host ~remote_port =
       ]
     in
     let cert_output, _ =
-      Forkhelpers.execute_command_get_output_send_stdin openssl s_client_args ""
+      Forkhelpers.execute_command_get_output_send_stdin ~timeout openssl
+        s_client_args ""
     in
     (* Then parse it with x509 to get PEM format *)
     let x509_args = ["x509"; "-outform"; "PEM"] in
     let pem_output, _ =
-      Forkhelpers.execute_command_get_output_send_stdin openssl x509_args
-        cert_output
+      Forkhelpers.execute_command_get_output_send_stdin ~timeout openssl
+        x509_args cert_output
     in
     if
       String.length pem_output > 0
