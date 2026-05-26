@@ -58,7 +58,7 @@ Continuing through our example, we must now install a new VM based on the templa
 
 > **Note**
 >
-> The provision operation may take a few minutes, as it is as during this call that the template's disk images are created. In the case of the Debian template, the newly created disks are also at this stage populated with a Debian root filesystem.
+> The provision operation may take a few minutes, as it is during this call that the template's disk images are created. In the case of the Debian template, the newly created disks are also at this stage populated with a Debian root filesystem.
 
 ### Taking the VM through a start/suspend/resume/stop cycle
 
