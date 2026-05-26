@@ -91,6 +91,11 @@ let nonessentials =
     , igmp_query_injector_script
     , "path to the igmp query injector script"
     )
+  ; ( X_OK
+    , "xenopsd-tls-helper"
+    , Migrate_connect.helper_path
+    , "path to the xenopsd-tls-helper binary used when migration-tls=ktls"
+    )
   ]
   @ Resources.hvm_guests
   @ Resources.pv_guests
