@@ -2387,7 +2387,7 @@ let set_NVRAM_EFI_variables =
              the current secureboot_certificates_state unchanged. If omitted \
              (defaults to 'unspecified'), run certificate check to determine \
              the state."
-        ; param_release= numbered_release "26.7.0-next"
+        ; param_release= numbered_release "26.1.12-next"
         ; param_default= Some (VEnum "unspecified")
         }
       ]
