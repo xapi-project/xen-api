@@ -58,6 +58,7 @@ namespace Citrix.XenServer.Commands
         {
             Port = 443;
             Originator = DefaultUserAgent;
+            UserAgent = DefaultUserAgent;
         }
 
         #region Cmdlet Parameters

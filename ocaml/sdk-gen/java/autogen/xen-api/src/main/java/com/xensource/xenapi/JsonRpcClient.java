@@ -71,10 +71,9 @@ import java.util.concurrent.TimeUnit;
 public class JsonRpcClient {
     private static final int DEFAULT_REQUEST_TIMEOUT = 600;
     private static final int DEFAULT_CONNECTION_TIMEOUT = 5;
-
     private static final int MAX_CONCURRENT_CONNECTIONS = 10;
-
     private static final String JSON_BACKEND_PATH = "/jsonrpc";
+    private static final String DEFAULT_USER_AGENT = "XenServerJava/@SDK_VERSION@";
 
     private final CloseableHttpClient httpClient;
     private final String jsonRpcBackendUrl;
@@ -83,6 +82,7 @@ public class JsonRpcClient {
             .setCookieSpec(StandardCookieSpec.IGNORE)
             .build();
     private int requestTimeout;
+    private String userAgent;
     private PoolingHttpClientConnectionManager connectionManager;
 
     //region Constructors
@@ -109,6 +109,8 @@ public class JsonRpcClient {
                 .build();
         this.jsonRpcBackendUrl = formatBackendUrl(jsonRpcBackendUrl);
         this.requestTimeout = DEFAULT_REQUEST_TIMEOUT;
+        this.userAgent = DEFAULT_USER_AGENT;
+
         this.objectMapper = new ObjectMapper();
         initializeObjectMapperConfiguration();
     }
@@ -168,6 +170,18 @@ public class JsonRpcClient {
     public void setMaxConcurrentConnections(int maxConcurrentConnections) {
         connectionManager.setMaxTotal(maxConcurrentConnections);
     }
+
+    /**
+     * Set the User-Agent header for every request made by this client.
+     * If not set the value defaults to &quot;XenServerJava/&lt;SDK version&gt;&quot;.
+     *
+     * @param userAgent  the value of the User-Agent header
+     * @see org.apache.hc.client5.http.classic.methods.HttpPost#setHeader(String, Object)
+     */
+    public void setUserAgent(String userAgent) {
+        this.userAgent = userAgent;
+    }
+
     //endregion
 
     /**
@@ -194,6 +208,7 @@ public class JsonRpcClient {
         var request = new HttpPost(this.jsonRpcBackendUrl);
         request.setConfig(requestConfig);
         request.setEntity(requestEntity);
+        request.setHeader("User-Agent", userAgent);
 
         return httpClient.execute(request, response -> {
             try (response) {
