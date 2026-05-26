@@ -39,9 +39,16 @@ module Iteratee (IO : Monad) = struct
     | IE_done of 'a
     | IE_cont of err option * (stream -> ('a t * stream) IO.t)
 
+  module IO_Ops = struct
+    let ( let* ) = IO.bind
+
+    let return = IO.return
+  end
+
   let return x = IE_done x
 
   let rec bind i f =
+    let open IO_Ops in
     match i with
     | IE_done result ->
         f result
@@ -52,12 +59,16 @@ module Iteratee (IO : Monad) = struct
             | IE_cont (None, k) ->
                 k stream
             | x ->
-                IO.return (x, stream)
+                return (x, stream)
           )
           | x, stream ->
-              IO.return (bind x f, stream)
+              return (bind x f, stream)
         in
-        IE_cont (e, fun s -> IO.bind (k s) docase)
+        let go s =
+          let* p = k s in
+          docase p
+        in
+        IE_cont (e, go)
 
   let ( >>= ) = bind
 
@@ -107,14 +118,14 @@ module Iteratee (IO : Monad) = struct
     IE_cont (None, step)
 
   let writer really_write _ =
+    let open IO_Ops in
     let rec step st =
       match st with
       | Chunk s ->
-          IO.bind (really_write s) (fun () ->
-              IO.return (IE_cont (None, step), Chunk "")
-          )
+          let* () = really_write s in
+          return (IE_cont (None, step), Chunk "")
       | Eof _ ->
-          IO.return (IE_done (), st)
+          return (IE_done (), st)
     in
     IE_cont (None, step)
 
@@ -245,41 +256,48 @@ module Iteratee (IO : Monad) = struct
   (* Simplest enumarator *)
 
   let enum_eof i =
+    let open IO_Ops in
     let result =
       match i with
       | IE_cont (None, f) ->
-          IO.bind (f (Eof None)) (fun x -> IO.return (fst x))
+          let* i, _ = f (Eof None) in
+          return i
       | _ ->
-          IO.return i
+          return i
     in
-    IO.bind result (function
-      | IE_done _ ->
-          result
-      | IE_cont (Some _, _) ->
-          result
-      | _ ->
-          failwith "Divergent Iteratee"
-      )
+    let* it = result in
+    match it with
+    | IE_done _ | IE_cont (Some _, _) ->
+        result
+    | _ ->
+        failwith "Divergent iteratee"
 
-  let enum_1chunk str = function
+  let enum_1chunk str =
+    let open IO_Ops in
+    function
     | IE_cont (None, f) ->
-        IO.bind (f (Chunk str)) (fun x -> IO.return (fst x))
+        let* i, _ = f (Chunk str) in
+        return i
     | x ->
-        IO.return x
+        return x
 
   let rec enum_nchunk str n =
-    if str = "" then
-      fun x ->
-    IO.return x
-    else
-      let str1, str2 = split str n in
-      function
-      | IE_cont (None, f) ->
-          IO.bind
-            (IO.bind (f (Chunk str1)) (fun x -> IO.return (fst x)))
-            (enum_nchunk str2 n)
-      | x ->
-          IO.return x
+    let open IO_Ops in
+    match str with
+    | "" ->
+        return
+    | _ -> (
+        function
+        | IE_cont (None, f) ->
+            let s1, s2 = split str n in
+            let* i =
+              let* i, _ = f (Chunk s1) in
+              return i
+            in
+            enum_nchunk s2 n i
+        | x ->
+            return x
+      )
 
   let extract_result_from_iteratee = function
     | IE_done x ->
@@ -291,81 +309,76 @@ module Iteratee (IO : Monad) = struct
 
   let rec take =
     let step n k s =
+      let open IO_Ops in
       match s with
       | Chunk str ->
           let len = String.length str in
           if len < n then
-            IO.bind (k s) (fun (i, _) -> IO.return (take (n - len) i, Chunk ""))
+            let* i, _ = k s in
+            return (take (n - len) i, Chunk "")
           else
-            let str1, str2 = split str n in
-            IO.bind (k (Chunk str1)) (fun (i, _) ->
-                IO.return (IE_done i, Chunk str2)
-            )
+            let s1, s2 = split str n in
+            let* i, _ = k (Chunk s1) in
+            return (IE_done i, Chunk s2)
       | Eof _ ->
-          IO.bind (k s) (fun (i, _) -> IO.return (IE_done i, s))
+          let* i, _ = k s in
+          return (IE_done i, s)
     in
     function
     | 0 ->
         return
     | n -> (
-        fun s ->
-          match s with
-          | IE_cont (None, k) ->
-              IE_cont (None, step n k)
-          | IE_cont (Some _, _) | IE_done _ ->
-              bind (drop n) (fun () -> return s)
+        function
+        | IE_cont (None, k) ->
+            IE_cont (None, step n k)
+        | (IE_cont (Some _, _) | IE_done _) as it ->
+            bind (drop n) (fun () -> return it)
       )
 
   let stream_printer name =
     let rec step k s =
+      let open IO_Ops in
       Printf.printf "%s: %s\n" name (string_of_stream s) ;
-      IO.bind (k s) (fun i ->
-          match i with
-          | IE_cont (None, f), s ->
-              IO.return (IE_cont (None, step f), s)
-          | IE_cont (err, f), s ->
-              IO.return (IE_cont (err, step f), s)
-          | i, s ->
-              IO.return (IE_done i, s)
-      )
+      let* i, s = k s in
+      match i with
+      | IE_cont (err, f) ->
+          return (IE_cont (err, step f), s)
+      | _ ->
+          return (IE_done i, s)
     in
-    fun s ->
-      match s with
-      | IE_cont (None, k) ->
-          IE_cont (None, step k)
-      | IE_cont (Some _, _) | IE_done _ ->
-          return s
+    function
+    | IE_cont (None, k) ->
+        IE_cont (None, step k)
+    | (IE_cont (Some _, _) | IE_done _) as it ->
+        return it
 
   let modify f =
     let rec step k s =
+      let open IO_Ops in
       match s with
-      | Chunk c ->
+      | Chunk c -> (
           let s =
             try f c
             with e ->
               Printf.printf "got exception %s\n%!" (Printexc.to_string e) ;
               raise e
           in
-          IO.bind (k (Chunk s)) (fun i ->
-              match i with
-              | IE_cont (None, f), s ->
-                  IO.return (IE_cont (None, step f), s)
-              | IE_cont (err, f), s ->
-                  IO.return (IE_cont (err, step f), s)
-              | i, s ->
-                  IO.return (IE_done i, s)
-          )
+          let* i, s = k (Chunk s) in
+          match i with
+          | IE_cont (err, f) ->
+              return (IE_cont (err, step f), s)
+          | _ ->
+              return (IE_done i, s)
+        )
       | Eof _ ->
-          IO.bind (k s) (fun (i, _) -> IO.return (IE_done i, s))
+          let* i, _ = k s in
+          return (IE_done i, s)
     in
-    fun s ->
-      match s with
-      | IE_cont (None, k) ->
-          IE_cont (None, step k)
-      | IE_cont (Some _, _) ->
-          return s
-      | IE_done _ ->
-          return s
+    function
+    | IE_cont (None, k) ->
+        IE_cont (None, step k)
+    | (IE_cont (Some _, _) | IE_done _) as it ->
+        return it
 
   type 'a either = Left of 'a | Right of 'a
 
