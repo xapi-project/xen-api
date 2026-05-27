@@ -62,15 +62,21 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
 
   let wsframe_old s = modify (fun s -> Printf.sprintf "\x00%s\xff" s) s
 
-  let rec wsunframe x =
-    let read_sz = read_int8 >>= fun sz -> return (sz >= 128, sz land 0x7f) in
+  let ( let* ) = ( >>= )
+
+  let rec wsunframe it =
+    let read_sz =
+      let* sz = read_int8 in
+      return (sz >= 128, sz land 0x7f)
+    in
     let read_size sz =
       if sz < 126 then
         return sz
       else if sz = 126 then
         read_int16
       else (* sz = 127 *)
-        read_int32 >>= fun x -> return (Int32.to_int x)
+        let* x = read_int32 in
+        return (Int32.to_int x)
     in
     let read_mask has_mask =
       if has_mask then
@@ -78,41 +84,39 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
       else
         return "\x00\x00\x00\x00"
     in
-    let rec inner acc s =
-      match s with
-      | IE_cont (None, k) ->
-          read_int8 >>= fun op ->
-          read_sz >>= fun (has_mask, sz) ->
-          read_size sz >>= fun size ->
-          read_mask has_mask >>= fun mask ->
-          readn size >>= fun str ->
-          let real_str = Helpers.unmask mask str in
+    let rec inner acc = function
+      | IE_cont (None, k) as it ->
+          let* op = read_int8 in
+          let* has_mask, sz = read_sz in
+          let* size = read_size sz in
+          let* mask = read_mask has_mask in
+          let* payload = readn size in
+          let unmasked = Helpers.unmask mask payload in
           if op land 0x0f = 0x08 then (* close frame *)
-            return s
+            return it
           else if not (op land 0x80 = 0x80) then
-            inner (acc ^ real_str) s
+            inner (acc ^ unmasked) it
           else
-            liftI
-              (IO.bind
-                 (k (Iteratees.Chunk (acc ^ real_str)))
-                 (fun (i, _) -> IO.return (wsunframe i))
-              )
-      | _ ->
-          return s
+            let ( let@ ) = IO.bind in
+            (let@ it', _ = k (Chunk (acc ^ unmasked)) in
+             IO.return (wsunframe it')
+            )
+            |> liftI
+      | it ->
+          return it
     in
-    inner "" x
+    inner "" it
 
-  let rec wsunframe_old s =
-    match s with
+  let rec wsunframe_old = function
     | IE_cont (None, k) ->
-        heads "\x00" >>= fun _ ->
-        break (( = ) '\xff') >>= fun str ->
-        drop 1 >>= fun () ->
-        liftI
-          (IO.bind (k (Iteratees.Chunk str)) (fun (i, _) ->
-               IO.return (wsunframe_old i)
-           )
-          )
-    | _ ->
-        return s
+        let* _ = heads "\x00" in
+        let* str = break (( = ) '\xff') in
+        let* () = drop 1 in
+        let ( let@ ) = IO.bind in
+        (let@ it', _ = k (Chunk str) in
+         IO.return (wsunframe_old it')
+        )
+        |> liftI
+    | it ->
+        return it
 end
