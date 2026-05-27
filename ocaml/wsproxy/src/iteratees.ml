@@ -78,14 +78,6 @@ module Iteratee (IO : Monad) = struct
 
   let ie_errM msg k x = IO.return (IE_cont (Some msg, k), x)
 
-  let state = function
-    | IE_done _ ->
-        "Done"
-    | IE_cont (None, _) ->
-        "Ready"
-    | IE_cont (Some e, _) ->
-        Printf.sprintf "Error (%s)" e
-
   (* Simplest iteratees *)
 
   let rec peek =
@@ -221,26 +213,6 @@ module Iteratee (IO : Monad) = struct
     in
     IE_cont (None, step)
 
-  let accumulate =
-    let rec step acc st =
-      match st with
-      | Chunk s ->
-          ie_contM (step (acc ^ s)) (Chunk "")
-      | Eof _ ->
-          ie_doneM acc st
-    in
-    IE_cont (None, step "")
-
-  let apply f =
-    let rec step st =
-      match st with
-      | Chunk s ->
-          f s ; ie_contM step (Chunk "")
-      | Eof _ ->
-          ie_doneM () st
-    in
-    IE_cont (None, step)
-
   let liftI m =
     let step st i =
       match i with
@@ -300,14 +272,6 @@ module Iteratee (IO : Monad) = struct
         | x ->
             return x
       )
-
-  let extract_result_from_iteratee = function
-    | IE_done x ->
-        x
-    | _ ->
-        failwith "Not done!"
-
-  type 'a enumeratee = 'a t -> 'a t t
 
   let rec take =
     let step n k s =
@@ -381,24 +345,4 @@ module Iteratee (IO : Monad) = struct
         IE_cont (None, step k)
     | (IE_cont (Some _, _) | IE_done _) as it ->
         return it
-
-  type 'a either = Left of 'a | Right of 'a
-
-  let read_lines =
-    let ( >>= ) = bind in
-    let iscrlf = function '\r' | '\n' -> true | _ -> false in
-    let terminators =
-      heads "\r\n" >>= function 0 -> heads "\n" | n -> return n
-    in
-    let rec lines' acc = break iscrlf >>= fun l -> terminators >>= check acc l
-    and check acc l n =
-      match (l, n) with
-      | _, 0 ->
-          return (Left (List.rev acc))
-      | "", _ ->
-          return (Right (List.rev acc))
-      | l, _ ->
-          lines' (l :: acc)
-    in
-    lines' []
 end
