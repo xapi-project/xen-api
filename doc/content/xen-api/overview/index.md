@@ -146,7 +146,7 @@ In this section we walk through a few more complex scenarios, describing informa
 
 ### Creating disks and attaching them to VMs
 
-Let's start by considering how to make a new blank disk image and attach it to a running VM. We will assume that we already have ourselves a running VM, and we know its corresponding API object reference (e.g. we may have created this VM using the procedure described in the previous section, and had the server return its reference to us.) We will also assume that we have authenticated with the XenServer installation and have a corresponding `session reference`. Indeed in the rest of this chapter, for the sake of brevity, we will stop mentioning sessions altogether.
+Let's start by considering how to make a new blank disk image and attach it to a running VM. We will assume that we already have ourselves a running VM, and we know its corresponding API object reference (e.g. we may have created this VM using the procedure described in the previous section, and had the server return its reference to us.) We will also assume that we have authenticated with the XenServer installation and have a corresponding `session reference`. Actually, in the rest of this chapter, for the sake of brevity, we will stop mentioning sessions altogether.
 
 #### Creating a new blank disk image
 
