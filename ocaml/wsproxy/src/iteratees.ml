@@ -199,11 +199,13 @@ module Iteratee (IO : Monad) = struct
         in
         IE_cont (None, step "" n)
 
-  let read_int8 = readn 1 >>= fun s -> return (unmarshal_int8 s)
+  let ( >> ) f g x = g (f x)
 
-  let read_int16 = readn 2 >>= fun s -> return (unmarshal_int16 s)
+  let read_int8 = readn 1 >>= (unmarshal_int8 >> return)
 
-  let read_int32 = readn 4 >>= fun s -> return (unmarshal_int32 s)
+  let read_int16 = readn 2 >>= (unmarshal_int16 >> return)
+
+  let read_int32 = readn 4 >>= (unmarshal_int32 >> return)
 
   let drop_while pred =
     let rec step st =
