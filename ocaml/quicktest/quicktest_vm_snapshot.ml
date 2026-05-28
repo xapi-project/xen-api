@@ -44,6 +44,38 @@ let with_setup rpc session_id sr vm_template f =
   ignore (create_vbd_disk rpc session_id vm vdi2 "1") ;
   f rpc session_id vm vdi vdi2
 
+let create_vbd_cd rpc session_id vm vdi n =
+  Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:vdi ~userdevice:n
+    ~bootable:false ~mode:`RO ~_type:`CD ~unpluggable:true ~empty:false
+    ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~device:""
+    ~currently_attached:true
+
+let with_cd_setup rpc session_id sr vm_template f =
+  print_endline (Printf.sprintf "%s: Setting up VM" __FUNCTION__) ;
+  let uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:vm_template in
+  print_endline (Printf.sprintf "Template has uuid: %s%!" uuid) ;
+  let@ vm = Qt.VM.with_new rpc session_id ~template:vm_template ~sr in
+  print_endline (Printf.sprintf "Installed new VM") ;
+  print_endline
+    (Printf.sprintf "Using SR: %s"
+       (Client.Client.SR.get_name_label ~rpc ~session_id ~self:sr)
+    ) ;
+  let@ vdi =
+    Qt.VDI.with_new rpc session_id ~name_label:"small CD"
+      ~name_description:__LOC__
+      ~virtual_size:Int64.(mul (mul 4L 1024L) 1024L)
+      sr
+  in
+  ignore (create_vbd_cd rpc session_id vm vdi "0") ;
+  let@ vdi2 =
+    Qt.VDI.with_new rpc session_id ~name_label:"small CD 2"
+      ~name_description:__LOC__
+      ~virtual_size:Int64.(mul (mul 4L 1024L) 1024L)
+      sr
+  in
+  ignore (create_vbd_cd rpc session_id vm vdi2 "1") ;
+  f rpc session_id vm vdi vdi2
+
 let take_snapshot ?(ignore_vdis = []) rpc session_id vm ~origin =
   Client.Client.VM.snapshot ~rpc ~session_id ~vm
     ~new_name:(Printf.sprintf "Snapshot:%s" origin)
@@ -86,6 +118,10 @@ let check_vdis_different expected result =
   Alcotest.(check @@ neg vdi_ref)
     "The VDIs after a reverting a snapshot must not be the same" expected result
 
+let check_vdis_same expected result =
+  Alcotest.(check vdi_ref)
+    "The VDIs after a reverting a snapshot must unchanged" expected result
+
 let test_snapshot rpc session_id vm vdi vdi2 =
   let snapshot = take_snapshot rpc session_id vm ~origin:__FUNCTION__ in
   let vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:snapshot in
@@ -119,6 +155,18 @@ let test_revert rpc session_id vm vdi vdi2 =
   check_vdis_different vdi vdi_after ;
   check_vdis_different vdi2 vdi_after2
 
+let test_revert_cds rpc session_id vm vdi vdi2 =
+  let snapshot = take_snapshot rpc session_id vm ~origin:__FUNCTION__ in
+  Client.Client.VM.revert ~rpc ~session_id ~snapshot ;
+
+  let vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:vm in
+  let vdi_after = get_vdi_with_user_device rpc session_id vbds "0" in
+  let vdi_after2 = get_vdi_with_user_device rpc session_id vbds "1" in
+
+  (* CD VDIs are considered immutable and the clone code ignores them *)
+  check_vdis_same vdi vdi_after ;
+  check_vdis_same vdi2 vdi_after2
+
 let a_test with_setup tests rpc session_id sr_info vm_template () =
   let sr = sr_info.Qt.sr in
   List.iter (with_setup rpc session_id sr vm_template) tests
@@ -137,4 +185,6 @@ let tests () =
         [test_snapshot; test_snapshot_ignore_vdi]
         [`vdi_create]
     ; suite "VM revert tests" with_setup [test_revert] [`vdi_create; `vdi_clone]
+    ; suite "VM revert with CD tests" with_cd_setup [test_revert_cds]
+        [`vdi_create; `vdi_clone]
     ]
