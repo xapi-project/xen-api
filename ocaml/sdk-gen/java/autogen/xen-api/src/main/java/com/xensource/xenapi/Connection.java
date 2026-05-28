@@ -138,6 +138,19 @@ public class Connection {
     }
 
     /**
+     * Set the User-Agent header for every request made by this object's {@link #client}.
+     * If not set the value defaults to &quot;XenServerJava/&lt;SDK version&gt;&quot;.
+     * You may also pass your own {@link JsonRpcClient} in the constructor for more control.
+     *
+     * @param userAgent             the value of the User-Agent header
+     * @throws NullPointerException if the {@link #client} is null
+     * @see org.apache.hc.client5.http.classic.methods.HttpPost#setHeader(String, Object)
+     */
+    public void setUserAgent(String userAgent) {
+        this.client.setUserAgent(userAgent);
+    }
+
+    /**
      * Updated when Session.login_with_password() is called.
      */
     public APIVersion getAPIVersion() {
