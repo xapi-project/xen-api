@@ -908,6 +908,20 @@ functor
         let dbg = Debug_info.to_string di in
         Impl.VDI.remove_from_sm_config context ~dbg ~sr ~vdi ~key
 
+      let add_tags context ~dbg ~sr ~vdi ~key =
+        with_dbg ~name:"VDI.add_tags" ~dbg @@ fun di ->
+        info "VDI.add_tags dbg:%s sr:%s vdi:%s key:%s" di.log (s_of_sr sr)
+          (s_of_vdi vdi) key ;
+        let dbg = Debug_info.to_string di in
+        Impl.VDI.add_tags context ~dbg ~sr ~vdi ~key
+
+      let remove_tags context ~dbg ~sr ~vdi ~key =
+        with_dbg ~name:"VDI.remove_tags" ~dbg @@ fun di ->
+        info "VDI.remove_tags dbg:%s sr:%s vdi:%s key:%s" di.log (s_of_sr sr)
+          (s_of_vdi vdi) key ;
+        let dbg = Debug_info.to_string di in
+        Impl.VDI.remove_tags context ~dbg ~sr ~vdi ~key
+
       let get_url context ~dbg ~sr ~vdi =
         with_dbg ~name:"VDI.get_url" ~dbg @@ fun di ->
         info "VDI.get_url dbg:%s sr:%s vdi:%s" di.log (s_of_sr sr) (s_of_vdi vdi) ;
