@@ -23,7 +23,7 @@ let with_setup rpc session_id sr vm_template f =
   print_endline "Setting up test VM" ;
   let uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:vm_template in
   print_endline (Printf.sprintf "Template has uuid: %s%!" uuid) ;
-  let@ vm = Qt.VM.with_new rpc session_id ~template:vm_template ~sr in
+  let@ vm = Qt.VM.with_new rpc session_id ~template:vm_template ~sr ?iso:None in
   print_endline (Printf.sprintf "Installed new VM") ;
   print_endline
     (Printf.sprintf "Using SR: %s"
@@ -54,7 +54,7 @@ let with_cd_setup rpc session_id sr vm_template f =
   print_endline (Printf.sprintf "%s: Setting up VM" __FUNCTION__) ;
   let uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:vm_template in
   print_endline (Printf.sprintf "Template has uuid: %s%!" uuid) ;
-  let@ vm = Qt.VM.with_new rpc session_id ~template:vm_template ~sr in
+  let@ vm = Qt.VM.with_new rpc session_id ~template:vm_template ~sr ?iso:None in
   print_endline (Printf.sprintf "Installed new VM") ;
   print_endline
     (Printf.sprintf "Using SR: %s"
