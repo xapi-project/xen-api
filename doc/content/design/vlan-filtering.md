@@ -32,18 +32,6 @@ Frames are sent either tagged (IEEE 802.1Q) or untagged depending on port config
 
 VLAN filtering is commonly used to isolate network segments, and provides only partial view of a trunk link to VM.
 
-This document introduces the following enhancements to that design:
-
-* Explicit separation of root CA certificates and peer certificates:
-In the base design, both certificate types share the same database schema, APIs, and are stored together in a single bundle file.
-This makes it difficult to determine the appropriate validation approach based on the certificate type.
-The improvement introduces a type value to separate root CA certificates and peer certificates explicitly.
-
-* Add a "purpose" attribute for trusted certificates:
-According to the base design, only certificates used for internal TLS connections among XAPI processes within a pool are stored separately.
-All other trusted certificates are grouped in a single bundle, which may include certificates for multiple purposes.
-By introducing a "purpose" attribute, certificates can be organized by their intended use, improving clarity and reducing ambiguity.
-
 ## Use Cases
 
 The general use case is providing trunk to some VM in multi-tenants configuration.
