@@ -532,36 +532,6 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 
 (**************************************************************************************)
 
-(* Helper function to create a new VDI record with all fields copied from
-   an original, except ref and *_operations, UUID and others supplied as optional arguments.
-   If a new UUID is not supplied, a fresh one is generated.
-   storage_lock defaults to false.
-   Parent defaults to Ref.null.
-*)
-(*let clone_record ~uuid ?name_label ?name_description ?sR ?virtual_size ?location
-    ?physical_utilisation ?_type ?sharable ?read_only ?storage_lock ?other_config ?parent
-    ?xenstore_data ?sm_config ~current_operations ~__context ~original () =
-  let a = Db.VDI.get_record_internal ~__context ~self:original in
-  let r = Ref.make () in
-  Db.VDI.create ~__context ~ref:r
-    ~uuid:(Uuidx.to_string uuid)
-    ~name_label:(default a.Db_actions.vDI_name_label name_label)
-    ~name_description:(default a.Db_actions.vDI_name_description name_description)
-    ~allowed_operations:[] ~current_operations
-    ~sR:(default a.Db_actions.vDI_SR sR)
-    ~virtual_size:(default a.Db_actions.vDI_virtual_size virtual_size)
-    ~physical_utilisation:(default a.Db_actions.vDI_physical_utilisation physical_utilisation)
-    ~_type:(default a.Db_actions.vDI_type _type)
-    ~sharable:(default a.Db_actions.vDI_sharable sharable)
-    ~read_only:(default a.Db_actions.vDI_read_only read_only)
-    ~other_config:(default a.Db_actions.vDI_other_config other_config)
-    ~storage_lock:(default false storage_lock)
-    ~location:(default a.Db_actions.vDI_location location) ~managed:true ~missing:false
-    ~xenstore_data:(default a.Db_actions.vDI_xenstore_data xenstore_data)
-    ~sm_config:(default a.Db_actions.vDI_sm_config sm_config)
-    ~parent:(default Ref.null parent);
-  r*)
-
 (* This function updates xapi's database for a single VDI. The row will be created if it doesn't exist *)
 let update_vdi_db ~__context ~sr newvdi =
   let open Xapi_database.Db_filter_types in
