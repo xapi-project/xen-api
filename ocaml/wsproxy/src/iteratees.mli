@@ -61,9 +61,6 @@ module Iteratee : functor (IO : Monad) -> sig
   val ie_errM :
     err -> (stream -> ('a t * stream) IO.t) -> 'b -> ('a t * 'b) IO.t
 
-  val state : 'a t -> string
-  (** Return a string representation of the state of the monad *)
-
   val peek : char option t
   (** Here are the first iteratees
         peek - iteratee that look at the first character in the stream
@@ -105,12 +102,6 @@ module Iteratee : functor (IO : Monad) -> sig
   (** drop_while - iteratee that drops characters from the stream while they
         satisfy the supplied predicate *)
 
-  val accumulate : string t
-  (** accumulate - Simply accumulate the stream until EOF *)
-
-  val apply : (string -> unit) -> unit t
-  (** apply - applies the chunks to the supplied function (for side effect) *)
-
   val liftI : 'a t IO.t -> 'a t
   (** liftI - turn an iteratee hiding inside the monad into an iteratee *)
 
@@ -129,19 +120,11 @@ module Iteratee : functor (IO : Monad) -> sig
   (** enum_nchunk - Gives the supplied string to the iteratee in chunks of length n.
         Good for testing *)
 
-  val extract_result_from_iteratee : 'a t -> 'a
-  (** extract_result_from_iteratee - Given a 'done' iteratee, pull the result out *)
-
   (** Enumeratees *)
-
-  (** An enumeratee is a function that takes an iteratee and returns a new iteratee.
-        It acts as an iteratee to the outside world, but as an enumerator to the supplied
-        iteratee *)
-  type 'a enumeratee = 'a t -> 'a t t
 
   val take : int -> 'a t -> 'a t t
   (** take - takes exactly n characters from the input stream and applies them to
-        the inner stream *)
+        the (supplied) inner stream *)
 
   val stream_printer : string -> 'a t -> 'a t t
   (** stream_printer - given a name and an iteratee i, returns an iteratee that
@@ -150,8 +133,4 @@ module Iteratee : functor (IO : Monad) -> sig
   val modify : (string -> string) -> 'a t -> 'a t t
   (** modify - Modify the stream in some way before giving the result to the
         inner stream. For example, one could base64 encode things this way *)
-
-  type 'a either = Left of 'a | Right of 'a
-
-  val read_lines : string list either t
 end
