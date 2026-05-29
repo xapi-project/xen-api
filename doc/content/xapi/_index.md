@@ -36,8 +36,8 @@ The following diagram shows the internals of Xapi:
 
 The top of the diagram shows the XenAPI clients: XenCenter, XenOrchestra,
 OpenStack and CloudStack using XenAPI and HTTP GET/PUT over ports 80 and 443 to
-talk to xapi. These XenAPI (JSON-RPC or XML-RPC over HTTP POST) and HTTP
-GET/PUT are always authenticated using either PAM (by default using the local
+talk to xapi. These XenAPI communications (JSON-RPC or XML-RPC over HTTP
+POST and HTTP GET/PUT) are always authenticated using either PAM (by default using the local
 passwd and group files) or through Active Directory.
 
 The APIs are classified into categories:
@@ -50,9 +50,9 @@ The APIs are classified into categories:
   hosts which have the most efficient access to the data.
 - emergency: these deal with scenarios where the coordinator is offline
 
-If the incoming API call should be resent to the coordinator than a XenAPI
-`HOST_IS_SLAVE` error message containing the coordinator's IP is sent to the
-client.
+If the incoming API call should be resent to the coordinator then a XenAPI
+`HOST_IS_SLAVE` error message containing the coordinator's IP is sent
+back to the client.
 
 Once past the initial checks, API calls enter the "message forwarding" layer which
 
@@ -62,9 +62,9 @@ Once past the initial checks, API calls enter the "message forwarding" layer whi
 If the request should run locally then a direct function call is used;
 otherwise the message forwarding code makes a synchronous API call to a
 specific other host. Note: Xapi currently employs a "thread per request" model
-which causes one full POSIX thread to be created for every request. Even when a
-request is forwarded the full thread persists, blocking for the result to
-become available.
+which causes one POSIX thread to be created for each request. Even when a
+request is forwarded its thread persists, blocking until the result
+becomes available.
 
 If the XenAPI call is a VM lifecycle operation then it is converted into a
 Xenopsd API call and forwarded over a Unix domain socket. Xapi and Xenopsd have
@@ -74,8 +74,8 @@ cancellation is passed through and progress updates are received.
 
 If the XenAPI call is a storage operation then the "storage access" layer
 
-- verifies that the storage objects are in the correct state (SR 
-  attached/detached; VDI attached/activated read-only/read-write)
+- verifies that the storage objects are in the correct state (SR
+  attached/detached; VDI attached/activated; read-only/read-write)
 - invokes the relevant operation in the Storage Manager API (SMAPI) v2
   interface;
 - depending on the type of SR:
@@ -95,21 +95,22 @@ to other clients. The SMAPIv1 plugins also rely on Xapi for
 - safely executing code on other hosts via the "Xapi plugin" mechanism
 
 The Xapi database contains Host and VM metadata and is shared pool-wide. The
-coordinator keeps a copy in memory, and all other nodes remote queries to the
+coordinator keeps a copy in memory, and all other nodes send remote queries to the
 coordinator. The database associates each object with a generation count which
 is used to implement the XenAPI `event.next` and `event.from` APIs. The
 database is routinely asynchronously flushed to disk in XML format. If the
-"redo-log" is enabled then all database writes are made synchronously as deltas
-to a shared block device. Without the redo-log, recent updates may be lost if
+"redo-log" is enabled then all database writes are written synchronously as deltas
+to a shared block device. Without the "redo-log", recent updates may be lost if
 Xapi is killed before a flush.
 
-High-Availability refers to planning for host failure, monitoring host liveness
-and then following-through on the plans. Xapi defers to an external host
-liveness monitor called `xhad`. When `xhad` confirms that a host has failed --
-and has been isolated from the storage -- then Xapi will restart any VMs which
-have failed and which have been marked as "protected" by HA. Xapi can also
-impose admission control to prevent the pool becoming too overloaded to cope
-with `n` arbitrary host failures.
+High-Availability refers to planning for host failure, monitoring host
+liveness and then following-through on the plans. Xapi defers HA to an
+external host liveness monitor called `xhad`. When `xhad` confirms that
+a host has failed -- and has been isolated from the storage -- then Xapi
+will restart any VMs which have failed and which have been marked as
+"protected" by HA. Xapi can also impose admission control to prevent the
+pool from becoming overloaded and thus unable to cope with an arbitrary
+number of host failures.
 
 The `xe` CLI is implemented in terms of the XenAPI, but for efficiency the
 implementation is linked directly into Xapi. The `xe` program remotes its
