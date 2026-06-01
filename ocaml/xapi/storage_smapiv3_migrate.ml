@@ -545,6 +545,71 @@ let rec dfs_process_node ~ctx ~working_vdi ~working_dp ~nbd_uri ~counter ~total
   in
   this_relation :: (inactive_relations @ active_relations)
 
+(** SXM v3 (SMAPIv3) pre-flight: the destination reconstructs the base chain
+    from the VM-snapshot tree, so refuse snapshot shapes that tree cannot
+    express - hidden VDI.snapshots and orphan snapshot VDIs. *)
+let assert_migratable ~__context ~vm_uuid ~active_vdis ~snapshot_vdis =
+  let uuid self = Db.VDI.get_uuid ~__context ~self in
+  let sr_of vdi = Db.VDI.get_SR ~__context ~self:vdi in
+  let is_v3_vdi vdi =
+    Storage_mux_reg.smapi_version_of_sr
+      (Storage_interface.Sr.of_string
+         (Db.SR.get_uuid ~__context ~self:(sr_of vdi))
+      )
+    = SMAPIv3
+  in
+  let active_disks = List.sort_uniq compare active_vdis in
+  let vm_snapshot_disks = snapshot_vdis in
+  let abort what items render =
+    if items <> [] then
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.operation_not_allowed
+           , [
+               Printf.sprintf "Cannot migrate VM %s: %s [%s]" vm_uuid what
+                 (String.concat "; " (List.map render items))
+             ]
+           )
+        )
+  in
+  (* hidden: VDI.snapshots of an active disk not backing any VM snapshot *)
+  let hidden =
+    List.concat_map
+      (fun active ->
+        Db.VDI.get_snapshots ~__context ~self:active
+        |> List.filter (fun s ->
+            (not (List.mem s vm_snapshot_disks)) && is_v3_vdi s
+        )
+        |> List.map (fun s -> (s, active))
+      )
+      active_disks
+  in
+  abort
+    "it has VDI-level snapshots on SMAPIv3 SRs that are not part of any VM \
+     snapshot and must be deleted before migrating:"
+    hidden (fun (s, active) ->
+      Printf.sprintf "%s (snapshot of active disk %s)" (uuid s) (uuid active)
+  ) ;
+  (* orphans: a VM-snapshot disk whose active disk was deleted has no live
+     leaf to anchor it on at the destination, so refuse unconditionally *)
+  let orphaned s =
+    let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:s in
+    not
+      (Db.is_valid_ref __context snapshot_of
+      && List.mem snapshot_of active_disks
+      )
+  in
+  let orphans =
+    List.filter (fun s -> is_v3_vdi s && orphaned s) snapshot_vdis
+  in
+  abort
+    "it has orphan snapshot VDIs on SMAPIv3 SRs whose active disk was deleted; \
+     delete these snapshots before migrating:"
+    orphans (fun s ->
+      Printf.sprintf "%s (SR %s)" (uuid s)
+        (Db.SR.get_uuid ~__context ~self:(sr_of s))
+  )
+
 module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
 
