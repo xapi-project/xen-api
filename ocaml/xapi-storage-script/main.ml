@@ -1814,6 +1814,20 @@ end
 module DATAImpl (M : META) = struct
   module VDI = VDIImpl (M)
 
+  (* per-(sr,vdi) cache to avoid Volume.stat RPC on every mirror poll.
+     No mutex: this module runs single-threaded under Lwt. *)
+  let vdi_stat_cache = Base.Hashtbl.create ~size:16 (module Base.String)
+
+  let stat_resolve_clone_on_boot ~dbg ~sr ~vdi =
+    VDI.stat ~dbg ~sr ~vdi >>>= fun response ->
+    match
+      List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
+    with
+    | None ->
+        return response
+    | Some temporary ->
+        VDI.stat ~dbg ~sr ~vdi:temporary
+
   let stat dbg sr vdi' _vm key =
     let open Storage_interface in
     let convert_key = function
@@ -1823,16 +1837,16 @@ module DATAImpl (M : META) = struct
           Data_client.MirrorV1 k
     in
 
+    let sr_str = Sr.string_of sr in
     let vdi = Vdi.string_of vdi' in
+    let cache_key = sr_str ^ "/" ^ vdi in
+
     Attached_SRs.find sr >>>= fun sr ->
-    VDI.stat ~dbg ~sr ~vdi >>>= fun response ->
-    ( match
-        List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
-      with
+    ( match Base.Hashtbl.find vdi_stat_cache cache_key with
+      | Some cached_response ->
+          return cached_response
       | None ->
-          return response
-      | Some temporary ->
-          VDI.stat ~dbg ~sr ~vdi:temporary
+          stat_resolve_clone_on_boot ~dbg ~sr ~vdi
       )
     >>>= fun response ->
     choose_datapath response >>>= fun (rpc, _datapath, _uri) ->
@@ -1840,6 +1854,7 @@ module DATAImpl (M : META) = struct
     return_data_rpc (fun () -> Data_client.stat (rpc ~dbg) dbg key)
     >>>= function
     | {failed; complete; progress} ->
+        if complete || failed then Base.Hashtbl.remove vdi_stat_cache cache_key ;
         return Mirror.{failed; complete; progress}
 
   let stat_impl dbg sr vdi vm key = wrap @@ stat dbg sr vdi vm key
@@ -1848,19 +1863,14 @@ module DATAImpl (M : META) = struct
     let* () =
       info (fun m -> m "image_format (%s) is not currently used" image_format)
     in
+    let sr_str = Storage_interface.Sr.string_of sr in
     let vdi = Storage_interface.Vdi.string_of vdi' in
     let domain = Storage_interface.Vm.string_of vm' in
+    let cache_key = sr_str ^ "/" ^ vdi in
+
     Attached_SRs.find sr >>>= fun sr ->
-    VDI.stat ~dbg ~sr ~vdi >>>= fun response ->
-    ( match
-        List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
-      with
-      | None ->
-          return response
-      | Some temporary ->
-          VDI.stat ~dbg ~sr ~vdi:temporary
-      )
-    >>>= fun response ->
+    stat_resolve_clone_on_boot ~dbg ~sr ~vdi >>>= fun response ->
+    Base.Hashtbl.set vdi_stat_cache ~key:cache_key ~data:response ;
     choose_datapath response >>>= fun (rpc, _datapath, uri) ->
     return_data_rpc (fun () ->
         Data_client.mirror (rpc ~dbg) dbg uri domain remote
