@@ -1189,9 +1189,9 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
       (Storage_interface.Vdi.string_of remote_vdi) ;
     (mirror_id, remote_vdi)
   in
-  let post_mirror mirror_id mirror_record =
+  let post_mirror mirror_id mirror_records =
     try
-      let result = continuation mirror_record in
+      let result = continuation mirror_records in
       ( match mirror_id with
       | Some mid ->
           ignore (Storage_access.unregister_mirror mid)
@@ -1223,6 +1223,43 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
       else
         raise e
   in
+  let get_snapshot_relations mirror_id =
+    match mirror_id with
+    | Some mid ->
+        let relations =
+          Storage_migrate_helper.State.get_snapshot_mappings mid
+        in
+        if relations <> [] then
+          debug "retrieved %d snapshot relation(s) for mirror %s"
+            (List.length relations) mid ;
+        relations
+    | None ->
+        []
+  in
+  let create_snapshot_mirror_record
+      (r : Storage_migrate_helper.State.snapshot_relation) =
+    let src_uuid = Storage_interface.Vdi.string_of r.src_vdi in
+    let dest_uuid = Storage_interface.Vdi.string_of r.dest_vdi in
+    let src_ref = Db.VDI.get_by_uuid ~__context ~uuid:src_uuid in
+    let dest_ref =
+      XenAPI.VDI.get_by_uuid ~rpc:remote.rpc ~session_id:remote.session
+        ~uuid:dest_uuid
+    in
+    {
+      mr_dp= None
+    ; mr_mirrored= false
+    ; mr_local_sr= vconf.sr
+    ; mr_local_vdi= r.src_vdi
+    ; mr_remote_sr= dest_sr
+    ; mr_remote_vdi= r.dest_vdi
+    ; mr_local_xenops_locator=
+        Xapi_xenops.xenops_vdi_locator_of vconf.sr r.src_vdi
+    ; mr_remote_xenops_locator=
+        Xapi_xenops.xenops_vdi_locator_of dest_sr r.dest_vdi
+    ; mr_local_vdi_reference= src_ref
+    ; mr_remote_vdi_reference= dest_ref
+    }
+  in
   if mirror then
     with_new_dp (fun new_dp ->
         let mirror_id, remote_vdi = mirror_to_remote new_dp in
@@ -1230,7 +1267,18 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
             let mirror_record =
               get_mirror_record ~new_dp remote_vdi remote_vdi_ref
             in
-            post_mirror mirror_id mirror_record
+            let snapshot_relations = get_snapshot_relations mirror_id in
+            let snapshot_mirror_records =
+              List.map create_snapshot_mirror_record snapshot_relations
+            in
+            let all_mirror_records = mirror_record :: snapshot_mirror_records in
+            Fun.protect
+              ~finally:(fun () ->
+                Option.iter
+                  Storage_migrate_helper.State.remove_snapshot_mappings
+                  mirror_id
+              )
+              (fun () -> post_mirror mirror_id all_mirror_records)
         )
     )
   else
@@ -1240,7 +1288,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
            ~uuid:vdi_uuid
         )
     in
-    continuation mirror_record
+    continuation [mirror_record]
 
 let wait_for_fist __context fistpoint name =
   if fistpoint () then (
@@ -1255,14 +1303,15 @@ let wait_for_fist __context fistpoint name =
     )
   )
 
-(* Helper function to apply a 'with_x' function to a list *)
+(* Helper function to apply a 'with_x' function to a list. The continuation
+   receives a list per item; results are concatenated so [fn] sees a flat list. *)
 let rec with_many withfn many fn =
   let rec inner l acc =
     match l with
     | [] ->
         fn acc
     | x :: xs ->
-        withfn x (fun y -> inner xs (y :: acc))
+        withfn x (fun ys -> inner xs (ys @ acc))
   in
   inner many []
 
@@ -1316,6 +1365,75 @@ let check_vdi_map ~__context vms_vdis vdi_map =
         )
       )
       vms_vdis
+  )
+
+let is_smapiv3_sr sr =
+  try Storage_mux_reg.smapi_version_of_sr sr = SMAPIv3
+  with Storage_interface.Storage_error (No_storage_plugin_for_sr _) -> false
+
+(** SXM v3 (SMAPIv3) pre-flight: the destination reconstructs the base chain
+    from the VM-snapshot tree, so refuse snapshot shapes that tree cannot
+    express - hidden VDI.snapshots and orphan snapshot VDIs. *)
+let assert_sxm_v3_migratable ~__context ~vm_uuid ~vms_vdis ~snapshots_vdis =
+  let sr_of vdi = Db.VDI.get_SR ~__context ~self:vdi in
+  let uuid self = Db.VDI.get_uuid ~__context ~self in
+  let smapiv3_vdi vdi =
+    is_smapiv3_sr
+      (Storage_interface.Sr.of_string
+         (Db.SR.get_uuid ~__context ~self:(sr_of vdi))
+      )
+  in
+  let active_disks =
+    List.sort_uniq compare (List.map (fun v -> v.vdi) vms_vdis)
+  in
+  let vm_snapshot_disks = List.map (fun v -> v.vdi) snapshots_vdis in
+  let abort what items render =
+    if items <> [] then
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.operation_not_allowed
+           , [
+               Printf.sprintf "Cannot migrate VM %s: %s [%s]" vm_uuid what
+                 (String.concat "; " (List.map render items))
+             ]
+           )
+        )
+  in
+  (* hidden: VDI.snapshots of an active disk not backing any VM snapshot *)
+  let hidden =
+    List.concat_map
+      (fun active ->
+        Db.VDI.get_snapshots ~__context ~self:active
+        |> List.filter (fun s ->
+            (not (List.mem s vm_snapshot_disks)) && smapiv3_vdi s
+        )
+        |> List.map (fun s -> (s, active))
+      )
+      active_disks
+  in
+  abort
+    "it has VDI-level snapshots on SMAPIv3 SRs that are not part of any VM \
+     snapshot and must be deleted before migrating:"
+    hidden (fun (s, active) ->
+      Printf.sprintf "%s (snapshot of active disk %s)" (uuid s) (uuid active)
+  ) ;
+  (* orphans: a VM-snapshot disk whose active disk was deleted has no live
+     leaf to anchor it on at the destination, so refuse unconditionally *)
+  let orphaned v =
+    not
+      (Db.is_valid_ref __context v.snapshot_of
+      && List.mem v.snapshot_of active_disks
+      )
+  in
+  let orphans =
+    List.filter (fun v -> is_smapiv3_sr v.sr && orphaned v) snapshots_vdis
+  in
+  abort
+    "it has orphan snapshot VDIs on SMAPIv3 SRs whose active disk was deleted; \
+     delete these snapshots before migrating:"
+    orphans (fun v ->
+      Printf.sprintf "%s (SR %s)" (uuid v.vdi)
+        (Db.SR.get_uuid ~__context ~self:(sr_of v.vdi))
   )
 
 let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vdi_format_map ~vif_map
@@ -1398,6 +1516,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vdi_format_map ~vif_map
   let snapshots_vdis =
     List.filter_map (vdi_filter __context false) snapshots_vbds
   in
+  assert_sxm_v3_migratable ~__context ~vm_uuid ~vms_vdis ~snapshots_vdis ;
   let suspends_vdis =
     List.fold_left
       (fun acc vm_or_snapshot ->
@@ -1450,10 +1569,14 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vdi_format_map ~vif_map
     else
       host_suspend_SR
   in
-  (* Resolve placement of unspecified VDIs here - unspecified VDIs that
-            are 'snapshot_of' a specified VDI go to the same place. suspend VDIs
-            that are unspecified go to the suspend_sr_ref defined above *)
-  let extra_vdis = suspends_vdis @ snapshots_vdis in
+  (* Resolve placement of unspecified VDIs here. Unspecified VDIs that
+     are 'snapshot_of' a specified VDI go to the same place. Suspend VDIs
+     that are unspecified go to the suspend_sr_ref defined above.
+     SMAPIv3 snapshots are excluded because they are mirrored during send_start. *)
+  let copyable_snapshots =
+    List.filter (fun vconf -> not (is_smapiv3_sr vconf.sr)) snapshots_vdis
+  in
+  let extra_vdis = suspends_vdis @ copyable_snapshots in
   let extra_vdi_map =
     List.map
       (fun vconf ->
