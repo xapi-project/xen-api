@@ -1465,6 +1465,14 @@ module VDIImpl (M : META) = struct
     >>>= (fun sr ->
     clone ~dbg ~sr
       ~vdi:(Storage_interface.Vdi.string_of vdi_info.Storage_interface.vdi)
+    >>>= update_keys ~dbg ~sr ~key:_vdi_type_key
+           ~value:
+             ( match vdi_info.Storage_interface.ty with
+             | "" ->
+                 None
+             | s ->
+                 Some s
+             )
     >>>= fun response -> return (vdi_of_volume response)
     )
     |> wrap
