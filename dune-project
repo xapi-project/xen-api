@@ -50,6 +50,7 @@
 
 (package
  (name tgroup)
+ (synopsis "Thread group management library")
  (depends xapi-log xapi-stdext-unix))
 
 (package
