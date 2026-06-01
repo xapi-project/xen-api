@@ -10,6 +10,7 @@ let () =
      ; ("Test_vdi_allowed_operations", Test_vdi_allowed_operations.test)
      ; ("Test_sr_allowed_operations", Test_sr_allowed_operations.test)
      ; ("Test_vm_migrate", Test_vm_migrate.test)
+     ; ("Test_storage_smapiv3_migrate", Test_storage_smapiv3_migrate.test)
      ; ("Test_no_migrate", Test_no_migrate.test)
      ; ("Test_vm_check_operation_error", Test_vm_check_operation_error.test)
      ; ("Test_xapi_vbd_helpers", Test_xapi_vbd_helpers.test)

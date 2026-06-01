@@ -236,6 +236,18 @@ module State : sig
   val copy_id_of : Storage_interface.sr * Storage_interface.vdi -> string
 
   val of_copy_id : string -> Storage_interface.sr * Storage_interface.vdi
+
+  type snapshot_relation = {
+      src_vdi: Storage_interface.Vdi.t
+    ; dest_vdi: Storage_interface.Vdi.t
+    ; snapshot_time: Clock.Date.t
+  }
+
+  val set_snapshot_mappings : string -> snapshot_relation list -> unit
+
+  val get_snapshot_mappings : string -> snapshot_relation list
+
+  val remove_snapshot_mappings : string -> unit
 end
 
 val vdi_info :
