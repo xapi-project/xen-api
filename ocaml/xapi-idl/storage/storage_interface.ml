@@ -978,6 +978,23 @@ module StorageAPI (R : RPC) = struct
       declare "VDI.set_content_id" []
         (dbg_p @-> sr_p @-> vdi_p @-> content_id_p @-> returning unit_p err)
 
+    (** [set_snapshot_metadata sr vdi snapshot_of snapshot_time is_a_snapshot] tells
+        the storage backend that [vdi] is a snapshot of [snapshot_of] taken at
+        [snapshot_time]. *)
+    let set_snapshot_metadata =
+      let snapshot_of_p = Param.mk ~name:"snapshot_of" Vdi.t in
+      let snapshot_time_p = Param.mk ~name:"snapshot_time" Types.string in
+      let is_a_snapshot_p = Param.mk ~name:"is_a_snapshot" Types.bool in
+      declare "VDI.set_snapshot_metadata" []
+        (dbg_p
+        @-> sr_p
+        @-> vdi_p
+        @-> snapshot_of_p
+        @-> snapshot_time_p
+        @-> is_a_snapshot_p
+        @-> returning unit_p err
+        )
+
     (** [compose task sr parent child] layers the updates from [child] onto [parent],
         modifying [child] *)
     let compose =
@@ -1628,6 +1645,16 @@ module type Server_impl = sig
       -> content_id:content_id
       -> unit
 
+    val set_snapshot_metadata :
+         context
+      -> dbg:debug_info
+      -> sr:sr
+      -> vdi:vdi
+      -> snapshot_of:vdi
+      -> snapshot_time:string
+      -> is_a_snapshot:bool
+      -> unit
+
     val compose :
       context -> dbg:debug_info -> sr:sr -> vdi1:vdi -> vdi2:vdi -> unit
 
@@ -1838,6 +1865,11 @@ module Server (Impl : Server_impl) () = struct
     S.VDI.get_by_name (fun dbg sr name -> Impl.VDI.get_by_name () ~dbg ~sr ~name) ;
     S.VDI.set_content_id (fun dbg sr vdi content_id ->
         Impl.VDI.set_content_id () ~dbg ~sr ~vdi ~content_id
+    ) ;
+    S.VDI.set_snapshot_metadata
+      (fun dbg sr vdi snapshot_of snapshot_time is_a_snapshot ->
+        Impl.VDI.set_snapshot_metadata () ~dbg ~sr ~vdi ~snapshot_of
+          ~snapshot_time ~is_a_snapshot
     ) ;
     S.VDI.compose (fun dbg sr vdi1 vdi2 ->
         Impl.VDI.compose () ~dbg ~sr ~vdi1 ~vdi2

@@ -1347,6 +1347,20 @@ module VDIImpl (M : META) = struct
         Volume_client.unset (volume_rpc ~dbg ?missing) dbg sr vdi key
     )
 
+  (* Non-transactional, like other multi-key setters here; the XAPI DB
+     updated by SR.update_snapshot_info_dest is authoritative and wins on
+     SR.scan. *)
+  let set_snapshot_metadata ~dbg ~sr ~vdi ~snapshot_of ~snapshot_time
+      ~is_a_snapshot =
+    let vdi_str = Storage_interface.Vdi.string_of vdi in
+    let snapshot_of_str = Storage_interface.Vdi.string_of snapshot_of in
+    set ~dbg ~sr ~vdi:vdi_str ~key:_snapshot_of_key ~value:snapshot_of_str
+    >>>= fun () ->
+    set ~dbg ~sr ~vdi:vdi_str ~key:_snapshot_time_key ~value:snapshot_time
+    >>>= fun () ->
+    set ~dbg ~sr ~vdi:vdi_str ~key:_is_a_snapshot_key
+      ~value:(string_of_bool is_a_snapshot)
+
   let stat ~dbg ~sr ~vdi =
     (* TODO add default value to sharable? *)
     return_volume_rpc (fun () ->
@@ -1736,6 +1750,17 @@ module VDIImpl (M : META) = struct
     let* () = set ~dbg ~sr ~vdi ~key:_vdi_content_id_key ~value:content_id in
     return ()
 
+  let vdi_set_snapshot_metadata_impl dbg sr vdi snapshot_of snapshot_time
+      is_a_snapshot =
+    wrap
+    @@
+    let* sr = Attached_SRs.find sr in
+    let* () =
+      set_snapshot_metadata ~dbg ~sr ~vdi ~snapshot_of ~snapshot_time
+        ~is_a_snapshot
+    in
+    return ()
+
   let vdi_add_to_sm_config_impl dbg sr vdi key value =
     wrap
     @@
@@ -1958,6 +1983,7 @@ let bind ~volume_script_dir =
   S.VDI.data_destroy VDI.vdi_data_destroy_impl ;
   S.VDI.compose VDI.vdi_compose_impl ;
   S.VDI.set_content_id VDI.vdi_set_content_id_impl ;
+  S.VDI.set_snapshot_metadata VDI.vdi_set_snapshot_metadata_impl ;
   S.VDI.add_to_sm_config VDI.vdi_add_to_sm_config_impl ;
   S.VDI.remove_from_sm_config VDI.vdi_remove_from_sm_config_impl ;
   S.VDI.similar_content VDI.similar_content_impl ;
