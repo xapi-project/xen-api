@@ -92,3 +92,5 @@ val sr : SR.srs -> (Qt.sr_info -> 'b, 'b) filter
 val vm_template : string -> (API.ref_VM -> 'b, 'b) filter
 
 val memtest_iso : ?prefix:string -> (API.vDI_t -> 'a, 'a) filter
+
+val migration_path : SR.srs -> (Qt.sr_info * Qt.sr_info -> 'b, 'b) filter
