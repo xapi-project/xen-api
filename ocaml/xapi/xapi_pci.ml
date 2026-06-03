@@ -323,7 +323,14 @@ let get_system_display_device () =
   with _ -> None
 
 let disable_dom0_access ~__context ~self =
-  Xapi_pci_helpers.update_dom0_access ~__context ~self ~action:`disable
+  (* Disallow passing through a dom0 boot device *)
+  let pci_id = Db.PCI.get_pci_id ~__context ~self in
+  match Xapi_pci_helpers.find_boot_device () with
+  | Some (boot_device, path) when pci_id = boot_device ->
+      raise
+        Api_errors.(Server_error (boot_device_passthrough_disallowed, [path]))
+  | _ ->
+      Xapi_pci_helpers.update_dom0_access ~__context ~self ~action:`disable
 
 let enable_dom0_access ~__context ~self =
   Xapi_pci_helpers.update_dom0_access ~__context ~self ~action:`enable
