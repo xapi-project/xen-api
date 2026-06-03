@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module LRU = Xapi_rate_limit.Lru
+module LRU = Rate_limit_lib.Lru
 
 (* Generators *)
 let kvs =
