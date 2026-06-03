@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Caller_table = Xapi_rate_limit.Caller_table
+module Caller_table = Rate_limit_lib.Caller_table
 open Caller_table.Key
 
 (* Build a target (Key.t) from a single string for the user_agent field. *)

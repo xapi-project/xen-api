@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Rate_limit = Xapi_rate_limit.Rate_limit
+module Rate_limit = Rate_limit_lib.Rate_limit
 
 let test_create_invalid () =
   Alcotest.match_raises "Creating with zero fill rate should raise"

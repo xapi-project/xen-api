@@ -37,6 +37,10 @@ module Key : sig
   val compare : pattern_key -> pattern_key -> int
   (** Total order on patterns: fewer wildcards first, then lexicographic
       by patterns. *)
+
+  val is_all_wildcard : pattern_key -> bool
+  (** [is_all_wildcard k] returns true if every field of [k] is a full
+      wildcard ([Prefix ""]). Such patterns are rejected by [insert]. *)
 end
 
 (** List of entries mapping patterns to values.
@@ -69,3 +73,7 @@ val get_exact : 'a t -> pattern:Key.pattern_key -> 'a option
 (** [get_exact t ~pattern] returns the value for the entry whose pattern
     is exactly equal to [pattern], or [None]. Does not use wildcard
     matching. *)
+
+val to_list : 'a t -> (Key.pattern_key * 'a) list
+(** [to_list t] returns a snapshot of all entries in [t], most specific
+    first. *)

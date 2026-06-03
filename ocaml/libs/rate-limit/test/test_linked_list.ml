@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module LL = Xapi_rate_limit.Linked_list
+module LL = Rate_limit_lib.Linked_list
 
 (* Generators *)
 let chars =

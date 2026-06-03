@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Caller_statistics = Xapi_rate_limit.Caller_statistics
+module Caller_statistics = Rate_limit_lib.Caller_statistics
 
 let test_initial_state () =
   let cs = Caller_statistics.create ~caller_uuid:"uuid-1" in
