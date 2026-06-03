@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Token_bucket = Xapi_rate_limit.Token_bucket
+module Token_bucket = Rate_limit_lib.Token_bucket
 
 let test_bad_fill_rate () =
   Alcotest.match_raises "Creating a token bucket with 0 fill rate should fail"
