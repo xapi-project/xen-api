@@ -1410,6 +1410,25 @@ let gen_cmds rpc session_id =
           ["uuid"; "vendor-name"; "device-name"; "pci-id"]
           rpc session_id
       )
+    ; Client.Caller.(
+        mk get_all_records_where get_by_uuid caller_record "caller" []
+          [
+            "uuid"
+          ; "name-label"
+          ; "name-description"
+          ; "user-agent"
+          ; "client-ip"
+          ; "last-access"
+          ; "groups"
+          ; "rate-limit"
+          ]
+          rpc session_id
+      )
+    ; Client.Rate_limit.(
+        mk get_all_records_where get_by_uuid rate_limit_record "rate-limit" []
+          ["uuid"; "name-label"; "callers"; "burst-size"; "fill-rate"]
+          rpc session_id
+      )
     ]
 
 let message_create (_ : printer) rpc session_id params =
@@ -8397,4 +8416,146 @@ module VM_group = struct
         ~uuid:(List.assoc "uuid" params)
     in
     Client.VM_group.destroy ~rpc ~session_id ~self:ref
+end
+
+module Caller = struct
+  let create printer rpc session_id params =
+    let user_agent = get_param params "user-agent" ~default:"" in
+    let client_ip = get_param params "client-ip" ~default:"" in
+
+    if user_agent = "" && client_ip = "" then
+      failwith "Either user-agent or client-ip must be specified" ;
+
+    let name_label = get_param params "name-label" ~default:"" in
+    let name_description = get_param params "name-description" ~default:"" in
+    let ref =
+      Client.Caller.create ~rpc ~session_id ~name_label ~name_description
+        ~user_agent ~client_ip
+    in
+    let uuid = Client.Caller.get_uuid ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PMsg uuid)
+
+  let destroy _printer rpc session_id params =
+    let ref =
+      Client.Caller.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "uuid" params)
+    in
+    Client.Caller.destroy ~rpc ~session_id ~self:ref
+
+  let query_usage printer rpc session_id params =
+    let uuid = List.assoc_opt "uuid" params in
+    let group = List.assoc_opt "group" params in
+    let result =
+      match (uuid, group) with
+      | Some _, Some _ ->
+          failwith "Specify exactly one of uuid= or group=, not both"
+      | None, None ->
+          failwith "Specify exactly one of uuid= or group="
+      | Some uuid, None ->
+          let self = Client.Caller.get_by_uuid ~rpc ~session_id ~uuid in
+          let tokens = Client.Caller.query_token_usage ~rpc ~session_id ~self in
+          let call_count =
+            Client.Caller.query_call_count ~rpc ~session_id ~self
+          in
+          [
+            ("tokens", Float.to_string tokens)
+          ; ("call_count", Int64.to_string call_count)
+          ]
+      | None, Some group ->
+          let tokens =
+            Client.Caller.query_group_token_usage ~rpc ~session_id ~group
+          in
+          let call_count =
+            Client.Caller.query_group_call_count ~rpc ~session_id ~group
+          in
+          [
+            ("tokens", Float.to_string tokens)
+          ; ("call_count", Int64.to_string call_count)
+          ]
+    in
+    printer (Cli_printer.PTable [result])
+
+  let list_usage printer rpc session_id _params =
+    let rows = Client.Caller.query_all_usage ~rpc ~session_id in
+    let headers = ["uuid"; "name-label"; "tokens"; "calls"] in
+    let table =
+      List.map
+        (fun row ->
+          try List.combine headers row
+          with Invalid_argument _ ->
+            (* Defensive: server schema mismatch *)
+            List.mapi (fun i v -> (string_of_int i, v)) row
+        )
+        rows
+    in
+    printer (Cli_printer.PTable table)
+end
+
+module Rate_limit = struct
+  let create printer rpc session_id params =
+    let name_label = get_param params "name-label" ~default:"" in
+    let name_description = get_param params "name-description" ~default:"" in
+    let burst_size = float_of_string (List.assoc "burst-size" params) in
+    let fill_rate = float_of_string (List.assoc "fill-rate" params) in
+    let ref =
+      Client.Rate_limit.create ~rpc ~session_id ~name_label ~name_description
+        ~burst_size ~fill_rate
+    in
+    ( match List.assoc_opt "caller-uuids" params with
+    | None | Some "" ->
+        ()
+    | Some uuids ->
+        String.split_on_char ',' uuids
+        |> List.map String.trim
+        |> List.iter (fun uuid ->
+            let caller = Client.Caller.get_by_uuid ~rpc ~session_id ~uuid in
+            Client.Rate_limit.add_caller ~rpc ~session_id ~self:ref ~caller
+        )
+    ) ;
+    let uuid = Client.Rate_limit.get_uuid ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PMsg uuid)
+
+  let destroy _printer rpc session_id params =
+    let ref =
+      Client.Rate_limit.get_by_uuid ~rpc ~session_id
+        ~uuid:(List.assoc "uuid" params)
+    in
+    Client.Rate_limit.destroy ~rpc ~session_id ~self:ref
+
+  let add_caller _printer rpc session_id params =
+    let self =
+      Client.Rate_limit.get_by_uuid ~rpc ~session_id
+        ~uuid:(List.assoc "uuid" params)
+    in
+    let caller =
+      Client.Caller.get_by_uuid ~rpc ~session_id
+        ~uuid:(List.assoc "caller-uuid" params)
+    in
+    Client.Rate_limit.add_caller ~rpc ~session_id ~self ~caller
+
+  let remove_caller _printer rpc session_id params =
+    let self =
+      Client.Rate_limit.get_by_uuid ~rpc ~session_id
+        ~uuid:(List.assoc "uuid" params)
+    in
+    let caller =
+      Client.Caller.get_by_uuid ~rpc ~session_id
+        ~uuid:(List.assoc "caller-uuid" params)
+    in
+    Client.Rate_limit.remove_caller ~rpc ~session_id ~self ~caller
+
+  let set_burst_size _printer rpc session_id params =
+    let self =
+      Client.Rate_limit.get_by_uuid ~rpc ~session_id
+        ~uuid:(List.assoc "uuid" params)
+    in
+    let value = float_of_string (List.assoc "value" params) in
+    Client.Rate_limit.set_burst_size ~rpc ~session_id ~self ~value
+
+  let set_fill_rate _printer rpc session_id params =
+    let self =
+      Client.Rate_limit.get_by_uuid ~rpc ~session_id
+        ~uuid:(List.assoc "uuid" params)
+    in
+    let value = float_of_string (List.assoc "value" params) in
+    Client.Rate_limit.set_fill_rate ~rpc ~session_id ~self ~value
 end
