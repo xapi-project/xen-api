@@ -87,6 +87,9 @@ val task_in_database : t -> bool
 val get_origin : t -> string
 (** [get_origin __context] returns a string containing the origin of [__context]. *)
 
+val is_internal_origin : t -> bool
+(** [is_internal_origin __context] returns true if the context originated from an internal operation. *)
+
 val database_of : t -> Xapi_database.Db_ref.t
 (** [database_of __context] returns a database handle, which can be used by Db.* *)
 
