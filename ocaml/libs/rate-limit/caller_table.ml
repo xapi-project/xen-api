@@ -162,3 +162,5 @@ let get_exact t ~pattern =
   let {table; _} = Atomic.get t in
   Option.map snd
     (List.find_opt (fun (key, _) -> Key.equal_pattern key pattern) table)
+
+let to_list t = (Atomic.get t).table
