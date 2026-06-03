@@ -748,6 +748,12 @@ let pool_joining_host_has_network_sriovs =
 let pool_joining_host_tls_verification_mismatch =
   add_error "POOL_JOINING_HOST_TLS_VERIFICATION_MISMATCH"
 
+let pool_joining_master_certificate_not_in_pool_bundle =
+  add_error "POOL_JOINING_MASTER_CERTIFICATE_NOT_IN_POOL_BUNDLE"
+
+let pool_joining_pool_bundle_empty_after_import =
+  add_error "POOL_JOINING_POOL_BUNDLE_EMPTY_AFTER_IMPORT"
+
 let pool_joining_host_ca_certificates_conflict =
   add_error "POOL_JOINING_HOST_CA_CERTIFICATES_CONFLICT"
 
