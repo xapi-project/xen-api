@@ -240,3 +240,24 @@ let update_dom0_access ~__context ~self ~action =
     pgpus ;
 
   new_access
+
+let find_boot_device () =
+  try
+    let open Forkhelpers in
+    let source_device, _ =
+      execute_command_get_output "/usr/bin/findmnt" ["-no"; "source"; "/"]
+    in
+    let source_device = String.trim source_device in
+    let path, _ =
+      execute_command_get_output !Xapi_globs.udevadm
+        ["info"; "-q"; "path"; "-n"; source_device]
+    in
+    match String.split_on_char '/' path with
+    | _ :: _ :: _ :: dev :: _ ->
+        Some (dev, source_device)
+    | _ ->
+        None
+  with e ->
+    warn "Couldn't find the PCI device behind the root drive: %s"
+      (Printexc.to_string e) ;
+    None
