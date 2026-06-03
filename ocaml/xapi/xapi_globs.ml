@@ -1438,6 +1438,11 @@ let factory_ntp_servers = ref []
 
 let legacy_factory_ntp_servers = ref []
 
+(** When false (default), per-caller rate limiting is disabled at runtime:
+    [Xapi_caller.register] and [Xapi_rate_limit.register] are no-ops, the
+    RRD reporter is not started, and dispatch bypasses the caller table. *)
+let rate_limit_enabled = ref false
+
 let other_options =
   [
     gen_list_option "sm-plugins"
@@ -1972,6 +1977,11 @@ let other_options =
       (fun s -> s)
       (fun s -> s)
       factory_ntp_servers
+  ; ( "rate_limit"
+    , Arg.Set rate_limit_enabled
+    , (fun () -> string_of_bool !rate_limit_enabled)
+    , "Enable per-caller rate limiting (Caller / Rate_limit datamodel)."
+    )
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
