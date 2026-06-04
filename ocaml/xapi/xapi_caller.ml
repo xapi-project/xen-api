@@ -152,22 +152,23 @@ let entries_of_table () = Caller_table.to_list caller_table |> List.map snd
 let find_entry_by_ref self =
   entries_of_table () |> List.find_opt (fun entry -> entry.caller_ref = self)
 
-let query_usage ~__context:_ ~self =
-  let tokens, calls =
-    match find_entry_by_ref self with
-    | None ->
-        (0.0, 0.0)
-    | Some entry ->
-        ( Caller_statistics.get_token_count entry.stats
-        , float_of_int (Caller_statistics.get_call_count entry.stats)
-        )
-  in
-  [
-    ("tokens", Printf.sprintf "%.3f" tokens)
-  ; ("calls", Printf.sprintf "%.0f" calls)
-  ]
+let query_token_usage ~__context:_ ~self =
+  match find_entry_by_ref self with
+  | None ->
+      0.0
+  | Some entry ->
+      Caller_statistics.get_token_count entry.stats
 
-let query_group_usage ~__context ~group =
+let query_call_count ~__context:_ ~self =
+  match find_entry_by_ref self with
+  | None ->
+      0L
+  | Some entry ->
+      Int64.of_int (Caller_statistics.get_call_count entry.stats)
+
+(* Entries for every caller currently assigned to [group]. Raises if the group
+   name is empty. *)
+let group_entries ~__context ~group =
   if group = "" then
     raise
       Api_errors.(Server_error (invalid_value, ["group"; "empty group name"])) ;
@@ -175,21 +176,22 @@ let query_group_usage ~__context ~group =
     try List.mem group (Db.Caller.get_groups ~__context ~self:entry.caller_ref)
     with _ -> false
   in
-  let tokens, calls =
-    entries_of_table ()
-    |> List.filter in_group
-    |> List.fold_left
-         (fun (tot_t, tot_c) entry ->
-           ( tot_t +. Caller_statistics.get_token_count entry.stats
-           , tot_c +. float_of_int (Caller_statistics.get_call_count entry.stats)
-           )
-         )
-         (0.0, 0.0)
-  in
-  [
-    ("tokens", Printf.sprintf "%.3f" tokens)
-  ; ("calls", Printf.sprintf "%.0f" calls)
-  ]
+  entries_of_table () |> List.filter in_group
+
+let query_group_token_usage ~__context ~group =
+  group_entries ~__context ~group
+  |> List.fold_left
+       (fun tot entry -> tot +. Caller_statistics.get_token_count entry.stats)
+       0.0
+
+let query_group_call_count ~__context ~group =
+  group_entries ~__context ~group
+  |> List.fold_left
+       (fun tot entry ->
+         Int64.add tot
+           (Int64.of_int (Caller_statistics.get_call_count entry.stats))
+       )
+       0L
 
 let query_all_usage ~__context =
   entries_of_table ()

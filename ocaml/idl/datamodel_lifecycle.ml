@@ -22,27 +22,27 @@ let prototyped_of_field = function
   | "Rate_limit", "burst_size" ->
       Some "26.14.0"
   | "Rate_limit", "callers" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Rate_limit", "name__description" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Rate_limit", "name__label" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Rate_limit", "uuid" ->
       Some "26.14.0"
   | "Caller", "rate_limit" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Caller", "groups" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Caller", "last_access" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Caller", "client_ip" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Caller", "user_agent" ->
       Some "26.14.0"
   | "Caller", "name__description" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Caller", "name__label" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Caller", "uuid" ->
       Some "26.14.0"
   | "Driver_variant", "status" ->
@@ -127,8 +127,6 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
-  | "SM", "supported_image_formats" ->
-      Some "26.14.0-next"
   | "SM", "host_pending_features" ->
       Some "24.37.0"
   | "host", "timezone" ->
@@ -232,31 +230,27 @@ let prototyped_of_field = function
 
 let prototyped_of_message = function
   | "Rate_limit", "set_fill_rate" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Rate_limit", "set_burst_size" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Rate_limit", "remove_caller" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Rate_limit", "add_caller" ->
-      Some "26.14.0-next"
-  | "Rate_limit", "destroy" ->
-      Some "26.14.0"
-  | "Rate_limit", "create" ->
-      Some "26.14.0"
+      Some "26.7.0"
   | "Caller", "query_all_usage" ->
-      Some "26.14.0-next"
-  | "Caller", "query_group_usage" ->
-      Some "26.14.0-next"
-  | "Caller", "query_usage" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
+  | "Caller", "query_group_call_count" ->
+      Some "26.7.0-next"
+  | "Caller", "query_group_token_usage" ->
+      Some "26.7.0-next"
+  | "Caller", "query_call_count" ->
+      Some "26.7.0-next"
+  | "Caller", "query_token_usage" ->
+      Some "26.7.0-next"
   | "Caller", "remove_group" ->
-      Some "26.14.0-next"
+      Some "26.7.0"
   | "Caller", "add_group" ->
-      Some "26.14.0-next"
-  | "Caller", "destroy" ->
-      Some "26.14.0"
-  | "Caller", "create" ->
-      Some "26.14.0"
+      Some "26.7.0"
   | "Driver_variant", "select" ->
       Some "25.2.0"
   | "Host_driver", "rescan" ->

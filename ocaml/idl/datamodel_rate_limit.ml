@@ -18,31 +18,6 @@ open Datamodel_roles
 
 let lifecycle = []
 
-let create =
-  call ~name:"create" ~doc:"Create a new rate limiter" ~in_oss_since:None
-    ~lifecycle
-    ~params:
-      [
-        (String, "name_label", "Human-readable label for the rate limiter")
-      ; ( String
-        , "name_description"
-        , "Human-readable description for the rate limiter"
-        )
-      ; (Float, "burst_size", "Maximum tokens that the bucket can hold")
-      ; (Float, "fill_rate", "Tokens added to the bucket per second")
-      ]
-    ~result:(Ref _rate_limit, "Reference to the newly created rate limiter")
-    ~allowed_roles:_R_POOL_ADMIN ()
-
-let destroy =
-  call ~name:"destroy"
-    ~doc:
-      "Destroy the rate limiter. Also clears the rate_limit field of any \
-       caller currently attached to it."
-    ~in_oss_since:None ~lifecycle
-    ~params:[(Ref _rate_limit, "self", "The rate limiter to destroy")]
-    ~allowed_roles:_R_POOL_ADMIN ()
-
 let add_caller =
   call ~name:"add_caller"
     ~doc:
@@ -90,7 +65,7 @@ let set_fill_rate =
 let t =
   create_obj ~name:_rate_limit
     ~descr:"A rate limiter associated with one or more callers" ~doccomments:[]
-    ~gen_constructor_destructor:false ~gen_events:true ~in_db:true ~lifecycle
+    ~gen_constructor_destructor:true ~gen_events:true ~in_db:true ~lifecycle
     ~persist:PersistEverything ~in_oss_since:None
     ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~contents:
@@ -100,14 +75,11 @@ let t =
       ; field ~qualifier:DynamicRO ~ty:(Set (Ref _caller)) ~lifecycle "callers"
           "The set of callers attached to this rate limiter"
       ; field ~qualifier:StaticRO ~ty:Float ~lifecycle "burst_size"
-          "Maximum tokens that the bucket can hold" ~ignore_foreign_key:true
+          "Maximum tokens that the bucket can hold"
           ~default_value:(Some (VFloat 0.))
       ; field ~qualifier:StaticRO ~ty:Float ~lifecycle "fill_rate"
-          "Tokens added to the bucket per second" ~ignore_foreign_key:true
+          "Tokens added to the bucket per second"
           ~default_value:(Some (VFloat 0.))
       ]
-    ~messages:
-      [
-        create; destroy; add_caller; remove_caller; set_burst_size; set_fill_rate
-      ]
+    ~messages:[add_caller; remove_caller; set_burst_size; set_fill_rate]
     ()

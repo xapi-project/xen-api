@@ -52,11 +52,13 @@ val add_group :
 val remove_group :
   __context:Context.t -> self:API.ref_Caller -> group:string -> unit
 
-val query_usage :
-  __context:Context.t -> self:API.ref_Caller -> (string * string) list
+val query_token_usage : __context:Context.t -> self:API.ref_Caller -> float
 
-val query_group_usage :
-  __context:Context.t -> group:string -> (string * string) list
+val query_call_count : __context:Context.t -> self:API.ref_Caller -> int64
+
+val query_group_token_usage : __context:Context.t -> group:string -> float
+
+val query_group_call_count : __context:Context.t -> group:string -> int64
 
 val query_all_usage : __context:Context.t -> string list list
 

@@ -18,33 +18,6 @@ open Datamodel_roles
 
 let lifecycle = []
 
-let create =
-  call ~name:"create" ~doc:"Create a new caller record" ~in_oss_since:None
-    ~lifecycle
-    ~params:
-      [
-        (String, "name_label", "Human-readable label for the caller")
-      ; (String, "name_description", "Human-readable description for the caller")
-      ; ( String
-        , "user_agent"
-        , "User agent matching pattern. Empty string is a full wildcard; a \
-           trailing '*' makes the field a prefix pattern; otherwise the field \
-           is matched exactly."
-        )
-      ; ( String
-        , "client_ip"
-        , "Client IP matching pattern. Same wildcard semantics as user_agent."
-        )
-      ]
-    ~result:(Ref _caller, "Reference to the newly created caller")
-    ~allowed_roles:_R_POOL_ADMIN ()
-
-let destroy =
-  call ~name:"destroy" ~doc:"Destroy the given caller record" ~in_oss_since:None
-    ~lifecycle
-    ~params:[(Ref _caller, "self", "The caller to destroy")]
-    ~allowed_roles:_R_POOL_ADMIN ()
-
 let add_group =
   call ~name:"add_group" ~doc:"Add a caller to a group" ~in_oss_since:None
     ~lifecycle
@@ -65,30 +38,39 @@ let remove_group =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
-let query_usage =
-  call ~name:"query_usage"
-    ~doc:
-      "Return cumulative token and call count statistics for this caller, \
-       taken from the in-memory counters since XAPI startup."
+let query_token_usage =
+  call ~name:"query_token_usage"
+    ~doc:"Return tokens used by this caller since Xapi startup"
     ~in_oss_since:None ~lifecycle
     ~params:[(Ref _caller, "self", "The caller to query")]
-    ~result:
-      ( Map (String, String)
-      , "Map with keys \"tokens\" (float) and \"calls\" (int)"
-      )
+    ~result:(Float, "Tokens used by the caller since Xapi startup")
     ~allowed_roles:_R_POOL_OP ()
 
-let query_group_usage =
-  call ~name:"query_group_usage"
+let query_call_count =
+  call ~name:"query_call_count"
+    ~doc:"Return number of calls made by this caller since Xapi startup"
+    ~in_oss_since:None ~lifecycle
+    ~params:[(Ref _caller, "self", "The caller to query")]
+    ~result:(Int, "Calls made by the caller since Xapi startup")
+    ~allowed_roles:_R_POOL_OP ()
+
+let query_group_token_usage =
+  call ~name:"query_group_token_usage"
     ~doc:
-      "Return cumulative token and call count statistics summed across every \
-       caller in the named group."
+      "Return tokens used since Xapi startup by the callers in the named group."
     ~in_oss_since:None ~lifecycle
     ~params:[(String, "group", "Caller group to aggregate over")]
-    ~result:
-      ( Map (String, String)
-      , "Map with keys \"tokens\" (float) and \"calls\" (int)"
-      )
+    ~result:(Float, "Tokens used by the group since Xapi startup")
+    ~allowed_roles:_R_POOL_OP ()
+
+let query_group_call_count =
+  call ~name:"query_group_call_count"
+    ~doc:
+      "Return number of calls made since Xapi startup by the callers in the \
+       named group."
+    ~in_oss_since:None ~lifecycle
+    ~params:[(String, "group", "Caller group to aggregate over")]
+    ~result:(Int, "Number of calls made by the callers in the group")
     ~allowed_roles:_R_POOL_OP ()
 
 let query_all_usage =
@@ -105,7 +87,7 @@ let query_all_usage =
 
 let t =
   create_obj ~name:_caller ~descr:"XAPI caller description and rate limiting"
-    ~doccomments:[] ~gen_constructor_destructor:false ~gen_events:true
+    ~doccomments:[] ~gen_constructor_destructor:true ~gen_events:true
     ~in_db:true ~lifecycle ~persist:PersistEverything ~in_oss_since:None
     ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~contents:
@@ -116,29 +98,29 @@ let t =
           "User agent matching pattern. Empty string is a full wildcard; a \
            trailing '*' makes the field a prefix pattern; otherwise the field \
            is matched exactly."
-          ~ignore_foreign_key:true ~default_value:(Some (VString ""))
+          ~default_value:(Some (VString ""))
       ; field ~qualifier:StaticRO ~ty:String ~lifecycle "client_ip"
           "Client IP matching pattern. Same wildcard semantics as user_agent."
-          ~ignore_foreign_key:true ~default_value:(Some (VString ""))
+          ~default_value:(Some (VString ""))
       ; field ~qualifier:DynamicRO ~ty:DateTime ~lifecycle "last_access"
           "Last time a call was received from this caller"
-          ~ignore_foreign_key:true ~default_value:(Some (VDateTime Date.epoch))
-      ; field ~qualifier:RW ~ty:(Set String) ~lifecycle "groups"
+          ~default_value:(Some (VDateTime Date.epoch))
+      ; field ~qualifier:DynamicRO ~ty:(Set String) ~lifecycle "groups"
           "Groups to which this caller has been assigned"
-          ~ignore_foreign_key:true ~default_value:(Some (VSet []))
-      ; field ~qualifier:StaticRO ~ty:(Ref _rate_limit) ~lifecycle "rate_limit"
+          ~default_value:(Some (VSet []))
+      ; field ~qualifier:DynamicRO ~ty:(Ref _rate_limit) ~lifecycle "rate_limit"
           "Rate limiter attached to this caller, if any. Populated via \
            Rate_limit.add_caller rather than set directly."
           ~default_value:(Some (VRef null_ref))
       ]
     ~messages:
       [
-        create
-      ; destroy
-      ; add_group
+        add_group
       ; remove_group
-      ; query_usage
-      ; query_group_usage
+      ; query_token_usage
+      ; query_call_count
+      ; query_group_token_usage
+      ; query_group_call_count
       ; query_all_usage
       ]
     ()
