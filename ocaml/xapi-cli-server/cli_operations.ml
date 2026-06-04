@@ -8362,9 +8362,25 @@ module Caller = struct
           failwith "Specify exactly one of uuid= or group="
       | Some uuid, None ->
           let self = Client.Caller.get_by_uuid ~rpc ~session_id ~uuid in
-          Client.Caller.query_usage ~rpc ~session_id ~self
+          let tokens = Client.Caller.query_token_usage ~rpc ~session_id ~self in
+          let call_count =
+            Client.Caller.query_call_count ~rpc ~session_id ~self
+          in
+          [
+            ("tokens", Float.to_string tokens)
+          ; ("call_count", Int64.to_string call_count)
+          ]
       | None, Some group ->
-          Client.Caller.query_group_usage ~rpc ~session_id ~group
+          let tokens =
+            Client.Caller.query_group_token_usage ~rpc ~session_id ~group
+          in
+          let call_count =
+            Client.Caller.query_group_call_count ~rpc ~session_id ~group
+          in
+          [
+            ("tokens", Float.to_string tokens)
+          ; ("call_count", Int64.to_string call_count)
+          ]
     in
     printer (Cli_printer.PTable [result])
 
