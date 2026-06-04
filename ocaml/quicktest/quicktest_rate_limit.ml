@@ -42,14 +42,9 @@ let rate_limiting_active rpc session_id caller_ref ~throttled_rpc =
     ignore (Client.Client.Pool.get_all ~rpc:throttled_rpc ~session_id)
   done ;
   let usage =
-    Client.Client.Caller.query_usage ~rpc ~session_id ~self:caller_ref
+    Client.Client.Caller.query_call_count ~rpc ~session_id ~self:caller_ref
   in
-  match List.assoc_opt "calls" usage with
-  | Some s -> (
-    try int_of_string s > 0 with _ -> false
-  )
-  | None ->
-      false
+  usage > 0L
 
 let rate_limit_throttling_test rpc session_id () =
   let test_user_agent =
