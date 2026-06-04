@@ -1,5 +1,5 @@
 (library
- (name xapi_rate_limit)
+ (name rate_limit_lib)
  (public_name xapi-rate-limit)
 
  (libraries threads.posix mtime mtime.clock.os xapi-log xapi-stdext-threads clock)
