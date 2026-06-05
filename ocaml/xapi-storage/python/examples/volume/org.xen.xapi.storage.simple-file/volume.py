@@ -31,12 +31,12 @@ from xapi.storage import log
 
 class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
 
-    def parse_sr(self, sr_uri):
+    def _parse_sr(self, sr_uri):
         parsed_url = urllib.parse.urlparse(sr_uri)
         config = urllib.parse.parse_qs(parsed_url.query)
         return parsed_url, config
 
-    def create_volume_data(self, name, description, size, uris, uuid):
+    def _create_volume_data(self, name, description, size, uris, uuid):
         return {
             'uuid': uuid,
             'key': uuid,
@@ -50,7 +50,7 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
             'sharable': False
         }
 
-    def volume_uris(self, sr_path, name, size):
+    def _volume_uris(self, sr_path, name, size):
         query = urllib.parse.urlencode({'size': size}, True)
         return [urllib.parse.urlunparse(
             ('blkback', None, os.path.join(sr_path, name),
@@ -66,7 +66,7 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
         # No support for shareable mulit-access volumes in this SR
         assert(not sharable)
 
-        parsed_url, config = self.parse_sr(sr)
+        parsed_url, config = self._parse_sr(sr)
 
         volume_uuid = str(uuid.uuid4())
         file_path = os.path.join(parsed_url.path, volume_uuid)
@@ -82,16 +82,16 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
             }
             json.dump(meta, json_f)
 
-        return self.create_volume_data(
+        return self._create_volume_data(
             name, description,
-            size, self.volume_uris(parsed_url.path, name, size),
+            size, self._volume_uris(parsed_url.path, name, size),
             volume_uuid)
 
     def destroy(self, dbg, sr, key):
         """
         [destroy sr volume] removes [volume] from [sr]
         """
-        parsed_url, config = self.parse_sr(sr)
+        parsed_url, config = self._parse_sr(sr)
 
         file_path = os.path.join(parsed_url.path, key)
 
@@ -104,18 +104,18 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
         with open(file_path + '.inf', 'r') as json_f:
             meta = json.load(json_f)
 
-        return self.create_volume_data(
+        return self._create_volume_data(
             meta['name'],
             meta['description'],
             meta['size'],
-            self.volume_uris(sr_path, volume_id, meta['size']),
+            self._volume_uris(sr_path, volume_id, meta['size']),
             volume_id)
 
     def stat(self, dbg, sr, key):
         """
         [stat sr volume] returns metadata associated with [volume].
         """
-        parsed_url, config = self.parse_sr(sr)
+        parsed_url, config = self._parse_sr(sr)
         sr_path = parsed_url.path
         return self._stat_volume(sr_path, key)
 
@@ -123,7 +123,7 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
         """
         [set_name sr key new_name] changes the name of [volume]
         """
-        parsed_url, config = self.parse_sr(sr)
+        parsed_url, config = self._parse_sr(sr)
 
         file_path = os.path.join(parsed_url.path, key)
 
@@ -139,7 +139,7 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
         """
         [set_description sr key new_name] changes the description of [volume]
         """
-        parsed_url, config = self.parse_sr(sr)
+        parsed_url, config = self._parse_sr(sr)
 
         file_path = os.path.join(parsed_url.path, key)
 
@@ -164,7 +164,7 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
         [resize sr volume new_size] enlarges [volume] to be at least
         [new_size].
         """
-        parsed_url, config = self.parse_sr(sr)
+        parsed_url, config = self._parse_sr(sr)
 
         file_path = os.path.join(parsed_url.path, key)
 
