@@ -23,9 +23,9 @@ module D = Debug.Make (struct let name = "xapi_vm_snapshot" end)
 module Xs = Ezxenstore_core.Xenstore
 open D
 
-(*************************************************************************************************)
-(* Crash-consistant snapshot                                                                     *)
-(*************************************************************************************************)
+(******************************************************************************)
+(* Crash-consistant snapshot                                                  *)
+(******************************************************************************)
 let snapshot ~__context ~vm ~new_name ~ignore_vdis =
   debug "Snapshot: begin" ;
   TaskHelper.set_cancellable ~__context ;
@@ -36,9 +36,9 @@ let snapshot ~__context ~vm ~new_name ~ignore_vdis =
   in
   debug "Snapshot: end" ; res
 
-(*************************************************************************************************)
-(* Quiesced snapshot                                                                             *)
-(*************************************************************************************************)
+(******************************************************************************)
+(* Quiesced snapshot                                                          *)
+(******************************************************************************)
 (* xenstore paths *)
 let control_path ~xs ~domid x = xs.Xs.getdomainpath domid ^ "/control/" ^ x
 
@@ -48,10 +48,12 @@ let snapshot_path ~xs ~domid x =
 let snapshot_cleanup_path ~xs ~domid =
   xs.Xs.getdomainpath domid ^ "/control/snapshot"
 
-(* check if [flag] is set in the control_path of the VM [vm]. This looks like this code is a kind  *)
-(* of duplicate of the one in {!xal.ml}, {!events.ml} and {!xapi_guest_agent.ml} which are looking *)
-(* dynamically if there is a change in this part of the VM's xenstore tree. However, at the moment *)
-(* always allowing the operation and checking if it is enabled when it is triggered is sufficient. *)
+(* check if [flag] is set in the control_path of the VM [vm]. This looks like
+   this code is a kind of duplicate of the one in {!xal.ml}, {!events.ml} and
+   {!xapi_guest_agent.ml} which are looking dynamically if there is a change in
+   this part of the VM's xenstore tree. However, at the moment always allowing
+   the operation and checking if it is enabled when it is triggered is
+   sufficient. *)
 let is_flag_set ~xs ~flag ~domid ~vm =
   try xs.Xs.read (control_path ~xs ~domid flag) = "1"
   with e ->
@@ -59,17 +61,17 @@ let is_flag_set ~xs ~flag ~domid ~vm =
       (Ref.string_of vm) domid (Printexc.to_string e) ;
     false
 
-(* we want to compare the integer at the end of a common string, ie. strings as x="/local/..../3" *)
-(* and y="/local/.../12". The result should be x < y.                                             *)
+(* we want to compare the integer at the end of a common string, ie. strings as
+   x="/local/..../3" and y="/local/.../12". The result should be x < y. *)
 let compare_snapid_chunks s1 s2 =
   if String.length s1 <> String.length s2 then
     String.length s1 - String.length s2
   else
     compare s1 s2
 
-(*************************************************************************************************)
-(* Checkpoint                                                                                    *)
-(*************************************************************************************************)
+(******************************************************************************)
+(* Checkpoint                                                                 *)
+(******************************************************************************)
 let checkpoint ~__context ~vm ~new_name =
   Xapi_vmss.show_task_in_xencenter ~__context ~vm ;
   let power_state = Db.VM.get_power_state ~__context ~self:vm in
@@ -120,7 +122,6 @@ let checkpoint ~__context ~vm ~new_name =
         Xapi_gpumon.update_vgpu_metadata ~__context ~vm ;
         Xapi_xenops.suspend ~__context ~self:vm
       with Api_errors.Server_error (_, _) as e -> raise e
-    (* | _ -> raise (Api_errors.Server_error (Api_errors.vm_checkpoint_suspend_failed, [Ref.string_of vm])) *)
   ) ;
   (* snapshot the disks and the suspend VDI *)
   let snap, err =
@@ -347,7 +348,8 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
         in
         TaskHelper.set_progress ~__context 0.8 ;
         debug "Cleaning up the old VUSBs" ;
-        (* As snapshot is not allowed when vm has VUSBs, so no need to set up new VUSBs.*)
+        (* As snapshot is not allowed when vm has VUSBs, so no need to set up
+           new VUSBs.*)
         List.iter (safe_destroy_vusb ~__context ~rpc ~session_id) vm_VUSBs ;
         debug "Cleaning up the old VGPUs" ;
         List.iter (safe_destroy_vgpu ~__context ~rpc ~session_id) vm_VGPUs ;
