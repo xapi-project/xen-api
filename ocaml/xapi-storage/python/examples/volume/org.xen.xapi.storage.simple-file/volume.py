@@ -53,7 +53,7 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
     def volume_uris(self, sr_path, name, size):
         query = urllib.parse.urlencode({'size': size}, True)
         return [urllib.parse.urlunparse(
-            ('loop+blkback', None, os.path.join(sr_path, name),
+            ('blkback', None, os.path.join(sr_path, name),
              None, query, None))]
 
     def create(self, dbg, sr, name, description, size, sharable):
