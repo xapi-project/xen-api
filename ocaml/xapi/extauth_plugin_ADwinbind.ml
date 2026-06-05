@@ -109,8 +109,8 @@ let assert_ca_exists = function
       |> Option.to_result
            ~none:
              (gen_ex E_NO_TRUSTED_CERTS
-                "No certs to setup TLS connection to DC. Note: ldaps does not \
-                 support non-CA certs"
+                "No trusted certs to setup TLS connection to DC. Note: ldaps \
+                 does not support non-CA certs"
              )
       |> maybe_raise
       |> ignore
