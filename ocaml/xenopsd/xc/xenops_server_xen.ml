@@ -4816,6 +4816,8 @@ module VIF = struct
       | Static4 ([], _) ->
           internal_error
             "Static IPv4 configuration selected, but no address specified."
+      | DHCP4 ->
+          [("enabled", "2")]
     in
     let ipv6_setting =
       match vif.ipv6_configuration with
@@ -4835,6 +4837,8 @@ module VIF = struct
       | Static6 ([], _) ->
           internal_error
             "Static IPv6 configuration selected, but no address specified."
+      | Autoconf6 ->
+          [("enabled6", "2")]
     in
     let settings = constant_setting @ ipv4_setting @ ipv6_setting in
     List.map
@@ -5174,12 +5178,12 @@ module VIF = struct
                 )
     )
 
-  let set_ip_unspecified xs xenstore_path suffix =
+  let set_ip_unspecified_or_autoconf xs xenstore_path suffix enabled_mode =
     Xs.transaction xs (fun t ->
         let ip_setting_enabled =
           Printf.sprintf "%s/%s%s" xenstore_path "enabled" suffix
         in
-        t.Xst.write ip_setting_enabled "0" ;
+        t.Xst.write ip_setting_enabled enabled_mode ;
         let ip_setting_address =
           Printf.sprintf "%s/%s%s" xenstore_path "address" suffix
         in
@@ -5221,12 +5225,14 @@ module VIF = struct
         in
         match ipv4_configuration with
         | Unspecified4 ->
-            set_ip_unspecified xs xenstore_path ""
+            set_ip_unspecified_or_autoconf xs xenstore_path "" "0"
         | Static4 (address :: _, gateway) ->
             set_ip_static xs xenstore_path "" address gateway
         | Static4 ([], _) ->
             internal_error
               "Static IPv4 configuration selected, but no address specified."
+        | DHCP4 ->
+            set_ip_unspecified_or_autoconf xs xenstore_path "" "2"
     )
 
   let set_ipv6_configuration _task vm vif ipv6_configuration =
@@ -5239,12 +5245,14 @@ module VIF = struct
         in
         match ipv6_configuration with
         | Unspecified6 ->
-            set_ip_unspecified xs xenstore_path "6"
+            set_ip_unspecified_or_autoconf xs xenstore_path "6" "0"
         | Static6 (address :: _, gateway) ->
             set_ip_static xs xenstore_path "6" address gateway
         | Static6 ([], _) ->
             internal_error
               "Static IPv6 configuration selected, but no address specified."
+        | Autoconf6 ->
+            set_ip_unspecified_or_autoconf xs xenstore_path "6" "2"
     )
 
   let set_pvs_proxy _task vm vif proxy =
