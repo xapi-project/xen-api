@@ -161,10 +161,10 @@ _xe()
                     suggested_modes="dhcp,static,none,autoconf"
                 elif [ "${COMP_WORDS[1]}" == "vif-configure-ipv4" ]; then
                     IFS=$'\n,'
-                    suggested_modes="static,none"
+                    suggested_modes="dhcp,static,none"
                 elif [ "${COMP_WORDS[1]}" == "vif-configure-ipv6" ]; then
                     IFS=$'\n,'
-                    suggested_modes="static,none"
+                    suggested_modes="static,none,autoconf"
                 elif [ "${OLDSTYLE_WORDS[1]}" == "bond-set-mode" ] || [ "${OLDSTYLE_WORDS[1]}" == "bond-create" ]; then
                     IFS=$'\n,'
                     suggested_modes="balance-slb,active-backup,lacp"
