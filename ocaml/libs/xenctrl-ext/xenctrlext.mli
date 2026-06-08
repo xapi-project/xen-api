@@ -41,19 +41,54 @@ external domain_get_acpi_s_state : handle -> domid -> int
 
 exception Unix_error of Unix.error * string
 
-type runstateinfo = {
-    state: int32
-  ; missed_changes: int32
-  ; state_entry_time: int64
-  ; time0: int64
-  ; time1: int64
-  ; time2: int64
-  ; time3: int64
-  ; time4: int64
-  ; time5: int64
-}
+module SharedDomainInfo : sig
+  type mapping
 
-val domain_get_runstate_info : handle -> int -> runstateinfo outcome
+  type t = {
+      magic: int32
+    ; shsize: int32
+    ; domid: int
+    ; num_vcpus: int
+    ; seqlock_version: int32
+    ; dom_data_offset: int32
+    ; dom_data_size: int32
+    ; vcpu_data_offset: int32
+    ; vcpu_data_size: int32
+    ; total_size: int32
+    ; state: int32
+    ; missed_changes: int32
+    ; state_entry_time: int64
+    ; time0: int64
+    ; time1: int64
+    ; time2: int64
+    ; time3: int64
+    ; time4: int64
+    ; time5: int64
+    ; runnable: int64
+    ; running: int64
+    ; nonaffine: int64
+  }
+
+  external domain_map_shared_domain_info : Xenctrl.handle -> int -> mapping
+    = "stub_xenctrlext_map_shared_domain_info"
+
+  external domain_read_mapped_shared_domain_info :
+    Xenctrl.handle -> mapping -> t
+    = "stub_xenctrlext_read_mapped_shared_domain_info"
+
+  external domain_unmap_shared_domain_info : Xenctrl.handle -> mapping -> unit
+    = "stub_xenctrlext_unmap_shared_domain_info"
+
+  val domain_map : Xenctrl.handle -> int -> mapping outcome
+
+  val domain_read_mapped : Xenctrl.handle -> mapping -> t outcome
+
+  val domain_unmap : Xenctrl.handle -> mapping -> unit outcome
+
+  val domain_get : Xenctrl.handle -> int -> t
+  (** [domain_get xc domid] maps, reads, and unmaps the shared domain info for
+      [domid].  Raises an exception on failure. *)
+end
 
 external get_max_nr_cpus : handle -> int = "stub_xenctrlext_get_max_nr_cpus"
 

@@ -20,6 +20,53 @@ module Process = Rrdd_plugin.Process (struct let name = "xcp-rrdd-cpu" end)
 
 let xen_flag_complement = Int64.(shift_left 1L 63 |> lognot)
 
+(* Persistent per-domain shared-info mappings, keyed by domid.
+   Each mapping is established once when the domain first appears and
+   released when the domain is no longer present. *)
+let domain_mappings : (int, Xenctrlext.SharedDomainInfo.mapping) Hashtbl.t =
+  Hashtbl.create 16
+
+(* Reconcile [domain_mappings] against the current [domains] list.
+   New domids get a mapping via domain_map; gone domids are unmapped. *)
+let update_domain_mappings xc domains =
+  let current_domids =
+    List.fold_left (fun s (_, _, domid) -> domid :: s) [] domains
+  in
+  (* Unmap and remove entries for domains that have disappeared *)
+  let to_remove =
+    Hashtbl.fold
+      (fun domid _ acc ->
+        if List.mem domid current_domids then acc else domid :: acc
+      )
+      domain_mappings []
+  in
+  List.iter
+    (fun domid ->
+      ( match Hashtbl.find_opt domain_mappings domid with
+      | Some m ->
+          ( try
+              Xenctrlext.SharedDomainInfo.domain_unmap_shared_domain_info xc m
+            with _ -> ()
+          )
+      | None ->
+          ()
+      ) ;
+      Hashtbl.remove domain_mappings domid
+    )
+    to_remove ;
+  (* Map any domains that are new *)
+  List.iter
+    (fun (_, _, domid) ->
+      if not (Hashtbl.mem domain_mappings domid) then
+        try
+          let m =
+            Xenctrlext.SharedDomainInfo.domain_map_shared_domain_info xc domid
+          in
+          Hashtbl.replace domain_mappings domid m
+        with _ -> ()
+    )
+    domains
+
 (* This function is used for getting vCPU stats of the VMs present on this host. *)
 let dss_vcpus xc doms =
   List.fold_left
@@ -59,9 +106,12 @@ let dss_vcpus xc doms =
         in
         let ( ++ ) = Int64.add in
         try
-          let ri = Xenctrl.Runstateinfo.V2.domain_get xc domid in
+          let m = Hashtbl.find domain_mappings domid in
+          let ri =
+            Xenctrlext.SharedDomainInfo.domain_read_mapped_shared_domain_info xc m
+          in
           let runnable_vcpus_ds =
-            match ri.Xenctrl.Runstateinfo.V2.runnable with
+            match ri.Xenctrlext.SharedDomainInfo.runnable with
             | 0L ->
                 []
             | _ ->
@@ -70,7 +120,7 @@ let dss_vcpus xc doms =
                   , Ds.ds_make ~name:"runnable_vcpus" ~units:"(fraction)"
                       ~value:
                         (Rrd.VT_Float
-                           (Int64.to_float ri.Xenctrl.Runstateinfo.V2.runnable
+                           (Int64.to_float ri.Xenctrlext.SharedDomainInfo.runnable
                            /. 1.0e9
                            )
                         )
@@ -81,7 +131,7 @@ let dss_vcpus xc doms =
                 ]
           in
           let nonaffine_vcpus_ds =
-            match ri.Xenctrl.Runstateinfo.V2.running with
+            match ri.Xenctrlext.SharedDomainInfo.running with
             | 0L ->
                 []
             | _ ->
@@ -91,7 +141,7 @@ let dss_vcpus xc doms =
                       ~units:"(fraction)"
                       ~value:
                         (Rrd.VT_Float
-                           (Int64.to_float ri.Xenctrl.Runstateinfo.V2.nonaffine
+                           (Int64.to_float ri.Xenctrlext.SharedDomainInfo.nonaffine
                            /. 1.0e9
                            )
                         )
@@ -106,7 +156,7 @@ let dss_vcpus xc doms =
           , Ds.ds_make ~name:"runstate_fullrun" ~units:"(fraction)"
               ~value:
                 (Rrd.VT_Float
-                   (Int64.to_float ri.Xenctrl.Runstateinfo.V2.time0 /. 1.0e9)
+                   (Int64.to_float ri.Xenctrlext.SharedDomainInfo.time0 /. 1.0e9)
                 )
               ~description:"Fraction of time that all vCPUs are running"
               ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
@@ -115,7 +165,7 @@ let dss_vcpus xc doms =
              , Ds.ds_make ~name:"runstate_full_contention" ~units:"(fraction)"
                  ~value:
                    (Rrd.VT_Float
-                      (Int64.to_float ri.Xenctrl.Runstateinfo.V2.time1 /. 1.0e9)
+                      (Int64.to_float ri.Xenctrlext.SharedDomainInfo.time1 /. 1.0e9)
                    )
                  ~description:
                    "Fraction of time that all vCPUs are runnable (i.e., \
@@ -127,7 +177,7 @@ let dss_vcpus xc doms =
                  ~units:"(fraction)"
                  ~value:
                    (Rrd.VT_Float
-                      (Int64.to_float ri.Xenctrl.Runstateinfo.V2.time2 /. 1.0e9)
+                      (Int64.to_float ri.Xenctrlext.SharedDomainInfo.time2 /. 1.0e9)
                    )
                  ~description:
                    "Fraction of time that some vCPUs are running and some are \
@@ -138,7 +188,7 @@ let dss_vcpus xc doms =
              , Ds.ds_make ~name:"runstate_blocked" ~units:"(fraction)"
                  ~value:
                    (Rrd.VT_Float
-                      (Int64.to_float ri.Xenctrl.Runstateinfo.V2.time3 /. 1.0e9)
+                      (Int64.to_float ri.Xenctrlext.SharedDomainInfo.time3 /. 1.0e9)
                    )
                  ~description:
                    "Fraction of time that all vCPUs are blocked or offline"
@@ -148,7 +198,7 @@ let dss_vcpus xc doms =
              , Ds.ds_make ~name:"runstate_partial_run" ~units:"(fraction)"
                  ~value:
                    (Rrd.VT_Float
-                      (Int64.to_float ri.Xenctrl.Runstateinfo.V2.time4 /. 1.0e9)
+                      (Int64.to_float ri.Xenctrlext.SharedDomainInfo.time4 /. 1.0e9)
                    )
                  ~description:
                    "Fraction of time that some vCPUs are running and some are \
@@ -160,7 +210,7 @@ let dss_vcpus xc doms =
                  ~units:"(fraction)"
                  ~value:
                    (Rrd.VT_Float
-                      (Int64.to_float ri.Xenctrl.Runstateinfo.V2.time5 /. 1.0e9)
+                      (Int64.to_float ri.Xenctrlext.SharedDomainInfo.time5 /. 1.0e9)
                    )
                  ~description:
                    "Fraction of time that some vCPUs are runnable and some are \
@@ -172,9 +222,9 @@ let dss_vcpus xc doms =
                  ~value:
                    (Rrd.VT_Float
                       (Int64.to_float
-                         (ri.Xenctrl.Runstateinfo.V2.time1
-                         ++ ri.Xenctrl.Runstateinfo.V2.time2
-                         ++ ri.Xenctrl.Runstateinfo.V2.time5
+                         (ri.Xenctrlext.SharedDomainInfo.time1
+                         ++ ri.Xenctrlext.SharedDomainInfo.time2
+                         ++ ri.Xenctrlext.SharedDomainInfo.time5
                          )
                       /. 1.0e9
                       )
@@ -318,6 +368,7 @@ let dss_hostload xc domains =
 
 let generate_cpu_ds_list xc () =
   let _, domains, _ = Xenctrl_lib.domain_snapshot xc in
+  update_domain_mappings xc domains ;
   dss_pcpus xc @ dss_vcpus xc domains @ dss_loadavg () @ dss_hostload xc domains
 
 (* 32 vCPUS ~8659 bytes, so 64 vCPUs should fit in 5 *)

@@ -109,44 +109,136 @@ CAMLprim value stub_xenctrlext_interface_open(value unused)
     CAMLreturn(result);
 }
 
-CAMLprim value stub_xenctrlext_get_runstate_info(value xch_val,
-                                                 value domid)
+
+/*
+ * SharedDomainInfo: locally-bound wrappers around the libxenctrl
+ * xc_{map,read,unmap}_shared_domain_info APIs.  The OCaml handle
+ * passed in is a Xenctrl.handle (whose representation is identical
+ * to a Xenctrlext.handle: an xc_interface * wrapped in a custom block).
+ */
+
+struct shared_domain_info_mapping {
+    shared_domain_info_t *base;
+    size_t size;
+    xenforeignmemory_resource_handle *res;
+};
+
+static value alloc_shared_domain_info(const shared_domain_info_t *info)
 {
-    CAMLparam2(xch_val, domid);
-#if defined(XENCTRL_HAS_GET_RUNSTATE_INFO)
+    CAMLparam0();
     CAMLlocal1(result);
-    xc_runstate_info_t info;
-    int rc;
-    xc_interface *xch = xch_of_val(xch_val);
-    int domain = Int_val(domid);
 
-    caml_release_runtime_system();
-    rc = xc_get_runstate_info(xch, domain, &info);
-    caml_acquire_runtime_system();
-    if (rc < 0)
-        failwith_xc(xch);
-
-    /* Store
-       0 : state (int32)
-       1 : missed_changes (int32)
-       2 : state_entry_time (int64)
-       3-8 : times (int64s)
-     */
-    result = caml_alloc_tuple(9);
-    Store_field(result, 0, caml_copy_int32(info.state));
-    Store_field(result, 1, caml_copy_int32(info.missed_changes));
-    Store_field(result, 2, caml_copy_int64(info.state_entry_time));
-    Store_field(result, 3, caml_copy_int64(info.time[0]));
-    Store_field(result, 4, caml_copy_int64(info.time[1]));
-    Store_field(result, 5, caml_copy_int64(info.time[2]));
-    Store_field(result, 6, caml_copy_int64(info.time[3]));
-    Store_field(result, 7, caml_copy_int64(info.time[4]));
-    Store_field(result, 8, caml_copy_int64(info.time[5]));
+    /* Return as a tuple matching SharedDomainInfo.t (22 fields) */
+    result = caml_alloc_tuple(22);
+    /* Frozen core */
+    Store_field(result,  0, caml_copy_int32(info->magic));
+    Store_field(result,  1, caml_copy_int32(info->shsize));
+    Store_field(result,  2, Val_int(info->domid));
+    Store_field(result,  3, Val_int(info->num_vcpus));
+    Store_field(result,  4, caml_copy_int32(info->seqlock_version));
+    Store_field(result,  5, caml_copy_int32(info->dom_data_offset));
+    Store_field(result,  6, caml_copy_int32(info->dom_data_size));
+    Store_field(result,  7, caml_copy_int32(info->vcpu_data_offset));
+    Store_field(result,  8, caml_copy_int32(info->vcpu_data_size));
+    Store_field(result,  9, caml_copy_int32(info->total_size));
+    /* Domain data */
+    Store_field(result, 10, caml_copy_int32(info->state));
+    Store_field(result, 11, caml_copy_int32(info->missed_changes));
+    Store_field(result, 12, caml_copy_int64(info->state_entry_time));
+    Store_field(result, 13, caml_copy_int64(info->time[0]));
+    Store_field(result, 14, caml_copy_int64(info->time[1]));
+    Store_field(result, 15, caml_copy_int64(info->time[2]));
+    Store_field(result, 16, caml_copy_int64(info->time[3]));
+    Store_field(result, 17, caml_copy_int64(info->time[4]));
+    Store_field(result, 18, caml_copy_int64(info->time[5]));
+    /* vCPU data */
+    Store_field(result, 19, caml_copy_int64(info->runnable));
+    Store_field(result, 20, caml_copy_int64(info->running));
+    Store_field(result, 21, caml_copy_int64(info->nonaffine));
 
     CAMLreturn(result);
-#else
-    caml_failwith("XENCTRL_HAS_GET_RUNSTATE_INFO not defined");
-#endif
+}
+
+static struct shared_domain_info_mapping *
+shared_domain_info_mapping_of_val(value v)
+{
+    return Data_abstract_val(v);
+}
+
+CAMLprim value stub_xenctrlext_map_shared_domain_info(value xch_val,
+                                                      value domid)
+{
+    CAMLparam2(xch_val, domid);
+    CAMLlocal1(map_val);
+    xc_interface *xch = xch_of_val(xch_val);
+    struct shared_domain_info_mapping *map;
+    int ret;
+
+    map_val = caml_alloc(Wsize_bsize(sizeof(struct shared_domain_info_mapping)),
+                         Abstract_tag);
+    map = shared_domain_info_mapping_of_val(map_val);
+    memset(map, 0, sizeof(*map));
+
+    caml_release_runtime_system();
+    ret = xc_map_shared_domain_info(xch, Int_val(domid),
+                                    &map->base, &map->size, &map->res);
+    caml_acquire_runtime_system();
+
+    if (ret < 0)
+        failwith_xc(xch);
+
+    CAMLreturn(map_val);
+}
+
+CAMLprim value stub_xenctrlext_read_mapped_shared_domain_info(value xch_val,
+                                                              value map_val)
+{
+    CAMLparam2(xch_val, map_val);
+    xc_interface *xch = xch_of_val(xch_val);
+    shared_domain_info_t info;
+    struct shared_domain_info_mapping *map =
+        shared_domain_info_mapping_of_val(map_val);
+    int ret;
+
+    if (!map->res || !map->base)
+        caml_invalid_argument("shared_domain_info mapping is not valid");
+
+    memset(&info, 0, sizeof(info));
+
+    caml_release_runtime_system();
+    ret = xc_read_shared_domain_info(map->base, map->size, &info);
+    caml_acquire_runtime_system();
+
+    if (ret < 0)
+        failwith_xc(xch);
+
+    CAMLreturn(alloc_shared_domain_info(&info));
+}
+
+CAMLprim value stub_xenctrlext_unmap_shared_domain_info(value xch_val,
+                                                        value map_val)
+{
+    CAMLparam2(xch_val, map_val);
+    xc_interface *xch = xch_of_val(xch_val);
+    struct shared_domain_info_mapping *map =
+        shared_domain_info_mapping_of_val(map_val);
+    int ret;
+
+    if (!map->res)
+        CAMLreturn(Val_unit);
+
+    caml_release_runtime_system();
+    ret = xc_unmap_shared_domain_info(xch, map->res);
+    caml_acquire_runtime_system();
+
+    if (ret < 0)
+        failwith_xc(xch);
+
+    map->res = NULL;
+    map->base = NULL;
+    map->size = 0;
+
+    CAMLreturn(Val_unit);
 }
 
 static int xcext_domain_send_s3resume(xc_interface *xch,

@@ -90,23 +90,63 @@ let wrap1 ~__FUNCTION__ f (xc : handle) (arg1 : domid) =
 let wrap3 ~__FUNCTION__ f (xc : handle) (arg1 : domid) arg2 arg3 =
   wrap ~__FUNCTION__ @@ fun () -> f xc arg1 arg2 arg3
 
-type runstateinfo = {
-    state: int32
-  ; missed_changes: int32
-  ; state_entry_time: int64
-  ; time0: int64
-  ; time1: int64
-  ; time2: int64
-  ; time3: int64
-  ; time4: int64
-  ; time5: int64
-}
+module SharedDomainInfo = struct
+  type mapping
 
-external domain_get_runstate_info : handle -> int -> runstateinfo
-  = "stub_xenctrlext_get_runstate_info"
+  type t = {
+      magic: int32
+    ; shsize: int32
+    ; domid: int
+    ; num_vcpus: int
+    ; seqlock_version: int32
+    ; dom_data_offset: int32
+    ; dom_data_size: int32
+    ; vcpu_data_offset: int32
+    ; vcpu_data_size: int32
+    ; total_size: int32
+    ; state: int32
+    ; missed_changes: int32
+    ; state_entry_time: int64
+    ; time0: int64
+    ; time1: int64
+    ; time2: int64
+    ; time3: int64
+    ; time4: int64
+    ; time5: int64
+    ; runnable: int64
+    ; running: int64
+    ; nonaffine: int64
+  }
 
-(* this is always in our patchqueue, but not part of upstream Xen *)
-let domain_get_runstate_info = wrap1 ~__FUNCTION__ domain_get_runstate_info
+  external domain_map_shared_domain_info : Xenctrl.handle -> int -> mapping
+    = "stub_xenctrlext_map_shared_domain_info"
+
+  external domain_read_mapped_shared_domain_info :
+    Xenctrl.handle -> mapping -> t
+    = "stub_xenctrlext_read_mapped_shared_domain_info"
+
+  external domain_unmap_shared_domain_info : Xenctrl.handle -> mapping -> unit
+    = "stub_xenctrlext_unmap_shared_domain_info"
+
+  let domain_map xc domid =
+    wrap ~__FUNCTION__ (fun () -> domain_map_shared_domain_info xc domid)
+
+  let domain_read_mapped xc mapping =
+    wrap ~__FUNCTION__ (fun () ->
+        domain_read_mapped_shared_domain_info xc mapping
+    )
+
+  let domain_unmap xc mapping =
+    wrap ~__FUNCTION__ (fun () ->
+        domain_unmap_shared_domain_info xc mapping
+    )
+
+  let domain_get xc domid =
+    let m = domain_map_shared_domain_info xc domid in
+    Fun.protect
+      ~finally:(fun () -> domain_unmap_shared_domain_info xc m)
+      (fun () -> domain_read_mapped_shared_domain_info xc m)
+end
 
 external get_max_nr_cpus : handle -> int = "stub_xenctrlext_get_max_nr_cpus"
 
