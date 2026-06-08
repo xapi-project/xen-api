@@ -1468,3 +1468,6 @@ let not_allowed_when_ntp_is_enabled =
 let not_trusted_certificate = add_error "NOT_TRUSTED_CERTIFICATE"
 
 let certificate_lacks_purpose = add_error "CERTIFICATE_LACKS_PURPOSE"
+
+let boot_device_passthrough_disallowed =
+  add_error "BOOT_DEVICE_PASSTHROUGH_DISALLOWED"
