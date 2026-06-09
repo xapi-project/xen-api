@@ -590,17 +590,31 @@ module Ldap = struct
       |> fun x -> Ok x
     with _ -> Error (generic_ex "ldap query domain name failed")
 
-  let query_sid ~name ~kdc =
+  let query_sid ~name ?duser ?dpass kdc =
     let key = "objectSid" in
     let name = escape name in
     (* Escape name to avoid injection detection *)
     let query = Printf.sprintf "(|(sAMAccountName=%s)(name=%s))" name name in
+    (* When both a username and password are supplied, authenticate with those
+       credentials, passed via the environment, instead of the machine
+       account. *)
+    let auth_args, env =
+      match (duser, dpass) with
+      | Some duser, Some dpass ->
+          let env =
+            [|Printf.sprintf "USER=%s" duser; Printf.sprintf "PASSWD=%s" dpass|]
+          in
+          ([], Some env)
+      | _ ->
+          (["--machine-pass"], None)
+    in
     let args =
-      ["ads"; "search"; "-d"; debug_level (); "--server"; kdc; "--machine-pass"]
+      ["ads"; "search"; "-d"; debug_level (); "--server"; kdc]
+      @ auth_args
       @ [query; key]
     in
     try
-      Helpers.call_script !Xapi_globs.net_cmd args
+      Helpers.call_script ?env !Xapi_globs.net_cmd args
       |> Xapi_cmd_result.of_output ~sep:':' ~key
       |> fun x -> Ok x
     with
@@ -617,7 +631,7 @@ module Ldap = struct
   let ping_domain domain =
     kdcs_of_domain domain
     |> Listext.List.try_map_any (fun kdc ->
-        query_sid ~name:krbtgt ~kdc:(KDC.server kdc)
+        query_sid ~name:krbtgt (KDC.server kdc)
     )
     |> Result.map_error (function
       | e :: _ ->
@@ -1492,7 +1506,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         in
         (* Query kdc of the domain, so user in trusted domain is supported as well *)
         let* kdc = Wbinfo.kdc_of_domain (domain |> maybe_raise) in
-        Ldap.query_sid ~name ~kdc
+        Ldap.query_sid ~name kdc
 
   (* subject_id get_subject_identifier(string subject_name)
 
@@ -1757,6 +1771,31 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
 
     config_winbind_daemon (Some domain_info) ;
 
+    (* When LDAPS is enabled the machine account does not exist yet, so probe
+       the candidate DCs with the supplied credentials and remember the first
+       one whose LDAPS certificate validates against the trusted CAs. We then
+       pin the join to that DC, instead of letting "net ads join" auto-select a
+       DC whose certificate may not be trusted (CA-428436). *)
+    let server_param =
+      if ldaps then
+        kdcs_of_domain service_name
+        |> Listext.List.try_map_any (fun kdc ->
+            Ldap.query_sid ~name:krbtgt ~duser:user ~dpass:pass (KDC.server kdc)
+            |> Result.map (fun _sid -> kdc)
+        )
+        |> function
+        | Ok kdc ->
+            debug "Joining via DC %s with a valid LDAPS certificate"
+              (KDC.to_msg kdc) ;
+            ["-S"; KDC.server kdc]
+        | Error (e :: _) ->
+            raise e
+        | Error [] ->
+            raise (generic_ex "No KDC found for domain %s" service_name)
+      else
+        []
+    in
+
     let args =
       [
         "ads"
@@ -1770,6 +1809,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       ; debug_level ()
       ; "--no-dns-updates"
       ]
+      @ server_param
       @ ou_param
       @ dns_hostname_option
     in
