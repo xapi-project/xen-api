@@ -121,9 +121,9 @@ let all_ip_configuration_mode = [`None; `DHCP; `Static]
 
 let all_pif_igmp_status = [`enabled; `disabled; `unknown]
 
-let all_vif_ipv6_configuration_mode = [`None; `Static]
+let all_vif_ipv6_configuration_mode = [`None; `Static; `Autoconf]
 
-let all_vif_ipv4_configuration_mode = [`None; `Static]
+let all_vif_ipv4_configuration_mode = [`None; `Static; `DHCP]
 
 let all_vif_locking_mode = [`network_default; `locked; `unlocked; `disabled]
 
