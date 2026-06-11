@@ -288,6 +288,84 @@ module Lldpd : AGENT = struct
     Cache.set conf ; Ok ()
 end
 
+module Blocklist = struct
+  let conf_dir = ref "/etc/xensource/lldp-nic-driver-blocklist.d"
+
+  let is_valid dir path =
+    match Unix.lstat (Filename.concat dir path) with
+    | exception e ->
+        warn "%s: cannot stat file %s: %s" __FUNCTION__ path
+          (Printexc.to_string e) ;
+        false
+    | {Unix.st_kind= Unix.S_LNK; _} ->
+        debug "%s: ignoring symlink %s" __FUNCTION__ path ;
+        false
+    | {Unix.st_kind; _} when st_kind <> Unix.S_REG ->
+        debug "%s: ignoring non-regular entry %s" __FUNCTION__ path ;
+        false
+    | _ ->
+        Filename.check_suffix path ".conf"
+
+  let read_file path =
+    match Xapi_stdext_unix.Unixext.string_of_file path with
+    | exception e ->
+        warn "%s: ignoring unreadable blocklist file %s: %s" __FUNCTION__ path
+          (Printexc.to_string e) ;
+        None
+    | content ->
+        Some content
+
+  let drivers_of_file dir path =
+    match read_file (Filename.concat dir path) with
+    | None ->
+        []
+    | Some s ->
+        Astring.String.cuts ~empty:false ~sep:"\n" s
+        |> List.filter_map (fun line ->
+            match String.trim line with
+            | "" ->
+                None
+            | line when line.[0] = '#' ->
+                None
+            | driver ->
+                Some driver
+        )
+
+  let blocked_drivers : string list option Atomic.t = Atomic.make None
+
+  let load () =
+    match Sys.readdir !conf_dir with
+    | entries ->
+        let drivers =
+          Array.to_list entries
+          |> List.filter (fun f -> is_valid !conf_dir f)
+          |> List.concat_map (fun f -> drivers_of_file !conf_dir f)
+        in
+        debug "%s: blocked drivers: %s" __FUNCTION__ (String.concat ", " drivers) ;
+        (* It's fine to override an updated list.
+           The source data in [!conf_dir] rarely changes when being read. *)
+        Atomic.set blocked_drivers (Some drivers) ;
+        drivers
+    | exception e ->
+        warn "%s: Could not read block list under %s: %s" __FUNCTION__ !conf_dir
+          (Printexc.to_string e) ;
+        []
+
+  let blocked () =
+    match Atomic.get blocked_drivers with
+    | None ->
+        load ()
+    | Some drivers ->
+        drivers
+
+  let mem dev =
+    match Network_utils.Sysfs.get_driver_name dev with
+    | None ->
+        false
+    | Some driver ->
+        List.mem driver (blocked ())
+end
+
 module Make (Agent : AGENT) = struct
   let ( let* ) = Result.bind
 

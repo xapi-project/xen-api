@@ -198,7 +198,8 @@ type lldp_multicast_address =
 [@@deriving rpcty]
 
 type lldp = {
-    chassis_id: string [@default ""]
+    force: bool [@default false]
+  ; chassis_id: string [@default ""]
   ; system_name: string [@default ""]
   ; system_description: string [@default ""]
   ; enabled: bool [@default false]
