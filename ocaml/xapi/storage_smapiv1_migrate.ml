@@ -808,9 +808,33 @@ module MIRROR : SMAPIv2_MIRROR = struct
           (Vdi.string_of r.leaf_vdi) ;
         SMAPI.DP.destroy2 dbg r.leaf_dp r.sr r.leaf_vdi r.mirror_vm false ;
         SMAPI.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
-        (* On SMAPIv3, compose would have removed the now invalid dummy vdi, so
-           there is no need to destroy it anymore, while this is necessary on SMAPIv1 SRs. *)
+        (* Destroy the dummy backend volume on the dest SR. On SMAPIv1
+           this also drops the dest XAPI DB row; on SMAPIv3 only the
+           backend volume is removed. *)
         D.log_and_ignore_exn (fun () -> SMAPI.VDI.destroy dbg r.sr r.dummy_vdi
+        ) ;
+        (* Forget the dest XAPI DB row that survives on SMAPIv3. Lookup is
+           by (location, SR) because the v3 volume key differs from the
+           XAPI uuid, so a uuid-based lookup would miss it. No-ops on
+           SMAPIv1: the row was already dropped above. *)
+        D.log_and_ignore_exn (fun () ->
+            Server_helpers.exec_with_new_task
+              "SXM forget orphan dummy VDI after compose" (fun __context ->
+                match Storage_utils.find_vdi ~__context r.sr r.dummy_vdi with
+                | exception Storage_utils.No_VDI ->
+                    ()
+                | vdi_ref, vdi_rec when vdi_rec.API.vDI_is_a_snapshot ->
+                    D.info "%s forgetting orphan dummy VDI %s on sr %s"
+                      __FUNCTION__
+                      (Vdi.string_of r.dummy_vdi)
+                      (Sr.string_of r.sr) ;
+                    Db.VDI.destroy ~__context ~self:vdi_ref
+                | _ ->
+                    D.warn "%s skipping non-snapshot row at dummy %s on sr %s"
+                      __FUNCTION__
+                      (Vdi.string_of r.dummy_vdi)
+                      (Sr.string_of r.sr)
+            )
         ) ;
         SMAPI.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
       )
