@@ -1624,9 +1624,11 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
              information" ;
           Ok default_account
       | Some domain -> (
-          let* dc = Wbinfo.kdc_of_domain domain in
           let timeout = !Xapi_globs.winbind_ldap_query_subject_timeout in
-          match Ldap.query_user sid domain_netbios dc ~timeout with
+          match
+            let* dc = Wbinfo.kdc_of_domain domain in
+            Ldap.query_user sid domain_netbios dc ~timeout
+          with
           | Ok user ->
               Ok user
           | _ ->
