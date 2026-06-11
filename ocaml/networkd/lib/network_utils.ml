@@ -1915,6 +1915,66 @@ module Ethtool = struct
     if options <> [] then
       ignore
         (call ("-K" :: name :: List.concat_map (fun (k, v) -> [k; v]) options))
+
+  let get_priv_flags name : ((string * bool) list, string) result =
+    let ps = Printf.sprintf in
+    try
+      call ["--show-priv-flags"; name]
+      |> Astring.String.cuts ~empty:false ~sep:"\n"
+      |> Xapi_stdext_std.Listext.List.try_map (fun line ->
+          match Astring.String.cut ~sep:":" line with
+          | None ->
+              Error (ps "Unexpected line (no colon): %S" line)
+          | Some (flag, value) -> (
+              let flag = String.trim flag in
+              match String.trim value with
+              | "on" ->
+                  Ok (Some (flag, true))
+              | "off" ->
+                  Ok (Some (flag, false))
+              | "" ->
+                  Ok None
+              | v ->
+                  Error (ps "Unexpected value (neither 'on' nor 'off'): %S" v)
+            )
+      )
+      |> Result.map (List.filter_map Fun.id)
+    with e -> Error (Printexc.to_string e)
+
+  let set_priv_flag name flag enabled : (unit, string) result =
+    try
+      ignore
+        (call
+           [
+             "--set-priv-flags"
+           ; name
+           ; flag
+           ; ( if enabled then
+                 "on"
+               else
+                 "off"
+             )
+           ]
+        ) ;
+      Ok ()
+    with e -> Error (Printexc.to_string e)
+
+  let try_to_disable_firmware_lldp dev =
+    match get_priv_flags dev with
+    | Ok flags ->
+        let set flag enabled =
+          List.assoc_opt flag flags
+          |> Option.iter (fun value ->
+              if value <> enabled then
+                set_priv_flag dev flag enabled
+                |> Result.fold ~ok:Fun.id ~error:(fun e ->
+                    warn "%s: %s" __FUNCTION__ e
+                )
+          )
+        in
+        set "disable-fw-lldp" true ; set "fw-lldp-agent" false
+    | Error e ->
+        warn "%s: %s" __FUNCTION__ e
 end
 
 module Dracut = struct
