@@ -265,6 +265,12 @@ module Local : SMAPIv2
 
 val get_remote_backend : string -> bool -> (module SMAPIv2)
 
+val forget_orphan_dest_vdi :
+  url:string -> verify_dest:bool -> sr:sr -> vdi:vdi -> unit
+(** Forget an orphan VDI row on the SXM destination pool using the XenAPI
+    session embedded in the SXM url. Best-effort; cross-pool safe; empty
+    [url] is a no-op for legacy intra-pool paths. *)
+
 val find_vdi :
   dbg:string -> sr:sr -> vdi:vdi -> (module SMAPIv2) -> vdi_info * vdi_info list
 
