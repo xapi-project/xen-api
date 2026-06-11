@@ -18,3 +18,7 @@ val set_conf : string -> Network_interface.lldp option -> unit
 
 val stop : unit -> unit
 (** [stop ()] stops the host's LLDP agent. *)
+
+val set_tlv_management_address : unit -> unit
+(** [set_tlv_management_address ()] retrieves the management IP address(es) of
+    the host and configure them in the LLDP management address TLV for advertising. *)
