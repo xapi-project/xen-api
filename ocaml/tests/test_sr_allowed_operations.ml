@@ -72,3 +72,8 @@ let test_operations_restricted_during_rpu =
   [("test_check_operation_error", `Quick, test_check_operation_error)]
 
 let test = test_operations_restricted_during_rpu
+
+let () =
+  Suite_init.harness_init () ;
+  Debug.log_to_stdout () ;
+  Alcotest.run "Base suite" [("Test_sr_allowed_operations", test)]
