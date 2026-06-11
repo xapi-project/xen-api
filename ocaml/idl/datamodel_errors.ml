@@ -459,6 +459,9 @@ let _ =
   error Api_errors.nvidia_sriov_misconfigured ["host"; "device_name"]
     ~doc:"The NVidia GPU is not configured for SR-IOV as expected" () ;
 
+  error Api_errors.boot_device_passthrough_disallowed ["device"]
+    ~doc:"Passing through a PCI device backing a boot disk is disallowed" () ;
+
   error Api_errors.openvswitch_not_active []
     ~doc:
       "This operation needs the OpenVSwitch networking backend to be enabled \
