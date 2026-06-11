@@ -140,7 +140,7 @@ let prototyped_of_field = function
   | "VM_guest_metrics", "netbios_name" ->
       Some "24.28.0"
   | "VM", "secureboot_certificates_state" ->
-      Some "26.1.12-next"
+      Some "26.1.13"
   | "VM", "groups" ->
       Some "24.19.1"
   | "VM", "pending_guidances_full" ->
@@ -241,6 +241,8 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
+  | "VDI", "revert" ->
+      Some "26.1.13-next"
   | "host", "set_servertime" ->
       Some "26.0.0"
   | "host", "get_ntp_synchronized" ->
@@ -284,7 +286,7 @@ let prototyped_of_message = function
   | "VM", "sysprep" ->
       Some "25.24.0"
   | "VM", "update_secureboot_certificates_on_boot" ->
-      Some "26.1.12-next"
+      Some "26.1.13"
   | "VM", "get_secureboot_readiness" ->
       Some "24.17.0"
   | "VM", "set_uefi_mode" ->
