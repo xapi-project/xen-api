@@ -2040,16 +2040,18 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
       let setting =
         match ipv4_configuration with
         | Vif.Unspecified4 ->
-            ""
+            "None"
         | Vif.Static4 (address, gateway) -> (
           match gateway with
           | None ->
-              Printf.sprintf "address:%s" (String.concat "; " address)
+              Printf.sprintf "Static: address:%s" (String.concat "; " address)
           | Some value ->
-              Printf.sprintf "address:%s gateway:%s"
+              Printf.sprintf "Static: address:%s gateway:%s"
                 (String.concat "; " address)
                 value
         )
+        | Vif.DHCP4 ->
+            "DHCP"
       in
       debug "VIF.set_ipv4_configuration %s %s" (VIF_DB.string_of_id id) setting ;
       finally
@@ -2064,16 +2066,18 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
       let setting =
         match ipv6_configuration with
         | Vif.Unspecified6 ->
-            ""
+            "None"
         | Vif.Static6 (address6, gateway6) -> (
           match gateway6 with
           | None ->
-              Printf.sprintf "address6:%s" (String.concat "; " address6)
+              Printf.sprintf "Static: address6:%s" (String.concat "; " address6)
           | Some value ->
-              Printf.sprintf "address6:%s gateway6:%s"
+              Printf.sprintf "Static: address6:%s gateway6:%s"
                 (String.concat "; " address6)
                 value
         )
+        | Vif.Autoconf6 ->
+            "Autoconf"
       in
       debug "VIF.set_ipv6_configuration %s %s" (VIF_DB.string_of_id id) setting ;
       finally

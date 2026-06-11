@@ -115,7 +115,7 @@ val remove_ipv6_allowed :
 val configure_ipv4 :
      __context:Context.t
   -> self:[`VIF] Ref.t
-  -> mode:[`None | `Static]
+  -> mode:[`None | `Static | `DHCP]
   -> address:string
   -> gateway:string
   -> unit
@@ -124,7 +124,7 @@ val configure_ipv4 :
 val configure_ipv6 :
      __context:Context.t
   -> self:[`VIF] Ref.t
-  -> mode:[`None | `Static]
+  -> mode:[`None | `Static | `Autoconf]
   -> address:string
   -> gateway:string
   -> unit

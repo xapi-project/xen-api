@@ -852,6 +852,8 @@ module MD = struct
               Some vif.API.vIF_ipv4_gateway
           in
           Vif.Static4 (vif.API.vIF_ipv4_addresses, gateway)
+      | `DHCP ->
+          Vif.DHCP4
     in
     let ipv6_configuration =
       match vif.API.vIF_ipv6_configuration_mode with
@@ -865,6 +867,8 @@ module MD = struct
               Some vif.API.vIF_ipv6_gateway
           in
           Vif.Static6 (vif.API.vIF_ipv6_addresses, gateway)
+      | `Autoconf ->
+          Vif.Autoconf6
     in
     let extra_private_keys =
       [("vif-uuid", vif.API.vIF_uuid); ("network-uuid", net.API.network_uuid)]
