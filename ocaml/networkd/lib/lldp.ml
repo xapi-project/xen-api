@@ -17,6 +17,9 @@ module D = Debug.Make (struct let name = __MODULE__ end)
 open D
 module I = Network_interface
 
+let string_of_addresses addresses =
+  addresses |> List.map Unix.string_of_inet_addr |> String.concat ", "
+
 module Lldp_types = struct
   type error = Command_failed of string * string | Internal of string
 
@@ -42,6 +45,7 @@ module Lldp_types = struct
     | Port_description of dev * port_description
     | System_name of string
     | System_description of string
+    | Management_address of Unix.inet_addr list
     | System_capability of system_capability list
     | Multicast_address of I.lldp_multicast_address list
 end
@@ -67,6 +71,31 @@ module type AGENT = sig
   val disable : string -> (unit, error) result
   (** Stop LLDP (rx-and-tx) on [dev]. *)
 end
+
+let management_ip_address =
+  let cache : Unix.inet_addr list Atomic.t = Atomic.make [] in
+  fun ~force () ->
+    match (force, Atomic.get cache) with
+    | true, seen | false, ([] as seen) -> (
+        let addrs =
+          let iface = Inventory.lookup Inventory._management_interface in
+          let open Network_utils in
+          Ip.get_ipv4 iface @ Ip.get_ipv6 iface |> List.map fst
+        in
+        match Atomic.compare_and_set cache seen addrs with
+        | true ->
+            debug "%s: set management IP address: [%s]" __FUNCTION__
+              (string_of_addresses addrs) ;
+            addrs
+        | false ->
+            let addrs = Atomic.get cache in
+            warn "%s: management IP address updated by others: [%s]"
+              __FUNCTION__
+              (string_of_addresses addrs) ;
+            addrs
+      )
+    | false, addrs ->
+        addrs
 
 module Lldpd : AGENT = struct
   open Lldp_types
@@ -113,6 +142,7 @@ module Lldpd : AGENT = struct
     ; Chassis_id (Local config.chassis_id)
     ; System_name config.system_name
     ; System_description config.system_description
+    ; Management_address (management_ip_address ~force:false ())
     ; System_capability [Bridge]
     ; Port_id (dev, Default)
     ; Port_description (dev, Default)
@@ -176,6 +206,15 @@ module Lldpd : AGENT = struct
           |> string_of_multicast_address
         in
         call_cli ["configure"; "lldp"; "agent-type"; addr_str]
+    | Management_address addrs ->
+        let addrs_str =
+          if addrs = [] then
+            {|""|}
+          else
+            string_of_addresses addrs
+        in
+        call_cli
+          ["configure"; "system"; "ip"; "management"; "pattern"; addrs_str]
 
   module Cache = struct
     let cache_chassis_id : conf option Atomic.t = Atomic.make None
@@ -187,6 +226,8 @@ module Lldpd : AGENT = struct
     let cache_sys_cap : conf option Atomic.t = Atomic.make None
 
     let cache_mc_addr : conf option Atomic.t = Atomic.make None
+
+    let cache_mgmt_addr : conf option Atomic.t = Atomic.make None
 
     (* Check out cache before calling cli *)
     let checkout cache f =
@@ -213,6 +254,8 @@ module Lldpd : AGENT = struct
             Atomic.get cache_sys_cap
         | Multicast_address _ ->
             Atomic.get cache_mc_addr
+        | Management_address _ ->
+            Atomic.get cache_mgmt_addr
       in
       (cached, conf)
 
@@ -233,6 +276,8 @@ module Lldpd : AGENT = struct
           Atomic.set cache_sys_cap (Some conf)
       | Multicast_address _ ->
           Atomic.set cache_mc_addr (Some conf)
+      | Management_address _ ->
+          Atomic.set cache_mgmt_addr (Some conf)
   end
 
   let set_advertising_conf conf =
@@ -305,3 +350,6 @@ module Lldp_agent = Make (Lldpd)
 let set_conf dev (config : I.lldp option) = Lldp_agent.set_conf dev config
 
 let stop = Lldp_agent.stop
+
+let set_tlv_management_address () =
+  management_ip_address ~force:true () |> Lldp_agent.set_tlv_management_address

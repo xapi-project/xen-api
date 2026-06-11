@@ -270,6 +270,7 @@ let watcher_m = Mutex.create ()
 let watcher_pid = ref None
 
 let signal_networking_change () =
+  Lldp.set_tlv_management_address () ;
   let module XenAPI = Client.Client in
   let session_id =
     XenAPI.Session.slave_local_login_with_password ~rpc ~uname:"" ~pwd:""
