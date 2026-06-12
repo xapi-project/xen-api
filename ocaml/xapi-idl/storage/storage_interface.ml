@@ -1023,6 +1023,15 @@ module StorageAPI (R : RPC) = struct
       let result_p = Param.mk ~name:"changed_blocks" Types.string in
       declare "VDI.list_changed_blocks" []
         (dbg_p @-> sr_p @-> vdi_from_p @-> vdi_to_p @-> returning result_p err)
+
+    (** [revert dbg sr snapshot_info] creates a new VDI which is a clone of
+        [snapshot_info] in [sr]. The contents of the VDI in
+        [snapshot_info.snapshot_of] will be destroyed and replaced with the
+        contents of [snapshot] *)
+    let revert =
+      let snapshot_info_p = Param.mk ~name:"snapshot_info" vdi_info in
+      declare "VDI.revert" []
+        (dbg_p @-> sr_p @-> snapshot_info_p @-> returning unit_p err)
   end
 
   (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
@@ -1635,6 +1644,9 @@ module type Server_impl = sig
 
     val list_changed_blocks :
       context -> dbg:debug_info -> sr:sr -> vdi_from:vdi -> vdi_to:vdi -> string
+
+    val revert :
+      context -> dbg:debug_info -> sr:sr -> snapshot_info:vdi_info -> unit
   end
 
   val get_by_name : context -> dbg:debug_info -> name:string -> sr * vdi_info
@@ -1836,6 +1848,9 @@ module Server (Impl : Server_impl) () = struct
     S.VDI.data_destroy (fun dbg sr vdi -> Impl.VDI.data_destroy () ~dbg ~sr ~vdi) ;
     S.VDI.list_changed_blocks (fun dbg sr vdi_from vdi_to ->
         Impl.VDI.list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to
+    ) ;
+    S.VDI.revert (fun dbg sr snapshot_info ->
+        Impl.VDI.revert () ~dbg ~sr ~snapshot_info
     ) ;
     S.get_by_name (fun dbg name -> Impl.get_by_name () ~dbg ~name) ;
     S.DATA.copy (fun dbg sr vdi vm url dest verify_dest ->

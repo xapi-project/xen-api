@@ -5553,6 +5553,23 @@ functor
             forward_vdi_op ~local_fn ~__context ~self:vdi ~remote_fn
         )
 
+      let revert ~__context ~snapshot =
+        let ( let@ ) f x = f x in
+        let doc = "VDI.revert" in
+        info "%s: snapshot = '%s'" doc (vdi_uuid ~__context snapshot) ;
+        let local_fn = Local.VDI.revert ~snapshot in
+        let remote_fn = Client.VDI.revert ~snapshot in
+        let sr = Db.VDI.get_SR ~__context ~self:snapshot in
+        let vdi = Db.VDI.get_snapshot_of ~__context ~self:snapshot in
+        let op () =
+          forward_vdi_op ~local_fn ~__context ~self:snapshot ~remote_fn
+        in
+        let@ () =
+          with_sr_andor_vdi ~__context ~sr:(sr, `vdi_revert)
+            ~vdi:(snapshot, `revert_to) ~doc
+        in
+        with_sr_andor_vdi ~__context ~vdi:(vdi, `revert_from) ~doc op
+
       let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
         info "VDI.copy: VDI = '%s'; SR = '%s'; base_vdi = '%s'; into_vdi = '%s'"
           (vdi_uuid ~__context vdi) (sr_uuid ~__context sr)

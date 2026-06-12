@@ -60,6 +60,8 @@ module SR : sig
 
   val allowed_operations : API.storage_operations_set -> srs -> srs
 
+  val unavailable_operations : API.storage_operations_set -> srs -> srs
+
   val has_capabilities : string list -> srs -> srs
 
   val has_type : string -> srs -> srs

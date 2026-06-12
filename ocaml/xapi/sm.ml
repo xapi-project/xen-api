@@ -270,6 +270,18 @@ let vdi_snapshot ~dbg dconf driver driver_params sr vdi =
   in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc ~dbg (driver_filename driver) call)
 
+let vdi_revert ~dbg dconf driver sr vdi snapshot =
+  debug "vdi_revert" driver
+    (sprintf "sr=%s vdi=%s snapshot=%s" (Ref.string_of sr) (Ref.string_of vdi)
+       (Ref.string_of snapshot)
+    ) ;
+  (* NB the SM backends treat the snapshot as the 'target', hence first argument *)
+  let call =
+    Sm_exec.make_call ~sr_ref:sr ~vdi_ref:snapshot dconf "vdi_revert"
+      [Ref.string_of vdi]
+  in
+  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc ~dbg (driver_filename driver) call)
+
 let vdi_clone ~dbg dconf driver driver_params sr vdi =
   with_dbg ~dbg ~name:"vdi_clone" @@ fun di ->
   let dbg = Debug_info.to_string di in
