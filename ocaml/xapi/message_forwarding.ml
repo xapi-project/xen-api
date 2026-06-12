@@ -4698,6 +4698,28 @@ functor
           Client.VIF.configure_ipv6 ~self ~mode ~address ~gateway
         in
         forward_vif_op ~local_fn ~__context ~self ~remote_fn
+
+      let add_trunks ~__context ~self ~value =
+        info "VIF.add_trunks: VIF = '%s'; vlan = '%s'"
+          (vif_uuid ~__context self) (Int64.to_string value) ;
+        let local_fn = Local.VIF.add_trunks ~self ~value in
+        let remote_fn = Client.VIF.add_trunks ~self ~value in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
+
+      let remove_trunks ~__context ~self ~value =
+        info "VIF.remove_trunks: VIF = '%s'; vlan = '%s'"
+          (vif_uuid ~__context self) (Int64.to_string value) ;
+        let local_fn = Local.VIF.remove_trunks ~self ~value in
+        let remote_fn = Client.VIF.remove_trunks ~self ~value in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
+
+      let set_trunks ~__context ~self ~value =
+        info "VIF.set_trunks: VIF = '%s'; vlans = '%s'"
+          (vif_uuid ~__context self)
+          (String.concat "," (List.map Int64.to_string value)) ;
+        let local_fn = Local.VIF.set_trunks ~self ~value in
+        let remote_fn = Client.VIF.set_trunks ~self ~value in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
     end
 
     module VIF_metrics = struct end
