@@ -1138,10 +1138,13 @@ let revert' ~__context ~snapshot =
   C.VDI.revert (Ref.string_of task) sr' snapshot_info
 
 let revert ~__context ~snapshot =
+  let __FUN = __FUNCTION__ in
   Storage_utils.transform_storage_exn @@ fun () ->
   try revert' ~__context ~snapshot
   with Storage_interface.Storage_error (Unimplemented _) ->
     let msg = [Ref.string_of (Db.VDI.get_SR ~__context ~self:snapshot)] in
+    debug "%s: Backend reported not implemented despite it offering the feature"
+      __FUN ;
     raise Api_errors.(Server_error (unimplemented_in_sm_backend, msg))
 
 let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
