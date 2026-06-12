@@ -274,7 +274,12 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
         try
           Client.VDI.revert ~rpc ~session_id ~snapshot ;
           true
-        with _ -> false
+        with
+        | Api_errors.(Server_error (e, _))
+        when e = Api_errors.sr_operation_not_supported
+             || e = Api_errors.unimplemented_in_sm_backend
+        ->
+          false
       )
       snap_disks_all
   in
