@@ -748,6 +748,12 @@ let pool_joining_host_has_network_sriovs =
 let pool_joining_host_tls_verification_mismatch =
   add_error "POOL_JOINING_HOST_TLS_VERIFICATION_MISMATCH"
 
+let pool_joining_master_certificate_not_in_pool_bundle =
+  add_error "POOL_JOINING_MASTER_CERTIFICATE_NOT_IN_POOL_BUNDLE"
+
+let pool_joining_pool_bundle_empty_after_import =
+  add_error "POOL_JOINING_POOL_BUNDLE_EMPTY_AFTER_IMPORT"
+
 let pool_joining_host_ca_certificates_conflict =
   add_error "POOL_JOINING_HOST_CA_CERTIFICATES_CONFLICT"
 
@@ -1499,3 +1505,6 @@ let not_allowed_when_ntp_is_enabled =
 let not_trusted_certificate = add_error "NOT_TRUSTED_CERTIFICATE"
 
 let certificate_lacks_purpose = add_error "CERTIFICATE_LACKS_PURPOSE"
+
+let boot_device_passthrough_disallowed =
+  add_error "BOOT_DEVICE_PASSTHROUGH_DISALLOWED"

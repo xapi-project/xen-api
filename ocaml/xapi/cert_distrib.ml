@@ -704,7 +704,29 @@ let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
 let import_joining_pool_certs ~__context ~pool_certs =
   let pool_certs = List.map WireProtocol.certificate_file_of_pair pool_certs in
   Worker.local_write_cert_fs ~__context HostPoolCert Merge pool_certs ;
-  Worker.local_regen_bundle ~__context
+  Worker.local_regen_bundle ~__context ;
+  (* update-ca-bundle.sh can fail silently, leaving an empty bundle that would
+     cause an opaque Stunnel_verify_error when the verified connection is
+     opened in Phase 2 of the join. *)
+  let bundle_path = !Xapi_globs.pool_bundle_path in
+  let bundle_empty_or_missing =
+    match Unix.stat bundle_path with
+    | exception Unix.Unix_error (Unix.ENOENT, _, _) ->
+        true
+    | stats ->
+        stats.Unix.st_size = 0
+  in
+  if bundle_empty_or_missing then (
+    D.error
+      "import_joining_pool_certs: pool bundle '%s' is empty or missing after \
+       certificate import. The bundle generation script \
+       (/opt/xensource/bin/update-ca-bundle.sh) likely failed silently."
+      bundle_path ;
+    raise
+      Api_errors.(
+        Server_error (pool_joining_pool_bundle_empty_after_import, [bundle_path])
+      )
+  )
 
 let collect_ca_certs ~__context ~names =
   Worker.local_collect_certs LegacyRootCert ~__context names

@@ -3513,6 +3513,7 @@ module VIF = struct
              guest-dependent)"
           )
         ; ("Static", "Static IPv4 address configuration")
+        ; ("DHCP", "Acquire an IP address by DHCP")
         ]
       )
 
@@ -3525,6 +3526,7 @@ module VIF = struct
              guest-dependent)"
           )
         ; ("Static", "Static IPv6 address configuration")
+        ; ("Autoconf", "Acquire an IPv6 address automatically")
         ]
       )
 
@@ -3741,6 +3743,7 @@ module VIF = struct
           , rel_dundee
           , "Configure IPv4 settings for this virtual interface"
           )
+        ; (Extended, "26.16.0", "Mode extended with 'DHCP' value")
         ]
       ~doc:"Configure IPv4 settings for this virtual interface"
       ~versioned_params:
@@ -3755,7 +3758,7 @@ module VIF = struct
         ; {
             param_type= ipv4_configuration_mode
           ; param_name= "mode"
-          ; param_doc= "Whether to use static or no IPv4 assignment"
+          ; param_doc= "Whether to use DHCP, static or no IPv4 assignment"
           ; param_release= dundee_release
           ; param_default= None
           }
@@ -3788,6 +3791,7 @@ module VIF = struct
           , rel_dundee
           , "Configure IPv6 settings for this virtual interface"
           )
+        ; (Extended, "26.16.0", "Mode extended with 'Autoconf' value")
         ]
       ~doc:"Configure IPv6 settings for this virtual interface"
       ~versioned_params:
@@ -3802,7 +3806,7 @@ module VIF = struct
         ; {
             param_type= ipv6_configuration_mode
           ; param_name= "mode"
-          ; param_doc= "Whether to use static or no IPv6 assignment"
+          ; param_doc= "Whether to use autoconf, static or no IPv6 assignment"
           ; param_release= dundee_release
           ; param_default= None
           }
