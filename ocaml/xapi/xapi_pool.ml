@@ -1939,6 +1939,28 @@ let join_common ~__context ~master_address ~master_username ~master_password
         Client.Pool.exchange_certificates_on_join ~rpc:unverified_rpc
           ~session_id ~uuid:my_uuid ~certificate:my_certificate
       in
+      (* Verify the master included its own certificate in the pool bundle
+         before importing. If it is absent the verified connection in Phase 2
+         will fail with an opaque Stunnel_verify_error. The filename convention
+         is "<uuid>.pem" (see Cert_distrib.HostPoolProvider). *)
+      let master_uuid =
+        Client.Host.get_uuid ~rpc:unverified_rpc ~session_id
+          ~self:(get_master ~rpc:unverified_rpc ~session_id)
+      in
+      let expected_cert_filename = master_uuid ^ ".pem" in
+      if not (List.mem_assoc expected_cert_filename pool_certs) then (
+        error
+          "join_common: master certificate file '%s' is absent from the pool's \
+           certificate store (/etc/stunnel/certs-pool/). The pool bundle sent \
+           to the joiner does not contain the master's own certificate. Run \
+           'xe pool-certificate-sync' on the master and retry."
+          expected_cert_filename ;
+        raise
+          Api_errors.(
+            Server_error
+              (pool_joining_master_certificate_not_in_pool_bundle, [master_uuid])
+          )
+      ) ;
       Cert_distrib.import_joining_pool_certs ~__context ~pool_certs
     )
     (fun () -> Client.Session.logout ~rpc:unverified_rpc ~session_id) ;

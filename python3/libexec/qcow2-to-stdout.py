@@ -91,6 +91,65 @@ def write_features(cluster, offset, data_file_name):
         offset += 48
 
 
+class Interval:
+    """
+    Represents the allocated virtual cluster intervals in a sparse file
+    """
+    def __init__(self, lst):
+        self.intervals = lst
+        self.intervals.sort(key=lambda x: x[0])
+
+
+    def __contains__(self, cluster):
+        """
+        Checks if cluster is in one of the intervals, removes it from the
+        interval if true
+        """
+        # Check if cluster is within [min, max]
+        if (len(self.intervals) == 0 or
+            (self.intervals[-1][1] < cluster or self.intervals[0][0] > cluster)):
+            return False
+
+        # Binary search for the interval that could contain the cluster
+        l = 0
+        h = len(self.intervals) - 1
+        while l <= h:
+            mid = (l + h) // 2
+            current = self.intervals[mid]
+
+            if cluster >= current[0] and cluster <= current[1]:
+                if cluster == current[0] and cluster == current[1]:
+                    # Remove the cluster from the interval
+                    del self.intervals[mid]
+                    return True
+
+                if cluster == current[0]:
+                    # Shrink interval from the left
+                    left = current[0] + 1
+                    right = current[1]
+                elif cluster == current[1]:
+                    # Shrink interval from the right
+                    left = current[0]
+                    right = current[1] - 1
+                else:
+                    # Split the original interval into two
+                    left = current[0]
+                    right = cluster
+                    self.intervals.insert(mid+1, [cluster+1, current[1]])
+
+                self.intervals[mid] = [left, right]
+                return True
+            elif cluster < current[0]:
+                h = mid - 1
+            elif cluster > current[1]:
+                l = mid + 1
+
+        return False
+
+    def __iter__(self):
+        return self.intervals.__iter__()
+
+
 def write_qcow2_content(input_file, cluster_size, refcount_bits,
                         data_file_name, data_file_raw, diff_file_name,
                         virtual_size, nonzero_clusters,
@@ -166,26 +225,29 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits,
             # In case input_file is bigger than diff_file_name, first check
             # if clusters from diff_file_name differ, and then check if the
             # rest contain data
-            diff_nonzero_clusters_set = set(diff_nonzero_clusters)
-            for cluster in nonzero_clusters:
-                if cluster >= last_diff_cluster:
-                    allocate_cluster(cluster)
-                elif cluster in diff_nonzero_clusters_set:
-                    # If a cluster has different data from the original_cluster
-                    # then it must be allocated
-                    cluster_data = os.pread(fd, cluster_size, cluster_size * cluster)
-                    original_cluster = os.pread(diff_fd, cluster_size, cluster_size * cluster)
-                    check_cluster_allocate(cluster, cluster_data, original_cluster)
-                    diff_nonzero_clusters_set.remove(cluster)
-                else:
-                    allocate_cluster(cluster)
+            diff_nonzero_clusters_set = Interval(diff_nonzero_clusters)
+
+            for (cluster_left, cluster_right) in nonzero_clusters:
+                for cluster in range(cluster_left, cluster_right+1):
+                    if cluster >= last_diff_cluster:
+                        allocate_cluster(cluster)
+                    elif cluster in diff_nonzero_clusters_set:
+                        # If a cluster has different data from the original_cluster
+                        # then it must be allocated
+                        cluster_data = os.pread(fd, cluster_size, cluster_size * cluster)
+                        original_cluster = os.pread(diff_fd, cluster_size, cluster_size * cluster)
+                        check_cluster_allocate(cluster, cluster_data, original_cluster)
+                    else:
+                        allocate_cluster(cluster)
 
             # These are not present in the original file
-            for cluster in diff_nonzero_clusters_set:
-                allocate_cluster(cluster)
+            for (cluster_left, cluster_right) in diff_nonzero_clusters_set:
+                for cluster in range(cluster_left, cluster_right+1):
+                    allocate_cluster(cluster)
         else:
-            for cluster in nonzero_clusters:
-                allocate_cluster(cluster)
+            for (cluster_left, cluster_right) in nonzero_clusters:
+                for cluster in range(cluster_left, cluster_right+1):
+                    allocate_cluster(cluster)
 
     else:
         zero_cluster = bytes(cluster_size)
@@ -427,18 +489,36 @@ def main():
         action="store_true",
     )
     parser.add_argument(
-        "--json-header",
-        dest="json_header",
-        help="stdin contains a JSON of pre-parsed QCOW2 information"
-        "(virtual_size, data_clusters, cluster_bits)",
-        action="store_true",
+        "--json-header-map",
+        dest="json_header_map",
+        help="File descriptor that contains a JSON of pre-parsed QCOW2"
+        "data clusters information for input_file",
+        type=int,
+        default=None,
     )
     parser.add_argument(
-        "--json-header-diff",
-        dest="json_header_diff",
-        metavar="json_header_diff",
-        help="File descriptor that contains a JSON of pre-parsed QCOW2 "
-        "information for the diff_file_name",
+        "--json-header-info",
+        dest="json_header_info",
+        help="File descriptor that contains a JSON of pre-parsed QCOW2"
+        "virtual size, cluster size information for input_file",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--json-header-diff-map",
+        dest="json_header_diff_map",
+        metavar="json_header_diff_map",
+        help="File descriptor that contains a JSON of pre-parsed QCOW2"
+        "data clusters for diff_file_name",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--json-header-diff-info",
+        dest="json_header_diff_info",
+        metavar="json_header_diff_info",
+        help="File descriptor that contains a JSON of pre-parsed QCOW2"
+        "virtual size, cluster size information for diff_file_name",
         type=int,
         default=None,
     )
@@ -451,28 +531,30 @@ def main():
     nonzero_clusters = None
     diff_virtual_size = None
     diff_nonzero_clusters = None
-    if args.json_header:
-        json_header = json.load(sys.stdin)
+
+    def parse_json_files(info_fd, map_fd):
+        map_f = os.fdopen(map_fd)
+        info_f = os.fdopen(info_fd)
+        map_json = json.load(map_f)
+        info_json = json.load(info_f)
+
         try:
-            virtual_size = json_header['virtual_size']
-            source_cluster_size = 2 ** json_header['cluster_bits']
-            if source_cluster_size != args.cluster_size:
-                args.cluster_size = source_cluster_size
-            nonzero_clusters = json_header['data_clusters']
-        except KeyError as e:
-            raise RuntimeError(f'Incomplete JSON - missing value for {str(e)}') from e
-    if args.json_header_diff:
-        f = os.fdopen(args.json_header_diff)
-        json_header = json.load(f)
-        try:
-            diff_virtual_size = json_header['virtual_size']
-            if 2 ** json_header['cluster_bits'] == args.cluster_size:
-                diff_nonzero_clusters = json_header['data_clusters']
+            virt_size = info_json['virtual-size']
+            cluster_size = info_json['cluster-size']
+            if cluster_size == args.cluster_size:
+                clusters = [ [int(el["start"] / cluster_size), int((el["start"] + el["length"]) / cluster_size) - 1] for el in map_json if el["data"] ]
             else:
                 sys.exit(f"[Error] Cluster size in the files being compared are "
-                         f"different: {2**json_header['cluster_bits']} vs. {args.cluster_size}")
+                         f"different: {info_json['cluster-size']} vs. {args.cluster_size}")
+            return virt_size, clusters
         except KeyError as e:
             raise RuntimeError(f'Incomplete JSON for the diff - missing value for {str(e)}') from e
+
+
+    if args.json_header_info and args.json_header_map:
+        virtual_size, nonzero_clusters = parse_json_files(args.json_header_info, args.json_header_map)
+    if args.json_header_diff_info and args.json_header_diff_map:
+        diff_virtual_size, diff_nonzero_clusters = parse_json_files(args.json_header_diff_info, args.json_header_diff_map)
 
     if not os.path.exists(args.input_file):
         sys.exit(f"[Error] {args.input_file} does not exist.")
