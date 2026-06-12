@@ -1135,10 +1135,13 @@ module SMAPIv1 : Server_impl = struct
     let revert _context ~dbg ~sr ~snapshot_info =
       with_dbg ~name:"VDI.revert" ~dbg @@ fun di ->
       let dbg = Debug_info.to_string di in
-      Server_helpers.exec_with_new_task "VDI.revert"
-        ~subtask_of:(Ref.of_string dbg) (fun __context ->
-          call_revert ~__context ~dbg ~sr ~snapshot_info
-      )
+      try
+        Server_helpers.exec_with_new_task "VDI.revert"
+          ~subtask_of:(Ref.of_string dbg) (fun __context ->
+            call_revert ~__context ~dbg ~sr ~snapshot_info
+        )
+      with Smint.Not_implemented_in_backend ->
+        raise (Storage_error (Unimplemented "VDI.revert"))
   end
 
   let get_by_name _context ~dbg:_ ~name:_ = assert false
