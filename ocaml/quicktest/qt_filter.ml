@@ -1,3 +1,4 @@
+module Listext = Xapi_stdext_std.Listext.List
 module A = Quicktest_args
 
 type 'a test_case = string * Alcotest.speed_level * 'a
@@ -280,14 +281,13 @@ module SR = struct
     )
 
   let allowed_operations ops =
-    sr_filter (fun i ->
-        Xapi_stdext_std.Listext.List.subset ops i.Qt.allowed_operations
-    )
+    sr_filter (fun i -> Listext.subset ops i.Qt.allowed_operations)
 
   let has_capabilities caps =
-    sr_filter (fun i ->
-        Xapi_stdext_std.Listext.List.subset caps i.Qt.capabilities
-    )
+    sr_filter (fun i -> Listext.subset caps i.Qt.capabilities)
+
+  let unavailable_operations ops =
+    sr_filter (fun i -> not (Listext.subset ops i.Qt.allowed_operations))
 
   (* Helper to filter SRs of specific types *)
   let has_one_of_types types sr_info =

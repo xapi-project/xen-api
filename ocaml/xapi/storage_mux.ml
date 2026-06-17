@@ -780,6 +780,15 @@ module Mux = struct
         let rpc = of_sr sr
       end)) in
       C.VDI.list_changed_blocks (Debug_info.to_string di) sr vdi_from vdi_to
+
+    let revert () ~dbg ~sr ~snapshot_info =
+      with_dbg ~name:"VDI.revert" ~dbg @@ fun di ->
+      info "VDI.revert dbg:%s sr:%s snapshot:%s" dbg (s_of_sr sr)
+        (string_of_vdi_info snapshot_info) ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.VDI.revert (Debug_info.to_string di) sr snapshot_info
   end
 
   let get_by_name () ~dbg ~name =
