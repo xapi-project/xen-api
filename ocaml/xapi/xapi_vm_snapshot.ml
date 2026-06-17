@@ -253,9 +253,9 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   let snap_disks_snapshot_of = VDISet.map get_snapshot_of snap_disks_all in
 
   let vm_VBDs_all = Db.VM.get_VBDs ~__context ~self:vm |> VBDSet.of_list in
-  let vm_VBDs_disk =
+  let vm_VBDs_disk, vm_VBDs_CD =
     (* Filter VBDs to ensure that we don't read empty CDROMs *)
-    VBDSet.filter
+    VBDSet.partition
       (fun vbd -> Db.VBD.get_type ~__context ~self:vbd = `Disk)
       vm_VBDs_all
   in
@@ -309,7 +309,8 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   in
 
   let vm_vbds_to_be_destroyed =
-    filter_vbds_from_vdis vm_VBDs_all vm_disks_to_be_destroyed
+    let ( +++ ) = VBDSet.union in
+    filter_vbds_from_vdis vm_VBDs_all vm_disks_to_be_destroyed +++ vm_VBDs_CD
   in
 
   let snap_VBDs_reverted =
