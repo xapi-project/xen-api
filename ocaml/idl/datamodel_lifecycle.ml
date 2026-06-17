@@ -252,7 +252,7 @@ let prototyped_of_message = function
   | "VTPM", "create" ->
       Some "22.26.0"
   | "VDI", "revert" ->
-      Some "26.1.13-next"
+      Some "26.15.0-next"
   | "host", "set_servertime" ->
       Some "26.0.0"
   | "host", "get_ntp_synchronized" ->
