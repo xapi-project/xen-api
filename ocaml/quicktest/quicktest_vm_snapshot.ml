@@ -162,12 +162,17 @@ let test_revert rpc session_id vm vdi vdi2 ~change =
 
 let test_revert_cds rpc session_id vm vdi vdi2 =
   let snapshot = take_snapshot rpc session_id vm ~origin:__FUNCTION__ in
+
+  let snap_vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:snapshot in
+  Alcotest.(check int) "Snapshot must only have 2 VBDs" 2 (List.length snap_vbds) ;
+
   Client.Client.VM.revert ~rpc ~session_id ~snapshot ;
 
   let vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:vm in
   let vdi_after = get_vdi_with_user_device rpc session_id vbds "0" in
   let vdi_after2 = get_vdi_with_user_device rpc session_id vbds "1" in
 
+  Alcotest.(check int) "VM must only have 2 VBDs" 2 (List.length vbds) ;
   (* CD VDIs are considered immutable and the clone code ignores them *)
   check_vdis_same vdi vdi_after ;
   check_vdis_same vdi2 vdi_after2
