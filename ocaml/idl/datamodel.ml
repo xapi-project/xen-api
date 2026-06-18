@@ -4275,6 +4275,7 @@ module SR = struct
         ; ("vdi_generate_config", "Generating the configuration of the VDI")
         ; ("vdi_resize_online", "Resizing the VDI online")
         ; ("vdi_update", "Refreshing the fields on the VDI")
+        ; ("vdi_revert", "Reverting a VDI to the snapshot")
         ; ("pbd_create", "Creating a PBD for this SR")
         ; ("pbd_destroy", "Destroying one of this SR's PBDs")
         ]
@@ -5476,6 +5477,16 @@ module VDI = struct
          different SR. The destination SR must be visible to the guest."
       ~allowed_roles:_R_VM_POWER_ADMIN ()
 
+  let revert =
+    call ~name:"revert" ~in_oss_since:None ~lifecycle:[]
+      ~params:
+        [(Ref _vdi, "snapshot", "The snapshot to which we want to revert")]
+      ~doc:
+        "Copy the contents of a snapshot to the VDI it's related to. The \
+         original contents of the VDI are lost."
+      ~errs:[Api_errors.unimplemented_in_sm_backend]
+      ~allowed_roles:_R_VM_POWER_ADMIN ~doc_tags:[Snapshots] ()
+
   let introduce_params first_rel =
     [
       {
@@ -5718,6 +5729,8 @@ module VDI = struct
           )
         ; ("set_on_boot", "Setting the on_boot field of the VDI")
         ; ("blocked", "Operations on this VDI are temporarily blocked")
+        ; ("revert_to", "Reverting a VDI to a clone of this snapshot")
+        ; ("revert_from", "Reverting this VDI to a clone of a snapshot")
         ]
       )
 
@@ -6256,6 +6269,7 @@ module VDI = struct
         ; data_destroy
         ; list_changed_blocks
         ; get_nbd_info
+        ; revert
         ]
       ~contents:
         ([
