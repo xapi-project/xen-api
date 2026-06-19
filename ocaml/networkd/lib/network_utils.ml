@@ -1066,9 +1066,37 @@ end = struct
 
   let is_running ?(ipv6 = false) interface =
     try
-      Unix.access (pid_file ~ipv6 interface) [Unix.F_OK] ;
-      true
-    with Unix.Unix_error _ -> false
+      match
+        pid_file ~ipv6 interface
+        |> Xapi_stdext_unix.Unixext.string_of_file
+        |> String.trim
+        |> int_of_string_opt
+      with
+      | Some pid ->
+          Unix.kill pid 0 ; true
+      | None ->
+          false
+    with _ -> false
+
+  (** wait_stopped: wait until DHCP client is not running.
+  Could raise Failure if it takes too long time. *)
+  let rec wait_stopped ?(count = 100) ~ipv6 interface =
+    if count = 0 then (
+      warn
+        "wait_stopped: dhclient: %s (%s): waiting for dhclient stopping is \
+         taking too long time"
+        interface
+        ( if ipv6 then
+            "ipv6"
+          else
+            "ipv4"
+        ) ;
+      failwith "wait_stopped: abording, taking too long time"
+    ) ;
+    if is_running ~ipv6 interface then (
+      Unix.sleepf 0.1 ;
+      wait_stopped ~ipv6 ~count:(count - 1) interface
+    )
 
   let stop ?(ipv6 = false) interface =
     if is_running ~ipv6 interface then (
@@ -1085,6 +1113,10 @@ end = struct
                ; interface
                ]
             ) ;
+          (* wait for DHCP process to be properly stopped *)
+          wait_stopped ~ipv6 interface ;
+          (* remove old configuration file *)
+          remove_conf_file ~ipv6 interface ;
           (* remove the pid file *)
           Unix.unlink (pid_file ~ipv6 interface)
       ) ;
