@@ -97,6 +97,8 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
+  | "SM", "supported_image_formats" ->
+      Some "26.1.13-next"
   | "SM", "host_pending_features" ->
       Some "24.37.0"
   | "host", "timezone" ->
