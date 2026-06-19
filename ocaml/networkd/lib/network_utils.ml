@@ -928,6 +928,7 @@ module Dhclient : sig
 end = struct
   type interface = string
 
+  (** pid_file: path to dhclient pidfile. *)
   let pid_file ?(ipv6 = false) interface =
     let ipv6' =
       if ipv6 then
@@ -937,6 +938,7 @@ end = struct
     in
     Printf.sprintf "/var/run/dhclient%s-%s.pid" ipv6' interface
 
+  (** lease_file: path to dhclient lease file. *)
   let lease_file ?(ipv6 = false) interface =
     let ipv6' =
       if ipv6 then
@@ -947,6 +949,7 @@ end = struct
     Filename.concat "/var/lib/xcp"
       (Printf.sprintf "dhclient%s-%s.leases" ipv6' interface)
 
+  (** conf_file: path of the dhclient configuration file. *)
   let conf_file ?(ipv6 = false) interface =
     let ipv6' =
       if ipv6 then
@@ -957,6 +960,7 @@ end = struct
     Filename.concat "/var/lib/xcp"
       (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
 
+  (** generate_conf: return the content of dhclient configuration file. *)
   let[@warning "-27"] generate_conf ?(ipv6 = false) interface options =
     let send = "host-name = gethostname()" in
     let minimal =
@@ -994,16 +998,19 @@ end = struct
       interface send
       (String.concat ", " request)
 
+  (** read_conf_file: returns the content of dhclient configuration file. *)
   let read_conf_file ?(ipv6 = false) interface =
     let file = conf_file ~ipv6 interface in
     try Some (Xapi_stdext_unix.Unixext.string_of_file file) with _ -> None
 
+  (** write_conf_file: write updated dhclient configuration file to disk. *)
   let write_conf_file ?(ipv6 = false) interface options =
     let conf = generate_conf ~ipv6 interface options in
     Xapi_stdext_unix.Unixext.write_string_to_file
       (conf_file ~ipv6 interface)
       conf
 
+  (** remove_conf_file: unlink the dhclient configuration file from disk. *)
   let remove_conf_file ?(ipv6 = false) interface =
     let file = conf_file ~ipv6 interface in
     try Unix.unlink file with _ -> ()
@@ -1056,7 +1063,8 @@ end = struct
          )
       )
 
-  let is_running ?(ipv6 = false) interface =
+  (* is_running: returns if the DHCP client is running. *)
+  let is_running ~ipv6 interface =
     try
       Unix.access (pid_file ~ipv6 interface) [Unix.F_OK] ;
       true
