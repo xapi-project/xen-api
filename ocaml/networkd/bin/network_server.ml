@@ -499,8 +499,6 @@ module Interface = struct
                 ~some:(fun n -> [`dns n])
                 !config.dns_interface
             in
-            if not (Dhclient.is_running name) then (* Remove any static IPs *)
-              Ip.flush_ip_addr name ;
             let options = gateway @ dns in
             Dhclient.ensure_running name options
         | Static4 addrs ->
@@ -593,10 +591,9 @@ module Interface = struct
               in
               Dhclient.stop ~ipv6:true name ;
               Sysctl.set_ipv6_autoconf name false ;
-              Ip.flush_ip_addr ~ipv6:true name ;
               Ip.set_ipv6_link_local_addr name ;
               let options = gateway @ dns in
-              ignore (Dhclient.ensure_running ~ipv6:true name options)
+              Dhclient.ensure_running ~ipv6:true name options
           | Autoconf6 ->
               Dhclient.stop ~ipv6:true name ;
               Ip.flush_ip_addr ~ipv6:true name ;
