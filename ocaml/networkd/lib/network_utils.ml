@@ -917,8 +917,6 @@ module Dhclient : sig
   (** set_stale: mark the DHCP configuration to be stale. Next call of `ensure_running`
   will necessary trigger a restart. *)
 
-  val is_running : ?ipv6:bool -> interface -> bool
-
   val stop : ?ipv6:bool -> interface -> unit
   (** stop: stop the DHCP client managing [interface] if running and to unconfigure addresses. *)
 
@@ -1067,7 +1065,8 @@ end = struct
          )
       )
 
-  let is_running ?(ipv6 = false) interface =
+  (** is_running: returns if the DHCP client is running. *)
+  let is_running ~ipv6 interface =
     try
       match
         pid_file ~ipv6 interface
