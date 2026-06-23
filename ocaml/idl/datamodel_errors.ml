@@ -459,6 +459,9 @@ let _ =
   error Api_errors.nvidia_sriov_misconfigured ["host"; "device_name"]
     ~doc:"The NVidia GPU is not configured for SR-IOV as expected" () ;
 
+  error Api_errors.boot_device_passthrough_disallowed ["device"]
+    ~doc:"Passing through a PCI device backing a boot disk is disallowed" () ;
+
   error Api_errors.openvswitch_not_active []
     ~doc:
       "This operation needs the OpenVSwitch networking backend to be enabled \
@@ -903,6 +906,25 @@ let _ =
     ~doc:
       "The host joining the pool must have one and only one IP on the \
        clustering network"
+    () ;
+  error Api_errors.pool_joining_host_tls_verification_mismatch []
+    ~doc:
+      "The TLS verification check failed when the joining host attempted to \
+       open a verified connection to the pool coordinator using the imported \
+       pool certificate bundle."
+    () ;
+  error Api_errors.pool_joining_master_certificate_not_in_pool_bundle
+    ["master_uuid"]
+    ~doc:
+      "The pool coordinator's own certificate is absent from the pool \
+       certificate bundle sent to the joining host. Run 'xe \
+       pool-certificate-sync' on the coordinator and retry."
+    () ;
+  error Api_errors.pool_joining_pool_bundle_empty_after_import ["bundle_path"]
+    ~doc:
+      "The pool certificate bundle is empty or missing after import on the \
+       joining host. The bundle generation script (update-ca-bundle.sh) likely \
+       failed silently."
     () ;
 
   (* External directory service *)

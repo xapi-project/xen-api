@@ -3513,6 +3513,7 @@ module VIF = struct
              guest-dependent)"
           )
         ; ("Static", "Static IPv4 address configuration")
+        ; ("DHCP", "Acquire an IP address by DHCP")
         ]
       )
 
@@ -3525,6 +3526,7 @@ module VIF = struct
              guest-dependent)"
           )
         ; ("Static", "Static IPv6 address configuration")
+        ; ("Autoconf", "Acquire an IPv6 address automatically")
         ]
       )
 
@@ -3741,6 +3743,7 @@ module VIF = struct
           , rel_dundee
           , "Configure IPv4 settings for this virtual interface"
           )
+        ; (Extended, "26.16.0", "Mode extended with 'DHCP' value")
         ]
       ~doc:"Configure IPv4 settings for this virtual interface"
       ~versioned_params:
@@ -3755,7 +3758,7 @@ module VIF = struct
         ; {
             param_type= ipv4_configuration_mode
           ; param_name= "mode"
-          ; param_doc= "Whether to use static or no IPv4 assignment"
+          ; param_doc= "Whether to use DHCP, static or no IPv4 assignment"
           ; param_release= dundee_release
           ; param_default= None
           }
@@ -3788,6 +3791,7 @@ module VIF = struct
           , rel_dundee
           , "Configure IPv6 settings for this virtual interface"
           )
+        ; (Extended, "26.16.0", "Mode extended with 'Autoconf' value")
         ]
       ~doc:"Configure IPv6 settings for this virtual interface"
       ~versioned_params:
@@ -3802,7 +3806,7 @@ module VIF = struct
         ; {
             param_type= ipv6_configuration_mode
           ; param_name= "mode"
-          ; param_doc= "Whether to use static or no IPv6 assignment"
+          ; param_doc= "Whether to use autoconf, static or no IPv6 assignment"
           ; param_release= dundee_release
           ; param_default= None
           }
@@ -4271,6 +4275,7 @@ module SR = struct
         ; ("vdi_generate_config", "Generating the configuration of the VDI")
         ; ("vdi_resize_online", "Resizing the VDI online")
         ; ("vdi_update", "Refreshing the fields on the VDI")
+        ; ("vdi_revert", "Reverting a VDI to the snapshot")
         ; ("pbd_create", "Creating a PBD for this SR")
         ; ("pbd_destroy", "Destroying one of this SR's PBDs")
         ]
@@ -5472,6 +5477,16 @@ module VDI = struct
          different SR. The destination SR must be visible to the guest."
       ~allowed_roles:_R_VM_POWER_ADMIN ()
 
+  let revert =
+    call ~name:"revert" ~in_oss_since:None ~lifecycle:[]
+      ~params:
+        [(Ref _vdi, "snapshot", "The snapshot to which we want to revert")]
+      ~doc:
+        "Copy the contents of a snapshot to the VDI it's related to. The \
+         original contents of the VDI are lost."
+      ~errs:[Api_errors.unimplemented_in_sm_backend]
+      ~allowed_roles:_R_VM_POWER_ADMIN ~doc_tags:[Snapshots] ()
+
   let introduce_params first_rel =
     [
       {
@@ -5714,6 +5729,8 @@ module VDI = struct
           )
         ; ("set_on_boot", "Setting the on_boot field of the VDI")
         ; ("blocked", "Operations on this VDI are temporarily blocked")
+        ; ("revert_to", "Reverting a VDI to a clone of this snapshot")
+        ; ("revert_from", "Reverting this VDI to a clone of a snapshot")
         ]
       )
 
@@ -6252,6 +6269,7 @@ module VDI = struct
         ; data_destroy
         ; list_changed_blocks
         ; get_nbd_info
+        ; revert
         ]
       ~contents:
         ([

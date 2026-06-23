@@ -22,28 +22,43 @@ let receive (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
   Vhd_qcow_parsing.run_tool qcow_tool progress_cb args ~input_fd:unix_fd
 
 let read_header qcow_path =
-  let args = ["read_headers"; qcow_path] in
-  let qcow_tool = !Xapi_globs.qcow_stream_tool in
-  let pipe_reader, pipe_writer = Unix.pipe ~cloexec:true () in
-
   let progress_cb _ = () in
-  let (_ : Thread.t) =
+  let run_in_thread tool args pipe_writer replace_fds =
     Thread.create
       (fun () ->
         Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () ->
-            Vhd_qcow_parsing.run_tool qcow_tool progress_cb args
-              ~output_fd:pipe_writer
+            Vhd_qcow_parsing.run_tool tool progress_cb args
+              ~output_fd:pipe_writer ~replace_fds
           )
           (fun () -> Unix.close pipe_writer)
       )
       ()
   in
-  pipe_reader
+
+  let map_pipe_reader, map_pipe_writer = Unix.pipe ~cloexec:true () in
+  let (_ : Thread.t) =
+    run_in_thread !Xapi_globs.qemu_img
+      ["map"; qcow_path; "--output=json"]
+      map_pipe_writer []
+  in
+
+  let info_pipe_reader, info_pipe_writer = Unix.pipe ~cloexec:true () in
+  let (_ : Thread.t) =
+    run_in_thread !Xapi_globs.qemu_img
+      ["info"; qcow_path; "--output=json"]
+      info_pipe_writer []
+  in
+
+  (map_pipe_reader, info_pipe_reader)
 
 let parse_header qcow_path =
-  let pipe_reader = read_header qcow_path in
-  Vhd_qcow_parsing.parse_header pipe_reader
+  let pipe, _ = read_header qcow_path in
+  Vhd_qcow_parsing.parse_header pipe
+
+let parse_header_interval qcow_path =
+  let pipes = read_header qcow_path in
+  Vhd_qcow_parsing.parse_header_qemu_img pipes
 
 let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
     (path : string) (_size : Int64.t) =
@@ -54,7 +69,12 @@ let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
 
   (* If VDI is backed by QCOW, parse the header to determine nonzero clusters
      to avoid reading all of the raw disk *)
-  let input_fd = Result.map read_header qcow_path |> Result.to_option in
+  let input_fds = Result.map read_header qcow_path |> Result.to_option in
+
+  (* TODO: If VHD headers are to be consulted as well, qcow2-to-stdout
+     needs to properly account for cluster_bits. Currently QCOW2 export
+     from VHD-backed VDIs will just revert to raw, without any
+     allocation accounting. *)
 
   (* Parse the header of the VDI we are diffing against as well *)
   let relative_to_qcow_path =
@@ -64,9 +84,13 @@ let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
     | None ->
         None
   in
-  let diff_fd = Option.map read_header relative_to_qcow_path in
+  let diff_fds = Option.map read_header relative_to_qcow_path in
 
-  let unique_string = Uuidx.(to_string (make ())) in
+  let map_fd_string = Uuidx.(to_string (make ())) in
+  let info_fd_string = Uuidx.(to_string (make ())) in
+  let diff_map_fd_string = Uuidx.(to_string (make ())) in
+  let diff_info_fd_string = Uuidx.(to_string (make ())) in
+
   let args =
     [path]
     @ (match relative_to with None -> [] | Some vdi -> ["--diff"; vdi])
@@ -74,18 +98,46 @@ let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
       | None ->
           []
       | Some _ ->
-          ["--json-header-diff"; unique_string]
+          [
+            "--json-header-diff-map"
+          ; diff_map_fd_string
+          ; "--json-header-diff-info"
+          ; diff_info_fd_string
+          ]
       )
-    @ match qcow_path with Error _ -> [] | Ok _ -> ["--json-header"]
+    @
+    match qcow_path with
+    | Error _ ->
+        []
+    | Ok _ ->
+        [
+          "--json-header-map"
+        ; map_fd_string
+        ; "--json-header-info"
+        ; info_fd_string
+        ]
   in
   let qcow_tool = !Xapi_globs.qcow_to_stdout in
-  let replace_fds = Option.map (fun fd -> [(unique_string, fd)]) diff_fd in
+  let replace_fds =
+    Option.map
+      (fun (map_fd, info_fd) ->
+        let rfds = [(map_fd_string, map_fd); (info_fd_string, info_fd)] in
+        match diff_fds with
+        | Some (diff_map_fd, diff_info_fd) ->
+            (diff_map_fd_string, diff_map_fd)
+            :: (diff_info_fd_string, diff_info_fd)
+            :: rfds
+        | None ->
+            rfds
+      )
+      input_fds
+  in
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
-      Vhd_qcow_parsing.run_tool qcow_tool progress_cb args ?input_fd
-        ~output_fd:unix_fd ?replace_fds
+      Vhd_qcow_parsing.run_tool qcow_tool progress_cb args ~output_fd:unix_fd
+        ?replace_fds
     )
     (fun () ->
-      Option.iter Unix.close input_fd ;
-      Option.iter Unix.close diff_fd
+      Option.iter (fun (x, y) -> Unix.close x ; Unix.close y) input_fds ;
+      Option.iter (fun (x, y) -> Unix.close x ; Unix.close y) diff_fds
     )
