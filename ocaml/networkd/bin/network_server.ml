@@ -183,6 +183,7 @@ let on_shutdown signal =
     (fun () ->
       debug "xcp-networkd caught signal %a; performing cleanup actions."
         Debug.Pp.signal signal ;
+      Lldp.stop () ;
       write_config ()
     )
     ()
@@ -805,6 +806,14 @@ module Interface = struct
       )
       ()
 
+  let set_lldp _ dbg ~name ~params =
+    Debug.with_thread_associated dbg
+      (fun () ->
+        debug "Configuring LLDP for %s" name ;
+        Lldp.set_conf name params
+      )
+      ()
+
   let get_capabilities dbg name =
     Debug.with_thread_associated dbg
       (fun () -> Fcoe.get_capabilities name @ Sriov.get_capabilities name)
@@ -920,6 +929,7 @@ module Interface = struct
                   ; mtu
                   ; ethtool_settings
                   ; ethtool_offload
+                  ; lldp
                   ; _
                   } as c
                 ) ) ->
@@ -962,6 +972,7 @@ module Interface = struct
                 ) ;
                 exec (fun () -> set_ipv4_routes () dbg ~name ~routes:ipv4_routes) ;
                 exec (fun () -> set_mtu () dbg ~name ~mtu) ;
+                exec (fun () -> set_lldp () dbg ~name ~params:lldp) ;
                 exec (fun () -> bring_up () dbg ~name) ;
                 exec (fun () ->
                     set_ethtool_settings () dbg ~name ~params:ethtool_settings

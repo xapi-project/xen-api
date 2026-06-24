@@ -182,6 +182,31 @@ type bond_mode = Balance_slb | Active_backup | Lacp [@@deriving rpcty]
 
 type fail_mode = Standalone | Secure [@@deriving rpcty]
 
+(** LLDP multicast destination MAC address groups that 802.1D-compliant bridges
+    do not forward *)
+type lldp_multicast_address =
+  | Nearestbridge
+      (** Nearest bridge group address — MAC [01:80:C2:00:00:0E].
+          LLDP frames reach only the immediate neighbor on the physical link. *)
+  | Nearestnontpmrbridge
+      (** Nearest non-TPMR bridge group address — MAC [01:80:C2:00:00:03].
+          LLDP frames reach only the nearest non-TPMR bridge. The "TPMR" means
+          Two-Port MAC Relays. *)
+  | Nearestcustomerbridge
+      (** Nearest customer bridge group address — MAC [01:80:C2:00:00:00].
+          LLDP frames reach only the nearest Customer bridge. *)
+[@@deriving rpcty]
+
+type lldp = {
+    force: bool [@default false]
+  ; chassis_id: string [@default ""]
+  ; system_name: string [@default ""]
+  ; system_description: string [@default ""]
+  ; enabled: bool [@default false]
+  ; address: lldp_multicast_address list [@default [Nearestbridge]]
+}
+[@@deriving rpcty]
+
 type interface_config_t = {
     ipv4_conf: ipv4 [@default None4]
   ; ipv4_gateway: Unix.inet_addr option [@default None]
@@ -196,6 +221,7 @@ type interface_config_t = {
   ; ethtool_settings: (string * string) list [@default []]
   ; ethtool_offload: (string * string) list [@default [("lro", "off")]]
   ; persistent_i: bool [@default false]
+  ; lldp: lldp option [@default None]
 }
 [@@deriving rpcty]
 
@@ -248,6 +274,7 @@ let default_interface =
   ; ethtool_settings= []
   ; ethtool_offload= [("lro", "off")]
   ; persistent_i= false
+  ; lldp= None
   }
 
 let default_bridge =
