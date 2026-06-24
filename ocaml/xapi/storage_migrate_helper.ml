@@ -314,6 +314,34 @@ module State = struct
           (Sr.of_string sr, Vdi.of_string (String.concat "/" rest))
     | _ ->
         failwith "Bad id"
+
+  (** A single (source → destination) snapshot pairing recorded during SMAPIv3
+      live migration. Used after mirroring to update VBD references and restore
+      snapshot metadata on the destination. *)
+  type snapshot_relation = {
+      src_vdi: Storage_interface.Vdi.t
+    ; dest_vdi: Storage_interface.Vdi.t
+    ; snapshot_time: Clock.Date.t
+  }
+
+  type snapshot_mappings_table = (string, snapshot_relation list) Hashtbl.t
+
+  let snapshot_mappings : snapshot_mappings_table = Hashtbl.create 10
+
+  let set_snapshot_mappings mirror_id relations =
+    Xapi_stdext_threads.Threadext.Mutex.execute mutex (fun () ->
+        Hashtbl.replace snapshot_mappings mirror_id relations
+    )
+
+  let get_snapshot_mappings mirror_id =
+    Xapi_stdext_threads.Threadext.Mutex.execute mutex (fun () ->
+        Hashtbl.find_opt snapshot_mappings mirror_id |> Option.value ~default:[]
+    )
+
+  let remove_snapshot_mappings mirror_id =
+    Xapi_stdext_threads.Threadext.Mutex.execute mutex (fun () ->
+        Hashtbl.remove snapshot_mappings mirror_id
+    )
 end
 
 let vdi_info = function
