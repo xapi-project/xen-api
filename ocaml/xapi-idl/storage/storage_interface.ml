@@ -1176,7 +1176,6 @@ module StorageAPI (R : RPC) = struct
           @-> sr_p
           @-> VDI.vdi_info_p
           @-> id_p
-          @-> image_format_p
           @-> similar_p
           @-> returning result err
           )
@@ -1194,7 +1193,6 @@ module StorageAPI (R : RPC) = struct
           @-> sr_p
           @-> VDI.vdi_info_p
           @-> id_p
-          @-> image_format_p
           @-> similar_p
           @-> vm_p
           @-> returning result err
@@ -1358,7 +1356,6 @@ module type MIRROR = sig
     -> sr:sr
     -> vdi_info:vdi_info
     -> id:Mirror.id
-    -> image_format:string
     -> similar:Mirror.similars
     -> Mirror.mirror_receive_result
 
@@ -1368,7 +1365,6 @@ module type MIRROR = sig
     -> sr:sr
     -> vdi_info:vdi_info
     -> id:Mirror.id
-    -> image_format:string
     -> similar:Mirror.similars
     -> vm:vm
     -> Mirror.mirror_receive_result
@@ -1901,14 +1897,11 @@ module Server (Impl : Server_impl) () = struct
           ~mirror_vm ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror
           ~dest_sr ~verify_dest
     ) ;
-    S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id image_format similar ->
-        Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~image_format
-          ~similar
+    S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
+        Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar
     ) ;
-    S.DATA.MIRROR.receive_start2
-      (fun dbg sr vdi_info id image_format similar vm ->
-        Impl.DATA.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id ~image_format
-          ~similar ~vm
+    S.DATA.MIRROR.receive_start2 (fun dbg sr vdi_info id similar vm ->
+        Impl.DATA.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id ~similar ~vm
     ) ;
     S.DATA.MIRROR.receive_start3
       (fun dbg sr vdi_info mirror_id image_format similar vm url verify_dest ->

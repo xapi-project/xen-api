@@ -1168,12 +1168,11 @@ module SMAPIv1 : Server_impl = struct
           ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
         assert false
 
-      let receive_start _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~image_format:_
-          ~similar:_ =
+      let receive_start _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ =
         assert false
 
-      let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~image_format:_
-          ~similar:_ ~vm:_ =
+      let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_
+          ~vm:_ =
         assert false
 
       let receive_start3 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
