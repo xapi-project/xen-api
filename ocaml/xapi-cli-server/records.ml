@@ -1014,6 +1014,23 @@ let vif_record rpc session_id vif =
       ; make_field ~name:"ipv6-gateway"
           ~get:(fun () -> (x ()).API.vIF_ipv6_gateway)
           ()
+      ; make_field ~name:"trunks"
+          ~get:(fun () -> map_and_concat Int64.to_string (x ()).API.vIF_trunks)
+          ~get_set:(fun () -> List.map Int64.to_string (x ()).API.vIF_trunks)
+          ~add_to_set:(fun value ->
+            let value = safe_i64_of_string "value" value in
+            Client.VIF.add_trunks ~rpc ~session_id ~self:vif ~value
+          )
+          ~remove_from_set:(fun value ->
+            let value = safe_i64_of_string "value" value in
+            Client.VIF.remove_trunks ~rpc ~session_id ~self:vif ~value
+          )
+          ~set:(fun value ->
+            Client.VIF.set_trunks ~rpc ~session_id ~self:vif
+              ~value:
+                (List.map (safe_i64_of_string "value") (get_words ',' value))
+          )
+          ()
       ]
   }
 
