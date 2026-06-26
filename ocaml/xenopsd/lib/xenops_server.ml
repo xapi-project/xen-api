@@ -2307,6 +2307,13 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
       VM_DB.signal id
   | VM_suspend (id, _data) ->
       debug "VM.suspend %s" id ;
+      (* Do a fresh Query_migratable before committing to the suspend sequence.
+         The stale data/cant_suspend_reason in xenstore (written by the QMP event
+         thread on transient NVMe in-flight I/O) may have already been cleared by
+         the time we reach here; this authoritative check ensures we only fail if
+         the device is genuinely non-migratable at suspend time. *)
+      let module B = (val get_backend () : S) in
+      B.VM.assert_can_save (VM_DB.read_exn id) ;
       perform_atomics (atomics_of_operation op) t ;
       VM_DB.signal id
   | VM_restore_vifs id ->

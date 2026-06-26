@@ -205,7 +205,7 @@ let check_op_for_feature ~__context ~vmr:_ ~vmmr ~vmgmr ~op ~ref ~strict =
   let some_err e = Some (e, [Ref.string_of ref]) in
   let lack_feature feature = not (has_feature ~vmgmr ~feature) in
   match op with
-  | (`suspend | `checkpoint | `pool_migrate | `migrate_send) when is_live -> (
+  | (`pool_migrate | `migrate_send) when is_live -> (
     match get_feature ~vmgmr ~feature:"data-cant-suspend-reason" with
     | Some reason ->
         Some (Api_errors.vm_non_suspendable, [Ref.string_of ref; reason])
@@ -215,6 +215,18 @@ let check_op_for_feature ~__context ~vmr:_ ~vmmr ~vmgmr ~op ~ref ~strict =
     | None ->
         None
   )
+  | (`suspend | `checkpoint) when is_live ->
+      (* Cannot gate suspend/checkpoint on the cached data-cant-suspend-reason:
+       that xenstore key is set by the QMP event thread whenever a QMP event
+       arrives and Query_migratable returns an error (e.g. NVMe has transient
+       in-flight I/O). By the time the actual suspend executes, the device may
+       be idle. xenopsd performs a fresh Query_migratable check via
+       assert_can_save before committing to the save sequence, which is the
+       authoritative check. *)
+      if (not implicit_support) && strict && lack_feature "feature-suspend" then
+        some_err Api_errors.vm_lacks_feature
+      else
+        None
   | _ when implicit_support ->
       None
   | `clean_shutdown
