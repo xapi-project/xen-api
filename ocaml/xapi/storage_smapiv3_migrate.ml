@@ -190,12 +190,10 @@ module MIRROR : SMAPIv2_MIRROR = struct
           )
     )
 
-  let receive_start _ctx ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~image_format:_
-      ~similar:_ =
+  let receive_start _ctx ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ =
     Storage_interface.unimplemented __FUNCTION__
 
-  let receive_start2 _ctx ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~image_format:_
-      ~similar:_ ~vm:_ =
+  let receive_start2 _ctx ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ ~vm:_ =
     Storage_interface.unimplemented __FUNCTION__
 
   let receive_start3 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~image_format ~similar:_

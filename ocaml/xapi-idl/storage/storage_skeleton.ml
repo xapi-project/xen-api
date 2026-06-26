@@ -206,10 +206,10 @@ module DATA = struct
         ~verify_dest =
       Storage_interface.unimplemented __FUNCTION__
 
-    let receive_start ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar =
+    let receive_start ctx ~dbg ~sr ~vdi_info ~id ~similar =
       Storage_interface.unimplemented __FUNCTION__
 
-    let receive_start2 ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm =
+    let receive_start2 ctx ~dbg ~sr ~vdi_info ~id ~similar ~vm =
       Storage_interface.unimplemented __FUNCTION__
 
     let receive_start3 ctx ~dbg ~sr ~vdi_info ~mirror_id ~image_format ~similar
