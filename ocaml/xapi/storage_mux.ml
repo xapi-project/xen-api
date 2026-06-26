@@ -874,35 +874,31 @@ module Mux = struct
         Storage_interface.unimplemented
           __FUNCTION__ (* see storage_smapi{v1,v3}_migrate.ml *)
 
-      let receive_start () ~dbg ~sr ~vdi_info ~id ~image_format ~similar =
+      let receive_start () ~dbg ~sr ~vdi_info ~id ~similar =
         with_dbg ~name:"DATA.MIRROR.receive_start" ~dbg @@ fun _di ->
-        info
-          "%s dbg: %s sr: %s vdi_info: %s mirror_id: %s image_format: %s \
-           similar: %s"
+        info "%s dbg: %s sr: %s vdi_info: %s mirror_id: %s similar: %s"
           __FUNCTION__ dbg (s_of_sr sr)
           (string_of_vdi_info vdi_info)
-          id image_format
+          id
           (String.concat ";" similar) ;
         (* This goes straight to storage_smapiv1_migrate for backwards compatability
            reasons, new code should not call receive_start any more *)
         Storage_smapiv1_migrate.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id
-          ~image_format ~similar
+          ~similar
 
-      let receive_start2 () ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm =
+      let receive_start2 () ~dbg ~sr ~vdi_info ~id ~similar ~vm =
         with_dbg ~name:"DATA.MIRROR.receive_start2" ~dbg @@ fun _di ->
-        info
-          "%s dbg: %s sr: %s vdi_info: %s mirror_id: %s image_format: %s \
-           similar: %s vm: %s"
+        info "%s dbg: %s sr: %s vdi_info: %s mirror_id: %s similar: %s vm: %s"
           __FUNCTION__ dbg (s_of_sr sr)
           (string_of_vdi_info vdi_info)
-          id image_format
+          id
           (String.concat ";" similar)
           (s_of_vm vm) ;
         info "%s dbg:%s" __FUNCTION__ dbg ;
         (* This goes straight to storage_smapiv1_migrate for backwards compatability
            reasons, new code should not call receive_start any more *)
         Storage_smapiv1_migrate.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id
-          ~image_format ~similar ~vm
+          ~similar ~vm
 
       (** see storage_smapiv{1,3}_migrate.receive_start3 *)
       let receive_start3 () ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
