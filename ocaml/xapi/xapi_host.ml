@@ -352,7 +352,9 @@ let compute_evacuation_plan_no_wlb ~__context ~host ?(ignore_ha = false) () =
     List.iter
       (fun (vm, _) ->
         Hashtbl.replace plans vm
-          (Error (Api_errors.host_not_enough_free_memory, [Ref.string_of vm]))
+          (Error
+             (Api_errors.host_evacuate_vm_not_ha_protected, [Ref.string_of vm])
+          )
       )
       unprotected_vms ;
     let migratable_vms, _ =
