@@ -761,6 +761,13 @@ let _ =
     ~doc:"The host failed to disable external authentication." () ;
   error Api_errors.host_evacuate_in_progress ["host"]
     ~doc:"This host is being evacuated." () ;
+  error Api_errors.host_evacuate_vm_not_ha_protected ["vm"]
+    ~doc:
+      "The host cannot be evacuated because HA is enabled on the pool and the \
+       VM is not HA-protected (its ha_restart_priority is not set to \
+       'restart'). Set the VM's ha_restart_priority to 'restart', shut down or \
+       suspend the VM, or disable HA on the pool before evacuating the host."
+    () ;
 
   (* Pool errors *)
   error Api_errors.pool_joining_host_cannot_contain_shared_SRs []
