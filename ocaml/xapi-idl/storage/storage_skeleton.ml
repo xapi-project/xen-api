@@ -175,6 +175,9 @@ module VDI = struct
 
   let list_changed_blocks ctx ~dbg ~sr ~vdi_from ~vdi_to =
     Storage_interface.unimplemented __FUNCTION__
+
+  let revert ctx ~dbg ~sr ~snapshot_info =
+    Storage_interface.unimplemented __FUNCTION__
 end
 
 let get_by_name ctx ~dbg ~name = Storage_interface.unimplemented __FUNCTION__

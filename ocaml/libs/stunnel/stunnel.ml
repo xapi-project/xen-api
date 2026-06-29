@@ -536,6 +536,15 @@ module UnixSocketProxy = struct
     Printf.sprintf "/tmp/stunnel-proxy-%s-%d-%s.sock" remote_host remote_port
       uuid
 
+  let kill pid =
+    match pid with
+    | StdFork _ | FEFork _ -> (
+      try Unix.kill (getpid pid) Sys.sigkill
+      with Unix.Unix_error (Unix.ESRCH, _, _) -> ()
+    )
+    | Nopid ->
+        ()
+
   let diagnose handle =
     let ic = handle.proxy_log_ic in
     Stunnel_log_scanner.check_stunnel_logfile ~ic (fun s -> !stunnel_logger s)
@@ -572,7 +581,8 @@ module UnixSocketProxy = struct
     let ic = open_in logfile in
     let clean_up () =
       close_in ic ;
-      disconnect_with_pid ~wait:false ~force:true pid ;
+      kill pid ;
+      disconnect_with_pid pid ;
       Unixext.unlink_safe unix_socket_path ;
       Unixext.unlink_safe logfile
     in
@@ -614,7 +624,8 @@ module UnixSocketProxy = struct
     Ok handle
 
   let stop handle =
-    disconnect_with_pid ~wait:false ~force:true handle.proxy_pid ;
+    kill handle.proxy_pid ;
+    disconnect_with_pid handle.proxy_pid ;
     Unixext.unlink_safe handle.proxy_socket_path ;
     close_in handle.proxy_log_ic ;
     Unixext.unlink_safe handle.proxy_logfile ;
