@@ -843,6 +843,13 @@ functor
       let data_destroy =
         destroy_and_data_destroy "VDI.data_destroy" Impl.VDI.data_destroy
 
+      let revert context ~dbg ~sr ~snapshot_info =
+        with_dbg ~name:"VDI.revert" ~dbg @@ fun di ->
+        info "VDI.revert dbg:%s sr:%s snapshot:%s" di.log (s_of_sr sr)
+          (string_of_vdi_info snapshot_info) ;
+        let dbg = Debug_info.to_string di in
+        Impl.VDI.revert context ~dbg ~sr ~snapshot_info
+
       let stat context ~dbg ~sr ~vdi =
         with_dbg ~name:"VDI.stat" ~dbg @@ fun di ->
         info "VDI.stat dbg:%s sr:%s vdi:%s" di.log (s_of_sr sr) (s_of_vdi vdi) ;

@@ -97,6 +97,8 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
+  | "SM", "supported_image_formats" ->
+      Some "26.15.0"
   | "SM", "host_pending_features" ->
       Some "24.37.0"
   | "host", "timezone" ->
@@ -249,6 +251,8 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
+  | "VDI", "revert" ->
+      Some "26.15.0-next"
   | "host", "set_servertime" ->
       Some "26.0.0"
   | "host", "get_ntp_synchronized" ->

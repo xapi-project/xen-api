@@ -585,7 +585,7 @@ _xe()
 
                     # Show corresponding name labels for each UUID
                     SHOW_DESCRIPTION=1
-                    local name_label_cmd="$xe ${class}-list params=name-label 2>/dev/null --minimal uuid="
+                    local name_label_cmd="$xe ${class}-list params=name-label,device 2>/dev/null --minimal uuid="
                     __xe_debug "triggering autocompletion for UUIDs, list command is '${class}-list'"
                     __xe_debug "name_label_cmd is '$name_label_cmd'"
 

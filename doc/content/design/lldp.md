@@ -132,8 +132,12 @@ type lldp_multicast_address =
 [@@deriving rpcty]
 
 type lldp = {
-  enabled: bool [@default false];
-  address: lldp_multicast_address list [@default [Nearestbridge]];
+  force: bool [@default false] (* Override the blocking list when true. See below. *)
+; chassis_id: string [@default ""]
+; system_name: string [@default ""]
+; system_description: string [@default ""]
+; enabled: bool [@default false];
+; address: lldp_multicast_address list [@default [Nearestbridge]];
 }
 [@@deriving rpcty]
 
@@ -181,9 +185,9 @@ When LLDP is enabled on a physical NIC, the LLDP agent advertises the following 
 | TLV | Value |
 | --- | --- |
 | Chassis ID | Host UUID (shared by all individual interfaces) |
-| Port ID | Interface name |
+| Port ID | Interface MAC address |
 | Port Description | Interface name |
-| System Name | Host name |
+| System Name | XAPI host.name_label |
 | System Description | XAPI host.name_description |
 | Management Address | Management IP address |
 | System Capabilities | Bridge |

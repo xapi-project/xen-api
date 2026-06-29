@@ -189,6 +189,7 @@ let volume_server () =
   Volume.data_destroy unimplemented ;
   Volume.list_changed_blocks unimplemented ;
   Volume.compose unimplemented ;
+  Volume.revert unimplemented ;
 
   Idl.Exn.server Volume.implementation
 
