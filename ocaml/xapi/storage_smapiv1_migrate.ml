@@ -757,21 +757,19 @@ module MIRROR : SMAPIv2_MIRROR = struct
         !on_fail ;
       raise e
 
-  let receive_start _ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar =
-    D.debug "%s dbg: %s sr: %s vdi: %s id: %s image_format: %s" __FUNCTION__ dbg
-      (s_of_sr sr)
+  let receive_start _ctx ~dbg ~sr ~vdi_info ~id ~similar =
+    D.debug "%s dbg: %s sr: %s vdi: %s id: %s" __FUNCTION__ dbg (s_of_sr sr)
       (string_of_vdi_info vdi_info)
-      id image_format ;
-    receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format ~similar
+      id ;
+    receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format:"" ~similar
       ~vm:(Vm.of_string "0")
       (module Local)
 
-  let receive_start2 _ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm =
-    D.debug "%s dbg: %s sr: %s vdi: %s id: %s image_format: %s" __FUNCTION__ dbg
-      (s_of_sr sr)
+  let receive_start2 _ctx ~dbg ~sr ~vdi_info ~id ~similar ~vm =
+    D.debug "%s dbg: %s sr: %s vdi: %s id: %s" __FUNCTION__ dbg (s_of_sr sr)
       (string_of_vdi_info vdi_info)
-      id image_format ;
-    receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm
+      id ;
+    receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format:"" ~similar ~vm
       (module Local)
 
   let receive_start3 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~image_format ~similar
