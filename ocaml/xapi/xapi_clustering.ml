@@ -363,6 +363,52 @@ let assert_cluster_host_quorate ~__context ~self =
       warn "Cannot query cluster host quorate status" ;
       handle_error error
 
+(* Pre-flight for pool-ha-enable when the chosen [cluster_stack] is corosync:
+   every pool host must have an enabled, joined cluster_host on that stack, and
+   the local coordinator host must currently be quorate. Otherwise the gfs2
+   heartbeat SR's PBD cannot plug and pool-ha-enable would later fail with the
+   misleading SR_NO_PBDS from check_sr_can_host_statefile. Intended to run
+   before ha_cluster_stack is persisted, so a failed precondition does not leak
+   it into the pool DB. *)
+let assert_pool_ready_for_corosync_ha ~__context ~cluster_stack =
+  let localhost = Helpers.get_localhost ~__context in
+  List.iter
+    (fun host ->
+      match find_cluster_host ~__context ~host with
+      | None ->
+          raise
+            Api_errors.(
+              Server_error (no_compatible_cluster_host, [Ref.string_of host])
+            )
+      | Some self ->
+          let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+          let ch_stack =
+            Db.Cluster.get_cluster_stack ~__context ~self:cluster
+          in
+          if ch_stack <> cluster_stack then
+            raise
+              Api_errors.(
+                Server_error (no_compatible_cluster_host, [Ref.string_of host])
+              ) ;
+          assert_cluster_host_enabled ~__context ~self ~expected:true ;
+          if not (Db.Cluster_host.get_joined ~__context ~self) then
+            raise
+              Api_errors.(
+                Server_error (cluster_host_not_joined, [Ref.string_of self])
+              )
+    )
+    (Db.Host.get_all ~__context) ;
+  (* Quorum only needs asserting once, for the local coordinator: it checks live
+     quorum directly via xapi-clusterd diagnostics, sidestepping the
+     Cluster_host.live DB field which the corosync_notifyd watcher only updates
+     asynchronously. *)
+  match find_cluster_host ~__context ~host:localhost with
+  | Some self ->
+      assert_cluster_host_quorate ~__context ~self
+  | None ->
+      warn "%s: coordinator %s has no cluster_host; skipping quorum check"
+        __FUNCTION__ (Ref.string_of localhost)
+
 let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type
     =
   match get_required_cluster_stacks ~__context ~sr_sm_type with
