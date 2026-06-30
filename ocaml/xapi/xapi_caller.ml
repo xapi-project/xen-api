@@ -18,6 +18,8 @@ open D
 module Rate_limit = Rate_limit_lib.Rate_limit
 module Caller_table = Rate_limit_lib.Caller_table
 module Caller_statistics = Rate_limit_lib.Caller_statistics
+module Config_file = Xcp_service.Config_file
+module Unixext = Xapi_stdext_unix.Unixext
 
 (** A single in-memory caller_table entry. The pattern_key is the table's
     primary key; [caller_ref] records which DB row this entry mirrors;
@@ -231,102 +233,39 @@ let refresh_caller_rate_limit ~__context caller_ref =
         ~rate_limit_ref:record.API.caller_rate_limit
         ~caller_uuid:record.caller_uuid
 
-(* One token corresponds to a cheap DB read - expensive services are multiples *)
-let token_costs =
-  Hashtbl.of_seq
-    (List.to_seq
-       [
-         ("VDI.pool_migrate", 2500.)
-       ; ("VM.migrate_send", 2000.)
-       ; ("VM.suspend", 400.)
-       ; ("VM.resume_on", 400.)
-       ; ("SR.probe", 400.)
-       ; ("VM.copy", 300.)
-       ; ("pool.enable_ha", 300.)
-       ; ("VM.checkpoint", 200.)
-       ; ("host.ha_join_liveset", 200.)
-       ; ("Cluster.pool_create", 200.)
-       ; ("VDI.copy", 200.)
-       ; ("VM.pool_migrate", 200.)
-       ; ("VM.resume", 200.)
-       ; ("SR.destroy", 200.)
-       ; ("Cluster_host.create", 150.)
-       ; ("event.from", 150.)
-       ; ("pool.management_reconfigure", 100.)
-       ; ("pool.join", 100.)
-       ; ("pool.disable_ha", 100.)
-       ; ("host.prepare_for_poweroff", 100.)
-       ; ("VM.set_memory_dynamic_range", 100.)
-       ; ("host.evacuate", 75.)
-       ; ("VM.clean_reboot", 70.)
-       ; ("VM.restart_device_models", 70.)
-       ; ("pool_update.apply", 70.)
-       ; ("Bond.create", 60.)
-       ; ("VM.clean_shutdown", 60.)
-       ; ("VM.revert", 50.)
-       ; ("host.install_server_certificate", 50.)
-       ; ("pool.eject", 40.)
-       ; ("Cluster.create", 40.)
-       ; ("pool.sync_updates", 40.)
-       ; ("host.apply_updates", 40.)
-       ; ("SR.probe_ext", 40.)
-       ; ("host.ha_wait_for_shutdown_via_statefile", 40.)
-       ; ("pool_update.precheck", 30.)
-       ; ("event.next", 30.)
-       ; ("VDI.snapshot", 30.)
-       ; ("pool_update.introduce", 30.)
-       ; ("pool.enable_external_auth", 20.)
-       ; ("VM.start_on", 20.)
-       ; ("VM.hard_reboot", 20.)
-       ; ("SR.create", 20.)
-       ; ("VM.hard_shutdown", 20.)
-       ; ("pool.designate_new_master", 20.)
-       ; ("VM.start", 20.)
-       ; ("VDI.clone", 20.)
-       ; ("host.ha_release_resources", 15.)
-       ; ("VM.snapshot", 15.)
-       ; ("pool.is_slave", 15.)
-       ; ("pool.recover_slaves", 15.)
-       ; ("host.preconfigure_ha", 15.)
-       ; ("pool_update.detach", 15.)
-       ; ("pool_update.attach", 15.)
-       ; ("host.update_master", 15.)
-       ; ("PBD.plug", 15.)
-       ; ("Repository.apply", 12.)
-       ; ("pool.emergency_reset_master", 12.)
-       ; ("VBD.plug", 12.)
-       ; ("host.commit_new_master", 12.)
-       ; ("SR.scan", 10.)
-       ; ("VBD.unplug", 10.)
-       ; ("pool_update.pool_clean", 10.)
-       ; ("VM.clone", 10.)
-       ; ("VM.provision", 10.)
-       ; ("PIF.reconfigure_ip", 10.)
-       ; ("pool.create_VLAN_from_PIF", 8.)
-       ; ("pool.apply_edition", 8.)
-       ; ("pool.disable_external_auth", 7.)
-       ; ("VM.pool_migrate_complete", 7.)
-       ; ("host.call_plugin", 7.)
-       ; ("VLAN.create", 6.)
-       ; ("VDI.create", 6.)
-       ; ("host.update_firewalld_service_status", 6.)
-       ; ("VDI.destroy", 5.)
-       ; ("VIF.plug", 5.)
-       ; ("host.set_iscsi_iqn", 5.)
-       ; ("SR.update", 5.)
-       ; ("VDI.resize", 5.)
-       ; ("host.management_reconfigure", 4.)
-       ; ("VIF.unplug", 3.)
-       ; ("host.set_https_only", 3.)
-       ; ("PIF.plug", 3.)
-       ; ("host.disable_external_auth", 3.)
-       ; ("VDI.set_name_label", 3.)
-       ; ("VDI.set_name_description", 3.)
-       ; ("PIF.scan", 3.)
-       ]
-    )
+(* One token corresponds to a cheap DB read; expensive services cost multiples.
+   The costs are loaded at startup from [Xapi_globs.call_costs_file], one
+   "Class.method = cost" per line (key=value, '#' comments), so the values can be
+   tweaked and new calls added without recompiling xapi. Calls without an entry
+   fall back to [default_token_cost]. *)
+let token_costs : (string, float) Hashtbl.t = Hashtbl.create 256
 
 let default_token_cost = 1.
+
+let add_cost_line line =
+  match Config_file.parse_line line with
+  | Some (name, value) -> (
+    match float_of_string_opt (String.trim value) with
+    | Some cost ->
+        Hashtbl.replace token_costs name cost
+    | None ->
+        warn "Ignoring call cost for %s: %S is not a number" name value
+  )
+  | None ->
+      ()
+
+(* Reload [token_costs] from [path]. On any failure the table is left empty and
+   every call falls back to [default_token_cost]. *)
+let load_token_costs ?(path = !Xapi_globs.call_costs_file) () =
+  Hashtbl.reset token_costs ;
+  ( try Unixext.file_lines_iter add_cost_line path
+    with e ->
+      warn
+        "Could not load call costs from %s (%s); all calls will use the \
+         default cost of %g"
+        path (Printexc.to_string e) default_token_cost
+  ) ;
+  debug "Loaded %d call costs from %s" (Hashtbl.length token_costs) path
 
 let get_token_cost name =
   Option.value ~default:default_token_cost (Hashtbl.find_opt token_costs name)
@@ -473,6 +412,7 @@ let register ~__context =
     debug
       "Rate limiting disabled (rate_limit=false); skipping caller registration"
   else (
+    load_token_costs () ;
     Xapi_rate_limit.set_caller_refresh_callback refresh_caller_rate_limit ;
     List.iter
       (fun self ->
