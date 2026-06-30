@@ -689,6 +689,31 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~pending_guidances:[] ~recommended_guidances:[]
     ~pending_guidances_recommended:[] ~pending_guidances_full:[]
     ~secureboot_certificates_state:`ok ;
+  (* CP-313373: when the pool has opted in to automatic Secure Boot certificate
+     updates, inspect the NVRAM supplied at creation time (e.g. by MCS) and, if
+     its certificates are due to expire, schedule an update on the VM's next
+     boot. check_secureboot_certificates_state returns `ok cheaply when the
+     NVRAM contains no EFI variables (e.g. BIOS VMs), so no external check is
+     run in that case. There may be no pool in unit-test mock databases, in
+     which case there is no opt-in setting to honour and the check is skipped. *)
+  ( match Db.Pool.get_all ~__context with
+  | [] ->
+      ()
+  | pool :: _ -> (
+      if
+        Db.Pool.get_auto_update_vm_secureboot_certificates ~__context ~self:pool
+      then
+        match
+          Xapi_vm_helpers.check_secureboot_certificates_state ~__context
+            ~self:vm_ref
+        with
+        | `update_available ->
+            Db.VM.set_secureboot_certificates_state ~__context ~self:vm_ref
+              ~value:`update_on_boot
+        | `ok ->
+            ()
+    )
+  ) ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref ;
   update_memory_overhead ~__context ~vm:vm_ref ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:vm_ref ;

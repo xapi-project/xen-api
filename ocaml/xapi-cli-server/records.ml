@@ -1516,6 +1516,16 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"update-sync-enabled"
           ~get:(fun () -> (x ()).API.pool_update_sync_enabled |> string_of_bool)
           ()
+      ; make_field ~name:"auto-update-vm-secureboot-certificates"
+          ~get:(fun () ->
+            (x ()).API.pool_auto_update_vm_secureboot_certificates
+            |> string_of_bool
+          )
+          ~set:(fun x ->
+            Client.Pool.set_auto_update_vm_secureboot_certificates ~rpc
+              ~session_id ~self:pool ~value:(bool_of_string x)
+          )
+          ()
       ; make_field ~name:"recommendations"
           ~get:(fun () -> get_from_map (x ()).API.pool_recommendations)
           ~get_map:(fun () -> (x ()).API.pool_recommendations)
