@@ -98,7 +98,7 @@ let prototyped_of_field = function
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
   | "SM", "supported_image_formats" ->
-      Some "26.1.13-next"
+      Some "26.1.14"
   | "SM", "host_pending_features" ->
       Some "24.37.0"
   | "host", "timezone" ->
@@ -246,7 +246,7 @@ let prototyped_of_message = function
   | "VTPM", "create" ->
       Some "22.26.0"
   | "VDI", "revert" ->
-      Some "26.1.13-next"
+      Some "26.1.14"
   | "host", "set_servertime" ->
       Some "26.0.0"
   | "host", "get_ntp_synchronized" ->
