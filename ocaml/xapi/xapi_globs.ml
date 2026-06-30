@@ -1440,6 +1440,11 @@ let legacy_factory_ntp_servers = ref []
     RRD reporter is not started, and dispatch bypasses the caller table. *)
 let rate_limit_enabled = ref false
 
+(** File mapping API calls to their rate-limiting token cost, in key=value
+    format ("Class.method = cost"), read by [Xapi_caller.register] at start of
+    day. *)
+let call_costs_file = ref "/etc/xensource/call-costs.conf"
+
 let other_options =
   [
     gen_list_option "sm-plugins"
@@ -2200,6 +2205,10 @@ module Resources = struct
     ; ( "iscsi_initiatorname"
       , iscsi_initiator_config_file
       , "Path to the initiatorname.iscsi file"
+      )
+    ; ( "call-costs-file"
+      , call_costs_file
+      , "File mapping API calls to their rate-limiting token cost"
       )
     ]
 
