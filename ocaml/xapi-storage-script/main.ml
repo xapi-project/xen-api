@@ -934,6 +934,9 @@ module QueryImpl (M : META) = struct
         ; configuration= response.Xapi_storage.Plugin.configuration
         ; required_cluster_stack=
             response.Xapi_storage.Plugin.required_cluster_stack
+        ; supported_image_formats=
+            []
+            (* currently unused because no SMAPIv3 drivers support SXM migration *)
         ; smapi_version= SMAPIv3
         }
     in
@@ -1352,6 +1355,8 @@ module VDIImpl (M : META) = struct
           dbg sr vdi
     )
 
+  let ( let* ) = Lwt_result.bind
+
   let update_keys ~dbg ~sr ~key ~value response =
     match value with
     | None ->
@@ -1369,6 +1374,11 @@ module VDIImpl (M : META) = struct
   let destroy ~dbg ~sr ~vdi =
     return_volume_rpc (fun () ->
         Volume_client.destroy (volume_rpc ~dbg) dbg sr vdi
+    )
+
+  let revert ~dbg ~sr ~snapshot ~vdi =
+    return_volume_rpc (fun () ->
+        Volume_client.revert (volume_rpc ~dbg) dbg sr snapshot vdi
     )
 
   let vdi_attach_common dbg sr vdi domain =
@@ -1420,6 +1430,14 @@ module VDIImpl (M : META) = struct
      >>>= fun () -> destroy ~dbg ~sr ~vdi
     )
     |> wrap
+
+  let revert_impl dbg sr snapshot_info =
+    wrap
+    @@
+    let snapshot = Storage_interface.(Vdi.string_of snapshot_info.vdi) in
+    let vdi = Storage_interface.(Vdi.string_of snapshot_info.snapshot_of) in
+    let* sr = Attached_SRs.find sr in
+    revert ~dbg ~sr ~snapshot ~vdi
 
   let vdi_snapshot_impl dbg sr vdi_info =
     Attached_SRs.find sr
@@ -1659,8 +1677,6 @@ module VDIImpl (M : META) = struct
 
   let vdi_set_persistent_impl _dbg _sr _vdi _persistent = return () |> wrap
 
-  let ( let* ) = Lwt_result.bind
-
   let vdi_enable_cbt_impl dbg sr vdi =
     wrap
     @@
@@ -1808,7 +1824,10 @@ module DATAImpl (M : META) = struct
 
   let stat_impl dbg sr vdi vm key = wrap @@ stat dbg sr vdi vm key
 
-  let mirror dbg sr vdi' vm' remote =
+  let mirror dbg sr vdi' image_format vm' remote =
+    let* () =
+      info (fun m -> m "image_format (%s) is not currently used" image_format)
+    in
     let vdi = Storage_interface.Vdi.string_of vdi' in
     let domain = Storage_interface.Vm.string_of vm' in
     Attached_SRs.find sr >>>= fun sr ->
@@ -1832,7 +1851,8 @@ module DATAImpl (M : META) = struct
     | MirrorV1 v ->
         return (Storage_interface.Mirror.MirrorV1 v)
 
-  let mirror_impl dbg sr vdi vm remote = wrap @@ mirror dbg sr vdi vm remote
+  let mirror_impl dbg sr vdi image_format vm remote =
+    wrap @@ mirror dbg sr vdi image_format vm remote
 
   let data_import_activate_impl dbg _dp sr vdi' vm' =
     wrap
@@ -1946,6 +1966,7 @@ let bind ~volume_script_dir =
   S.VDI.add_to_sm_config VDI.vdi_add_to_sm_config_impl ;
   S.VDI.remove_from_sm_config VDI.vdi_remove_from_sm_config_impl ;
   S.VDI.similar_content VDI.similar_content_impl ;
+  S.VDI.revert VDI.revert_impl ;
 
   let module DP = DPImpl (RuntimeMeta) in
   S.DP.destroy2 DP.dp_destroy2 ;
@@ -2214,7 +2235,8 @@ let description =
     [
       "Allow xapi storage adapters to be written as individual scripts."
     ; "To add a storage adapter, create a sub-directory in the --root directory"
-    ; "with the name of the adapter (e.g. org.xen.xcp.storage.mylvm) and place"
+    ; "with the name of the adapter (for example, org.xen.xcp.storage.mylvm) \
+       and place"
     ; "the scripts inside."
     ]
 

@@ -4,7 +4,6 @@
 import errno
 import logging
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -14,17 +13,6 @@ import fasteners
 import xcp.logger
 import XenAPI
 
-TMP_DIR = "/tmp/"
-UPDATE_ALREADY_APPLIED = "UPDATE_ALREADY_APPLIED"
-UPDATE_APPLY_FAILED = "UPDATE_APPLY_FAILED"
-OTHER_OPERATION_IN_PROGRESS = "OTHER_OPERATION_IN_PROGRESS"
-UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR = "UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR"
-CANNOT_FIND_UPDATE = "CANNOT_FIND_UPDATE"
-INVALID_UPDATE = "INVALID_UPDATE"
-ERROR_MESSAGE_DOWNLOAD_PACKAGE = "Error downloading packages:\n"
-ERROR_MESSAGE_START = "Error: "
-ERROR_MESSAGE_END = "You could try "
-
 TMP_DIR = '/tmp/'
 UPDATE_ALREADY_APPLIED = 'UPDATE_ALREADY_APPLIED'
 UPDATE_APPLY_FAILED = 'UPDATE_APPLY_FAILED'
@@ -32,12 +20,9 @@ OTHER_OPERATION_IN_PROGRESS = 'OTHER_OPERATION_IN_PROGRESS'
 UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR = 'UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR'
 CANNOT_FIND_UPDATE = 'CANNOT_FIND_UPDATE'
 INVALID_UPDATE = 'INVALID_UPDATE'
-ERROR_MESSAGE_DOWNLOAD_PACKAGE = 'Error downloading packages:\n'
-ERROR_MESSAGE_START = 'Error: '
-ERROR_MESSAGE_END = 'You could try '
-YUM_CMD = '/usr/bin/yum'
+ERROR_MESSAGE_DOWNLOAD_PACKAGE = 'Failed to download packages'
 DNF_CMD = '/usr/bin/dnf'
-PKG_MGR = DNF_CMD if os.path.exists(DNF_CMD) else YUM_CMD
+PKG_MGR = DNF_CMD
 
 class EnvironmentFailure(Exception):
     """Failure due to running environment"""
@@ -81,10 +66,8 @@ def execute_apply(update_package, yum_conf_file):
     if p.returncode != 0:
         raise EnvironmentFailure("Error cleaning yum cache")
 
-    # dnf reject to upgrade group if it is not installed,
-    # `dnf install` upgrade the group if it is already installed
-    sub_cmd = 'upgrade' if PKG_MGR == YUM_CMD else 'install'
-    cmd = [PKG_MGR, sub_cmd, '-y', '--noplugins', '-c', yum_conf_file, update_package]
+    # `dnf install` upgrades the group if it is already installed.
+    cmd = [PKG_MGR, 'install', '-y', '--noplugins', '-c', yum_conf_file, update_package]
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          close_fds=True, env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
@@ -94,12 +77,6 @@ def execute_apply(update_package, yum_conf_file):
     if p.returncode != 0:
         if ERROR_MESSAGE_DOWNLOAD_PACKAGE in output:
             raise InvalidUpdate("Missing package(s) in the update.")
-
-        m = re.search("(?<=" + ERROR_MESSAGE_START + ").+$", output, flags=re.DOTALL)
-        if m:
-            errmsg = m.group()
-            errmsg = re.sub(ERROR_MESSAGE_END + ".+", "", errmsg, flags=re.DOTALL)
-            raise ApplyFailure(errmsg)
         raise ApplyFailure(output)
 
 

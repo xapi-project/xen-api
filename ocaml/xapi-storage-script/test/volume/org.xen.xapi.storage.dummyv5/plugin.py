@@ -31,7 +31,8 @@ class Implementation(xapi.storage.api.v5.plugin.Plugin_skeleton):
                     "VDI_CREATE",
                     "VDI_DESTROY"],
                 "configuration": {},
-                "required_cluster_stack": []}
+                "required_cluster_stack": [],
+                "supported_image_formats": []}
 
 
 if __name__ == "__main__":

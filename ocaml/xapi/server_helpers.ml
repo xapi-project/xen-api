@@ -185,20 +185,46 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
                ~marshaller op_fn
            )
            ()
-        ) ;
-      (* Return task id immediately *)
-      Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+        )
     in
-    match sync_ty with
-    | `Sync ->
-        sync ()
-    | `Async ->
-        let need_complete = not (Context.forwarded_task __context) in
-        async ~need_complete
-    | `InternalAsync ->
-        async ~need_complete:true
-
-(* regardless of forwarding, we are expected to complete the task *)
+    let handle_request_internal () =
+      match sync_ty with
+      | `Sync ->
+          sync ()
+      | `Async ->
+          let need_complete = not (Context.forwarded_task __context) in
+          async ~need_complete ;
+          Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+      | `InternalAsync ->
+          async ~need_complete:true ;
+          Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+    in
+    let handle_request_external () =
+      let token_cost = Xapi_caller.get_token_cost called_fn_name in
+      let user_agent = Option.value http_req.user_agent ~default:"" in
+      let client_ip =
+        Option.value (Context.get_client_ip __context) ~default:""
+      in
+      match sync_ty with
+      | `Sync ->
+          Xapi_caller.submit_sync ~user_agent ~client_ip ~callback:sync
+            ~task_create:(fun f -> f __context)
+            token_cost
+      | `Async ->
+          let need_complete = not (Context.forwarded_task __context) in
+          Xapi_caller.submit_async ~user_agent ~client_ip
+            ~callback:(fun () -> async ~need_complete)
+            ~task_create:(fun f -> f __context)
+            token_cost ;
+          Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+      | `InternalAsync ->
+          async ~need_complete:true ;
+          Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
+    in
+    if Context.is_internal_origin __context then
+      handle_request_internal ()
+    else
+      handle_request_external ()
 
 (* in the following functions, it is our responsibility to complete any tasks we create *)
 let exec_with_new_task ?http_other_config ?quiet ?subtask_of ?session_id

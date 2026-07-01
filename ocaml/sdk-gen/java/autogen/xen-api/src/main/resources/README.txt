@@ -1,7 +1,7 @@
 XenServerJava
 =============
 
-Copyright (c) 2007-2025 Cloud Software Group, Inc. All Rights Reserved.
+Copyright (c) 2007-2026 Cloud Software Group, Inc. All Rights Reserved.
 
 XenServerJava is a complete SDK for XenServer, exposing the XenServer API as
 Java classes.
@@ -21,10 +21,10 @@ Reference
 For XenServer documentation see https://docs.xenserver.com
 
 The XenServer Management API Reference is available at
-https://docs.xenserver.com/en-us/xenserver/8/developer/management-api
+https://docs.xenserver.com/en-us/xenserver/developer/api-reference
 
 The XenServer Software Development Kit Guide is available at
-https://docs.xenserver.com/en-us/xenserver/8/developer/sdk-guide
+https://docs.xenserver.com/en-us/xenserver/developer/sdk-guide
 
 A number of examples to help you get started with the SDK is available at
 https://github.com/xenserver/xenserver-samples
@@ -33,7 +33,7 @@ For community content, blogs, and downloads, visit
 https://www.xenserver.com/blogs and https://www.citrix.com/community/
 
 To network with other developers using XenServer visit
-https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
+https://community.citrix.com/forums/forum/1118-xenserver-sdk/
 
 
 Dependencies

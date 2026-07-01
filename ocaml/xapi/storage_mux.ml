@@ -82,6 +82,7 @@ module Mux = struct
       ; features= []
       ; configuration= []
       ; required_cluster_stack= []
+      ; supported_image_formats= []
       ; smapi_version= SMAPIv2
       }
 
@@ -103,7 +104,8 @@ module Mux = struct
 
     let m = Mutex.create ()
 
-    let filename_of dp = Xapi_stdext_std.Xstringext.String.replace "/" "-" dp
+    let filename_of dp =
+      Xapi_stdext_std.Xstringext.String.replace '/' ~by:"-" dp
 
     let write dp info =
       let filename = filename_of dp in
@@ -780,15 +782,24 @@ module Mux = struct
         let rpc = of_sr sr
       end)) in
       C.VDI.list_changed_blocks (Debug_info.to_string di) sr vdi_from vdi_to
+
+    let revert () ~dbg ~sr ~snapshot_info =
+      with_dbg ~name:"VDI.revert" ~dbg @@ fun di ->
+      info "VDI.revert dbg:%s sr:%s snapshot:%s" dbg (s_of_sr sr)
+        (string_of_vdi_info snapshot_info) ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.VDI.revert (Debug_info.to_string di) sr snapshot_info
   end
 
   let get_by_name () ~dbg ~name =
     (* Assume it has either the format:
        SR/VDI -- for a particular SR and VDI
        content_id -- for a particular content *)
-    let open Xapi_stdext_std.Xstringext in
+    let split = Xapi_stdext_std.Xstringext.String.split in
     with_dbg ~name:"get_by_name" ~dbg @@ fun di ->
-    match List.filter (fun x -> x <> "") (String.split ~limit:2 '/' name) with
+    match List.filter (fun x -> x <> "") (split ~limit:2 '/' name) with
     | [sr; name] ->
         let sr = Storage_interface.Sr.of_string sr in
         let module C = StorageAPI (Idl.Exn.GenClient (struct
@@ -818,14 +829,15 @@ module Mux = struct
     let copy () ~dbg =
       with_dbg ~name:"DATA.copy" ~dbg @@ fun dbg -> Storage_migrate.copy ~dbg
 
-    let mirror () ~dbg ~sr ~vdi ~vm ~dest =
+    let mirror () ~dbg ~sr ~vdi ~image_format ~vm ~dest =
       with_dbg ~name:"DATA.mirror" ~dbg @@ fun di ->
-      info "%s dbg:%s sr: %s vdi: %s vm:%s  remote:%s" __FUNCTION__ dbg
-        (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) dest ;
+      info "%s dbg:%s sr: %s vdi: %s image_format: %s vm:%s  remote:%s"
+        __FUNCTION__ dbg (s_of_sr sr) (s_of_vdi vdi) image_format (s_of_vm vm)
+        dest ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.DATA.mirror (Debug_info.to_string di) sr vdi vm dest
+      C.DATA.mirror (Debug_info.to_string di) sr vdi image_format vm dest
 
     let stat () ~dbg ~sr ~vdi ~vm ~key =
       with_dbg ~name:"DATA.stat" ~dbg @@ fun di ->
@@ -857,8 +869,8 @@ module Mux = struct
     module MIRROR = struct
       type context = unit
 
-      let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
-          ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
+      let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~image_format:_
+          ~mirror_vm:_ ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
           ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
         Storage_interface.unimplemented
           __FUNCTION__ (* see storage_smapi{v1,v3}_migrate.ml *)
@@ -890,8 +902,8 @@ module Mux = struct
           ~similar ~vm
 
       (** see storage_smapiv{1,3}_migrate.receive_start3 *)
-      let receive_start3 () ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_ ~similar:_
-          ~vm:_ =
+      let receive_start3 () ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
+          ~image_format:_ ~similar:_ ~vm:_ =
         Storage_interface.unimplemented __FUNCTION__
 
       let receive_finalize () ~dbg ~id =

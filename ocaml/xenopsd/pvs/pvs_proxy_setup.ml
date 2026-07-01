@@ -563,7 +563,7 @@ module CLI = struct
     C.Arg.(
       required
       & pos 1 (some string) None
-      & info [] ~docv:"vif4.0" ~doc:"Device name, e.g. vif4.0"
+      & info [] ~docv:"vif4.0" ~doc:"Device name, for example, vif4.0"
     )
 
   (** xenstore path *)

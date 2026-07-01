@@ -126,7 +126,8 @@ let _unhide_pci ~__context pci =
       Printf.sprintf "(%s)" (Db.PCI.get_pci_id ~__context ~self:pci)
     in
     let new_value =
-      Xapi_stdext_std.Xstringext.String.replace bdf_paren "" raw_value
+      Astring.String.cuts ~empty:false ~sep:bdf_paren raw_value
+      |> String.concat ""
     in
     let cmd =
       match new_value with

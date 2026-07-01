@@ -31,8 +31,12 @@ exception Unknown_command of string
     the HTTP request headers it has already received together with its active file descriptor.
     This way, the cli server can short-circuit API calls without having to go over the network. *)
 let rpc_fun :
-    (Http.Request.t -> Unix.file_descr -> Rpc.call -> Rpc.response) option ref =
+    (Http.Request.t -> Unix.file_descr option -> Rpc.call -> Rpc.response)
+    option
+    ref =
   ref None
+
+let register_rpc_fun rpc = rpc_fun := Some rpc
 
 let get_rpc () =
   match !rpc_fun with None -> failwith "No rpc set!" | Some f -> f
@@ -174,7 +178,7 @@ let do_rpcs req s username password minimal cmd session args =
     @@ fun span ->
     let req = Xmlrpc_client.xmlrpc ~version:"1.1" "/" in
     let req = TraceHelper.inject_span_into_req span req in
-    let rpc = generic_rpc req s in
+    let rpc = generic_rpc req (Some s) in
     if do_forward then
       with_session ~local:false rpc username password session (fun sess ->
           forward args s (Some sess)
@@ -248,7 +252,7 @@ let exec_command req cmd s session args =
     ; (is "pool-sync-updates", [is "token"])
     ]
   in
-  let rpc = get_rpc () req s in
+  let rpc = get_rpc () req (Some s) in
   Cli_frontend.populate_cmdtable rpc Ref.null ;
   (* Log the actual CLI command to help diagnose failures like CA-25516 *)
   let cmd_name = get_cmdname cmd in

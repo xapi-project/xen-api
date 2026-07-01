@@ -1,4 +1,8 @@
 let prototyped_of_class = function
+  | "Rate_limit" ->
+      Some "26.14.0"
+  | "Caller" ->
+      Some "26.14.0"
   | "Driver_variant" ->
       Some "25.2.0"
   | "Host_driver" ->
@@ -13,6 +17,34 @@ let prototyped_of_class = function
       None
 
 let prototyped_of_field = function
+  | "Rate_limit", "fill_rate" ->
+      Some "26.14.0"
+  | "Rate_limit", "burst_size" ->
+      Some "26.14.0"
+  | "Rate_limit", "callers" ->
+      Some "26.7.0"
+  | "Rate_limit", "name__description" ->
+      Some "26.7.0"
+  | "Rate_limit", "name__label" ->
+      Some "26.7.0"
+  | "Rate_limit", "uuid" ->
+      Some "26.14.0"
+  | "Caller", "rate_limit" ->
+      Some "26.7.0"
+  | "Caller", "groups" ->
+      Some "26.7.0"
+  | "Caller", "last_access" ->
+      Some "26.7.0"
+  | "Caller", "client_ip" ->
+      Some "26.7.0"
+  | "Caller", "user_agent" ->
+      Some "26.14.0"
+  | "Caller", "name__description" ->
+      Some "26.7.0"
+  | "Caller", "name__label" ->
+      Some "26.7.0"
+  | "Caller", "uuid" ->
+      Some "26.14.0"
   | "Driver_variant", "status" ->
       Some "25.2.0"
   | "Driver_variant", "priority" ->
@@ -69,6 +101,8 @@ let prototyped_of_field = function
       Some "24.23.0"
   | "Repository", "gpgkey_path" ->
       Some "22.12.0"
+  | "Certificate", "purpose" ->
+      Some "26.13.0"
   | "Certificate", "fingerprint_sha1" ->
       Some "24.20.0"
   | "Certificate", "fingerprint_sha256" ->
@@ -95,6 +129,8 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
+  | "SM", "supported_image_formats" ->
+      Some "26.15.0"
   | "SM", "host_pending_features" ->
       Some "24.37.0"
   | "host", "timezone" ->
@@ -143,6 +179,8 @@ let prototyped_of_field = function
       Some "26.2.0"
   | "VM_metrics", "numa_optimised" ->
       Some "26.2.0"
+  | "VM", "secureboot_certificates_state" ->
+      Some "26.14.0"
   | "VM", "groups" ->
       Some "24.19.1"
   | "VM", "pending_guidances_full" ->
@@ -197,6 +235,28 @@ let prototyped_of_field = function
       None
 
 let prototyped_of_message = function
+  | "Rate_limit", "set_fill_rate" ->
+      Some "26.7.0"
+  | "Rate_limit", "set_burst_size" ->
+      Some "26.7.0"
+  | "Rate_limit", "remove_caller" ->
+      Some "26.7.0"
+  | "Rate_limit", "add_caller" ->
+      Some "26.7.0"
+  | "Caller", "query_all_usage" ->
+      Some "26.7.0"
+  | "Caller", "query_group_call_count" ->
+      Some "26.7.0-next"
+  | "Caller", "query_group_token_usage" ->
+      Some "26.7.0-next"
+  | "Caller", "query_call_count" ->
+      Some "26.7.0-next"
+  | "Caller", "query_token_usage" ->
+      Some "26.7.0-next"
+  | "Caller", "remove_group" ->
+      Some "26.7.0"
+  | "Caller", "add_group" ->
+      Some "26.7.0"
   | "Driver_variant", "select" ->
       Some "25.2.0"
   | "Host_driver", "rescan" ->
@@ -245,6 +305,8 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
+  | "VDI", "revert" ->
+      Some "26.15.0-next"
   | "host", "set_servertime" ->
       Some "26.0.0"
   | "host", "get_ntp_synchronized" ->
@@ -287,6 +349,8 @@ let prototyped_of_message = function
       Some "24.0.0"
   | "VM", "sysprep" ->
       Some "25.24.0"
+  | "VM", "update_secureboot_certificates_on_boot" ->
+      Some "26.14.0"
   | "VM", "get_secureboot_readiness" ->
       Some "24.17.0"
   | "VM", "set_uefi_mode" ->
@@ -297,6 +361,16 @@ let prototyped_of_message = function
       Some "25.22.0"
   | "VM", "set_groups" ->
       Some "24.19.1"
+  | "pool", "exchange_crls_on_join" ->
+      Some "26.13.0"
+  | "pool", "exchange_trusted_certificates_on_join" ->
+      Some "26.13.0"
+  | "pool", "sync_trusted_certificates_from" ->
+      Some "26.15.0-next"
+  | "pool", "uninstall_trusted_certificate" ->
+      Some "26.13.0"
+  | "pool", "install_trusted_certificate" ->
+      Some "26.13.0"
   | "pool", "set_ssh_auto_mode" ->
       Some "25.27.0"
   | "pool", "set_console_idle_timeout" ->

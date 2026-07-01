@@ -109,6 +109,7 @@ install:
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
 	$(IPROG) upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
 	$(IDATA) usb-policy.conf $(DESTDIR)$(ETCXENDIR)
+	$(IDATA) call-costs.conf $(DESTDIR)$(ETCXENDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
 	$(IPROG) xapi-rolling-upgrade-miami $(DESTDIR)$(LIBEXECDIR)/xapi-rolling-upgrade
 	$(IPROG) set-hostname $(DESTDIR)$(LIBEXECDIR)
@@ -124,8 +125,6 @@ install:
 	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
-	$(IPROG) xe-switch-network-backend-bash-completion $(DESTDIR)/etc/bash_completion.d/xe-switch-network-backend
-	$(IPROG) xe-switch-network-backend $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-syslog-reconfigure $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xe-install-supplemental-pack $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-enable-ipv6 $(DESTDIR)$(OPTDIR)/bin

@@ -2676,6 +2676,12 @@ let vm_record rpc session_id vm =
               Client.VM.set_groups ~rpc ~session_id ~self:vm ~value
           )
           ()
+      ; make_field ~name:"secureboot-certificates-state"
+          ~get:(fun () ->
+            Record_util.vm_secureboot_certificates_state_to_string
+              (x ()).API.vM_secureboot_certificates_state
+          )
+          ()
       ; make_field ~name:"snapshot-schedule"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_snapshot_schedule)
           ~set:(fun x ->
@@ -3956,6 +3962,12 @@ let sm_record rpc session_id sm =
           ()
       ; make_field ~name:"required-cluster-stack"
           ~get:(fun () -> concat_with_comma (x ()).API.sM_required_cluster_stack)
+          ()
+      ; make_field ~name:"supported-image-formats"
+          ~get:(fun () ->
+            map_and_concat Record_util.image_format_type_to_string
+              (x ()).API.sM_supported_image_formats
+          )
           ()
       ]
   }
@@ -5463,6 +5475,12 @@ let certificate_record rpc session_id certificate =
       ; make_field ~name:"fingerprint_sha1"
           ~get:(fun () -> (x ()).API.certificate_fingerprint_sha1)
           ()
+      ; make_field ~name:"purpose"
+          ~get:(fun () ->
+            map_and_concat Record_util.certificate_purpose_to_string
+              (x ()).API.certificate_purpose
+          )
+          ()
       ]
   }
 
@@ -6027,6 +6045,129 @@ let pci_record rpc session_id pci =
             Client.PCI.remove_from_other_config ~rpc ~session_id ~self:pci ~key
           )
           ~get_map:(fun () -> (x ()).API.pCI_other_config)
+          ()
+      ]
+  }
+
+let caller_record rpc session_id caller =
+  let _ref = ref caller in
+  let empty_record =
+    ToGet (fun () -> Client.Caller.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty_record
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.caller_uuid) ()
+      ; make_field ~name:"name-label"
+          ~get:(fun () -> (x ()).API.caller_name_label)
+          ~set:(fun s ->
+            Client.Caller.set_name_label ~rpc ~session_id ~self:!_ref ~value:s
+          )
+          ()
+      ; make_field ~name:"name-description"
+          ~get:(fun () -> (x ()).API.caller_name_description)
+          ~set:(fun s ->
+            Client.Caller.set_name_description ~rpc ~session_id ~self:!_ref
+              ~value:s
+          )
+          ()
+      ; make_field ~name:"user-agent"
+          ~get:(fun () -> (x ()).API.caller_user_agent)
+          ()
+      ; make_field ~name:"client-ip"
+          ~get:(fun () -> (x ()).API.caller_client_ip)
+          ()
+      ; make_field ~name:"last-access"
+          ~get:(fun () -> Date.to_rfc3339 (x ()).API.caller_last_access)
+          ()
+      ; make_field ~name:"groups"
+          ~get:(fun () -> String.concat "; " (x ()).API.caller_groups)
+          ~get_set:(fun () -> (x ()).API.caller_groups)
+          ~add_to_set:(fun s ->
+            Client.Caller.add_group ~rpc ~session_id ~self:!_ref ~group:s
+          )
+          ~remove_from_set:(fun s ->
+            Client.Caller.remove_group ~rpc ~session_id ~self:!_ref ~group:s
+          )
+          ()
+      ; make_field ~name:"rate-limit"
+          ~get:(fun () -> Ref.string_of (x ()).API.caller_rate_limit)
+          ()
+      ]
+  }
+
+let rate_limit_record rpc session_id rate_limit =
+  let _ref = ref rate_limit in
+  let empty_record =
+    ToGet (fun () -> Client.Rate_limit.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty_record
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.rate_limit_uuid) ()
+      ; make_field ~name:"name-label"
+          ~get:(fun () -> (x ()).API.rate_limit_name_label)
+          ~set:(fun value ->
+            Client.Rate_limit.set_name_label ~rpc ~session_id ~self:!_ref ~value
+          )
+          ()
+      ; make_field ~name:"name-description"
+          ~get:(fun () -> (x ()).API.rate_limit_name_description)
+          ~set:(fun value ->
+            Client.Rate_limit.set_name_description ~rpc ~session_id ~self:!_ref
+              ~value
+          )
+          ()
+      ; make_field ~name:"callers"
+          ~get:(fun () ->
+            String.concat "; "
+              (List.map Ref.string_of (x ()).API.rate_limit_callers)
+          )
+          ~get_set:(fun () ->
+            List.map Ref.string_of (x ()).API.rate_limit_callers
+          )
+          ()
+      ; make_field ~name:"burst-size"
+          ~get:(fun () -> string_of_float (x ()).API.rate_limit_burst_size)
+          ~set:(fun value ->
+            Client.Rate_limit.set_burst_size ~rpc ~session_id ~self:!_ref
+              ~value:(float_of_string value)
+          )
+          ()
+      ; make_field ~name:"fill-rate"
+          ~get:(fun () -> string_of_float (x ()).API.rate_limit_fill_rate)
+          ~set:(fun value ->
+            Client.Rate_limit.set_fill_rate ~rpc ~session_id ~self:!_ref
+              ~value:(float_of_string value)
+          )
           ()
       ]
   }

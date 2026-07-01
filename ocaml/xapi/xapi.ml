@@ -160,10 +160,11 @@ let random_setup () =
   Random.full_init (Array.init n (fun i -> Char.code (Bytes.get s i)))
 
 let register_callback_fns () =
-  let fake_rpc req sock xml : Rpc.response =
-    Api_server.callback1 false req sock xml
+  let fake_rpc req fd_opt call : Rpc.response =
+    Api_server.callback1 false req fd_opt call
   in
-  Xapi_cli.rpc_fun := Some fake_rpc ;
+  Xapi_cli.register_rpc_fun fake_rpc ;
+  Helpers.register_rpc_fun fake_rpc ;
   Message_forwarding.register_callback_fns ()
 
 let noevents = ref false
@@ -510,6 +511,8 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
 let start_ha () =
   try Xapi_ha.on_server_restart ()
   with e ->
+    (* Try to clean slave_emergency_mode that on_server_restart may set *)
+    if Pool_role.is_master () then Xapi_globs.slave_emergency_mode := false ;
     (* Critical that we don't continue as a master and use shared resources *)
     debug "Caught exception starting HA system: %s" (ExnHelper.string_of_exn e)
 
@@ -884,11 +887,9 @@ let listen_unix_socket sock_path =
   Unixext.mkdir_safe (Filename.dirname sock_path) 0o700 ;
   Unixext.unlink_safe sock_path ;
   let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX sock_path) in
-  ignore
-    (Http_svr.start
-       ~conn_limit:!Xapi_globs.conn_limit_unix
-       Xapi_http.server domain_sock
-    )
+  Http_svr.start
+    ~conn_limit:!Xapi_globs.conn_limit_unix
+    Xapi_http.server domain_sock
 
 let set_stunnel_timeout () =
   try
@@ -1168,6 +1169,14 @@ let server_init () =
           ; ( "Update database state of TLS verification"
             , []
             , fun () -> report_tls_verification ~__context
+            )
+          ; ( "Registering rate limits"
+            , [Startup.OnlyMaster]
+            , fun () -> Xapi_rate_limit.register ~__context
+            )
+          ; ( "Registering callers"
+            , [Startup.OnlyMaster]
+            , fun () -> Xapi_caller.register ~__context
             )
           ; ( "Remote requests"
             , [Startup.OnThread]

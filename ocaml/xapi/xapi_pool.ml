@@ -16,7 +16,6 @@ open Client
 module Date = Clock.Date
 module Listext = Xapi_stdext_std.Listext
 module Unixext = Xapi_stdext_unix.Unixext
-module Xstringext = Xapi_stdext_std.Xstringext
 
 module Pkgs = (val Pkg_mgr.get_pkg_mgr)
 
@@ -849,7 +848,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     then
       raise Api_errors.(Server_error (not_supported_during_upgrade, []))
   in
-  let assert_ca_certificates_compatible () =
+  let assert_legacy_ca_certificates_compatible () =
     (* When both pools trust a different certificate using the same name
        joining is blocked. The conflict could be resolved by renaming one of
        the two certificates but this might break the assumptions of the
@@ -859,7 +858,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     *)
     let conflicting_names = ref [] in
     let module CertMap = Map.Make (String) in
-    let expr = {|field "type"="ca"|} in
+    let expr = {|field "type"="ca" and not (field "name"="")|} in
     let map_of_list list =
       list
       |> List.to_seq
@@ -894,6 +893,72 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
             Server_error
               (pool_joining_host_ca_certificates_conflict, !conflicting_names)
           )
+  in
+  let assert_trusted_certificates_compatible () =
+    (* The usual cases are that:
+       - the joining host has no trusted certificates (fresh installed host);
+       - the joining host has exactly same trusted certificates with the pool.
+      In either of these cases, the exchanging in next step will work well.
+      It can work as well when the joining host and the pool have, i.e., a same
+      certificate with two completely different purpose sets that their
+      intersection is empty.
+      However, it will not work well in case that the joining host and the pool
+      have, i.e., a same certificate with different purpose sets and the
+      intersection of the two sets is not empty.
+      This assertion is to block the join when this is the case.
+     *)
+    let expr = Printf.sprintf {|field "type"="ca" or field "type"="pinned"|} in
+    let module CertMap = Map.Make (String) in
+    let to_map =
+      List.fold_left
+        (fun acc (ref, r) ->
+          if r.API.certificate_name = "" then
+            CertMap.add r.API.certificate_fingerprint_sha256 (ref, r) acc
+          else
+            acc
+        )
+        CertMap.empty
+    in
+    let remote =
+      Client.Certificate.get_all_records_where ~rpc ~session_id ~expr |> to_map
+    in
+    let local =
+      Db.Certificate.get_all_records_where ~__context ~expr |> to_map
+    in
+    CertMap.merge
+      (fun _key remote local ->
+        match (remote, local) with
+        | Some (ref1, r1), Some (ref2, r2) ->
+            let module S = Certificates.Db_util.PurposeSet in
+            let s1 = S.of_list r1.API.certificate_purpose in
+            let s2 = S.of_list r2.API.certificate_purpose in
+            if S.equal s1 s2 || S.is_empty (S.inter s1 s2) then
+              None
+            else
+              let f l =
+                List.map API.certificate_purpose_to_string l
+                |> String.concat ";"
+              in
+              error
+                "%s: trusted certificates conflict: uuid=%s (purpose=[%s]) in \
+                 pool and uuid=%s (purpose=[%s]) on joining host."
+                __FUNCTION__ r1.API.certificate_uuid
+                (f r1.API.certificate_purpose)
+                r2.API.certificate_uuid
+                (f r2.API.certificate_purpose) ;
+              Some (ref1, ref2)
+        | _ ->
+            None
+      )
+      remote local
+    |> CertMap.iter (fun _ (ref1, ref2) ->
+        let f = Ref.string_of in
+        raise
+          Api_errors.(
+            Server_error
+              (pool_joining_host_trusted_certificates_conflict, [f ref1; f ref2])
+          )
+    )
   in
   let assert_no_host_pending_mandatory_guidance () =
     (* Assert that there is no host pending mandatory guidance on the joiner or
@@ -1009,7 +1074,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_homogeneous_primary_address_type () ;
   assert_compatible_network_purpose () ;
   assert_tls_verification_matches () ;
-  assert_ca_certificates_compatible () ;
+  assert_legacy_ca_certificates_compatible () ;
+  assert_trusted_certificates_compatible () ;
   assert_not_in_updating_on_me () ;
   assert_no_hosts_in_updating () ;
   assert_sm_features_compatible ()
@@ -1583,9 +1649,10 @@ let certificate_install ~__context ~name ~cert =
     | Ok x ->
         x
   in
-  pool_install CA_Certificate ~__context ~name ~cert ;
-  let (_ : API.ref_Certificate) =
-    Db_util.add_cert ~__context ~type':(`ca name) certificate
+  Certificates.host_install Root_legacy ~name ~cert ;
+  Cert_distrib.copy_certs_to_all ~__context ;
+  let (_ : API.ref_Certificate), _ =
+    Db_util.add_cert ~__context ~type':(`ca name) ~purpose:[] certificate
   in
   ()
 
@@ -1593,7 +1660,8 @@ let install_ca_certificate = certificate_install
 
 let uninstall_ca_certificate ~__context ~name ~force =
   let open Certificates in
-  pool_uninstall CA_Certificate ~__context ~name ~force ;
+  host_uninstall Root_legacy ~name ~force ;
+  Cert_distrib.copy_certs_to_all ~__context ;
   Db_util.remove_ca_cert_by_name ~__context name
 
 let certificate_uninstall = uninstall_ca_certificate ~force:false
@@ -1603,13 +1671,236 @@ let certificate_list ~__context =
   Db_util.get_ca_certs ~__context
   |> List.map @@ fun self -> Db.Certificate.get_name ~__context ~self
 
-let crl_install = Certificates.(pool_install CRL)
+let crl_install ~__context ~name ~cert =
+  Certificates.host_install CRL ~name ~cert ;
+  Cert_distrib.copy_certs_to_all ~__context ;
+  ()
 
-let crl_uninstall = Certificates.(pool_uninstall CRL ~force:false)
+let crl_uninstall ~__context ~name =
+  Certificates.host_uninstall CRL ~name ~force:false ;
+  Cert_distrib.copy_certs_to_all ~__context ;
+  ()
 
 let crl_list ~__context = Certificates.(local_list CRL)
 
-let certificate_sync = Certificates.pool_sync
+let certificate_sync ~__context =
+  Cert_distrib.copy_certs_to_all ~__context ;
+  Certificates.sync_all_hosts ~__context (Db.Host.get_all ~__context) ;
+  ()
+
+let install_trusted_certificate' ~__context ~self:_ ~ca ~cert ~purpose =
+  let open Certificates in
+  let certificate =
+    let open Api_errors in
+    match
+      Gencertlib.Lib.validate_not_expired cert
+        ~error_not_yet:trusted_certificate_not_valid_yet
+        ~error_expired:trusted_certificate_expired
+        ~error_invalid:trusted_certificate_invalid
+    with
+    | Error e ->
+        raise e
+    | Ok x ->
+        x
+  in
+  let cert_type, kind =
+    match (ca, purpose = []) with
+    | true, _ ->
+        (`ca "", Root purpose)
+    | false, false ->
+        (`pinned, Pinned purpose)
+    | false, true ->
+        raise Api_errors.(Server_error (certificate_lacks_purpose, []))
+  in
+  let (ref : API.ref_Certificate), uuid =
+    Db_util.add_cert ~__context ~type':cert_type ~purpose certificate
+  in
+  let name = Certificates.name_of_uuid uuid in
+  Certificates.host_install kind ~name ~cert ;
+  Cert_distrib.copy_certs_to_all ~__context ;
+  ref
+
+let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose =
+  let (_ : API.ref_Certificate) =
+    install_trusted_certificate' ~__context ~self ~ca ~cert ~purpose
+  in
+  ()
+
+let uninstall_trusted_certificate ~__context ~self:_ ~certificate =
+  let open Certificates in
+  let cert_rec = Db.Certificate.get_record ~__context ~self:certificate in
+  let purposes = cert_rec.API.certificate_purpose in
+  let kind =
+    match cert_rec.API.certificate_type with
+    | `ca ->
+        Root purposes
+    | `pinned ->
+        Pinned purposes
+    | _ ->
+        raise
+          Api_errors.(
+            Server_error (not_trusted_certificate, [Ref.string_of certificate])
+          )
+  in
+  let name = Certificates.name_of_uuid cert_rec.API.certificate_uuid in
+  Db_util.remove_cert_by_ref ~__context certificate ;
+  Certificates.host_uninstall kind ~name ~force:true ;
+  Cert_distrib.copy_certs_to_all ~__context ;
+  ()
+
+let install_trusted_certificate_ignore_dup' ~__context ~self ~ca ~cert ~purpose
+    =
+  try
+    Ok (Some (install_trusted_certificate' ~__context ~self ~ca ~cert ~purpose))
+  with
+  | Api_errors.(Server_error (code, [fp]))
+    when code = Api_errors.trusted_certificate_already_exists ->
+      warn "%s: a trusted certificate (fingerprint=%s) exists already."
+        __FUNCTION__ fp ;
+      Ok None
+  | e ->
+      error "%s: failed to install certificate: %s" __FUNCTION__
+        (Printexc.to_string e) ;
+      Error e
+
+let install_trusted_certificate_ignore_dup ~__context ~self ~ca ~cert ~purpose =
+  match
+    install_trusted_certificate_ignore_dup' ~__context ~self ~ca ~cert ~purpose
+  with
+  | Ok _ ->
+      ()
+  | Error e ->
+      raise e
+
+let purpose_of_string_list = List.map Record_util.certificate_purpose_of_string
+
+let exchange_trusted_certificates_on_join ~__context ~self ~ca ~import ~export =
+  List.iter
+    (fun (cert, purpose') ->
+      let purpose = purpose_of_string_list purpose' in
+      install_trusted_certificate_ignore_dup ~__context ~self ~ca ~cert ~purpose
+    )
+    import ;
+  Cert_distrib.collect_trusted_certs ~__context ~ca ~certificates:export
+
+let exchange_trusted_certificates ~__context ~rpc ~session_id ~remote ~local =
+  List.iter
+    (fun db_type ->
+      let ca = db_type = `ca in
+      let refs_of rs =
+        List.filter (fun (_, r) -> r.API.certificate_type = db_type) rs
+        |> List.map fst
+      in
+      let export = refs_of remote in
+      let import =
+        Cert_distrib.collect_trusted_certs ~__context ~ca
+          ~certificates:(refs_of local)
+      in
+      Client.Pool.exchange_trusted_certificates_on_join ~rpc ~session_id
+        ~self:(get_pool ~rpc ~session_id)
+        ~ca ~import ~export
+      |> List.iter (fun (cert, purpose') ->
+          let purpose = purpose_of_string_list purpose' in
+          install_trusted_certificate_ignore_dup ~__context
+            ~self:(Helpers.get_pool ~__context)
+            ~ca ~cert ~purpose
+      )
+    )
+    [`ca; `pinned]
+
+let sync_trusted_certificates_from ~__context ~self ~remote_pool ~remote_session
+    ~remote_certificate ~ca =
+  let rpc =
+    Helpers.make_external_host_verified_rpc ~__context remote_pool
+      remote_certificate
+  in
+  let session_id = remote_session in
+  let cert_type =
+    if ca then
+      "ca"
+    else
+      "pinned"
+  in
+  let expr =
+    Printf.sprintf {|field "type"="%s" and field "name"=""|} cert_type
+  in
+  let export =
+    Client.Certificate.get_all_records_where ~rpc ~session_id ~expr
+    |> List.map fst
+  in
+  Client.Pool.exchange_trusted_certificates_on_join ~rpc ~session_id
+    ~self:(get_pool ~rpc ~session_id)
+    ~ca ~import:[] ~export
+  |> Listext.List.try_map_collect (fun (cert, purpose) ->
+      let purpose = purpose_of_string_list purpose in
+      install_trusted_certificate_ignore_dup' ~__context
+        ~self:(Helpers.get_pool ~__context)
+        ~ca ~cert ~purpose
+  )
+  |> function
+  | Ok refs ->
+      List.filter_map Fun.id refs
+  | Error (refs, e) ->
+      List.filter_map Fun.id refs
+      |> List.iter (fun ref ->
+          try uninstall_trusted_certificate ~__context ~self ~certificate:ref
+          with e ->
+            error "Can't revert the installed certificate %s: %s"
+              (Ref.string_of ref) (Printexc.to_string e)
+      ) ;
+      raise e
+
+let exchange_crls_on_join ~__context ~self:_ ~import ~export =
+  List.iter (fun (name, crl) -> crl_install ~__context ~name ~cert:crl) import ;
+  Cert_distrib.collect_crls ~__context ~names:export
+
+let exchange_legacy_ca_certificates ~__context ~rpc ~session_id ~remote ~local =
+  let module CertSet = Set.Make (String) in
+  let get_name = function _, {API.certificate_name; _} -> certificate_name in
+  let remote_names = List.map get_name remote |> CertSet.of_list in
+  let local_names = local |> List.map get_name |> CertSet.of_list in
+  let from_pool = CertSet.(diff remote_names local_names) in
+  let to_pool = CertSet.(diff local_names remote_names) in
+  let remote_cert_refs =
+    List.filter_map
+      (function
+        | ref, API.{certificate_name; _}
+          when CertSet.mem certificate_name from_pool ->
+            Some ref
+        | _ ->
+            None
+        )
+      remote
+  in
+  let local_appliance_certs =
+    Cert_distrib.collect_ca_certs ~__context
+      ~names:(CertSet.to_seq to_pool |> List.of_seq)
+  in
+  let downloaded_certs =
+    Client.Pool.exchange_ca_certificates_on_join ~rpc ~session_id
+      ~import:local_appliance_certs ~export:remote_cert_refs
+  in
+  Cert_distrib.import_joining_pool_ca_certificates ~__context
+    ~ca_certs:downloaded_certs
+
+let exchange_crls ~__context ~rpc ~session_id =
+  let local_names = crl_list ~__context in
+  let local_crls = Cert_distrib.collect_crls ~__context ~names:local_names in
+  let remote_names = Client.Pool.crl_list ~rpc ~session_id in
+  let remote_crls =
+    Client.Pool.exchange_crls_on_join ~rpc ~session_id
+      ~self:(get_pool ~rpc ~session_id)
+      ~import:local_crls ~export:remote_names
+  in
+  List.iter
+    (fun (name, crl) -> crl_install ~__context ~name ~cert:crl)
+    remote_crls
+
+let ignore_error ~msg ~warn f =
+  try f ()
+  with e ->
+    debug "%s: %s" msg (Printexc.to_string e) ;
+    D.warn "%s" warn
 
 let join_common ~__context ~master_address ~master_username ~master_password
     ~force =
@@ -1648,6 +1939,28 @@ let join_common ~__context ~master_address ~master_username ~master_password
         Client.Pool.exchange_certificates_on_join ~rpc:unverified_rpc
           ~session_id ~uuid:my_uuid ~certificate:my_certificate
       in
+      (* Verify the master included its own certificate in the pool bundle
+         before importing. If it is absent the verified connection in Phase 2
+         will fail with an opaque Stunnel_verify_error. The filename convention
+         is "<uuid>.pem" (see Cert_distrib.HostPoolProvider). *)
+      let master_uuid =
+        Client.Host.get_uuid ~rpc:unverified_rpc ~session_id
+          ~self:(get_master ~rpc:unverified_rpc ~session_id)
+      in
+      let expected_cert_filename = master_uuid ^ ".pem" in
+      if not (List.mem_assoc expected_cert_filename pool_certs) then (
+        error
+          "join_common: master certificate file '%s' is absent from the pool's \
+           certificate store (/etc/stunnel/certs-pool/). The pool bundle sent \
+           to the joiner does not contain the master's own certificate. Run \
+           'xe pool-certificate-sync' on the master and retry."
+          expected_cert_filename ;
+        raise
+          Api_errors.(
+            Server_error
+              (pool_joining_master_certificate_not_in_pool_bundle, [master_uuid])
+          )
+      ) ;
       Cert_distrib.import_joining_pool_certs ~__context ~pool_certs
     )
     (fun () -> Client.Session.logout ~rpc:unverified_rpc ~session_id) ;
@@ -1689,51 +2002,22 @@ let join_common ~__context ~master_address ~master_username ~master_password
   in
   finally
     (fun () ->
-      (* Merge certificates used for trusting appliances, also known as ca
-         certificates. At this point the names of certificates have been tested
-         for uniqueness across pools, the name of the certificate is used to
-         identify each certificate. *)
-      let expr = {|field "type"="ca"|} in
-      let module CertSet = Set.Make (String) in
-      let get_name = function
-        | _, {API.certificate_name; _} ->
-            certificate_name
+      (* Merge trusted certificates, includinng the legacy CA certficates. *)
+      let expr =
+        Printf.sprintf {|field "type"="ca" or field "type"="pinned"|}
       in
-      let remote_certs =
+      let remote, remote_legacy =
         Client.Certificate.get_all_records_where ~rpc ~session_id ~expr
+        |> List.partition (fun (_, r) -> r.API.certificate_name = "")
       in
-      let remote_names = List.map get_name remote_certs |> CertSet.of_list in
-      let local_names =
+      let local, local_legacy =
         Db.Certificate.get_all_records_where ~__context ~expr
-        |> List.map get_name
-        |> CertSet.of_list
+        |> List.partition (fun (_, r) -> r.API.certificate_name = "")
       in
-
-      let from_pool = CertSet.(diff remote_names local_names) in
-      let to_pool = CertSet.(diff local_names remote_names) in
-
-      let remote_cert_refs =
-        List.filter_map
-          (function
-            | ref, API.{certificate_name; _}
-              when CertSet.mem certificate_name from_pool ->
-                Some ref
-            | _ ->
-                None
-            )
-          remote_certs
-      in
-
-      let local_appliance_certs =
-        Cert_distrib.collect_ca_certs ~__context
-          ~names:(CertSet.to_seq to_pool |> List.of_seq)
-      in
-      let downloaded_certs =
-        Client.Pool.exchange_ca_certificates_on_join ~rpc ~session_id
-          ~import:local_appliance_certs ~export:remote_cert_refs
-      in
-      Cert_distrib.import_joining_pool_ca_certificates ~__context
-        ~ca_certs:downloaded_certs ;
+      exchange_legacy_ca_certificates ~__context ~rpc ~session_id
+        ~remote:remote_legacy ~local:local_legacy ;
+      exchange_trusted_certificates ~__context ~rpc ~session_id ~remote ~local ;
+      exchange_crls ~__context ~rpc ~session_id ;
 
       (* get pool db from new master so I have a backup ready if we failover to me *)
       ( try
@@ -1808,23 +2092,43 @@ let join_common ~__context ~master_address ~master_username ~master_password
           error "Unable to configure SSH service on local host: %s"
             (ExnHelper.string_of_exn e)
       ) ;
+      (* Sync ldaps status before update_non_vm_metadata so that the corrected
+         value gets pushed to the coordinator as part of that sync, preventing
+         it from being overwritten when the host restarts as a slave. *)
+      ignore_error ~msg:"Failed to sync ldaps status with pool coordinator"
+        ~warn:
+          "Error whilst syncing ldaps status with pool coordinator. The \
+           pool-join operation will continue as only the pool coordinator is \
+           used for ldap query. Use pool-external-auth-set-ldaps --force to \
+           fix up" (fun () ->
+          let coordinator_ldaps =
+            Client.Host.get_external_auth_configuration ~rpc ~session_id
+              ~self:remote_coordinator
+            |> fun config -> Helpers.ldaps_enabled_in_config ~config
+          in
+          let local_ldaps =
+            Db.Host.get_external_auth_configuration ~__context ~self:me
+            |> fun config -> Helpers.ldaps_enabled_in_config ~config
+          in
+          if coordinator_ldaps <> local_ldaps then
+            Xapi_host.external_auth_set_ldaps ~__context ~host:me
+              ~ldaps:coordinator_ldaps ~force:true
+      ) ;
       (* this is where we try and sync up as much state as we can
          with the master. This is "best effort" rather than
          critical; if we fail part way through this then we carry
          on with the join *)
-      try
-        update_non_vm_metadata ~__context ~rpc ~session_id ;
-        ignore
-          (Importexport.remote_metadata_export_import ~__context ~rpc
-             ~session_id ~remote_address:master_address ~restore:true `All
-          )
-      with e ->
-        debug "Error whilst importing db objects into master; aborted: %s"
-          (Printexc.to_string e) ;
-        warn
+      ignore_error ~msg:"Error whilst importing db objects into master; aborted"
+        ~warn:
           "Error whilst importing db objects to master. The pool-join \
            operation will continue, but some of the slave's VMs may not be \
-           available on the master."
+           available on the master." (fun () ->
+          update_non_vm_metadata ~__context ~rpc ~session_id ;
+          ignore
+            (Importexport.remote_metadata_export_import ~__context ~rpc
+               ~session_id ~remote_address:master_address ~restore:true `All
+            )
+      )
     )
     (fun () -> Client.Session.logout ~rpc ~session_id) ;
 
@@ -2193,6 +2497,7 @@ let eject_self ~__context ~host =
     Unixext.unlink_safe Xapi_globs.db_temporary_restore_path ;
     Unixext.unlink_safe Db_globs.ha_metadata_db ;
     Unixext.unlink_safe Db_globs.gen_metadata_db ;
+    Certificates.cleanup_all_trusted () ;
     (* If we've got local storage, remove it *)
     if Helpers.local_storage_exists () then (
       ignore
@@ -3119,6 +3424,46 @@ let disable_external_auth ~__context ~pool:_ ~config =
            successfully"
       )
   )
+
+(* Enable or disable LDAPS for external authentication on all hosts in the pool *)
+let external_auth_set_ldaps ~__context ~pool:_ ~ldaps ~force =
+  let host = Helpers.get_master ~__context in
+  let current_ldaps =
+    Db.Host.get_external_auth_configuration ~__context ~self:host
+    |> fun config -> Helpers.ldaps_enabled_in_config ~config
+  in
+
+  let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
+  let set_ldap_on host =
+    try
+      call_fn_on_host ~__context
+        (Client.Host.external_auth_set_ldaps ~ldaps ~force)
+        host ;
+      Ok host
+    with e ->
+      debug "%s failed to set ldaps for host %s: %s" __FUNCTION__
+        (Ref.string_of host)
+        (ExnHelper.string_of_exn e) ;
+      Error (host, e)
+  in
+  with_lock Xapi_globs.serialize_pool_enable_disable_extauth @@ fun () ->
+  let revert host =
+    try
+      call_fn_on_host ~__context
+        (Client.Host.external_auth_set_ldaps ~ldaps:current_ldaps ~force:true)
+        host
+    with e ->
+      warn "Failed to revert ldaps on host %s: %s" (Ref.string_of host)
+        (ExnHelper.string_of_exn e)
+  in
+  (* Set ldaps to host and host will perform the necessary checks *)
+  match Listext.List.try_map_collect set_ldap_on hosts with
+  | Ok _ ->
+      debug "%s succeed to set pool ldaps to %b" __FUNCTION__ ldaps
+  | Error (_, (_, e)) when current_ldaps = ldaps ->
+      raise e
+  | Error (hs, (_, e)) ->
+      List.iter revert hs ; raise e
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_pool ~__context =

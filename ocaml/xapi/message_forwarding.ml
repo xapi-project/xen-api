@@ -208,6 +208,7 @@ let iter_with_drop ?(doc = "performing unknown operation") f xs =
 let log_exn ?(doc = "performing unknown operation") f x =
   try f x
   with e ->
+    Backtrace.is_important e ;
     debug "Caught exception while %s in message forwarder: %s" doc
       (ExnHelper.string_of_exn e) ;
     raise e
@@ -332,9 +333,10 @@ functor
     let tolerate_connection_loss fn success timeout =
       try fn ()
       with
-      | Api_errors.Server_error (ercode, params)
+      | Api_errors.Server_error (ercode, _) as e
       when ercode = Api_errors.cannot_contact_host
       ->
+        Backtrace.is_important e ;
         debug
           "Lost connection with slave during call (expected). Waiting for \
            slave to come up again." ;
@@ -346,8 +348,7 @@ functor
         let rec poll i =
           match i with
           | 0 ->
-              raise (Api_errors.Server_error (ercode, params))
-              (* give up and re-raise exn *)
+              raise e (* give up and re-raise exn *)
           | i -> (
             match success () with
             | Some result ->
@@ -365,6 +366,12 @@ functor
         ""
       else
         Printf.sprintf " (%s)" s
+
+    let raise_for_invalid cls ref =
+      raise
+        (Api_errors.Server_error
+           (Api_errors.handle_invalid, [cls; Ref.string_of ref])
+        )
 
     let pool_uuid ~__context pool =
       try
@@ -665,6 +672,14 @@ functor
           Ref.string_of observer
       with _ -> "invalid"
 
+    let certificate_uuid ~__context certificate =
+      try
+        if Pool_role.is_master () then
+          Db.Certificate.get_uuid ~__context ~self:certificate
+        else
+          Ref.string_of certificate
+      with _ -> raise_for_invalid "certificate" certificate
+
     module Session = struct
       include Local.Session
 
@@ -960,6 +975,12 @@ functor
           (pool_uuid ~__context pool) ;
         Local.Pool.disable_external_auth ~__context ~pool
 
+      let external_auth_set_ldaps ~__context ~pool ~ldaps ~force =
+        info "Pool.external_auth_set_ldaps: pool = '%s'; ldaps = %b; force = %b"
+          (pool_uuid ~__context pool)
+          ldaps force ;
+        Local.Pool.external_auth_set_ldaps ~__context ~pool ~ldaps ~force
+
       let enable_redo_log ~__context ~sr =
         info "Pool.enable_redo_log: pool = '%s'; sr_uuid = '%s'"
           (current_pool_uuid ~__context)
@@ -1228,6 +1249,72 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_ssh_auto_mode ~__context ~self ~value
+
+      let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs ~doc:"Pool.install_trusted_certificate"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info "Pool.install_trusted_certificate: pool='%s' ca='%b' purpose=[%s]"
+          (pool_uuid ~__context self)
+          ca
+          (List.map Record_util.certificate_purpose_to_string purpose
+          |> String.concat "; "
+          ) ;
+        Local.Pool.install_trusted_certificate ~__context ~self ~ca ~cert
+          ~purpose
+
+      let uninstall_trusted_certificate ~__context ~self ~certificate =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs ~doc:"Pool.uninstall_trusted_certificate"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info "Pool.uninstall_trusted_certificate: pool='%s' certificate='%s'"
+          (pool_uuid ~__context self)
+          (certificate_uuid ~__context certificate) ;
+        Local.Pool.uninstall_trusted_certificate ~__context ~self ~certificate
+
+      let sync_trusted_certificates_from ~__context ~self ~remote_pool
+          ~remote_session ~remote_certificate ~ca =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs
+          ~doc:"Pool.sync_trusted_certificates_from"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info
+          "Pool.sync_trusted_certificates_from: pool=%S remote_pool=%S \
+           remote_certificate=%S ca=%b"
+          (pool_uuid ~__context self)
+          remote_pool remote_certificate ca ;
+        Local.Pool.sync_trusted_certificates_from ~__context ~self ~remote_pool
+          ~remote_session ~remote_certificate ~ca
+
+      let exchange_trusted_certificates_on_join ~__context ~self ~ca ~import
+          ~export =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs
+          ~doc:"Pool.exchange_trusted_certificates_on_join"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info
+          "Pool.exchange_trusted_certificates_on_join: pool='%s' ca=%b \
+           export=[%s]"
+          (pool_uuid ~__context self)
+          ca
+          (List.map (certificate_uuid ~__context) export |> String.concat ";") ;
+        Local.Pool.exchange_trusted_certificates_on_join ~__context ~self ~ca
+          ~import ~export
+
+      let exchange_crls_on_join ~__context ~self ~import ~export =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`exchange_crls_on_join ~doc:"Pool.exchange_crls_on_join"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info "Pool.exchange_crls_on_join: pool='%s' import=[%s] export=[%s]"
+          (pool_uuid ~__context self)
+          (String.concat ";" (List.map fst import))
+          (String.concat ";" export) ;
+        Local.Pool.exchange_crls_on_join ~__context ~self ~import ~export
     end
 
     module VM = struct
@@ -1311,6 +1398,7 @@ functor
             vbds ;
           vbds
         with e ->
+          Backtrace.is_important e ;
           debug "Caught exception marking VBD for %s on VM %s: %s" doc
             (Ref.string_of vm)
             (ExnHelper.string_of_exn e) ;
@@ -1492,6 +1580,7 @@ functor
             (Helpers.will_have_qemu ~__context ~self:vm) ;
           Xapi_network_sriov_helpers.reserve_sriov_vfs ~__context ~host ~vm
         with e ->
+          Backtrace.is_important e ;
           clear_vif_reservations ~__context ~vm ;
           clear_reservations ~__context ~vm ;
           raise e
@@ -1636,6 +1725,7 @@ functor
         ) ;
         try f ()
         with exn ->
+          Backtrace.is_important exn ;
           if !restore_old_values_on_error then (
             Db.VM.set_memory_dynamic_min ~__context ~self:vm
               ~value:old_dynamic_min ;
@@ -2592,24 +2682,25 @@ functor
           ~vgpu_map ~options
 
       let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options
-          ~vgpu_map =
+          ~vgpu_map ~vdi_format_map =
         info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm) ;
         let source_host = Db.VM.get_resident_on ~__context ~self:vm in
         let local_fn =
-          Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
-            ~options
+          Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vdi_format_map
+            ~vif_map ~vgpu_map ~options
         in
         let remote_fn =
-          Client.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~options
-            ~vgpu_map
+          Client.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vdi_format_map
+            ~vif_map ~options ~vgpu_map
         in
+        let host = List.assoc Xapi_vm_migrate._host dest |> Ref.of_string in
+        let cross_pool = not (Db.is_valid_ref __context host) in
         let migration_type =
           if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
-            let host = List.assoc Xapi_vm_migrate._host dest |> Ref.of_string in
-            if Db.is_valid_ref __context host then
-              `Live_intrapool host
-            else
+            if cross_pool then
               `Live_interpool
+            else
+              `Live_intrapool host
           else
             `Non_live
         in
@@ -2622,7 +2713,8 @@ functor
                 Helpers.try_internal_async ~__context API.ref_VM_of_rpc
                   (fun () ->
                     Client.InternalAsync.VM.migrate_send ~rpc ~session_id ~vm
-                      ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map
+                      ~dest ~live ~vdi_map ~vdi_format_map ~vif_map ~options
+                      ~vgpu_map
                   )
                   (fun () -> remote_fn ~session_id ~rpc)
             )
@@ -2631,12 +2723,22 @@ functor
           | `Live_interpool ->
               forward_internal_async ()
               (* resources on the destination will be reserved separately *)
-          | `Non_live ->
+          | `Non_live -> (
               let snapshot = Db.VM.get_record ~__context ~self:vm in
-              fst
-                (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot
-                   ~host_op:`vm_migrate ~remote_fn ()
-                )
+              try
+                fst
+                  (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot
+                     ~host_op:`vm_migrate ~remote_fn ()
+                  )
+              with
+              | Api_errors.Server_error (code, _)
+              when code = Api_errors.no_hosts_available && cross_pool
+              ->
+                (* If non-live VM can't start anywhere in the pool, allow
+                   cross-pool migrations, with any host that can see its
+                   SRs acting as the sender *)
+                forward_to_access_srs ~local_fn ~__context ~vm ~remote_fn
+            )
           | `Live_intrapool host ->
               (* reserve resources on the destination host, then forward the call to the source. *)
               let snapshot = Db.VM.get_record ~__context ~self:vm in
@@ -3126,10 +3228,10 @@ functor
           (vm_uuid ~__context self) value ;
         Local.VM.set_HVM_boot_policy ~__context ~self ~value
 
-      let set_NVRAM_EFI_variables ~__context ~self ~value =
+      let set_NVRAM_EFI_variables ~__context ~self ~value ~update =
         (* called by varstored, bypasses VM powerstate check *)
         info "VM.set_NVRAM_EFI_variables: self = '%s'" (vm_uuid ~__context self) ;
-        Local.VM.set_NVRAM_EFI_variables ~__context ~self ~value
+        Local.VM.set_NVRAM_EFI_variables ~__context ~self ~value ~update
 
       let restart_device_models ~__context ~self =
         info "VM.restart_device_models: self = '%s'" (vm_uuid ~__context self) ;
@@ -3147,6 +3249,12 @@ functor
       let get_secureboot_readiness ~__context ~self =
         info "VM.get_secureboot_readiness: self = '%s'" (vm_uuid ~__context self) ;
         Local.VM.get_secureboot_readiness ~__context ~self
+
+      let update_secureboot_certificates_on_boot ~__context ~self ~mark =
+        info
+          "VM.update_secureboot_certificates_on_boot: self = '%s'; mark = '%b'"
+          (vm_uuid ~__context self) mark ;
+        Local.VM.update_secureboot_certificates_on_boot ~__context ~self ~mark
 
       let set_blocked_operations ~__context ~self ~value =
         info "VM.set_blocked_operations: self = '%s'" (vm_uuid ~__context self) ;
@@ -3176,6 +3284,34 @@ functor
           ~policy (fun () ->
             forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
         )
+
+      let add_to_other_config ~__context ~self ~key ~value =
+        info "VM.add_to_other_config: self = '%s', key = '%s'"
+          (vm_uuid ~__context self) key ;
+        Local.VM.add_to_other_config ~__context ~self ~key ~value
+
+      let remove_from_other_config ~__context ~self ~key =
+        info "VM.remove_from_other_config: self = '%s', key = '%s'"
+          (vm_uuid ~__context self) key ;
+        Local.VM.remove_from_other_config ~__context ~self ~key
+
+      let set_other_config ~__context ~self ~value =
+        info "VM.set_other_config: self = '%s'" (vm_uuid ~__context self) ;
+        Local.VM.set_other_config ~__context ~self ~value
+
+      let add_to_platform ~__context ~self ~key ~value =
+        info "VM.add_to_platform: self = '%s', key = '%s'"
+          (vm_uuid ~__context self) key ;
+        Local.VM.add_to_platform ~__context ~self ~key ~value
+
+      let remove_from_platform ~__context ~self ~key =
+        info "VM.remove_from_platform: self = '%s', key = '%s'"
+          (vm_uuid ~__context self) key ;
+        Local.VM.remove_from_platform ~__context ~self ~key
+
+      let set_platform ~__context ~self ~value =
+        info "VM.set_platform: self = '%s'" (vm_uuid ~__context self) ;
+        Local.VM.set_platform ~__context ~self ~value
     end
 
     module VM_metrics = struct end
@@ -3745,6 +3881,16 @@ functor
         let local_fn = Local.Host.disable_external_auth ~host ~config ~force in
         let remote_fn =
           Client.Host.disable_external_auth ~host ~config ~force
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
+
+      let external_auth_set_ldaps ~__context ~host ~ldaps ~force =
+        info "Host.external_auth_set_ldaps: host = '%s'; ldaps = %b; force = %b"
+          (host_uuid ~__context host)
+          ldaps force ;
+        let local_fn = Local.Host.external_auth_set_ldaps ~host ~ldaps ~force in
+        let remote_fn =
+          Client.Host.external_auth_set_ldaps ~host ~ldaps ~force
         in
         do_op_on ~local_fn ~__context ~host ~remote_fn
 
@@ -5215,6 +5361,7 @@ functor
                 (fun (vdi, op) -> mark_vdi ~__context ~vdi ~doc ~op)
                 vdi
             with e ->
+              Backtrace.is_important e ;
               Option.iter
                 (fun (sr, op) -> SR.unmark_sr ~__context ~sr ~doc ~op)
                 sr ;
@@ -5446,6 +5593,23 @@ functor
           ~doc:"VDI.clone" (fun () ->
             forward_vdi_op ~local_fn ~__context ~self:vdi ~remote_fn
         )
+
+      let revert ~__context ~snapshot =
+        let ( let@ ) f x = f x in
+        let doc = "VDI.revert" in
+        info "%s: snapshot = '%s'" doc (vdi_uuid ~__context snapshot) ;
+        let local_fn = Local.VDI.revert ~snapshot in
+        let remote_fn = Client.VDI.revert ~snapshot in
+        let sr = Db.VDI.get_SR ~__context ~self:snapshot in
+        let vdi = Db.VDI.get_snapshot_of ~__context ~self:snapshot in
+        let op () =
+          forward_vdi_op ~local_fn ~__context ~self:snapshot ~remote_fn
+        in
+        let@ () =
+          with_sr_andor_vdi ~__context ~sr:(sr, `vdi_revert)
+            ~vdi:(snapshot, `revert_to) ~doc
+        in
+        with_sr_andor_vdi ~__context ~vdi:(vdi, `revert_from) ~doc op
 
       let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
         info "VDI.copy: VDI = '%s'; SR = '%s'; base_vdi = '%s'; into_vdi = '%s'"
@@ -6564,6 +6728,7 @@ functor
             -> (
               match rest with
               | [] ->
+                  Backtrace.is_important e ;
                   debug
                     "Ran out of hosts to try (and no cluster host on \
                      ourselves), reporting error" ;
@@ -6817,6 +6982,9 @@ functor
         in
         Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
     end
+
+    module Caller = Xapi_caller
+    module Rate_limit = Xapi_rate_limit
   end
 
 (* for unit tests *)

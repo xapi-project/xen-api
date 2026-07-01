@@ -175,6 +175,9 @@ module VDI = struct
 
   let list_changed_blocks ctx ~dbg ~sr ~vdi_from ~vdi_to =
     Storage_interface.unimplemented __FUNCTION__
+
+  let revert ctx ~dbg ~sr ~snapshot_info =
+    Storage_interface.unimplemented __FUNCTION__
 end
 
 let get_by_name ctx ~dbg ~name = Storage_interface.unimplemented __FUNCTION__
@@ -183,7 +186,7 @@ module DATA = struct
   let copy ctx ~dbg ~sr ~vdi ~vm ~url ~dest =
     Storage_interface.unimplemented __FUNCTION__
 
-  let mirror ctx ~dbg ~sr ~vdi ~vm ~dest =
+  let mirror ctx ~dbg ~sr ~vdi ~image_format ~vm ~dest =
     Storage_interface.unimplemented __FUNCTION__
 
   let stat ctx ~dbg ~sr ~vdi ~vm ~key =
@@ -198,8 +201,9 @@ module DATA = struct
   module MIRROR = struct
     type context = unit
 
-    let send_start ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
-        ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest =
+    let send_start ctx ~dbg ~task_id ~dp ~sr ~vdi ~image_format ~mirror_vm
+        ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr
+        ~verify_dest =
       Storage_interface.unimplemented __FUNCTION__
 
     let receive_start ctx ~dbg ~sr ~vdi_info ~id ~similar =
@@ -208,8 +212,8 @@ module DATA = struct
     let receive_start2 ctx ~dbg ~sr ~vdi_info ~id ~similar ~vm =
       Storage_interface.unimplemented __FUNCTION__
 
-    let receive_start3 ctx ~dbg ~sr ~vdi_info ~mirror_id ~similar ~vm ~url
-        ~verify_dest =
+    let receive_start3 ctx ~dbg ~sr ~vdi_info ~mirror_id ~image_format ~similar
+        ~vm ~url ~verify_dest =
       Storage_interface.unimplemented __FUNCTION__
 
     let receive_finalize ctx ~dbg ~id =
