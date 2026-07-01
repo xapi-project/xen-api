@@ -1435,6 +1435,16 @@ let factory_ntp_servers = ref []
 
 let legacy_factory_ntp_servers = ref []
 
+(** When false (default), per-caller rate limiting is disabled at runtime:
+    [Xapi_caller.register] and [Xapi_rate_limit.register] are no-ops, the
+    RRD reporter is not started, and dispatch bypasses the caller table. *)
+let rate_limit_enabled = ref false
+
+(** File mapping API calls to their rate-limiting token cost, in key=value
+    format ("Class.method = cost"), read by [Xapi_caller.register] at start of
+    day. *)
+let call_costs_file = ref "/etc/xensource/call-costs.conf"
+
 let other_options =
   [
     gen_list_option "sm-plugins"
@@ -1955,6 +1965,11 @@ let other_options =
       (fun s -> s)
       (fun s -> s)
       factory_ntp_servers
+  ; ( "rate_limit"
+    , Arg.Set rate_limit_enabled
+    , (fun () -> string_of_bool !rate_limit_enabled)
+    , "Enable per-caller rate limiting (Caller / Rate_limit datamodel)."
+    )
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
@@ -2190,6 +2205,10 @@ module Resources = struct
     ; ( "iscsi_initiatorname"
       , iscsi_initiator_config_file
       , "Path to the initiatorname.iscsi file"
+      )
+    ; ( "call-costs-file"
+      , call_costs_file
+      , "File mapping API calls to their rate-limiting token cost"
       )
     ]
 
