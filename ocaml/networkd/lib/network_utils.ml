@@ -915,6 +915,8 @@ module Dhclient : sig
 
   val remove_conf_file : ?ipv6:bool -> interface -> unit
 
+  val is_running : ?ipv6:bool -> interface -> bool
+
   val stop : ?ipv6:bool -> interface -> unit
   (** stop: stop the DHCP client managing [interface] if running and to unconfigure addresses. *)
 
@@ -923,8 +925,6 @@ module Dhclient : sig
     -> interface
     -> [> `dns of string | `gateway of string] list
     -> unit
-  (** ensure_running: ensure the DHCP client is up and running. On start, any previously assigned
-  addresses are discarded. *)
 end = struct
   type interface = string
 
@@ -1035,25 +1035,20 @@ end = struct
       else
         []
     in
-    (* remove previously assigned addresses (like static ones) *)
-    Ip.flush_ip_addr interface ;
-    (* start DHCP client *)
-    ignore
-      (call_script ~timeout:None dhclient
-         (ipv6'
-         @ gw_opt
-         @ dns_opt
-         @ [
-             "-q"
-           ; "-pf"
-           ; pid_file ~ipv6 interface
-           ; "-lf"
-           ; lease_file ~ipv6 interface
-           ; "-cf"
-           ; conf_file ~ipv6 interface
-           ; interface
-           ]
-         )
+    call_script ~timeout:None dhclient
+      (ipv6'
+      @ gw_opt
+      @ dns_opt
+      @ [
+          "-q"
+        ; "-pf"
+        ; pid_file ~ipv6 interface
+        ; "-lf"
+        ; lease_file ~ipv6 interface
+        ; "-cf"
+        ; conf_file ~ipv6 interface
+        ; interface
+        ]
       )
 
   let is_running ?(ipv6 = false) interface =
@@ -1086,15 +1081,15 @@ end = struct
   let ensure_running ?(ipv6 = false) interface options =
     if not (is_running ~ipv6 interface) then
       (* dhclient is not running, so we need to start it. *)
-      start ~ipv6 interface options
+      ignore (start ~ipv6 interface options)
     else
       (* dhclient is running - if the config has changed, update the config file
          and restart. *)
       let current_conf = read_conf_file ~ipv6 interface in
       let new_conf = generate_conf ~ipv6 interface options in
       if current_conf <> Some new_conf then (
-        stop ~ipv6 interface ;
-        start ~ipv6 interface options
+        ignore (stop ~ipv6 interface) ;
+        ignore (start ~ipv6 interface options)
       )
 end
 
