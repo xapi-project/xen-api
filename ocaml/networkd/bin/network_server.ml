@@ -218,13 +218,13 @@ let reset_state () =
   config := Network_config.read_management_conf reset_order
 
 let set_gateway_interface _dbg name =
-  (* Mark the DHCP configuration as stale for the old and new gateway interfaces.
-   * This ensures that DHCP client will be restarted with an updated conf file when
+  (* Remove dhclient conf (if any) for the old and new gateway interfaces.
+   * This ensures that dhclient gets restarted with an updated conf file when
    * necessary. *)
   ( match !config.gateway_interface with
   | Some old_iface when name <> old_iface ->
-      Dhclient.set_stale name ;
-      Dhclient.set_stale old_iface
+      Dhclient.remove_conf_file name ;
+      Dhclient.remove_conf_file old_iface
   | _ ->
       ()
   ) ;
@@ -232,13 +232,13 @@ let set_gateway_interface _dbg name =
   config := {!config with gateway_interface= Some name}
 
 let set_dns_interface _dbg name =
-  (* Mark the DHCP configuration as stale for the old and new DNS interfaces.
-   * This ensures that DHCP client will be restarted with an updated conf file when
+  (* Remove dhclient conf (if any) for the old and new DNS interfaces.
+   * This ensures that dhclient gets restarted with an updated conf file when
    * necessary. *)
   ( match !config.dns_interface with
   | Some old_iface when name <> old_iface ->
-      Dhclient.set_stale name ;
-      Dhclient.set_stale old_iface
+      Dhclient.remove_conf_file name ;
+      Dhclient.remove_conf_file old_iface
   | _ ->
       ()
   ) ;

@@ -913,9 +913,7 @@ end
 module Dhclient : sig
   type interface = string
 
-  val set_stale : ?ipv6:bool -> interface -> unit
-  (** set_stale: mark the DHCP configuration to be stale. Next call of `ensure_running`
-  will necessary trigger a restart. *)
+  val remove_conf_file : ?ipv6:bool -> interface -> unit
 
   val stop : ?ipv6:bool -> interface -> unit
   (** stop: stop the DHCP client managing [interface] if running and to unconfigure addresses. *)
@@ -1107,13 +1105,6 @@ end = struct
         (* remove the pid file *)
         Unix.unlink (pid_file ~ipv6 interface)
       with _ -> ()
-
-  let set_stale ?(ipv6 = false) interface =
-    (* set the configuration dirty by removing the configuration file.
-     * dhclient will still run nicely, but `ensure_running` will stop/start it
-     * as the configuration will not match the (removed) configuration file.
-     *)
-    remove_conf_file ~ipv6 interface
 
   let ensure_running ?(ipv6 = false) interface options =
     if not (is_running ~ipv6 interface) then
