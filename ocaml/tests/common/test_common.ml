@@ -276,7 +276,7 @@ let make_vif ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(status_code = 0L) ?(status_detail = "") ?(runtime_properties = [])
     ?(other_config = []) ?(metrics = Ref.null) ?(locking_mode = `unlocked)
     ?(ipv4_allowed = []) ?(ipv6_allowed = []) ?(ipv4_configuration_mode = `None)
-    ?(ipv4_addresses = []) ?(ipv4_gateway = "")
+    ?(ipv4_addresses = []) ?(ipv4_gateway = "") ?(ipv4_dns = [])
     ?(ipv6_configuration_mode = `None) ?(ipv6_addresses = [])
     ?(ipv6_gateway = "") ?(trunks = []) () =
   Db.VIF.create ~__context ~ref ~uuid ~current_operations ~allowed_operations
@@ -284,7 +284,7 @@ let make_vif ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~qos_algorithm_type ~qos_algorithm_params ~qos_supported_algorithms
     ~currently_attached ~status_code ~status_detail ~runtime_properties
     ~other_config ~metrics ~locking_mode ~ipv4_allowed ~ipv6_allowed
-    ~ipv4_configuration_mode ~ipv4_addresses ~ipv4_gateway
+    ~ipv4_configuration_mode ~ipv4_addresses ~ipv4_gateway ~ipv4_dns
     ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway
     ~reserved_pci:Ref.null ~trunks ;
   ref

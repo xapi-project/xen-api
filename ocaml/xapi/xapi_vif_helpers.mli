@@ -52,6 +52,7 @@ val create :
   -> ipv4_configuration_mode:[< `None | `Static]
   -> ipv4_addresses:string list
   -> ipv4_gateway:string
+  -> ipv4_dns:string list
   -> ipv6_configuration_mode:[< `None | `Static]
   -> ipv6_addresses:string list
   -> ipv6_gateway:string

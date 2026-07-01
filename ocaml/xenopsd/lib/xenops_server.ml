@@ -1598,15 +1598,18 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
         match ipv4_configuration with
         | Vif.Unspecified4 ->
             "None"
-        | Vif.Static4 (address, gateway) -> (
-          match gateway with
-          | None ->
-              Printf.sprintf "Static: address:%s" (String.concat "; " address)
-          | Some value ->
-              Printf.sprintf "Static: address:%s gateway:%s"
-                (String.concat "; " address)
-                value
-        )
+        | Vif.Static4 (address, gateway, dns) ->
+            let address_str = String.concat "; " address in
+            let gateway_str =
+              match gateway with
+              | None ->
+                  "(none)"
+              | Some value ->
+                  Printf.sprintf "%s" value
+            in
+            let dns_str = String.concat "; " dns in
+            Printf.sprintf "Static: address:%s gateway:%s dns:[%s]" address_str
+              gateway_str dns_str
         | Vif.DHCP4 ->
             "DHCP"
       in

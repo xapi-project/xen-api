@@ -4884,14 +4884,17 @@ module VIF = struct
       match vif.ipv4_configuration with
       | Unspecified4 ->
           [("enabled", "0")]
-      | Static4 (address :: _, gateway) ->
+      | Static4 (address :: _, gateway, dns) ->
           let enabled = ("enabled", "1") in
           let address = ("address", address) in
           let gateway =
             match gateway with Some value -> [("gateway", value)] | None -> []
           in
-          enabled :: address :: gateway
-      | Static4 ([], _) ->
+          let dns =
+            List.mapi (fun i value -> (Printf.sprintf "dns/%d" i, value)) dns
+          in
+          enabled :: address :: List.concat [gateway; dns]
+      | Static4 ([], _, _) ->
           internal_error
             "Static IPv4 configuration selected, but no address specified."
       | DHCP4 ->
@@ -5270,10 +5273,14 @@ module VIF = struct
         let ip_setting_gateway =
           Printf.sprintf "%s/%s%s" xenstore_path "gateway" suffix
         in
-        t.Xst.rm ip_setting_gateway
+        t.Xst.rm ip_setting_gateway ;
+        let ip_setting_dns =
+          Printf.sprintf "%s/%s%s" xenstore_path "dns" suffix
+        in
+        t.Xst.rm ip_setting_dns
     )
 
-  let set_ip_static xs xenstore_path suffix address gateway =
+  let set_ip_static xs xenstore_path suffix address gateway dns =
     Xs.transaction xs (fun t ->
         let ip_setting_enabled =
           Printf.sprintf "%s/%s%s" xenstore_path "enabled" suffix
@@ -5286,12 +5293,26 @@ module VIF = struct
         let ip_setting_gateway =
           Printf.sprintf "%s/%s%s" xenstore_path "gateway" suffix
         in
-        match gateway with
+        ( match gateway with
         | None ->
             t.Xst.rm ip_setting_gateway
         | Some value ->
             debug "xenstore-write %s <- %s" ip_setting_gateway value ;
             t.Xst.write ip_setting_gateway value
+        ) ;
+        (* If there's an existing dns key, we must remove it to avoid it
+           changing the interpretation of unconfigured DNS. If XAPI ever needs
+           to configure VIF DNS to an empty list, it should do so explicitly. *)
+        let ip_setting_dns =
+          Printf.sprintf "%s/%s%s" xenstore_path "dns" suffix
+        in
+        t.Xst.rm ip_setting_dns ;
+        List.iteri
+          (fun i value ->
+            let ip_setting_dns_one = Printf.sprintf "%s/%d" ip_setting_dns i in
+            t.Xst.write ip_setting_dns_one value
+          )
+          dns
     )
 
   let set_ipv4_configuration _task vm vif ipv4_configuration =
@@ -5305,9 +5326,9 @@ module VIF = struct
         match ipv4_configuration with
         | Unspecified4 ->
             set_ip_unspecified_or_autoconf xs xenstore_path "" "0"
-        | Static4 (address :: _, gateway) ->
-            set_ip_static xs xenstore_path "" address gateway
-        | Static4 ([], _) ->
+        | Static4 (address :: _, gateway, dns) ->
+            set_ip_static xs xenstore_path "" address gateway dns
+        | Static4 ([], _, _) ->
             internal_error
               "Static IPv4 configuration selected, but no address specified."
         | DHCP4 ->
@@ -5326,7 +5347,7 @@ module VIF = struct
         | Unspecified6 ->
             set_ip_unspecified_or_autoconf xs xenstore_path "6" "0"
         | Static6 (address :: _, gateway) ->
-            set_ip_static xs xenstore_path "6" address gateway
+            set_ip_static xs xenstore_path "6" address gateway [] (* TODO *)
         | Static6 ([], _) ->
             internal_error
               "Static IPv6 configuration selected, but no address specified."

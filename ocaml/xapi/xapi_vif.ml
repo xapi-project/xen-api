@@ -48,8 +48,8 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
   create ~__context ~device ~network ~vM ~currently_attached:_currently_attached
     ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params
     ~locking_mode ~ipv4_allowed ~ipv6_allowed ~ipv4_configuration_mode:`None
-    ~ipv4_addresses:[] ~ipv4_gateway:"" ~ipv6_configuration_mode:`None
-    ~ipv6_addresses:[] ~ipv6_gateway:"" ~trunks
+    ~ipv4_addresses:[] ~ipv4_gateway:"" ~ipv4_dns:[]
+    ~ipv6_configuration_mode:`None ~ipv6_addresses:[] ~ipv6_gateway:"" ~trunks
 
 let destroy ~__context ~self = destroy ~__context ~self
 
@@ -193,17 +193,19 @@ let assert_no_locking_mode_conflict ~__context ~self kind address =
               Server_error (address_violates_locking_constraint, [address])
             )
 
-let configure_ipv4 ~__context ~self ~mode ~address ~gateway =
+let configure_ipv4 ~__context ~self ~mode ~address ~gateway ~dns =
   if mode = `Static then (
     Pool_features.assert_enabled ~__context ~f:Features.Guest_ip_setting ;
     Helpers.assert_is_valid_cidr `ipv4 "address" address ;
     assert_no_locking_mode_conflict ~__context ~self `ipv4 address ;
-    if gateway <> "" then Helpers.assert_is_valid_ip `ipv4 "gateway" gateway
+    if gateway <> "" then Helpers.assert_is_valid_ip `ipv4 "gateway" gateway ;
+    List.iter (fun value -> Helpers.assert_is_valid_ip `ipv4 "dns" value) dns
   ) ;
   assert_has_feature_static_ip_setting ~__context ~self ;
   Db.VIF.set_ipv4_configuration_mode ~__context ~self ~value:mode ;
   Db.VIF.set_ipv4_addresses ~__context ~self ~value:[address] ;
   Db.VIF.set_ipv4_gateway ~__context ~self ~value:gateway ;
+  Db.VIF.set_ipv4_dns ~__context ~self ~value:dns ;
   if device_active ~__context ~self then
     Xapi_xenops.vif_set_ipv4_configuration ~__context ~self
 

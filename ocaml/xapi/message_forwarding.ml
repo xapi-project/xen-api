@@ -4710,16 +4710,18 @@ functor
         let remote_fn = Client.VIF.remove_ipv6_allowed ~self ~value in
         forward_vif_op ~local_fn ~__context ~self ~remote_fn
 
-      let configure_ipv4 ~__context ~self ~mode ~address ~gateway =
+      let configure_ipv4 ~__context ~self ~mode ~address ~gateway ~dns =
         info
           "VIF.configure_ipv4: VIF = '%s'; mode = '%s'; address = '%s'; \
-           gateway = '%s'"
+           gateway = '%s'; dns = '%s'"
           (vif_uuid ~__context self)
           (Record_util.vif_ipv4_configuration_mode_to_string mode)
-          address gateway ;
-        let local_fn = Local.VIF.configure_ipv4 ~self ~mode ~address ~gateway in
+          address gateway (String.concat "; " dns) ;
+        let local_fn =
+          Local.VIF.configure_ipv4 ~self ~mode ~address ~gateway ~dns
+        in
         let remote_fn =
-          Client.VIF.configure_ipv4 ~self ~mode ~address ~gateway
+          Client.VIF.configure_ipv4 ~self ~mode ~address ~gateway ~dns
         in
         forward_vif_op ~local_fn ~__context ~self ~remote_fn
 

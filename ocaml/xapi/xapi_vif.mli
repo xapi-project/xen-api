@@ -119,6 +119,7 @@ val configure_ipv4 :
   -> mode:[`None | `Static | `DHCP]
   -> address:string
   -> gateway:string
+  -> dns:string list
   -> unit
 (** Change the IP configuration of a VIF *)
 
