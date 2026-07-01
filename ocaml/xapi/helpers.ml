@@ -2637,3 +2637,16 @@ let set_map_with_rbac ~__context ~self ~value ~get_fn ~set_fn ~match_protected
         (Rbac.disallowed_permission_exn ~extra_dmsg ~extra_msg ~__context
            ~permission:disallowed ~action
         )
+
+let ldaps_enabled_in_config ~config =
+  match List.assoc_opt "ldaps" config with
+  (* Default to false, true iff v = true (case-insensitive) *)
+  | Some v when bool_of_string_opt (String.lowercase_ascii v) = Some true ->
+      true
+  | _ ->
+      false
+
+(* Check if Active Directory external authentication is enabled on a host *)
+let is_ad_enabled ~__context ~host =
+  let auth_type = Db.Host.get_external_auth_type ~__context ~self:host in
+  auth_type = Xapi_globs.auth_type_AD

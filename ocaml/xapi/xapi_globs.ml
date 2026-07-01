@@ -1065,11 +1065,11 @@ let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
 
 let winbind_set_machine_account_kerberos_encryption_type = ref false
 
-let winbind_allow_kerberos_auth_fallback = ref false
-
 let winbind_scan_trusted_domains = ref false
 
-let winbind_keep_configuration = ref false
+let winbind_keep_configuration = ref true
+
+let serialize_auth_service = ref true
 
 let winbind_ldap_query_subject_timeout = ref Mtime.Span.(20 * s)
 
@@ -1669,11 +1669,6 @@ let other_options =
     , "Whether set machine account encryption type \
        (msDS-SupportedEncryptionTypes) on domain controller"
     )
-  ; ( "winbind_allow_kerberos_auth_fallback"
-    , Arg.Set winbind_allow_kerberos_auth_fallback
-    , (fun () -> string_of_bool !winbind_allow_kerberos_auth_fallback)
-    , "Whether to allow fallback to other auth on kerberos failure"
-    )
   ; ( "winbind_scan_trusted_domains"
     , Arg.Set winbind_scan_trusted_domains
     , (fun () -> string_of_bool !winbind_scan_trusted_domains)
@@ -1684,6 +1679,13 @@ let other_options =
     , (fun () -> string_of_bool !winbind_keep_configuration)
     , "Whether to clear winbind configuration when join domain failed or leave \
        domain"
+    )
+  ; ( "serialize_auth_service"
+    , Arg.Bool (fun b -> serialize_auth_service := b)
+    , (fun () -> string_of_bool !serialize_auth_service)
+    , "Serialize AD external auth operations under a mutex (default: true). \
+       Set to false only if configure (enable/disable/set-ldaps) and \
+       authenticate calls are never concurrent to improve performance."
     )
   ; ( "hsts_max_age"
     , Arg.Set_int hsts_max_age

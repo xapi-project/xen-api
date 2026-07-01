@@ -272,6 +272,9 @@ val enable_external_auth :
 val disable_external_auth :
   __context:Context.t -> pool:'a -> config:API.string_to_string_map -> unit
 
+val external_auth_set_ldaps :
+  __context:Context.t -> pool:'a -> ldaps:bool -> force:bool -> unit
+
 val detect_nonhomogeneous_external_auth_in_pool : __context:Context.t -> unit
 
 val run_detect_nonhomogeneous_external_auth_in_pool : unit -> unit
@@ -475,3 +478,12 @@ val exchange_crls_on_join :
   -> import:API.string_to_string_map
   -> export:string list
   -> API.string_to_string_map
+
+val sync_trusted_certificates_from :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> remote_pool:string
+  -> remote_session:API.ref_session
+  -> remote_certificate:string
+  -> ca:bool
+  -> API.ref_Certificate list
