@@ -887,6 +887,15 @@ functor
         let dbg = Debug_info.to_string di in
         Impl.VDI.set_content_id context ~dbg ~sr ~vdi ~content_id
 
+      let set_snapshot_metadata context ~dbg ~sr ~vdi ~snapshot_of
+          ~snapshot_time ~is_a_snapshot =
+        with_dbg ~name:"VDI.set_snapshot_metadata" ~dbg @@ fun di ->
+        info "VDI.set_snapshot_metadata dbg:%s sr:%s vdi:%s snapshot_of:%s"
+          di.log (s_of_sr sr) (s_of_vdi vdi) (s_of_vdi snapshot_of) ;
+        let dbg = Debug_info.to_string di in
+        Impl.VDI.set_snapshot_metadata context ~dbg ~sr ~vdi ~snapshot_of
+          ~snapshot_time ~is_a_snapshot
+
       let similar_content context ~dbg ~sr ~vdi =
         with_dbg ~name:"VDI.similar_content" ~dbg @@ fun di ->
         info "VDI.similar_content dbg:%s sr:%s vdi:%s" di.log (s_of_sr sr)

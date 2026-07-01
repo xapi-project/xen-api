@@ -365,8 +365,16 @@ module Mux = struct
           Db.VDI.set_snapshot_of ~__context ~self:vdi ~value:snapshot_of
       )
 
+    (* Push snapshot metadata to the backend so a later SR.scan does not
+       re-overwrite XAPI DB fields with stale volume keys. *)
+    let update_backend_snapshot_metadata ~dbg sr snapshot leaf snapshot_time =
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.VDI.set_snapshot_metadata dbg sr snapshot leaf snapshot_time true
+
     let update_snapshot_info_dest () ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs =
-      with_dbg ~name:"SR.update_snapshot_info_dest" ~dbg @@ fun _di ->
+      with_dbg ~name:"SR.update_snapshot_info_dest" ~dbg @@ fun di ->
       info
         "SR.update_snapshot_info_dest dbg:%s sr:%s vdi:%s ~src_vdi:%s \
          snapshot_pairs:%s"
@@ -409,6 +417,11 @@ module Mux = struct
               in
               assert_content_ids_match ~vdi_info1:local_snapshot_info
                 ~vdi_info2:src_snapshot_info ;
+              D.log_and_ignore_exn (fun () ->
+                  update_backend_snapshot_metadata
+                    ~dbg:(Debug_info.to_string di) sr local_snapshot vdi
+                    src_snapshot_info.snapshot_time
+              ) ;
               set_snapshot_time __context ~dbg ~sr ~vdi:local_snapshot
                 ~snapshot_time:src_snapshot_info.snapshot_time ;
               set_snapshot_of __context ~dbg ~sr ~vdi:local_snapshot
@@ -705,6 +718,17 @@ module Mux = struct
         let rpc = of_sr sr
       end)) in
       C.VDI.set_content_id (Debug_info.to_string di) sr vdi content_id
+
+    let set_snapshot_metadata () ~dbg ~sr ~vdi ~snapshot_of ~snapshot_time
+        ~is_a_snapshot =
+      with_dbg ~name:"VDI.set_snapshot_metadata" ~dbg @@ fun di ->
+      info "VDI.set_snapshot_metadata dbg:%s sr:%s vdi:%s snapshot_of:%s" dbg
+        (s_of_sr sr) (s_of_vdi vdi) (s_of_vdi snapshot_of) ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.VDI.set_snapshot_metadata (Debug_info.to_string di) sr vdi snapshot_of
+        snapshot_time is_a_snapshot
 
     let similar_content () ~dbg ~sr ~vdi =
       with_dbg ~name:"VDI.similar_content" ~dbg @@ fun di ->

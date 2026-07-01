@@ -236,6 +236,20 @@ module State : sig
   val copy_id_of : Storage_interface.sr * Storage_interface.vdi -> string
 
   val of_copy_id : string -> Storage_interface.sr * Storage_interface.vdi
+
+  (** A single source→destination snapshot pairing recorded during SMAPIv3
+      live migration. *)
+  type snapshot_relation = {
+      src_vdi: Storage_interface.Vdi.t
+    ; dest_vdi: Storage_interface.Vdi.t
+    ; snapshot_time: Clock.Date.t
+  }
+
+  val set_snapshot_mappings : string -> snapshot_relation list -> unit
+
+  val get_snapshot_mappings : string -> snapshot_relation list
+
+  val remove_snapshot_mappings : string -> unit
 end
 
 val vdi_info :
@@ -264,6 +278,12 @@ module type SMAPIv2 = sig
 module Local : SMAPIv2
 
 val get_remote_backend : string -> bool -> (module SMAPIv2)
+
+val forget_orphan_dest_vdi :
+  url:string -> verify_dest:bool -> sr:sr -> vdi:vdi -> unit
+(** Forget an orphan VDI row on the SXM destination pool using the XenAPI
+    session embedded in the SXM url. Best-effort; cross-pool safe; empty
+    [url] is a no-op for legacy intra-pool paths. *)
 
 val find_vdi :
   dbg:string -> sr:sr -> vdi:vdi -> (module SMAPIv2) -> vdi_info * vdi_info list
