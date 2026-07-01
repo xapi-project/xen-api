@@ -52,7 +52,7 @@ let test_vm_set_nvram_running () =
       let new_vars = "CCCC" in
       let new_nvram = [("EFI-variables", new_vars)] in
       Api_server_common.Forwarder.VM.set_NVRAM_EFI_variables ~__context
-        ~self:vm_ref ~value:new_vars ;
+        ~self:vm_ref ~value:new_vars ~update:`no ;
       let read_nvram = Db.VM.get_NVRAM ~__context ~self:vm_ref in
       Alcotest.(check (list (pair string string)))
         "NVRAM updated" new_nvram read_nvram

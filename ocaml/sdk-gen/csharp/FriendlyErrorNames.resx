@@ -91,7 +91,7 @@
     <value>The GPU group contains active virtual GPUs and cannot be deleted.</value>
   </data>
   <data name="HANDLE_INVALID" xml:space="preserve">
-    <value>Object has been deleted.{0}:{1}</value>
+    <value>Could not find the specified object. If it existed before, it may have recently been deleted. {0} {1}</value>
   </data>
   <data name="HA_CONSTRAINT_VIOLATION_NETWORK_NOT_SHARED" xml:space="preserve">
     <value>This operation cannot be performed because the referenced network is not properly shared. The network must either be entirely virtual or must be physically present via a currently attached PIF on every server.</value>
@@ -323,6 +323,12 @@
   </data>
   <data name="POOL_AUTH_ENABLE_FAILED_DUPLICATE_HOSTNAME" xml:space="preserve">
     <value>Failed to enable external authentication, a duplicate hostname was detected.</value>
+  </data>
+  <data name="POOL_AUTH_ENABLE_FAILED_INVALID_TRUSTED_CERTS" xml:space="preserve">
+    <value>Failed to enable external authentication, none of the found certificates can be used to connect to domain controller.</value>
+  </data>
+  <data name="POOL_AUTH_ENABLE_FAILED_NO_TRUSTED_CERTS" xml:space="preserve">
+    <value>Failed to enable external authentication, no certificates are available for LDAPS communication.</value>
   </data>
   <data name="POOL_AUTH_ENABLE_FAILED_PERMISSION_DENIED" xml:space="preserve">
     <value>Failed to enable external authentication, permission on the AD server was denied.</value>

@@ -264,6 +264,8 @@ let string_of_vdi_info (x : vdi_info) = Jsonrpc.to_string (rpc_of vdi_info x)
     "datapaths". *)
 type dp = string [@@deriving rpcty]
 
+type image_format_t = string [@@deriving rpcty]
+
 type sock_path = string [@@deriving rpcty]
 
 type dp_stat_t = {
@@ -476,6 +478,7 @@ type query_result = {
   ; features: string list
   ; configuration: (string * string) list
   ; required_cluster_stack: string list
+  ; supported_image_formats: string list
   ; smapi_version: smapi_version
 }
 [@@deriving rpcty]
@@ -1023,6 +1026,15 @@ module StorageAPI (R : RPC) = struct
       let result_p = Param.mk ~name:"changed_blocks" Types.string in
       declare "VDI.list_changed_blocks" []
         (dbg_p @-> sr_p @-> vdi_from_p @-> vdi_to_p @-> returning result_p err)
+
+    (** [revert dbg sr snapshot_info] creates a new VDI which is a clone of
+        [snapshot_info] in [sr]. The contents of the VDI in
+        [snapshot_info.snapshot_of] will be destroyed and replaced with the
+        contents of [snapshot] *)
+    let revert =
+      let snapshot_info_p = Param.mk ~name:"snapshot_info" vdi_info in
+      declare "VDI.revert" []
+        (dbg_p @-> sr_p @-> snapshot_info_p @-> returning unit_p err)
   end
 
   (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
@@ -1034,6 +1046,8 @@ module StorageAPI (R : RPC) = struct
     declare "get_by_name" [] (dbg_p @-> name_p @-> returning result_p err)
 
   module DATA = struct
+    let image_format_p = Param.mk ~name:"image_format" image_format_t
+
     let url_p = Param.mk ~name:"url" Types.string
 
     let dest_p = Param.mk ~name:"dest" Sr.t
@@ -1065,6 +1079,7 @@ module StorageAPI (R : RPC) = struct
         (dbg_p
         @-> sr_p
         @-> vdi_p
+        @-> image_format_p
         @-> vm_p
         @-> url_p
         @-> returning operation_p err
@@ -1108,6 +1123,8 @@ module StorageAPI (R : RPC) = struct
         )
 
     module MIRROR = struct
+      let image_format_p = Param.mk ~name:"image_format" image_format_t
+
       let mirror_vm_p = Param.mk ~name:"mirror_vm" Vm.t
 
       let copy_vm_p = Param.mk ~name:"copy_vm" Vm.t
@@ -1116,7 +1133,7 @@ module StorageAPI (R : RPC) = struct
 
       let id_p = Param.mk ~name:"id" Mirror.id
 
-      (** [send_start dbg dp task src_sr vdi mirror_vm mirror_id local_vdi copy_vm 
+      (** [send_start dbg dp task src_sr vdi image_format mirror_vm mirror_id local_vdi copy_vm
       live_vm url remote_mirror dest_sr verify_dest]
       takes the remote mirror [remote_mirror] prepared by the destination host 
       and initiates the mirroring of [vdi] from the source *)
@@ -1133,6 +1150,7 @@ module StorageAPI (R : RPC) = struct
           @-> task_id_p
           @-> src_sr_p
           @-> vdi_p
+          @-> image_format_p
           @-> mirror_vm_p
           @-> id_p
           @-> local_vdi_p
@@ -1190,6 +1208,7 @@ module StorageAPI (R : RPC) = struct
           @-> sr_p
           @-> VDI.vdi_info_p
           @-> id_p
+          @-> image_format_p
           @-> similar_p
           @-> vm_p
           @-> url_p
@@ -1319,6 +1338,7 @@ module type MIRROR = sig
     -> dp:dp
     -> sr:sr
     -> vdi:vdi
+    -> image_format:string
     -> mirror_vm:vm
     -> mirror_id:Mirror.id
     -> local_vdi:vdi_info
@@ -1355,6 +1375,7 @@ module type MIRROR = sig
     -> sr:sr
     -> vdi_info:vdi_info
     -> mirror_id:Mirror.id
+    -> image_format:string
     -> similar:Mirror.similars
     -> vm:vm
     -> url:string
@@ -1635,6 +1656,9 @@ module type Server_impl = sig
 
     val list_changed_blocks :
       context -> dbg:debug_info -> sr:sr -> vdi_from:vdi -> vdi_to:vdi -> string
+
+    val revert :
+      context -> dbg:debug_info -> sr:sr -> snapshot_info:vdi_info -> unit
   end
 
   val get_by_name : context -> dbg:debug_info -> name:string -> sr * vdi_info
@@ -1656,6 +1680,7 @@ module type Server_impl = sig
       -> dbg:debug_info
       -> sr:sr
       -> vdi:vdi
+      -> image_format:string
       -> vm:vm
       -> dest:string
       -> operation
@@ -1837,12 +1862,15 @@ module Server (Impl : Server_impl) () = struct
     S.VDI.list_changed_blocks (fun dbg sr vdi_from vdi_to ->
         Impl.VDI.list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to
     ) ;
+    S.VDI.revert (fun dbg sr snapshot_info ->
+        Impl.VDI.revert () ~dbg ~sr ~snapshot_info
+    ) ;
     S.get_by_name (fun dbg name -> Impl.get_by_name () ~dbg ~name) ;
     S.DATA.copy (fun dbg sr vdi vm url dest verify_dest ->
         Impl.DATA.copy () ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest
     ) ;
-    S.DATA.mirror (fun dbg sr vdi vm dest ->
-        Impl.DATA.mirror () ~dbg ~sr ~vdi ~vm ~dest
+    S.DATA.mirror (fun dbg sr vdi image_format vm dest ->
+        Impl.DATA.mirror () ~dbg ~sr ~vdi ~image_format ~vm ~dest
     ) ;
     S.DATA.stat (fun dbg sr vdi vm key ->
         Impl.DATA.stat () ~dbg ~sr ~vdi ~vm ~key
@@ -1854,6 +1882,7 @@ module Server (Impl : Server_impl) () = struct
         dp
         sr
         vdi
+        image_format
         mirror_vm
         mirror_id
         local_vdi
@@ -1864,9 +1893,9 @@ module Server (Impl : Server_impl) () = struct
         dest_sr
         verify_dest
       ->
-        Impl.DATA.MIRROR.send_start () ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm
-          ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr
-          ~verify_dest
+        Impl.DATA.MIRROR.send_start () ~dbg ~task_id ~dp ~sr ~vdi ~image_format
+          ~mirror_vm ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror
+          ~dest_sr ~verify_dest
     ) ;
     S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
         Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar
@@ -1875,9 +1904,9 @@ module Server (Impl : Server_impl) () = struct
         Impl.DATA.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id ~similar ~vm
     ) ;
     S.DATA.MIRROR.receive_start3
-      (fun dbg sr vdi_info mirror_id similar vm url verify_dest ->
+      (fun dbg sr vdi_info mirror_id image_format similar vm url verify_dest ->
         Impl.DATA.MIRROR.receive_start3 () ~dbg ~sr ~vdi_info ~mirror_id
-          ~similar ~vm ~url ~verify_dest
+          ~image_format ~similar ~vm ~url ~verify_dest
     ) ;
     S.DATA.MIRROR.receive_cancel (fun dbg id ->
         Impl.DATA.MIRROR.receive_cancel () ~dbg ~id

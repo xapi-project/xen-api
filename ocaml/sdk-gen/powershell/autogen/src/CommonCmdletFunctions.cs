@@ -30,11 +30,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Management.Automation;
-using System.Reflection;
-using System.Xml;
-
 using XenAPI;
 
 namespace Citrix.XenServer
@@ -43,11 +39,6 @@ namespace Citrix.XenServer
     {
         private const string SessionsVariable = "global:Citrix.XenServer.Sessions";
         private const string DefaultSessionVariable = "global:XenServer_Default_Session";
-
-        static CommonCmdletFunctions()
-        {
-            Session.UserAgent = string.Format("XenServerPSModule/{0}", Assembly.GetExecutingAssembly().GetName().Version);
-        }
 
         internal static Dictionary<string, Session> GetAllSessions(PSCmdlet cmdlet)
         {

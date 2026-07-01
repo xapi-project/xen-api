@@ -272,6 +272,9 @@ val enable_external_auth :
 val disable_external_auth :
   __context:Context.t -> pool:'a -> config:API.string_to_string_map -> unit
 
+val external_auth_set_ldaps :
+  __context:Context.t -> pool:'a -> ldaps:bool -> force:bool -> unit
+
 val detect_nonhomogeneous_external_auth_in_pool : __context:Context.t -> unit
 
 val run_detect_nonhomogeneous_external_auth_in_pool : unit -> unit
@@ -446,3 +449,41 @@ val set_console_idle_timeout :
 
 val set_ssh_auto_mode :
   __context:Context.t -> self:API.ref_pool -> value:bool -> unit
+
+val install_trusted_certificate :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> ca:bool
+  -> cert:string
+  -> purpose:API.certificate_purpose list
+  -> unit
+
+val uninstall_trusted_certificate :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> certificate:API.ref_Certificate
+  -> unit
+
+val exchange_trusted_certificates_on_join :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> ca:bool
+  -> import:(string * string list) list
+  -> export:API.ref_Certificate list
+  -> (string * string list) list
+
+val exchange_crls_on_join :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> import:API.string_to_string_map
+  -> export:string list
+  -> API.string_to_string_map
+
+val sync_trusted_certificates_from :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> remote_pool:string
+  -> remote_session:API.ref_session
+  -> remote_certificate:string
+  -> ca:bool
+  -> API.ref_Certificate list

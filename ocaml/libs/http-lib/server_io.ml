@@ -49,7 +49,10 @@ let establish_server ?(signal_fds = []) forker handler sock =
       @@ Polly.wait epoll 2 (-1) (fun _ fd _ ->
           (* If any of the signal_fd is active then bail out *)
           if List.mem fd signal_fds then raise PleaseClose ;
-          Semaphore.Counting.acquire handler.lock ;
+          if not (Semaphore.Counting.try_acquire handler.lock) then (
+            warn "Block %s on accept because the server is busy" handler.name ;
+            Semaphore.Counting.acquire handler.lock
+          ) ;
           let s, caller = Unix.accept ~cloexec:true sock in
           try ignore (forker handler s caller)
           with exc ->

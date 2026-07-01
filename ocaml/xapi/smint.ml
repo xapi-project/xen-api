@@ -60,6 +60,7 @@ module Feature = struct
     | Large_vdi  (** Supports >2TB VDIs *)
     | Thin_provisioning
     | Vdi_read_caching
+    | Vdi_revert
 
   type t = capability * int64
 
@@ -101,6 +102,7 @@ module Feature = struct
     ; ("LARGE_VDI", Large_vdi)
     ; ("THIN_PROVISIONING", Thin_provisioning)
     ; ("VDI_READ_CACHING", Vdi_read_caching)
+    ; ("VDI_REVERT", Vdi_revert)
     ]
 
   let capability_to_string_table =
@@ -192,6 +194,7 @@ type sr_driver_info = {
   ; sr_driver_text_features: string list
   ; sr_driver_configuration: (string * string) list
   ; sr_driver_required_cluster_stack: string list
+  ; sr_driver_supported_image_formats: string list
   ; sr_smapi_version: Storage_interface.smapi_version
 }
 
@@ -207,6 +210,7 @@ let query_result_of_sr_driver_info x =
   ; features= x.sr_driver_text_features
   ; configuration= x.sr_driver_configuration
   ; required_cluster_stack= x.sr_driver_required_cluster_stack
+  ; supported_image_formats= x.sr_driver_supported_image_formats
   ; smapi_version= x.sr_smapi_version
   }
 

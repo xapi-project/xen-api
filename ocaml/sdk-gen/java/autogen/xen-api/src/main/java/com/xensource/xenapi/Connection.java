@@ -77,29 +77,6 @@ public class Connection {
      * <p>
      * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
      * logging out the Session.
-     *
-     * @param httpClient     The HttpClient used to make calls, this will be used by the underlying {@link #client} for handling requests
-     * @param url            The URL of the server to connect to. Should be of the form http(s)://host-url/jsonrpc or http(s)://host-url.
-     * @param requestTimeout The reply timeout for JSON-RPC calls in seconds
-     * @deprecated           This constructor is deprecated. To set the {@code requestTimeout} please {@link #setRequestTimeout(int)}. You may also use the {@link com.xensource.xenapi.JsonRpcClient#setRequestTimeout(int)}
-     *                       method of this object's {@link #client}. This option is only advisable if you are managing your own {@link com.xensource.xenapi.JsonRpcClient} as the underlying
-     *                       {@link #client} for this object.
-     */
-    @Deprecated
-    public Connection(CloseableHttpClient httpClient, URL url, int requestTimeout) {
-        this.client = new JsonRpcClient(httpClient, url);
-        this.client.setRequestTimeout(requestTimeout);
-    }
-
-    /**
-     * Creates a connection to a particular server using a given url. This object can then be passed
-     * in to any other API calls.
-     * <p>
-     * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
-     * passing the Connection as a parameter. No attempt to connect to the server is made until login is called.
-     * <p>
-     * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
-     * logging out the Session.
      * <p>
      * This constructor uses the default values of the reply and connection timeouts for the JSON-RPC calls
      * (600 seconds and 5 seconds respectively).
@@ -108,31 +85,6 @@ public class Connection {
      */
     public Connection(URL url) {
         this.client = new JsonRpcClient(url);
-    }
-
-    /**
-     * Creates a connection to a particular server using a given url. This object can then be passed
-     * in to any other API calls.
-     * <p>
-     * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
-     * passing the Connection as a parameter. No attempt to connect to the server is made until login is called.
-     * <p>
-     * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
-     * logging out the Session.
-     *
-     * @param url               The URL of the server to connect to. Should be of the form http(s)://host-url/jsonrpc or http(s)://host-url.
-     * @param requestTimeout    The reply timeout for JSON-RPC calls in seconds
-     * @param connectionTimeout The connection timeout for JSON-RPC calls in seconds
-     * @deprecated              This constructor is deprecated. To set {@code requestTimeout} or {@code connectionTimeout} please use {@link #setRequestTimeout(int)} or {@link #setConnectionTimeout(int)} respectively.
-     *                          You may also use the {@link com.xensource.xenapi.JsonRpcClient#setRequestTimeout(int)} method of this object's {@link #client}.
-     *                          This option is only advisable if you are managing your own {@link com.xensource.xenapi.JsonRpcClient} as the underlying
-     *                          {@link #client} for this object.
-     */
-    @Deprecated
-    public Connection(URL url, int requestTimeout, int connectionTimeout) {
-        this.client = new JsonRpcClient(url);
-        this.client.setRequestTimeout(requestTimeout);
-        this.client.setConnectionTimeout(connectionTimeout);
     }
 
     /**
@@ -160,36 +112,6 @@ public class Connection {
     }
 
     /**
-     * Creates a connection to a particular server using a given url. This object can then be passed
-     * in to any other API calls.
-     * <p>
-     * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
-     * passing the Connection as a parameter. No attempt to connect to the server is made until login is called.
-     * <p>
-     * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
-     * logging out the Session.
-     *
-     * @param url               The URL of the server to connect to. Should be of the form http(s)://host-url/jsonrpc or http(s)://host-url.
-     * @param sessionReference  A reference to a logged-in Session. Any method calls on this Connection will use it.
-     *                          This constructor does not call Session.loginWithPassword, and dispose() on the resulting
-     *                          Connection object does not call Session.logout. The programmer is responsible for
-     *                          ensuring the Session is logged in and out correctly.
-     * @param requestTimeout    The reply timeout for JSON-RPC calls in seconds
-     * @param connectionTimeout The connection timeout for JSON-RPC calls in seconds
-     * @deprecated              This constructor is deprecated. To set {@code requestTimeout} or {@code connectionTimeout} please use {@link #setRequestTimeout(int)} or {@link #setConnectionTimeout(int)} respectively.
-     *                          You may also use the {@link com.xensource.xenapi.JsonRpcClient#setRequestTimeout(int)} method of this object's {@link #client}.
-     *                          This option is only advisable if you are managing your own {@link com.xensource.xenapi.JsonRpcClient} as the underlying
-     *                          {@link #client} for this object.
-     */
-    @Deprecated
-    public Connection(URL url, String sessionReference, int requestTimeout, int connectionTimeout) {
-        this.client = new JsonRpcClient(url);
-        this.client.setRequestTimeout(requestTimeout);
-        this.client.setConnectionTimeout(connectionTimeout);
-        this.sessionReference = sessionReference;
-    }
-
-    /**
      * Set the timeout in seconds for every request made by this object's {@link #client}.
      * If not set the value defaults to {@value JsonRpcClient#DEFAULT_REQUEST_TIMEOUT}.
      * You may also pass your own {@link JsonRpcClient} in the constructor for more control.
@@ -213,6 +135,19 @@ public class Connection {
      */
     public void setConnectionTimeout(int connectionTimeout) {
         this.client.setConnectionTimeout(connectionTimeout);
+    }
+
+    /**
+     * Set the User-Agent header for every request made by this object's {@link #client}.
+     * If not set the value defaults to &quot;XenServerJava/&lt;SDK version&gt;&quot;.
+     * You may also pass your own {@link JsonRpcClient} in the constructor for more control.
+     *
+     * @param userAgent             the value of the User-Agent header
+     * @throws NullPointerException if the {@link #client} is null
+     * @see org.apache.hc.client5.http.classic.methods.HttpPost#setHeader(String, Object)
+     */
+    public void setUserAgent(String userAgent) {
+        this.client.setUserAgent(userAgent);
     }
 
     /**

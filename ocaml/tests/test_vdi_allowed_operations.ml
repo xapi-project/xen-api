@@ -573,6 +573,54 @@ let test_update_allowed_operations () =
   Alcotest.(check Alcotest_comparators.vdi_operations_set)
     "update_allowed_operations should be correct" ok_ops allowed_operations
 
+(* Tests for revert operation *)
+let test_revert =
+  let test_can_revert_to_snapshot () =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+
+    run_assert_equal_with_vdi ~__context
+      ~vdi_fun:(fun vdi_ref ->
+        Db.VDI.set_is_a_snapshot ~__context ~self:vdi_ref ~value:true
+      )
+      `revert_to (Ok ())
+  in
+  (* VBDs of checkpoints are marked with currently_attached = true, but we still
+     need to be able to revert to them. *)
+  let test_can_revert_to_checkpoint () =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+
+    run_assert_equal_with_vdi ~__context
+      ~vdi_fun:(fun vdi_ref ->
+        Db.VDI.set_is_a_snapshot ~__context ~self:vdi_ref ~value:true ;
+        make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW ()
+      )
+      `revert_to (Ok ())
+  in
+  let test_cannot_revert_to_leaf () =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+
+    run_assert_equal_with_vdi ~__context
+      ~vdi_fun:(fun _ -> ())
+      `revert_to
+      (Error (Api_errors.only_revert_snapshot, []))
+  in
+  let test_cannot_revert_live () =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+
+    run_assert_equal_with_vdi ~__context
+      ~vdi_fun:(fun vdi_ref ->
+        make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW ()
+      )
+      `revert_from
+      (Error (Api_errors.vdi_in_use, []))
+  in
+  [
+    ("Revert: Can revert to snapshot", `Quick, test_can_revert_to_snapshot)
+  ; ("Revert: Can revert to checkpoint", `Quick, test_can_revert_to_checkpoint)
+  ; ("Revert: Cannot revert to leaf", `Quick, test_cannot_revert_to_leaf)
+  ; ("Revert: Cannot revert live", `Quick, test_cannot_revert_live)
+  ]
+
 let test =
   [
     ("test_ca98944", `Quick, test_ca98944)
@@ -586,3 +634,4 @@ let test =
       ("test_null_vm", `Quick, test_null_vm)
     ; ("test_update_allowed_operations", `Quick, test_update_allowed_operations)
     ]
+  @ test_revert

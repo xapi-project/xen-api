@@ -276,6 +276,27 @@ module Volume (R : RPC) = struct
       ["[destroy sr volume] removes [volume] from [sr]"]
       (dbg @-> sr @-> key @-> returning unit errors)
 
+  let revert =
+    let snapshot_p =
+      Param.
+        {
+          key with
+          name= Some "snapshot"
+        ; description=
+            [
+              "Read-only volume with the contents that are to be present in \
+               the resulting volume"
+            ]
+        }
+    in
+    R.declare "revert"
+      [
+        "[revert sr snapshot volume] returns a reference to a volume. This "
+      ; "volume must contain the contents of the read-only [snapshot], and its "
+      ; "identity must remain the same as [volume]."
+      ]
+      (dbg @-> sr @-> snapshot_p @-> key @-> returning unit errors)
+
   let new_name =
     Param.mk ~name:"new_name" ~description:["New name"] Types.string
 

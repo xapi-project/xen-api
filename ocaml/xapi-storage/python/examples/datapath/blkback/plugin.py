@@ -2,13 +2,13 @@
 #
 # Copyright (C) Cloud Software Group,Inc.
 #
-# This program is free software; you can redistribute it and/or modify 
-# it under the terms of the GNU Lesser General Public License as published 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published
 # by the Free Software Foundation; version 2.1 only.
 #
-# This program is distributed in the hope that it will be useful, 
-# but WITHOUT ANY WARRANTY; without even the implied warranty of 
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
@@ -26,13 +26,14 @@ from xapi.storage import log
 class Implementation(xapi.storage.api.v5.plugin.Plugin_skeleton):
     def query(self, dbg):
         return {
-            "plugin": "loop+blkback",
-            "name": "Sample loop + blkback datapath",
+            "plugin": "blkback",
+            "name": "Sample blkback datapath",
             "description": ("This plugin is an example using "
-                            "loop devices (from losetup) and "
-                            "blkback to create virtual block devices"),
+                            "blkback to create virtual block devices. "
+                            "If required losetup will be used to "
+                            "create a loop device for a file"),
             "vendor": "Citrix",
-            "copyright": "(C) 2019 Citrix Inc",
+            "copyright": "(C) 2019-2026 Citrix Inc",
             "version": "3.0",
             "required_api_version": "5.0",
             "features": [],

@@ -88,9 +88,35 @@ let remove_restricted_pbd_keys () =
     )
     other_keys
 
+let upgrade_secureboot_certificates_state_for_uefi_vm_without_secureboot () =
+  let __context = T.make_test_database () in
+  let vm =
+    T.make_vm ~__context ~name_label:"uefi-no-secureboot"
+      ~hVM_boot_params:[("firmware", "uefi")]
+      ~platform:[("secureboot", "false")]
+      ()
+  in
+  Db.VM.set_secureboot_certificates_state ~__context ~self:vm
+    ~value:`update_available ;
+  Alcotest.(check string)
+    "precondition: state starts as update_available" "update_available"
+    (Record_util.vm_secureboot_certificates_state_to_string
+       (Db.VM.get_secureboot_certificates_state ~__context ~self:vm)
+    ) ;
+  X.upgrade_secureboot_certificates_state.fn ~__context ;
+  Alcotest.(check string)
+    "UEFI VM without secureboot still gets checked" "ok"
+    (Record_util.vm_secureboot_certificates_state_to_string
+       (Db.VM.get_secureboot_certificates_state ~__context ~self:vm)
+    )
+
 let test =
   [
     ("upgrade_bios", `Quick, upgrade_bios)
   ; ("update_snapshots", `Quick, update_snapshots)
   ; ("remove_restricted_pbd_keys", `Quick, remove_restricted_pbd_keys)
+  ; ( "upgrade_secureboot_certificates_state_for_uefi_vm_without_secureboot"
+    , `Quick
+    , upgrade_secureboot_certificates_state_for_uefi_vm_without_secureboot
+    )
   ]

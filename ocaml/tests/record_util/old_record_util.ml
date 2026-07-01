@@ -299,6 +299,10 @@ let vdi_operation_to_string : API.vdi_operations -> string = function
       "set_on_boot"
   | `blocked ->
       "blocked"
+  | `revert_to ->
+      "revert_to"
+  | `revert_from ->
+      "revert_from"
 
 let sr_operation_to_string : API.storage_operations -> string = function
   | `scan ->
@@ -356,6 +360,8 @@ let sr_operation_to_string : API.storage_operations -> string = function
       "VDI.resize_online"
   | `vdi_update ->
       "VDI.update"
+  | `vdi_revert ->
+      "VDI.revert"
 
 let vbd_operation_to_string = function
   | `attach ->
@@ -872,6 +878,8 @@ let vif_ipv4_configuration_mode_to_string = function
       "None"
   | `Static ->
       "Static"
+  | `DHCP ->
+      "DHCP"
 
 let vif_ipv4_configuration_mode_of_string m =
   match String.lowercase_ascii m with
@@ -879,8 +887,10 @@ let vif_ipv4_configuration_mode_of_string m =
       `None
   | "static" ->
       `Static
+  | "dhcp" ->
+      `DHCP
   | s ->
-      record_failure "Expected 'none' or 'static', got %s" s
+      record_failure "Expected 'dhcp','none' or 'static', got %s" s
 
 let ipv6_configuration_mode_to_string = function
   | `None ->
@@ -910,6 +920,8 @@ let vif_ipv6_configuration_mode_to_string = function
       "None"
   | `Static ->
       "Static"
+  | `Autoconf ->
+      "Autoconf"
 
 let vif_ipv6_configuration_mode_of_string m =
   match String.lowercase_ascii m with
@@ -917,8 +929,10 @@ let vif_ipv6_configuration_mode_of_string m =
       `None
   | "static" ->
       `Static
+  | "autoconf" ->
+      `Autoconf
   | s ->
-      record_failure "Expected 'none' or 'static', got %s" s
+      record_failure "Expected 'none', 'autoconf' or 'static', got %s" s
 
 let primary_address_type_to_string = function
   | `IPv4 ->

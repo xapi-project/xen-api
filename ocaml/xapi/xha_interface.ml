@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open API
-open Xapi_stdext_std.Xstringext
 
 let hashtbl_of_list xs =
   let tbl = Hashtbl.create (List.length xs) in
@@ -350,7 +349,10 @@ module LiveSetInformation = struct
             | Some u ->
                 u
           in
-          let set f x = List.map f (String.split_f String.isspace x) in
+          let fields_of =
+            Astring.(String.fields ~empty:false ~is_sep:Char.Ascii.is_white)
+          in
+          let set f x = List.map f (fields_of x) in
           Some
             {
               id= uuid (find "HostID")

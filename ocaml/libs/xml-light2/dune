@@ -1,20 +1,12 @@
 (library
-  (name xmllight2)
-  (public_name xml-light2)
-  (modules xml)
-  (wrapped false)
-  (libraries
-    threads
-    xmlm
-  )
-)
+ (name xmllight2)
+ (public_name xml-light2)
+ (modules xml)
+ (wrapped false)
+ (libraries threads xapi-stdext-std xmlm))
 
 (executable
-  (modes exe)
-  (name xmlpp)
-  (modules xmlpp)
-  (libraries
-    xml-light2
-  )
-)
-
+ (modes exe)
+ (name xmlpp)
+ (modules xmlpp)
+ (libraries xml-light2))

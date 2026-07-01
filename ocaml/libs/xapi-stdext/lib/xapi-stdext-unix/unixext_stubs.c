@@ -13,18 +13,15 @@
  */
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <errno.h>
 #include <netinet/tcp.h>
 #include <netinet/in.h>
 #include <sys/un.h>
-#include <string.h>
 #include <unistd.h> /* needed for _SC_OPEN_MAX */
-#include <stdio.h> /* snprintf */
 #include <sys/ioctl.h>
 #include <sys/statvfs.h>
 #include <sys/sysmacros.h> /* needed for minor and major macros */
 #if defined(__linux__)
-# include <linux/fs.h> 
+# include <linux/fs.h>
 #endif
 
 #include <caml/mlvalues.h>
@@ -63,7 +60,7 @@ CAMLprim value stub_unixext_fsync (value fd)
 	if (rc != 0) uerror("fsync", Nothing);
 	CAMLreturn(Val_unit);
 }
-	
+
 
 CAMLprim value stub_unixext_blkgetsize64(value fd)
 {
@@ -106,12 +103,12 @@ CAMLprim value stub_unixext_set_sock_keepalives(value fd, value count, value idl
 	int c_fd = Int_val(fd);
 	int optval;
 	socklen_t optlen=sizeof(optval);
-	
+
 	optval = Int_val(count);
 	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPCNT, &optval, optlen) < 0) {
 	  uerror("setsockopt(TCP_KEEPCNT)", Nothing);
 	}
-#if defined(__linux__)	
+#if defined(__linux__)
 	optval = Int_val(idle);
 	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPIDLE, &optval, optlen) < 0) {
 	  uerror("setsockopt(TCP_KEEPIDLE)", Nothing);
@@ -137,7 +134,7 @@ void unixext_error(int code)
 	caml_raise_with_arg(*exn, Val_int(code));
 }
 
-CAMLprim value stub_statvfs(value filename) 
+CAMLprim value stub_statvfs(value filename)
 {
   CAMLparam1(filename);
   CAMLlocal1(v);
@@ -178,7 +175,7 @@ CAMLprim value stub_makedev(value majo, value mino)
   long ret;
 
   ret = makedev(Long_val(majo), Long_val(mino));
-          
+
   CAMLreturn(Val_long(ret));
 }
 
@@ -188,7 +185,7 @@ CAMLprim value stub_major(value dev)
   long ret;
 
   ret = major(Long_val(dev));
-          
+
   CAMLreturn(Val_long(ret));
 }
 
@@ -198,6 +195,6 @@ CAMLprim value stub_minor(value dev)
   long ret;
 
   ret = minor(Long_val(dev));
-          
+
   CAMLreturn(Val_long(ret));
 }

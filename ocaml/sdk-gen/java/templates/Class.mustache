@@ -61,9 +61,10 @@ public class {{class_name}} extends XenAPIObject {
     protected final String ref;
 
     /**
-     * For internal use only.
+     * Creates an object from a given XenAPI reference (OpaqueRef)
+     * @param ref The OpaqueRef from which to create the object.
      */
-    {{{class_name}}}(String ref) {
+    public {{{class_name}}}(String ref) {
         this.ref = ref;
     }
 
@@ -79,21 +80,17 @@ public class {{class_name}} extends XenAPIObject {
      * If obj is a {{{class_name}}}, compares XenAPI references for equality.
      */
     @Override
-    public boolean equals(Object obj)
-    {
-        if (obj instanceof {{{class_name}}})
-        {
+    public boolean equals(Object obj) {
+        if (obj instanceof {{{class_name}}}) {
             {{{class_name}}} other = ({{{class_name}}}) obj;
             return other.ref.equals(this.ref);
-        } else
-        {
+        } else {
             return false;
         }
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return ref.hashCode();
     }
 

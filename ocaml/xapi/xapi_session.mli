@@ -112,3 +112,10 @@ val set_local_auth_max_threads : int64 -> unit
 val set_ext_auth_max_threads : int64 -> unit
 
 val clear_external_auth_cache : unit -> unit
+
+module SM : sig
+  val with_session :
+       traceparent:Tracing.Span.t option
+    -> [< Uuidx.all] Ref.t option
+    -> (Uuidx.secret Ref.t -> 'a)
+    -> 'a end

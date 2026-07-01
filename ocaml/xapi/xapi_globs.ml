@@ -14,8 +14,6 @@
 
 (** A central location for settings related to xapi *)
 
-module String_plain = String (* For when we don't want the Xstringext version *)
-open Xapi_stdext_std.Xstringext
 module StringSet = Set.Make (String)
 
 module D = Debug.Make (struct let name = "xapi_globs" end)
@@ -242,8 +240,6 @@ let vbd_polling_idle_threshold_key = "polling-idle-threshold"
 
 (* set in VBD other-config *)
 
-let vbd_backend_local_key = "backend-local" (* set in VBD other-config *)
-
 let mac_seed = "mac_seed" (* set in a VM to generate MACs by hash chaining *)
 
 let ( ** ) = Int64.mul
@@ -277,11 +273,6 @@ let allow_host_sched_gran_modification = ref false
 let default_template_key = "default_template"
 
 let base_template_name_key = "base_template_name"
-
-(* Keys to explain the presence of dom0 block-attached VBDs: *)
-let vbd_task_key = "task_id"
-
-let related_to_key = "related_to"
 
 let get_nbd_extents = "/opt/xensource/libexec/get_nbd_extents.py"
 
@@ -845,6 +836,8 @@ let qcow_to_stdout = ref "/opt/xensource/libexec/qcow2-to-stdout.py"
 
 let qcow_stream_tool = ref "qcow-stream-tool"
 
+let qemu_img = ref "/usr/lib64/xen/bin/qemu-img"
+
 let fence = ref "fence"
 
 let host_bugreport_upload = ref "host-bugreport-upload"
@@ -913,6 +906,8 @@ let varstore_sb_state = ref "/usr/bin/varstore-sb-state"
 let varstore_ls = ref "/usr/bin/varstore-ls"
 
 let varstore_dir = ref "/var/lib/varstored"
+
+let varstore_nvram_certcheck = ref "/usr/bin/varstore-nvram-certcheck"
 
 let default_auth_dir = ref "/usr/share/varstored"
 
@@ -1059,13 +1054,16 @@ let winbind_machine_pwd_timeout = ref (2. *. 7. *. 24. *. 3600.)
 let winbind_update_closest_kdc_interval = ref (3600. *. 22.)
 (* every 22 hours *)
 
-let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
+let winbind_kerberos_encryption_type =
+  ref Kerberos_encryption_types.Winbind.Strong
 
 let winbind_set_machine_account_kerberos_encryption_type = ref false
 
 let winbind_scan_trusted_domains = ref false
 
-let winbind_keep_configuration = ref false
+let winbind_keep_configuration = ref true
+
+let serialize_auth_service = ref true
 
 let winbind_ldap_query_subject_timeout = ref Mtime.Span.(20 * s)
 
@@ -1106,7 +1104,7 @@ let max_traces = ref 10000
 
 let max_span_depth = ref 100
 
-let use_xmlrpc = ref true
+let use_xmlrpc = ref false
 
 let compress_tracing_files = ref true
 
@@ -1147,6 +1145,10 @@ let validate_reusable_pool_session = ref false
 let vm_sysprep_enabled = ref true
 (* enable VM.sysprep API *)
 
+let vhd_legacy_blocks_format = ref true
+(* If false, uses an interval-based JSON blocks format for VHD instead of the
+   legacy format which includes all the allocated clusters *)
+
 let vm_sysprep_wait = ref 5.0 (* seconds *)
 
 let test_open = ref 0
@@ -1156,7 +1158,7 @@ let xapi_requests_cgroup =
 
 let genisoimage_path = ref "/usr/bin/genisoimage"
 
-let https_only = ref false
+let https_only = ref true
 
 (* Event.{from,next} batching delays *)
 let make_batching name ~delay_before ~delay_between =
@@ -1187,7 +1189,8 @@ let make_batching name ~delay_before ~delay_between =
   (config, (name, Arg.String set, get, desc))
 
 let event_from_delay, event_from_entry =
-  make_batching "event_from" ~delay_before:Mtime.Span.zero
+  make_batching "event_from"
+    ~delay_before:Mtime.Span.(50 * ms)
     ~delay_between:Mtime.Span.(50 * ms)
 
 let event_from_task_delay, event_from_task_entry =
@@ -1390,12 +1393,12 @@ let citrix_patch_key =
 
 let trusted_patch_key = ref citrix_patch_key
 
+let fields_of = Astring.(String.fields ~empty:false ~is_sep:Char.Ascii.is_white)
+
 let gen_list_option name desc of_string string_of opt =
   let parse s =
     opt := [] ;
-    try
-      String.split_f String.isspace s
-      |> List.iter (fun x -> opt := of_string x :: !opt)
+    try fields_of s |> List.iter (fun x -> opt := of_string x :: !opt)
     with e ->
       D.error "Unable to parse %s=%s (expected space-separated list) error: %s"
         name s (Printexc.to_string e)
@@ -1509,7 +1512,7 @@ let other_options =
       (fun s -> s)
       disable_dbsync_for
   ; ( "xenopsd-queues"
-    , Arg.String (fun x -> xenopsd_queues := String.split ',' x)
+    , Arg.String (fun x -> xenopsd_queues := String.split_on_char ',' x)
     , (fun () -> String.concat "," !xenopsd_queues)
     , "list of xenopsd instances to manage"
     )
@@ -1596,7 +1599,8 @@ let other_options =
   ; ( "nvidia_multi_vgpu_enabled_driver_versions"
     , Arg.String
         (fun x ->
-          nvidia_multi_vgpu_enabled_driver_versions := String.split ',' x
+          nvidia_multi_vgpu_enabled_driver_versions :=
+            String.split_on_char ',' x
         )
     , (fun () -> String.concat "," !nvidia_multi_vgpu_enabled_driver_versions)
     , "list of nvidia host driver versions with multiple vGPU supported.\n\
@@ -1676,6 +1680,13 @@ let other_options =
     , (fun () -> string_of_bool !winbind_keep_configuration)
     , "Whether to clear winbind configuration when join domain failed or leave \
        domain"
+    )
+  ; ( "serialize_auth_service"
+    , Arg.Bool (fun b -> serialize_auth_service := b)
+    , (fun () -> string_of_bool !serialize_auth_service)
+    , "Serialize AD external auth operations under a mutex (default: true). \
+       Set to false only if configure (enable/disable/set-ldaps) and \
+       authenticate calls are never concurrent to improve performance."
     )
   ; ( "hsts_max_age"
     , Arg.Set_int hsts_max_age
@@ -1857,7 +1868,7 @@ let other_options =
     , Arg.Bool (fun b -> ssh_auto_mode_default := b)
     , (fun () -> string_of_bool !ssh_auto_mode_default)
     , "Defaults to true; overridden to false via \
-       /etc/xapi.conf.d/ssh-auto-mode.conf(e.g., in XenServer 8)"
+       /etc/xapi.conf.d/ssh-auto-mode.conf (for example, in XenServer 8)"
     )
   ; ( "secure-boot-efi-path"
     , Arg.Set_string secure_boot_path
@@ -1873,6 +1884,12 @@ let other_options =
     , Arg.Set_float vm_sysprep_wait
     , (fun () -> string_of_float !vm_sysprep_wait)
     , "Time in seconds to wait for VM to recognise inserted CD"
+    )
+  ; ( "vhd-legacy-blocks-format"
+    , Arg.Set vhd_legacy_blocks_format
+    , (fun () -> string_of_bool !vhd_legacy_blocks_format)
+    , "Choose whether legacy/sparse block format will be used for determining \
+       allocated VHD clusters"
     )
   ; ( "proxy_poll_period_timeout"
     , Arg.Set_float proxy_poll_period_timeout
@@ -2013,6 +2030,7 @@ module Resources = struct
     ; ("vhd-tool", vhd_tool, "Path to vhd-tool")
     ; ("qcow_to_stdout", qcow_to_stdout, "Path to qcow-to-stdout script")
     ; ("qcow_stream_tool", qcow_stream_tool, "Path to qcow-stream-tool")
+    ; ("qemu-img", qemu_img, "Path to qemu-img")
     ; ("fence", fence, "Path to fence binary, used for HA host fencing")
     ; ( "host-bugreport-upload"
       , host_bugreport_upload
@@ -2128,6 +2146,10 @@ module Resources = struct
       )
     ; ("varstore-ls", varstore_ls, "Executed to list the UEFI variables of a VM")
     ; ("varstore_dir", varstore_dir, "Path to local varstored directory")
+    ; ( "varstore-nvram-certcheck"
+      , varstore_nvram_certcheck
+      , "Executed to check VM NVRAM Secure Boot certificate status"
+      )
     ; ( "nvidia-sriov-manage"
       , nvidia_sriov_manage_script
       , "Path to NVIDIA sriov-manage script"

@@ -31,6 +31,10 @@ type auth_service_error_tag =
   | E_UNAVAILABLE
   | E_INVALID_OU
   | E_INVALID_ACCOUNT
+  | E_INVALID_TRUSTED_CERTS
+  | E_NO_TRUSTED_CERTS
+  | E_FAILED_SETUP_TLS_CONNECTION
+  | E_NO_SUPPORT_ENCRYPT_TYPE
 
 exception Auth_service_error of auth_service_error_tag * string
 
@@ -52,6 +56,14 @@ let suffix_of_tag errtag =
       Api_errors.auth_suffix_invalid_ou
   | E_INVALID_ACCOUNT ->
       Api_errors.auth_suffix_invalid_account
+  | E_INVALID_TRUSTED_CERTS ->
+      Api_errors.auth_suffix_invalid_trusted_certs
+  | E_NO_TRUSTED_CERTS ->
+      Api_errors.auth_suffix_no_trusted_certs
+  | E_FAILED_SETUP_TLS_CONNECTION ->
+      Api_errors.auth_suffix_setup_tls_connection
+  | E_NO_SUPPORT_ENCRYPT_TYPE ->
+      Api_errors.auth_suffix_no_support_encrypt_type
 
 (* required fields in subject.other_config *)
 let subject_information_field_subject_name = "subject-name"
@@ -140,6 +152,15 @@ type t = {
        	 Called internally when xapi is doing a clean exit.
     *)
     on_xapi_exit: __context:Context.t -> unit -> unit
+  ; (* unit set_ldaps(__context, bool ldaps, bool force)
+
+       	 Called to enable or disable LDAPS for external authentication. Takes the context,
+       	 whether to enable/disable LDAPS, and whether to force the operation.
+       	 Gets the localhost from context, reads the current config from the database,
+       	 performs the update, and writes it back.
+       	 Raises Auth_service_error if the operation fails.
+    *)
+    set_ldaps: __context:Context.t -> ldaps:bool -> force:bool -> unit
 }
 
 (* Auth modules must implement this signature:*)

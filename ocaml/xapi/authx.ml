@@ -65,7 +65,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
             | [] ->
                 raise Not_found
             | line :: lines -> (
-                let recs = Xapi_stdext_std.Xstringext.String.split ':' line in
+                let recs = String.split_on_char ':' line in
                 let username = List.nth recs 0 in
                 let uid = List.nth recs 2 in
                 match fn username uid recs with
@@ -311,9 +311,8 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
     | _ ->
         raise Not_found
 
-  (*
-	In addition, there are some event hooks that auth modules implement as follows:
-*)
+  (* In addition, there are some event hooks that auth modules implement as
+     follows: *)
 
   (* unit on_enable(((string*string) list) config_params)
 
@@ -361,6 +360,10 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
     (* nothing to do here in this unix plugin *)
     ()
 
+  let set_ldaps ~__context:_ ~ldaps:_ ~force:_ =
+    (* ldaps not applicable for PAM auth *)
+    ()
+
   (* Implement the single value required for the module signature *)
   let methods =
     Auth_signature.
@@ -374,5 +377,6 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
       ; on_disable
       ; on_xapi_initialize
       ; on_xapi_exit
+      ; set_ldaps
       }
 end
