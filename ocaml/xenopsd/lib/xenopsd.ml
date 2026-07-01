@@ -340,6 +340,20 @@ let options =
     , (fun () -> !Xenops_server.migration_compressor)
     , "Compression method; one of 'stream' (default), 'xenguest'"
     )
+  ; ( "migration-tls"
+    , Arg.String
+        (fun s ->
+          Migrate_connect.migration_tls :=
+            Migrate_connect.Migration_tls.of_string s
+        )
+    , (fun () ->
+        Migrate_connect.Migration_tls.to_string !Migrate_connect.migration_tls
+      )
+    , "TLS transport for VM migration: 'stunnel' (default) uses the stunnel \
+       client subprocess; 'ktls' uses the xenopsd-tls-helper to install kTLS \
+       on the migration socket. On any failure the 'ktls' path logs a warning \
+       and falls back to stunnel."
+    )
   ]
 
 let path () = Filename.concat !sockets_path "xenopsd"
