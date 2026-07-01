@@ -470,6 +470,8 @@ module From_file : functor (F : S.FILE) -> sig
         [from] into [t] *)
 
     val blocks_json : fd Vhd.t -> unit t
+
+    val blocks_json_interval : fd Vhd.t -> unit t
   end
 
   module Raw_input : sig

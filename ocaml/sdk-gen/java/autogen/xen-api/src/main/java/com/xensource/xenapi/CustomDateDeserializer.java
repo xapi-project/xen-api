@@ -49,7 +49,7 @@ public class CustomDateDeserializer extends StdDeserializer<Date> {
     /**
      * Array of {@link SimpleDateFormat} objects representing the date formats
      * used in xen-api responses.
-     * <br />
+     * <br>
      * RFC-3339 date formats can be returned in either Zulu or time zone agnostic.
      * This list is not an exhaustive list of formats supported by RFC-3339, rather
      * a set of formats that will enable the deserialization of xen-api dates.

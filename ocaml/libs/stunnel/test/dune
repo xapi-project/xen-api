@@ -1,0 +1,13 @@
+(test
+ (name test_stunnel_log_scanner)
+ (package stunnel)
+ (libraries
+  alcotest
+  astring
+  stunnel
+  unix
+  xapi-stdext-pervasives
+  xapi-stdext-std
+  xapi-stdext-unix)
+ (deps
+  (source_tree data)))

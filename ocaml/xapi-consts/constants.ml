@@ -315,7 +315,7 @@ let owner_key = "owner"
 (* set in VBD other-config to indicate that clients can delete the attached VDI on VM uninstall if they want.. *)
 
 (* xapi-cli-server doesn't link xapi-globs *)
-let use_event_next = ref true
+let use_event_next = ref false
 
 (* the time taken to wait before restarting in a different mode for pool eject/join operations *)
 let fuse_time = ref 10.
@@ -429,10 +429,6 @@ let gencert = ref "/opt/xensource/libexec/gencert"
 
 let openssl_path = ref "/usr/bin/openssl"
 
-let good_ciphersuites =
-  String.concat ":"
-    ["ECDHE-RSA-AES256-GCM-SHA384"; "ECDHE-RSA-AES128-GCM-SHA256"]
-
 let verify_certificates_path = "/var/xapi/verify-certificates"
 
 let python3_path = "/usr/bin/python3"
@@ -470,3 +466,9 @@ let default_ssh_enabled_timeout = 0L
 let default_console_idle_timeout = 0L
 
 let default_ssh_auto_mode = false
+
+let trusted_certs_by_purpose_dir = "/etc/trusted-certs"
+
+let trusted_certs_root_prefix = "ca-bundle"
+
+let trusted_certs_pinned_prefix = "pinned-bundle"

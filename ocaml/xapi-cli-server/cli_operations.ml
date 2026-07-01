@@ -1337,6 +1337,7 @@ let gen_cmds rpc session_id =
           ; "not-before"
           ; "not-after"
           ; "fingerprint"
+          ; "purpose"
           ]
           rpc session_id
       )
@@ -1485,14 +1486,14 @@ let message_destroy_all (_ : printer) rpc session_id params =
     try Option.map Date.of_iso8601 before_str
     with _ ->
       fail
-        "invalid timestamp format for 'before' (expected RFC3339, e.g. \
+        "invalid timestamp format for 'before' (expected RFC3339, for example, \
          2025-01-01T00:00:00Z)"
   in
   let after =
     try Option.map Date.of_iso8601 after_str
     with _ ->
       fail
-        "Invalid timestamp format for 'after' (expected RFC3339, e.g. \
+        "Invalid timestamp format for 'after' (expected RFC3339, for example, \
          2025-01-01T00:00:00Z)"
   in
   let priority =
@@ -2005,6 +2006,38 @@ let pool_set_update_sync_enabled _printer rpc session_id params =
   let value = get_bool_param params "value" in
   Client.Pool.set_update_sync_enabled ~rpc ~session_id ~self:pool ~value
 
+let pool_install_trusted_certificate fd _printer rpc session_id params =
+  let self = get_pool_with_default rpc session_id params "uuid" in
+  let filename = List.assoc "filename" params in
+  let ca = get_bool_param params ~default:true "ca" in
+  let purpose =
+    List.assoc_opt "purpose" params
+    |> Option.map (fun ss ->
+        String.split_on_char ',' ss
+        |> List.map Record_util.certificate_purpose_of_string
+    )
+    |> function
+    | Some purposes ->
+        purposes
+    | None ->
+        []
+  in
+  match get_client_file fd filename with
+  | Some cert ->
+      Client.Pool.install_trusted_certificate ~rpc ~session_id ~self ~ca ~cert
+        ~purpose
+  | None ->
+      marshal fd (Command (PrintStderr "Failed to read certificate\n")) ;
+      raise (ExitWithError 1)
+
+let pool_uninstall_trusted_certificate _printer rpc session_id params =
+  let self = get_pool_with_default rpc session_id params "uuid" in
+  let cert_uuid = List.assoc "certificate-uuid" params in
+  let certificate =
+    Client.Certificate.get_by_uuid ~rpc ~session_id ~uuid:cert_uuid
+  in
+  Client.Pool.uninstall_trusted_certificate ~rpc ~session_id ~self ~certificate
+
 let vdi_type_of_string = function
   | "system" ->
       `system
@@ -2147,8 +2180,11 @@ let vdi_pool_migrate printer rpc session_id params =
   and sr =
     Client.SR.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "sr-uuid" params)
   and options =
-    []
-    (* no options implemented yet *)
+    match List.assoc_opt "dest-img-format" params with
+    | Some v ->
+        [("dest-img-format", v)]
+    | None ->
+        []
   in
   let newvdi = Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options in
   let newuuid = Client.VDI.get_uuid ~rpc ~session_id ~self:newvdi in
@@ -2592,6 +2628,7 @@ let parse_host_uuid ?(default_master = true) rpc session_id params =
 
 let sr_create fd _printer rpc session_id params =
   let name_label = List.assoc "name-label" params in
+  let name_description = Listext.assoc_default "name-description" params "" in
   let shared = get_bool_param params "shared" in
   let host = parse_host_uuid ~default_master:shared rpc session_id params in
   let physical_size =
@@ -2626,21 +2663,21 @@ let sr_create fd _printer rpc session_id params =
   let sm_config = read_map_params "sm-config" params in
   let sr =
     Client.SR.create ~rpc ~session_id ~host ~device_config ~name_label
-      ~name_description:"" ~physical_size ~_type ~content_type ~shared
-      ~sm_config
+      ~name_description ~physical_size ~_type ~content_type ~shared ~sm_config
   in
   let sr_uuid = Client.SR.get_uuid ~rpc ~session_id ~self:sr in
   marshal fd (Command (Print sr_uuid))
 
 let sr_introduce printer rpc session_id params =
   let name_label = List.assoc "name-label" params in
+  let name_description = Listext.assoc_default "name-description" params "" in
   let _type = List.assoc "type" params in
   let content_type = Listext.assoc_default "content-type" params "" in
   let uuid = List.assoc "uuid" params in
   let shared = get_bool_param params "shared" in
   let sm_config = read_map_params "sm-config" params in
   let _ =
-    Client.SR.introduce ~rpc ~session_id ~uuid ~name_label ~name_description:""
+    Client.SR.introduce ~rpc ~session_id ~uuid ~name_label ~name_description
       ~_type ~content_type ~shared ~sm_config
   in
   printer (Cli_printer.PList [uuid])
@@ -4694,6 +4731,7 @@ let vm_migrate_sxm_params =
   ; "remote-network"
   ; "vdi"
   ; "vgpu"
+  ; "image-format"
   ]
 
 let vm_migrate printer rpc session_id params =
@@ -4858,56 +4896,73 @@ let vm_migrate printer rpc session_id params =
             (read_map_params "vgpu" params)
         in
         let preferred_sr =
-          (* The preferred SR is determined to be as the SR that the destine host has a PDB attached to it,
-             and among the choices of that the shared is preferred first(as it is recommended to have shared storage
-             in pool to host VMs), and then the one with the maximum available space *)
+          (* The preferred SR is determined to be as the SR that the
+             destination host has a PDB attached to it, and among the choices
+             of that the shared is preferred first (as it is recommended to
+             have shared storage in pool to host VMs), and then the one with
+             the maximum available space *)
           try
-            let expr =
-              Printf.sprintf
-                {|(field "host"="%s") and (field "currently_attached"="true")|}
-                (Ref.string_of host)
+            let host_attached_pbds =
+              let expr =
+                Printf.sprintf
+                  {|(field "host"="%s") and (field "currently_attached"="true")|}
+                  (Ref.string_of host)
+              in
+              remote Client.PBD.get_all_records_where ~expr
             in
-            let srs =
-              remote Client.PBD.get_all_where ~expr
-              |> List.map (fun pbd ->
-                  let sr = remote Client.PBD.get_SR ~self:pbd in
-                  (sr, remote Client.SR.get_record ~self:sr)
+            let shared_non_iso_srs () =
+              let expr =
+                {|(not (field "content_type"="iso")) and (field "shared"="true")|}
+              in
+              remote Client.SR.get_all_where ~expr
+            in
+            let local_non_iso_srs () =
+              let expr =
+                {|(not (field "content_type"="iso")) and (field "shared"="false")|}
+              in
+              remote Client.SR.get_all_where ~expr
+            in
+            let get_free_space_of non_iso_srs =
+              host_attached_pbds
+              |> List.filter_map (fun (_, pbd_rec) ->
+                  let sr = pbd_rec.API.pBD_SR in
+                  if List.mem sr non_iso_srs then
+                    let size = remote Client.SR.get_physical_size ~self:sr in
+                    let used =
+                      remote Client.SR.get_physical_utilisation ~self:sr
+                    in
+                    Some (sr, Int64.sub size used)
+                  else
+                    None
               )
             in
-            (* In the following loop, the current SR:sr' will be compared with previous checked ones,
-               first if it is an ISO type, then pass this one for selection, then the only shared one from this and
-               previous one will be valued, and if not that case (both shared or none shared), choose the one with
-               more space available *)
-            let sr, _ =
-              List.fold_left
-                (fun (sr, free_space) ((_, sr_rec') as sr') ->
-                  if sr_rec'.API.sR_content_type = "iso" then
-                    (sr, free_space)
-                  else
-                    let free_space' =
-                      Int64.sub sr_rec'.API.sR_physical_size
-                        sr_rec'.API.sR_physical_utilisation
-                    in
-                    match sr with
-                    | None ->
-                        (Some sr', free_space')
-                    | Some ((_, sr_rec) as sr) -> (
-                      match (sr_rec.API.sR_shared, sr_rec'.API.sR_shared) with
-                      | true, false ->
-                          (Some sr, free_space)
-                      | false, true ->
-                          (Some sr', free_space')
-                      | _ ->
-                          if free_space' > free_space then
-                            (Some sr', free_space')
-                          else
-                            (Some sr, free_space)
-                    )
-                )
-                (None, Int64.zero) srs
+            let find_most_free_space srs =
+              match
+                List.fast_sort
+                  (fun (_, a) (_, b) -> Int64.compare b a)
+                  (get_free_space_of srs)
+              with
+              | (sr, _) :: _ ->
+                  Some sr
+              | [] ->
+                  None
             in
-            match sr with Some (sr_ref, _) -> Some sr_ref | _ -> None
-          with _ -> None
+            match find_most_free_space (shared_non_iso_srs ()) with
+            | Some sr ->
+                Some sr
+            | None ->
+                find_most_free_space (local_non_iso_srs ())
+          with exn ->
+            printer
+              (Cli_printer.PMsg
+                 (Printf.sprintf
+                    "Couldn't compute preferred SR, continuing with the \
+                     user-provided VDI mapping. The reason is: %s"
+                    (Printexc.to_string exn)
+                 )
+              ) ;
+
+            None
         in
         let vdi_map =
           match preferred_sr with
@@ -5001,12 +5056,23 @@ let vm_migrate printer rpc session_id params =
         let token =
           remote Client.Host.migrate_receive ~host ~network ~options
         in
+        let vdi_format_map =
+          List.map
+            (fun (vdi_uuid, vdi_fmt) ->
+              let vdi =
+                Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid
+              in
+              (vdi, vdi_fmt)
+            )
+            (read_map_params "image-format" params)
+        in
         let new_vm =
           do_vm_op ~include_control_vms:false ~include_template_vms:true printer
             rpc session_id
             (fun vm ->
               Client.VM.migrate_send ~rpc ~session_id ~vm:(vm.getref ())
-                ~dest:token ~live:true ~vdi_map ~vif_map ~options ~vgpu_map
+                ~dest:token ~live:true ~vdi_map ~vdi_format_map ~vif_map
+                ~options ~vgpu_map
             )
             params
             (["host"; "host-uuid"; "host-name"; "live"; "force"; "copy"]
@@ -5468,7 +5534,7 @@ let with_license_server_changes printer rpc session_id params hosts f =
           hosts
   ) ;
   try f rpc session_id with
-  | Api_errors.Server_error (name, [_; msg])
+  | Api_errors.Server_error (name, [msg1; msg2])
     when name = Api_errors.license_checkout_error ->
       (* Put back original license_server_details *)
       List.iter
@@ -5477,7 +5543,7 @@ let with_license_server_changes printer rpc session_id params hosts f =
             ~value:license_server
         )
         current_license_servers ;
-      printer (Cli_printer.PStderr (msg ^ "\n")) ;
+      printer (Cli_printer.PStderr (Printf.sprintf "%s: %s\n" msg1 msg2)) ;
       raise (ExitWithError 1)
   | Api_errors.Server_error (name, _) as e
     when name = Api_errors.invalid_edition ->
@@ -6275,6 +6341,17 @@ let vm_get_secureboot_readiness printer rpc session_id params =
   printer
     (Cli_printer.PMsg (Record_util.vm_secureboot_readiness_to_string result))
 
+let vm_update_secureboot_certificates_on_boot printer rpc session_id params =
+  let mark = get_bool_param params "mark" in
+  ignore
+    (do_vm_op printer rpc session_id
+       (fun vm ->
+         Client.VM.update_secureboot_certificates_on_boot ~rpc ~session_id
+           ~self:(vm.getref ()) ~mark
+       )
+       params ["mark"]
+    )
+
 let cd_list printer rpc session_id params =
   let srs = Client.SR.get_all_records_where ~rpc ~session_id ~expr:"true" in
   let cd_srs =
@@ -6965,6 +7042,12 @@ let pool_disable_external_auth _printer rpc session_id params =
   let config = read_map_params "config" params in
   Client.Pool.disable_external_auth ~rpc ~session_id ~pool ~config
 
+let pool_external_auth_set_ldaps _printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let ldaps = get_bool_param params "ldaps" in
+  let force = get_bool_param params ~default:false "force" in
+  Client.Pool.external_auth_set_ldaps ~rpc ~session_id ~pool ~ldaps ~force
+
 let pool_get_guest_secureboot_readiness printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   let result =
@@ -7142,6 +7225,13 @@ let host_disable_external_auth _printer rpc session_id params =
   let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid:host_uuid in
   let config = read_map_params "config" params in
   Client.Host.disable_external_auth ~rpc ~session_id ~host ~config ~force:true
+
+let host_external_auth_set_ldaps _printer rpc session_id params =
+  let host_uuid = List.assoc "host-uuid" params in
+  let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid:host_uuid in
+  let ldaps = get_bool_param params "ldaps" in
+  let force = get_bool_param params ~default:false "force" in
+  Client.Host.external_auth_set_ldaps ~rpc ~session_id ~host ~ldaps ~force
 
 let host_refresh_pack_info _printer rpc session_id params =
   let host_uuid = List.assoc "host-uuid" params in

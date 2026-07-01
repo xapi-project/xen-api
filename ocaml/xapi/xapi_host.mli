@@ -372,6 +372,9 @@ val disable_external_auth :
   -> force:bool
   -> unit
 
+val external_auth_set_ldaps :
+  __context:Context.t -> host:API.ref_host -> ldaps:bool -> force:bool -> unit
+
 (** {2 Static VDIs} *)
 
 val attach_static_vdis :

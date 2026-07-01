@@ -179,6 +179,7 @@
   rpclib.json
   rpclib.xml
   re
+  record_util
   result
   rresult
   rrd-transport.lib
@@ -306,6 +307,7 @@
   forkexec
   http_lib
   httpsvr
+  record_util
   rpclib.core
   rpclib.json
   rpclib.xml

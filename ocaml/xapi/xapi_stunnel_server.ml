@@ -52,10 +52,10 @@ end = struct
       let open Printf in
       let cipher_options =
         [
-          sprintf "ciphers = %s" Constants.good_ciphersuites
-        ; "curve = secp384r1"
-        ; "options = CIPHER_SERVER_PREFERENCE"
-        ; "sslVersion = TLSv1.2"
+          sprintf "ciphers = %s" Tls_policy.Openssl.default_ciphers
+        ; sprintf "curve = %s" Tls_policy.Openssl.default_curve
+        ; sprintf "options = %s" Tls_policy.Openssl.default_server_preference
+        ; sprintf "sslVersion = %s" Tls_policy.Openssl.default_version
         ]
       in
       [

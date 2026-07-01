@@ -58,7 +58,7 @@ let args =
   ; flag "yumpluginconfdir" ~doc:"DIR YUM plugins conf dir"
       ~default:"/etc/yum/pluginconf.d"
   ; flag "xapi_api_version_major" ~doc:"xapi api major version" ~default:"2"
-  ; flag "xapi_api_version_minor" ~doc:"xapi api minor version" ~default:"21"
+  ; flag "xapi_api_version_minor" ~doc:"xapi api minor version" ~default:"23"
   ]
   |> Arg.align
 

@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_std.Xstringext
-
 module D = Debug.Make (struct let name = "xapi_vif_helpers" end)
 
 open D

@@ -446,8 +446,8 @@ let with_local_repositories ~__context f =
                   s
             in
             remove_repo_conf_file repo_name ;
-            write_yum_config ~proxy_config:[] ~source_url:None ~binary_url
-              ~repo_gpgcheck:false ~gpgkey_path ~repo_name ;
+            write_yum_config ~proxy_config:["proxy="] ~source_url:None
+              ~binary_url ~repo_gpgcheck:false ~gpgkey_path ~repo_name ;
             clean_yum_cache repo_name ;
             let Pkg_mgr.{cmd; params} =
               [
@@ -1115,11 +1115,57 @@ let get_livepatches_in_updateinfo ~updates_info ~component ~base_build_id =
     )
     [] updates_info
 
-(* Get all applicable livepatches which are newer than 'since' *)
-let get_accumulative_livepatches ~since ~updates_info =
-  get_livepatches_in_updateinfo ~updates_info
-    ~component:since.Livepatch.component
-    ~base_build_id:since.Livepatch.base_build_id
+(* Return true if the live patch for a component running with [base_build_id]
+   is supported in the latest relevant update. *)
+let is_supported ~(updates_info : (UpdateInfo.id_t * UpdateInfo.t) list)
+    ~(component : Livepatch.component) ~(base_build_id : string) : bool =
+  let open LivePatch in
+  let open UpdateInfo in
+  let relevant_updates =
+    (* filter out most of the irrelevant update_info *)
+    updates_info
+    |> List.filter (fun (_, x) ->
+        List.exists (fun l -> l.component = component) x.livepatches
+    )
+  in
+  relevant_updates
+  |> List.concat_map (fun (_, x) ->
+      x.livepatches
+      |> List.filter_map (fun lp ->
+          if lp.component = component then
+            Some (lp.to_version, lp.to_release)
+          else
+            None
+      )
+  )
+  |> get_latest_version_release
+  |> function
+  | Some (latest_to_version, latest_to_release) ->
+      let matched lp =
+        lp.component = component
+        && lp.to_version = latest_to_version
+        && lp.to_release = latest_to_release
+        && lp.base_build_id = base_build_id
+      in
+      relevant_updates
+      |> List.exists (fun (_, x) -> List.exists matched x.livepatches)
+  | None ->
+      false
+
+(* Get all applicable livepatches which are newer than 'since' and
+   is applicable in the latest relevant livepatch update. *)
+let get_accumulative_livepatches ~(since : Livepatch.t)
+    ~(updates_info : (UpdateInfo.id_t * UpdateInfo.t) list) =
+  let component = since.Livepatch.component in
+  let base_build_id = since.Livepatch.base_build_id in
+  (fun f ->
+    if is_supported ~updates_info ~component ~base_build_id then
+      f ()
+    else
+      []
+  )
+  @@ fun () ->
+  get_livepatches_in_updateinfo ~updates_info ~component ~base_build_id
   |> List.filter (fun (lp, _) ->
       let open LivePatch in
       match since with
@@ -1257,6 +1303,11 @@ let reduce_guidance ~updates_info ~updates ~livepatches =
   |> GuidanceSet.reduce_cascaded_list
   |> List.map (fun (kind, s) -> (kind, GuidanceSet.elements s))
 
+(* Do not apply any live patches when RebootHost is in mandatory guidance. *)
+let can_avoid_live_patching ~updates_info ~updates =
+  eval_guidances ~updates_info ~updates ~kind:Mandatory ~livepatches:[]
+  |> GuidanceSet.mem RebootHost
+
 let consolidate_updates_of_host ~repository_name ~updates_info host
     updates_of_host =
   let latest_updates =
@@ -1288,7 +1339,11 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
    * They are only to be returned in the update list.
    *)
   let livepatches =
-    retrieve_livepatches_from_updateinfo ~updates_info ~updates:updates_of_host
+    if can_avoid_live_patching ~updates_info ~updates then
+      []
+    else
+      retrieve_livepatches_from_updateinfo ~updates_info
+        ~updates:updates_of_host
   in
   let guidance = reduce_guidance ~updates_info ~updates ~livepatches in
   let upd_ids_of_livepatches, lps = merge_livepatches ~livepatches in

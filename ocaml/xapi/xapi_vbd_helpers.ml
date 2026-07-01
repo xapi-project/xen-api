@@ -15,7 +15,6 @@
  * @group Storage
 *)
 
-open Xapi_stdext_std.Xstringext
 module Listext = Xapi_stdext_std.Listext
 module Date = Clock.Date
 

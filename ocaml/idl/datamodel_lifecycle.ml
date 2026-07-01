@@ -101,6 +101,8 @@ let prototyped_of_field = function
       Some "24.23.0"
   | "Repository", "gpgkey_path" ->
       Some "22.12.0"
+  | "Certificate", "purpose" ->
+      Some "26.13.0"
   | "Certificate", "fingerprint_sha1" ->
       Some "24.20.0"
   | "Certificate", "fingerprint_sha256" ->
@@ -127,6 +129,8 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
+  | "SM", "supported_image_formats" ->
+      Some "26.15.0"
   | "SM", "host_pending_features" ->
       Some "24.37.0"
   | "host", "timezone" ->
@@ -175,6 +179,8 @@ let prototyped_of_field = function
       Some "26.2.0"
   | "VM_metrics", "numa_optimised" ->
       Some "26.2.0"
+  | "VM", "secureboot_certificates_state" ->
+      Some "26.14.0"
   | "VM", "groups" ->
       Some "24.19.1"
   | "VM", "pending_guidances_full" ->
@@ -299,6 +305,8 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
+  | "VDI", "revert" ->
+      Some "26.15.0-next"
   | "host", "set_servertime" ->
       Some "26.0.0"
   | "host", "get_ntp_synchronized" ->
@@ -341,6 +349,8 @@ let prototyped_of_message = function
       Some "24.0.0"
   | "VM", "sysprep" ->
       Some "25.24.0"
+  | "VM", "update_secureboot_certificates_on_boot" ->
+      Some "26.14.0"
   | "VM", "get_secureboot_readiness" ->
       Some "24.17.0"
   | "VM", "set_uefi_mode" ->
@@ -351,6 +361,16 @@ let prototyped_of_message = function
       Some "25.22.0"
   | "VM", "set_groups" ->
       Some "24.19.1"
+  | "pool", "exchange_crls_on_join" ->
+      Some "26.13.0"
+  | "pool", "exchange_trusted_certificates_on_join" ->
+      Some "26.13.0"
+  | "pool", "sync_trusted_certificates_from" ->
+      Some "26.15.0-next"
+  | "pool", "uninstall_trusted_certificate" ->
+      Some "26.13.0"
+  | "pool", "install_trusted_certificate" ->
+      Some "26.13.0"
   | "pool", "set_ssh_auto_mode" ->
       Some "25.27.0"
   | "pool", "set_console_idle_timeout" ->

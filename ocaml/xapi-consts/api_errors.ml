@@ -748,8 +748,17 @@ let pool_joining_host_has_network_sriovs =
 let pool_joining_host_tls_verification_mismatch =
   add_error "POOL_JOINING_HOST_TLS_VERIFICATION_MISMATCH"
 
+let pool_joining_master_certificate_not_in_pool_bundle =
+  add_error "POOL_JOINING_MASTER_CERTIFICATE_NOT_IN_POOL_BUNDLE"
+
+let pool_joining_pool_bundle_empty_after_import =
+  add_error "POOL_JOINING_POOL_BUNDLE_EMPTY_AFTER_IMPORT"
+
 let pool_joining_host_ca_certificates_conflict =
   add_error "POOL_JOINING_HOST_CA_CERTIFICATES_CONFLICT"
+
+let pool_joining_host_trusted_certificates_conflict =
+  add_error "POOL_JOINING_HOST_TRUSTED_CERTIFICATES_CONFLICT"
 
 let pool_joining_sm_features_incompatible =
   add_error "POOL_JOINING_SM_FEATURES_INCOMPATIBLE"
@@ -1023,6 +1032,10 @@ let auth_unknown_type = add_error "AUTH_UNKNOWN_TYPE"
 
 let auth_is_disabled = add_error "AUTH_IS_DISABLED"
 
+let auth_invalid_trusted_certs = add_error "AUTH_INVALID_TRUSTED_CERTS"
+
+let auth_no_trusted_certs = add_error "AUTH_NO_TRUSTED_CERTS"
+
 let auth_suffix_wrong_credentials = "_WRONG_CREDENTIALS"
 
 let auth_suffix_permission_denied = "_PERMISSION_DENIED"
@@ -1034,6 +1047,16 @@ let auth_suffix_unavailable = "_UNAVAILABLE"
 let auth_suffix_invalid_ou = "_INVALID_OU"
 
 let auth_suffix_invalid_account = "_INVALID_ACCOUNT"
+
+let auth_suffix_invalid_trusted_certs = "_INVALID_TRUSTED_CERTS"
+
+let auth_suffix_no_trusted_certs = "_NO_TRUSTED_CERTS"
+
+let auth_suffix_setup_tls_connection = "_SETUP_TLS_CONNECTION"
+
+let auth_suffix_no_support_encrypt_type = "_NO_SUPPORT_ENCRYPT_TYPE"
+
+let auth_setup_tls_connection = add_error "AUTH_SETUP_TLS_CONNECTION"
 
 let auth_enable_failed = add_error "AUTH_ENABLE_FAILED"
 
@@ -1054,6 +1077,15 @@ let auth_enable_failed_invalid_ou =
 
 let auth_enable_failed_invalid_account =
   add_error $ auth_enable_failed ^ auth_suffix_invalid_account
+
+let auth_enable_failed_invalid_trusted_certs =
+  add_error $ auth_enable_failed ^ auth_suffix_invalid_trusted_certs
+
+let auth_enable_failed_no_trusted_certs =
+  add_error $ auth_enable_failed ^ auth_suffix_no_trusted_certs
+
+let auth_enable_failed_no_supp_encrypt_type =
+  add_error $ auth_enable_failed ^ auth_suffix_no_support_encrypt_type
 
 let auth_disable_failed = add_error "AUTH_DISABLE_FAILED"
 
@@ -1087,8 +1119,22 @@ let pool_auth_enable_failed_invalid_ou =
 let pool_auth_enable_failed_invalid_account =
   add_error $ pool_auth_enable_failed ^ auth_suffix_invalid_account
 
+let pool_auth_enable_failed_invalid_trusted_certs =
+  add_error $ pool_auth_enable_failed ^ auth_suffix_invalid_trusted_certs
+
+let pool_auth_enable_failed_no_trusted_certs =
+  add_error $ pool_auth_enable_failed ^ auth_suffix_no_trusted_certs
+
+let pool_auth_enable_failed_no_supp_encrypt_type =
+  add_error $ pool_auth_enable_failed ^ auth_suffix_no_support_encrypt_type
+
+let pool_auth_enable_failed_setup_tls_connection =
+  add_error $ pool_auth_enable_failed ^ auth_suffix_setup_tls_connection
+
 let pool_auth_enable_failed_duplicate_hostname =
   add_error $ pool_auth_enable_failed ^ "_DUPLICATE_HOSTNAME"
+
+let auth_set_ldaps_failed = add_error "AUTH_SET_LDAPS_FAILED"
 
 let pool_auth_disable_failed =
   add_error $ pool_auth_prefix ^ auth_disable_failed
@@ -1117,6 +1163,9 @@ let rbac_permission_denied = add_error "RBAC_PERMISSION_DENIED"
 let certificate_does_not_exist = add_error "CERTIFICATE_DOES_NOT_EXIST"
 
 let certificate_already_exists = add_error "CERTIFICATE_ALREADY_EXISTS"
+
+let trusted_certificate_already_exists =
+  add_error "TRUSTED_CERTIFICATE_ALREADY_EXISTS"
 
 let certificate_name_invalid = add_error "CERTIFICATE_NAME_INVALID"
 
@@ -1158,6 +1207,13 @@ let ca_certificate_not_valid_yet = add_error "CA_CERTIFICATE_NOT_VALID_YET"
 let server_certificate_expired = add_error "SERVER_CERTIFICATE_EXPIRED"
 
 let ca_certificate_expired = add_error "CA_CERTIFICATE_EXPIRED"
+
+let trusted_certificate_expired = add_error "TRUSTED_CERTIFICATE_EXPIRED"
+
+let trusted_certificate_not_valid_yet =
+  add_error "TRUSTED_CERTIFICATE_NOT_VALID_YET"
+
+let trusted_certificate_invalid = add_error "TRUSTED_CERTIFICATE_INVALID"
 
 let server_certificate_signature_not_supported =
   add_error "SERVER_CERTIFICATE_SIGNATURE_NOT_SUPPORTED"
@@ -1445,3 +1501,10 @@ let invalid_ntp_config = add_error "INVALID_NTP_CONFIG"
 
 let not_allowed_when_ntp_is_enabled =
   add_error "NOT_ALLOWED_WHEN_NTP_IS_ENABLED"
+
+let not_trusted_certificate = add_error "NOT_TRUSTED_CERTIFICATE"
+
+let certificate_lacks_purpose = add_error "CERTIFICATE_LACKS_PURPOSE"
+
+let boot_device_passthrough_disallowed =
+  add_error "BOOT_DEVICE_PASSTHROUGH_DISALLOWED"

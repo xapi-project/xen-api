@@ -34,6 +34,9 @@ val set_remote_context : string option -> unit
 
 module type BRAND = sig val name : string end
 
+val gettimestring : unit -> string
+(** The current time of day in a format suitable for logging *)
+
 val set_facility : Syslog.facility -> unit
 (** Set the syslog facility that will be used by this program. *)
 
