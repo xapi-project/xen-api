@@ -1035,20 +1035,22 @@ end = struct
       else
         []
     in
-    call_script ~timeout:None dhclient
-      (ipv6'
-      @ gw_opt
-      @ dns_opt
-      @ [
-          "-q"
-        ; "-pf"
-        ; pid_file ~ipv6 interface
-        ; "-lf"
-        ; lease_file ~ipv6 interface
-        ; "-cf"
-        ; conf_file ~ipv6 interface
-        ; interface
-        ]
+    ignore
+      (call_script ~timeout:None dhclient
+         (ipv6'
+         @ gw_opt
+         @ dns_opt
+         @ [
+             "-q"
+           ; "-pf"
+           ; pid_file ~ipv6 interface
+           ; "-lf"
+           ; lease_file ~ipv6 interface
+           ; "-cf"
+           ; conf_file ~ipv6 interface
+           ; interface
+           ]
+         )
       )
 
   let is_running ?(ipv6 = false) interface =
@@ -1082,7 +1084,7 @@ end = struct
   let ensure_running ?(ipv6 = false) interface options =
     if not (is_running ~ipv6 interface) then
       (* dhclient is not running, so we need to start it. *)
-      ignore (start ~ipv6 interface options)
+      start ~ipv6 interface options
     else
       (* dhclient is running - if the config has changed, update the config file
          and restart. *)
@@ -1090,7 +1092,7 @@ end = struct
       let new_conf = generate_conf ~ipv6 interface options in
       if current_conf <> Some new_conf then (
         stop ~ipv6 interface ;
-        ignore (start ~ipv6 interface options)
+        start ~ipv6 interface options
       )
 end
 

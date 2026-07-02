@@ -596,7 +596,7 @@ module Interface = struct
               Ip.flush_ip_addr ~ipv6:true name ;
               Ip.set_ipv6_link_local_addr name ;
               let options = gateway @ dns in
-              ignore (Dhclient.ensure_running ~ipv6:true name options)
+              Dhclient.ensure_running ~ipv6:true name options
           | Autoconf6 ->
               Dhclient.stop ~ipv6:true name ;
               Ip.flush_ip_addr ~ipv6:true name ;
