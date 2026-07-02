@@ -30,8 +30,6 @@ module E = Debug.Make (struct let name = "mscgen" end)
 
 let cmd_name driver = sprintf "%s/%sSR" !Xapi_globs.sm_dir driver
 
-let sm_username = "__sm__backend"
-
 let with_dbg ~name ~dbg f =
   Debug_info.with_dbg ~module_name:"Sm_exec" ~name ~dbg f
 
@@ -320,31 +318,6 @@ let methodResponse xml =
 (****************************************************************************************)
 (* Functions that actually execute the python backends *)
 
-let with_session sr f =
-  Server_helpers.exec_with_new_task "sm_exec" (fun __context ->
-      let create_session () =
-        let host = !Xapi_globs.localhost_ref in
-        let session =
-          Xapi_session.login_no_password ~__context ~uname:None ~host
-            ~pool:false ~is_local_superuser:true ~subject:Ref.null
-            ~auth_user_sid:"" ~auth_user_name:sm_username ~rbac_permissions:[]
-        in
-        (* Give this session access to this particular SR *)
-        Option.iter
-          (fun sr ->
-            Db.Session.add_to_other_config ~__context ~self:session
-              ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr)
-          )
-          sr ;
-        session
-      in
-      let destroy_session session_id =
-        Xapi_session.destroy_db_session ~__context ~self:session_id
-      in
-      let session_id = create_session () in
-      finally (fun () -> f session_id) (fun () -> destroy_session session_id)
-  )
-
 let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
     (call : call) =
   with_dbg ~name:call.cmd ~dbg @@ fun di ->
@@ -466,7 +439,8 @@ let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
           )
   in
   if needs_session then
-    with_session call.sr_ref (fun session_id ->
+    Xapi_session.SM.with_session ~traceparent:(Debug_info.span_of di)
+      call.sr_ref (fun session_id ->
         do_call {call with session_ref= Some session_id}
     )
   else
@@ -570,6 +544,13 @@ let parse_sr_get_driver_info driver (xml : Xml.xml) =
       )
       (XMLRPC.From.array XMLRPC.From.structure (safe_assoc "configuration" info))
   in
+  let image_formats =
+    match List.assoc_opt "supported_image_formats" info with
+    | None ->
+        []
+    | Some lst ->
+        XMLRPC.From.array XMLRPC.From.string lst
+  in
   {
     sr_driver_filename= driver
   ; sr_driver_name= name
@@ -582,6 +563,7 @@ let parse_sr_get_driver_info driver (xml : Xml.xml) =
   ; sr_driver_configuration= configuration
   ; sr_driver_text_features= text_features
   ; sr_driver_required_cluster_stack= []
+  ; sr_driver_supported_image_formats= image_formats
   ; sr_smapi_version= SMAPIv1
   }
 

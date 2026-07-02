@@ -877,8 +877,9 @@ module User = struct
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
         ; field ~qualifier:StaticRO
-            ~lifecycle:[(Published, rel_rio, "short name (e.g. userid)")]
-            "short_name" "short name (e.g. userid)"
+            ~lifecycle:
+              [(Published, rel_rio, "short name (for example, userid)")]
+            "short_name" "short name (for example, userid)"
         ; field
             ~lifecycle:[(Published, rel_rio, "full name")]
             "fullname" "full name"
@@ -2620,10 +2621,11 @@ module PIF = struct
               [
                 ( Published
                 , rel_rio
-                , "machine-readable name of the interface (e.g. eth0)"
+                , "machine-readable name of the interface (for example, eth0)"
                 )
               ]
-            "device" "machine-readable name of the interface (e.g. eth0)"
+            "device"
+            "machine-readable name of the interface (for example, eth0)"
         ; field ~qualifier:StaticRO ~ty:(Ref _network)
             ~lifecycle:
               [
@@ -2793,16 +2795,16 @@ module PIF = struct
                 , rel_orlando
                 , "Prevent this PIF from being unplugged; set this to notify \
                    the management tool-stack that the PIF has a special use \
-                   and should not be unplugged under any circumstances (e.g. \
-                   because you're running storage traffic over it)"
+                   and should not be unplugged under any circumstances (for \
+                   example, because you're running storage traffic over it)"
                 )
               ]
             ~qualifier:DynamicRO ~default_value:(Some (VBool false)) ~ty:Bool
             "disallow_unplug"
             "Prevent this PIF from being unplugged; set this to notify the \
              management tool-stack that the PIF has a special use and should \
-             not be unplugged under any circumstances (e.g. because you're \
-             running storage traffic over it)"
+             not be unplugged under any circumstances (for example, because \
+             you're running storage traffic over it)"
         ; field ~in_oss_since:None ~ty:(Set (Ref _tunnel))
             ~lifecycle:
               [
@@ -3511,6 +3513,7 @@ module VIF = struct
              guest-dependent)"
           )
         ; ("Static", "Static IPv4 address configuration")
+        ; ("DHCP", "Acquire an IP address by DHCP")
         ]
       )
 
@@ -3523,6 +3526,7 @@ module VIF = struct
              guest-dependent)"
           )
         ; ("Static", "Static IPv6 address configuration")
+        ; ("Autoconf", "Acquire an IPv6 address automatically")
         ]
       )
 
@@ -3739,6 +3743,7 @@ module VIF = struct
           , rel_dundee
           , "Configure IPv4 settings for this virtual interface"
           )
+        ; (Extended, "26.16.0", "Mode extended with 'DHCP' value")
         ]
       ~doc:"Configure IPv4 settings for this virtual interface"
       ~versioned_params:
@@ -3753,7 +3758,7 @@ module VIF = struct
         ; {
             param_type= ipv4_configuration_mode
           ; param_name= "mode"
-          ; param_doc= "Whether to use static or no IPv4 assignment"
+          ; param_doc= "Whether to use DHCP, static or no IPv4 assignment"
           ; param_release= dundee_release
           ; param_default= None
           }
@@ -3786,6 +3791,7 @@ module VIF = struct
           , rel_dundee
           , "Configure IPv6 settings for this virtual interface"
           )
+        ; (Extended, "26.16.0", "Mode extended with 'Autoconf' value")
         ]
       ~doc:"Configure IPv6 settings for this virtual interface"
       ~versioned_params:
@@ -3800,7 +3806,7 @@ module VIF = struct
         ; {
             param_type= ipv6_configuration_mode
           ; param_name= "mode"
-          ; param_doc= "Whether to use static or no IPv6 assignment"
+          ; param_doc= "Whether to use autoconf, static or no IPv6 assignment"
           ; param_release= dundee_release
           ; param_default= None
           }
@@ -4143,7 +4149,9 @@ module Sr_stat = struct
       ( "sr_health"
       , [
           ("healthy", "Storage is fully available")
-        ; ("recovering", "Storage is busy recovering, e.g. rebuilding mirrors.")
+        ; ( "recovering"
+          , "Storage is busy recovering, for example, rebuilding mirrors."
+          )
         ; ( "unreachable"
           , "Storage is unreachable but may be recoverable with admin \
              intervention"
@@ -4229,7 +4237,7 @@ module Probe_result = struct
             ~ty:(Map (String, String))
             "extra_info"
             "Additional plugin-specific information about this configuration, \
-             that might be of use for an API user. This can for example \
+             that might be of use for an API user. This can, for example, \
              include the LUN or the WWPN."
         ]
       ()
@@ -4267,6 +4275,7 @@ module SR = struct
         ; ("vdi_generate_config", "Generating the configuration of the VDI")
         ; ("vdi_resize_online", "Resizing the VDI online")
         ; ("vdi_update", "Refreshing the fields on the VDI")
+        ; ("vdi_revert", "Reverting a VDI to the snapshot")
         ; ("pbd_create", "Creating a PBD for this SR")
         ; ("pbd_destroy", "Destroying one of this SR's PBDs")
         ]
@@ -4336,7 +4345,8 @@ module SR = struct
     ; {
         param_type= String
       ; param_name= "content_type"
-      ; param_doc= "The type of the new SRs content, if required (e.g. ISOs)"
+      ; param_doc=
+          "The type of the new SRs content, if required (for example, ISOs)"
       ; param_release= rio_release
       ; param_default= None
       }
@@ -4911,11 +4921,12 @@ module SR = struct
                 [
                   ( Published
                   , rel_rio
-                  , "the type of the SR's content, if required (e.g. ISOs)"
+                  , "the type of the SR's content, if required (for example, \
+                     ISOs)"
                   )
                 ]
               "content_type"
-              "the type of the SR's content, if required (e.g. ISOs)"
+              "the type of the SR's content, if required (for example, ISOs)"
           ; field ~qualifier:DynamicRO "shared" ~ty:Bool
               ~lifecycle:
                 [
@@ -4998,6 +5009,17 @@ module SR = struct
 end
 
 module SM = struct
+  let formats =
+    [
+      ("raw", "Plain disk image")
+    ; ("vhd", "Virtual Hard Disk")
+    ; ("qcow2", "Qemu Copy-On-Write version 2")
+    ]
+
+  let formats_desc = formats |> List.map fst |> String.concat ", "
+
+  let image_format_type = Enum ("image_format_type", formats)
+
   (** XXX: just make this a field and be done with it. Cowardly refusing to change the schema for now. *)
   let get_driver_filename =
     call ~name:"get_driver_filename" ~in_oss_since:None
@@ -5118,6 +5140,10 @@ module SM = struct
             ~ty:(Set String) "required_cluster_stack"
             "The storage plugin requires that one of these cluster stacks is \
              configured and running."
+        ; field ~lifecycle:[] ~qualifier:DynamicRO
+            ~default_value:(Some (VSet [])) ~ty:(Set image_format_type)
+            "supported_image_formats"
+            (Printf.sprintf "Image formats supported by the SR: %s" formats_desc)
         ]
       ()
 end
@@ -5439,13 +5465,27 @@ module VDI = struct
         [
           (Ref _vdi, "vdi", "The VDI to migrate")
         ; (Ref _sr, "sr", "The destination SR")
-        ; (Map (String, String), "options", "Other parameters")
+        ; ( Map (String, String)
+          , "options"
+          , "Extra parameters. Supports: \"dest-img-format\" (raw|vhd|qcow2) \
+             to specify the image format to use on the destination SR."
+          )
         ]
       ~result:(Ref _vdi, "The new reference of the migrated VDI.")
       ~doc:
         "Migrate a VDI, which may be attached to a running guest, to a \
          different SR. The destination SR must be visible to the guest."
       ~allowed_roles:_R_VM_POWER_ADMIN ()
+
+  let revert =
+    call ~name:"revert" ~in_oss_since:None ~lifecycle:[]
+      ~params:
+        [(Ref _vdi, "snapshot", "The snapshot to which we want to revert")]
+      ~doc:
+        "Copy the contents of a snapshot to the VDI it's related to. The \
+         original contents of the VDI are lost."
+      ~errs:[Api_errors.unimplemented_in_sm_backend]
+      ~allowed_roles:_R_VM_POWER_ADMIN ~doc_tags:[Snapshots] ()
 
   let introduce_params first_rel =
     [
@@ -5689,6 +5729,8 @@ module VDI = struct
           )
         ; ("set_on_boot", "Setting the on_boot field of the VDI")
         ; ("blocked", "Operations on this VDI are temporarily blocked")
+        ; ("revert_to", "Reverting a VDI to a clone of this snapshot")
+        ; ("revert_from", "Reverting this VDI to a clone of a snapshot")
         ]
       )
 
@@ -6227,6 +6269,7 @@ module VDI = struct
         ; data_destroy
         ; list_changed_blocks
         ; get_nbd_info
+        ; revert
         ]
       ~contents:
         ([
@@ -6750,16 +6793,17 @@ module VBD = struct
                      VM"
                   )
                 ]
-              "device" "device seen by the guest e.g. hda1"
+              "device" "device seen by the guest, for example, hda1"
           ; field
               ~lifecycle:
                 [
                   ( Published
                   , rel_rio
-                  , "user-friendly device name e.g. 0,1,2,etc."
+                  , "user-friendly device name, for example, 0, 1, 2, etc."
                   )
                 ]
-              "userdevice" "user-friendly device name e.g. 0,1,2,etc."
+              "userdevice"
+              "user-friendly device name, for example, 0, 1, 2, etc."
           ; field ~ty:Bool
               ~lifecycle:[(Published, rel_rio, "true if this VBD is bootable")]
               "bootable" "true if this VBD is bootable"
@@ -6774,10 +6818,12 @@ module VBD = struct
                 [
                   ( Published
                   , rel_rio
-                  , "how the VBD will appear to the guest (e.g. disk or CD)"
+                  , "how the VBD will appear to the guest (for example, disk \
+                     or CD)"
                   )
                 ]
-              "type" "how the VBD will appear to the guest (e.g. disk or CD)"
+              "type"
+              "how the VBD will appear to the guest (for example, disk or CD)"
           ; field ~in_oss_since:None
               ~lifecycle:
                 [
@@ -6959,8 +7005,8 @@ module Auth = struct
           ( Published
           , rel_george
           , "This call queries the external directory service to obtain the \
-             user information (e.g. username, organization etc) from the \
-             specified subject_identifier"
+             user information (for example, username, organization etc.) from \
+             the specified subject_identifier"
           )
         ]
       ~params:
@@ -6977,8 +7023,8 @@ module Auth = struct
         )
       ~doc:
         "This call queries the external directory service to obtain the user \
-         information (e.g. username, organization etc) from the specified \
-         subject_identifier"
+         information (for example, username, organization etc.) from the \
+         specified subject_identifier"
       ~allowed_roles:_R_READ_ONLY ()
 
   let get_group_membership =
@@ -8651,8 +8697,8 @@ module Event = struct
       ~doc:
         "Blocking call which returns a new token and a (possibly empty) batch \
          of events. The returned token can be used in subsequent calls to this \
-         function. It eliminates redundant events (e.g. same field updated \
-         multiple times)."
+         function. It eliminates redundant events (for example, same field \
+         updated multiple times)."
       ~custom_marshaller:true ~flags:[`Session]
       ~result:
         ( Set (Record _event)
@@ -11037,7 +11083,7 @@ let http_actions =
   ; ( "get_vm_rrds"
     , ( Get
       , "/vm_rrds"
-      , true
+      , false
       , [String_query_arg "uuid"; Bool_query_arg "json"]
       , _R_READ_ONLY
       , []
@@ -11054,7 +11100,7 @@ let http_actions =
     )
     (* For XC < 8460 compatibility, remove when out of support *)
   ; ( "get_host_rrds"
-    , (Get, "/host_rrds", true, [Bool_query_arg "json"], _R_READ_ONLY, [])
+    , (Get, "/host_rrds", false, [Bool_query_arg "json"], _R_READ_ONLY, [])
     )
   ; ( Constants.get_sr_rrd
     , ( Get

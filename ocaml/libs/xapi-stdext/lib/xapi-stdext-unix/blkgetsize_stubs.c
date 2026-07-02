@@ -17,12 +17,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
-
 #include <fcntl.h>
-#include <string.h>
 #include <unistd.h>
 #include <stdint.h>
-
 #include "blkgetsize.h"
 #ifdef __linux__
 #include <linux/fs.h>

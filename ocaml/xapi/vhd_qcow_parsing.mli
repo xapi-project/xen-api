@@ -22,3 +22,8 @@ val run_tool :
   -> unit
 
 val parse_header : Unix.file_descr -> int * int list
+
+val parse_header_interval : Unix.file_descr -> int * (int * int) list
+
+val parse_header_qemu_img :
+  Unix.file_descr * Unix.file_descr -> int * (int * int) list

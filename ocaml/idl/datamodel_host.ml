@@ -1508,9 +1508,9 @@ let create_params =
     ; param_name= "pending_guidances_full"
     ; param_doc=
         "The set of pending full guidances after applying updates, which a \
-         user should follow to make some updates, e.g. specific hardware \
-         drivers or CPU features, fully effective, but the 'average user' \
-         doesn't need to"
+         user should follow to make some updates, for example, specific \
+         hardware drivers or CPU features, fully effective, but the 'average \
+         user' doesn't need to"
     ; param_release= numbered_release "26.0.0"
     ; param_default= Some (VSet [])
     }
@@ -2000,7 +2000,7 @@ let enable_external_auth =
       ; (String, "service_name", "The name of the service")
       ; ( String
         , "auth_type"
-        , "The type of authentication (e.g. AD for Active Directory)"
+        , "The type of authentication (for example, AD for Active Directory)"
         )
       ]
     ~doc:"This call enables external authentication on a host"
@@ -2042,6 +2042,45 @@ let disable_external_auth =
         }
       ]
     ~doc:"This call disables external authentication on the local host"
+    ~allowed_roles:_R_POOL_ADMIN ()
+
+let external_auth_set_ldaps =
+  call ~flags:[`Session] ~name:"external_auth_set_ldaps" ~in_oss_since:None
+    ~lifecycle:
+      [
+        ( Published
+        , "26.15.0-next"
+        , "This call enables or disables LDAPS for external authentication on \
+           the host"
+        )
+      ]
+    ~versioned_params:
+      [
+        {
+          param_type= Ref _host
+        ; param_name= "host"
+        ; param_doc= "The host whose LDAPS configuration should be set"
+        ; param_release= numbered_release "26.15.0-next"
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "ldaps"
+        ; param_doc= "Whether to enable or disable LDAPS"
+        ; param_release= numbered_release "26.15.0-next"
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "force"
+        ; param_doc= "Force the operation even if already in the desired state"
+        ; param_release= numbered_release "26.15.0-next"
+        ; param_default= Some (VBool false)
+        }
+      ]
+    ~doc:
+      "This call enables or disables LDAPS for external authentication on the \
+       host"
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let set_license_params =
@@ -2628,9 +2667,9 @@ let set_ssh_auto_mode =
         (Ref _host, "self", "The host")
       ; ( Bool
         , "value"
-        , "The SSH auto mode for the host，when set to true, SSH to normally be \
-           disabled and SSH to be enabled only in case of emergency e.g., xapi \
-           is down"
+        , "The SSH auto mode for the host. When true, the SSH port is closed \
+           by default and it's open only in case the API is unavailable. When \
+           false, the SSH port is always open."
         )
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
@@ -2829,6 +2868,7 @@ let t =
       ; disable_binary_storage
       ; enable_external_auth
       ; disable_external_auth
+      ; external_auth_set_ldaps
       ; retrieve_wlb_evacuate_recommendations
       ; install_ca_certificate
       ; uninstall_ca_certificate
@@ -3286,14 +3326,15 @@ let t =
                 ( Published
                 , "1.303.0"
                 , "The set of pending mandatory guidances after applying \
-                   updates, which must be applied, as otherwise there may be \
-                   e.g. VM failures"
+                   updates, which must be applied, otherwise there may be, for \
+                   example, VM failures"
                 )
               ]
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
             "The set of pending mandatory guidances after applying updates, \
-             which must be applied, as otherwise there may be e.g. VM failures"
+             which must be applied, otherwise there may be, for example, VM \
+             failures"
         ; field ~qualifier:DynamicRO
             ~lifecycle:
               [
@@ -3334,9 +3375,9 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
             "pending_guidances_full" ~default_value:(Some (VSet []))
             "The set of pending full guidances after applying updates, which a \
-             user should follow to make some updates, e.g. specific hardware \
-             drivers or CPU features, fully effective, but the 'average user' \
-             doesn't need to"
+             user should follow to make some updates, for example, specific \
+             hardware drivers or CPU features, fully effective, but the \
+             'average user' doesn't need to"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
             ~default_value:(Some (VString "")) "last_update_hash"
             "The SHA256 checksum of updateinfo of the most recently applied \

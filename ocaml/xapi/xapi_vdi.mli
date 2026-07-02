@@ -258,3 +258,5 @@ val _get_nbd_info :
     [get_server_certificate] function can be provided to avoid querying the real
     certificate using the Client module, which is what {!get_nbd_info} does,
     which would cause the unit test to fail. *)
+
+val revert : __context:Context.t -> snapshot:[`VDI] Ref.t -> unit

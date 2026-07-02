@@ -841,6 +841,12 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
     =
   (* This function runs on coordinator host *)
   let open Guidance in
+  let livepatches =
+    if can_avoid_live_patching ~updates_info ~updates:acc_rpm_updates then
+      []
+    else
+      livepatches
+  in
   let guidance' =
     reduce_guidance ~updates_info ~updates:acc_rpm_updates ~livepatches
   in
@@ -862,7 +868,6 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.Client.Repository.apply ~rpc ~session_id ~host
   ) ;
-  (* Always apply livepatches even if host will reboot *)
   let applied_livepatches, failed_livepatches =
     apply_livepatches' ~__context ~host ~livepatches
   in

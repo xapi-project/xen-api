@@ -6,5 +6,6 @@
   (language c)
   (names xenctrlext_stubs)
  )
+ (c_library_flags (-lxenctrl))
 )
 

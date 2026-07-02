@@ -47,6 +47,9 @@ let operations =
            host"
         )
       ; ("eject", "Ejection of a host from the pool is under way")
+      ; ( "exchange_crls_on_join"
+        , "Indicates this pool is exchanging CRLs with a new joiner"
+        )
       ]
     )
 
@@ -617,7 +620,7 @@ let enable_external_auth =
       ; (String, "service_name", "The name of the service")
       ; ( String
         , "auth_type"
-        , "The type of authentication (e.g. AD for Active Directory)"
+        , "The type of authentication (for example, AD for Active Directory)"
         )
       ]
     ~doc:
@@ -655,6 +658,45 @@ let disable_external_auth =
       ]
     ~doc:
       "This call disables external authentication on all the hosts of the pool"
+    ~allowed_roles:_R_POOL_ADMIN ()
+
+let external_auth_set_ldaps =
+  call ~flags:[`Session] ~name:"external_auth_set_ldaps" ~in_oss_since:None
+    ~lifecycle:
+      [
+        ( Published
+        , "26.15.0-next"
+        , "This call enables or disables LDAPS for external authentication on \
+           all hosts in the pool"
+        )
+      ]
+    ~versioned_params:
+      [
+        {
+          param_type= Ref _pool
+        ; param_name= "pool"
+        ; param_doc= "The pool whose LDAPS configuration should be set"
+        ; param_release= numbered_release "26.15.0-next"
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "ldaps"
+        ; param_doc= "Whether to enable or disable LDAPS"
+        ; param_release= numbered_release "26.15.0-next"
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "force"
+        ; param_doc= "Force the operation even if already in the desired state"
+        ; param_release= numbered_release "26.15.0-next"
+        ; param_default= Some (VBool false)
+        }
+      ]
+    ~doc:
+      "This call enables or disables LDAPS for external authentication on all \
+       hosts in the pool"
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let detect_nonhomogeneous_external_auth =
@@ -832,7 +874,11 @@ let install_ca_certificate =
       ; (String, "cert", "The certificate in PEM format")
       ]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~lifecycle:[(Published, "1.290.0", "Install TLS CA certificate")]
+    ~lifecycle:
+      [
+        (Published, "1.290.0", "Install TLS CA certificate")
+      ; (Deprecated, "26.13.0", "Use Pool.install_trusted_certificate instead")
+      ]
     ()
 
 let certificate_uninstall =
@@ -884,6 +930,7 @@ let uninstall_ca_certificate =
         , "Added --force option to allow DB entries to be removed for \
            non-existent files"
         )
+      ; (Deprecated, "26.13.0", "Use Pool.uninstall_trusted_certificate instead")
       ]
     ()
 
@@ -1613,12 +1660,127 @@ let set_ssh_auto_mode =
         (Ref _pool, "self", "The pool")
       ; ( Bool
         , "value"
-        , "The SSH auto mode for all hosts in the pool，when set to true, SSH \
-           to normally be disabled and SSH to be enabled only in case of \
-           emergency e.g., xapi is down"
+        , "The SSH auto mode for all hosts in the pool. When true, the SSH \
+           port is closed by default and it's open only in case the API is \
+           unavailable. When false, the SSH port is always open."
         )
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
+
+let install_trusted_certificate =
+  call ~name:"install_trusted_certificate"
+    ~doc:"Install a trusted TLS certificate, pool-wide."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Bool
+        , "ca"
+        , "The trusted certificate is a root CA certificate used to verify a \
+           chain (true), or a leaf certificate used for certificate pinning \
+           (false)"
+        )
+      ; (String, "cert", "The certificate in PEM format")
+      ; ( Set Datamodel_certificate.certificate_purpose
+        , "purpose"
+        , "The purpose of the certificate"
+        )
+      ]
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~lifecycle:[] ()
+
+let uninstall_trusted_certificate =
+  call ~name:"uninstall_trusted_certificate"
+    ~doc:"Uninstall a trusted TLS certificate, pool-wide."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Ref _certificate
+        , "certificate"
+        , "The reference of the trusted certificate to be uninstalled"
+        )
+      ]
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~lifecycle:[] ()
+
+let sync_trusted_certificates_from =
+  call ~name:"sync_trusted_certificates_from"
+    ~doc:
+      "Download trusted TLS certificates from a remote pool and install them \
+       in this pool. Certificates already present locally (matched by \
+       fingerprint and purpose) are skipped."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( String
+        , "remote_pool"
+        , "The hostname or IP address of the coordinator of the remote pool \
+           from which the certificates are downloaded"
+        )
+      ; ( Ref _session
+        , "remote_session"
+        , "A session obtained from the remote pool, used to authenticate the \
+           download"
+        )
+      ; ( String
+        , "remote_certificate"
+        , "The PEM-encoded TLS certificate of the remote pool's coordinator, \
+           used to verify the TLS connection to the remote pool."
+        )
+      ; (Bool, "ca", "true for 'ca' or false for 'pinned'")
+      ]
+    ~result:(Set (Ref _certificate), "The references of certificates synced.")
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~lifecycle:[] ()
+
+let trusted_certs = Map (String, Set String)
+
+let exchange_trusted_certificates_on_join =
+  call ~name:"exchange_trusted_certificates_on_join"
+    ~doc:
+      "Exchange the trusted TLS certificates which are referred by \
+       [certificates]."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; (Bool, "ca", "true for 'ca' or false for 'pinned'")
+      ; ( trusted_certs
+        , "import"
+        , "The trusted TLS certificates to be installed."
+        )
+      ; ( Set (Ref _certificate)
+        , "export"
+        , "The references of the trusted TLS certificates to be returned."
+        )
+      ]
+    ~result:(trusted_certs, "The contents of these trusted TLS certificates.")
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~hide_from_docs:true ~lifecycle:[] ()
+
+let exchange_crls_on_join =
+  call ~name:"exchange_crls_on_join"
+    ~doc:
+      "Install the TLS CA-issued Certificate Revocation Lists (CRLs) provided \
+       in [import] and return the CRLs referenced by [export]."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( certs
+        , "import"
+        , "The TLS CA-issued Certificate Revocation Lists (CRLs) to be \
+           installed."
+        )
+      ; ( Set String
+        , "export"
+        , "The names of the installed TLS CA-issued Certificate Revocation \
+           Lists (CRLs) to be returned."
+        )
+      ]
+    ~result:
+      ( certs
+      , "The contents of the TLS CA-issued Certificate Revocation Lists (CRLs)."
+      )
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~hide_from_docs:true ~lifecycle:[] ()
 
 (** A pool class *)
 let t =
@@ -1659,6 +1821,7 @@ let t =
       ; disable_binary_storage
       ; enable_external_auth
       ; disable_external_auth
+      ; external_auth_set_ldaps
       ; detect_nonhomogeneous_external_auth
       ; initialize_wlb
       ; deconfigure_wlb
@@ -1719,6 +1882,11 @@ let t =
       ; set_ssh_enabled_timeout
       ; set_console_idle_timeout
       ; set_ssh_auto_mode
+      ; install_trusted_certificate
+      ; uninstall_trusted_certificate
+      ; sync_trusted_certificates_from
+      ; exchange_trusted_certificates_on_join
+      ; exchange_crls_on_join
       ]
     ~contents:
       ([
@@ -2237,7 +2405,7 @@ let t =
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "recommendations"
             "The recommended pool properties for clients to respect for \
-             optimal performance. e.g. max-vm-group=5"
+             optimal performance. For example, max-vm-group=5"
         ; field ~writer_roles:_R_POOL_OP ~qualifier:RW ~lifecycle:[]
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "license_server"

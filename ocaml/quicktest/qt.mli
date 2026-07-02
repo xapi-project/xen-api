@@ -75,6 +75,9 @@ module VDI : sig
        rpc
     -> API.ref_session
     -> ?virtual_size:int64
+    -> ?backing_format:string
+    -> ?name_label:string
+    -> ?name_description:string
     -> API.ref_SR
     -> (API.ref_VDI -> 'a)
     -> 'a

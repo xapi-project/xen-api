@@ -70,8 +70,7 @@ module Group = struct
       | _ ->
           false
 
-    let sanitize s =
-      Xapi_stdext_std.Xstringext.String.filter_chars s is_alphanum
+    let sanitize s = Astring.String.filter is_alphanum s
 
     let make ?user_agent subject_sid =
       let user_agent =

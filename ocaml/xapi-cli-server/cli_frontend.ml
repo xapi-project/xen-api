@@ -283,6 +283,17 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-external-auth-set-ldaps"
+    , {
+        reqd= ["ldaps"]
+      ; optn= ["uuid"; "force"]
+      ; help=
+          "Sets or unsets ldaps for external authentication in all the hosts \
+           in a pool"
+      ; implementation= No_fd Cli_operations.pool_external_auth_set_ldaps
+      ; flags= []
+      }
+    )
   ; ( "pool-initialize-wlb"
     , {
         reqd=
@@ -682,6 +693,24 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-install-trusted-certificate"
+    , {
+        reqd= ["filename"; "ca"]
+      ; optn= ["uuid"; "purpose"]
+      ; help= "Install a TLS trusted certificate, pool-wide."
+      ; implementation= With_fd Cli_operations.pool_install_trusted_certificate
+      ; flags= []
+      }
+    )
+  ; ( "pool-uninstall-trusted-certificate"
+    , {
+        reqd= ["certificate-uuid"]
+      ; optn= ["uuid"]
+      ; help= "Uninstall a TLS trusted certificate, pool-wide."
+      ; implementation= No_fd Cli_operations.pool_uninstall_trusted_certificate
+      ; flags= []
+      }
+    )
   ; ( "host-shutdown"
     , {
         reqd= []
@@ -1012,6 +1041,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= ["config:"]
       ; help= "Disables external authentication in a host"
       ; implementation= No_fd Cli_operations.host_disable_external_auth
+      ; flags= [Hidden]
+      }
+    )
+  ; ( "host-external-auth-set-ldaps"
+    , {
+        reqd= ["host-uuid"; "ldaps"]
+      ; optn= ["force"]
+      ; help= "Sets or unsets ldaps for external authentication in a host"
+      ; implementation= No_fd Cli_operations.host_external_auth_set_ldaps
       ; flags= [Hidden]
       }
     )
@@ -1625,6 +1663,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
           ; "compress"
           ; "vif:"
           ; "vdi:"
+          ; "image-format:"
           ]
       ; help=
           "Migrate the selected VM(s). The parameter '--live' will migrate the \
@@ -1638,7 +1677,9 @@ let rec cmdtable_data : (string * cmd_spec) list =
            'copy=true' will enable the copy mode so that a stopped vm can be \
            copied, instead of migrating, to the destination pool. The vif and \
            vdi mapping parameters take the form 'vif:<source vif uuid>=<dest \
-           network uuid>' and 'vdi:<source vdi uuid>=<dest sr uuid>'. \
+           network uuid>' and 'vdi:<source vdi uuid>=<dest sr uuid>'. You can \
+           also specify the destination image format of the VDI using \
+           'image-format:<source vdi uuid>=<destination image format>'. \
            Unfortunately, destination uuids cannot be tab-completed."
       ; implementation= No_fd Cli_operations.vm_migrate
       ; flags= [Standard; Vm_selectors]
@@ -1861,7 +1902,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help=
           "Calls the function within the plugin on the given vm with optional \
            arguments (args:key=value). To pass a \"value\" string with special \
-           characters in it (e.g. new line), an alternative syntax \
+           characters in it (for example, new line), an alternative syntax \
            args:key:file=local_file can be used in place, where the content of \
            local_file will be retrieved and assigned to \"key\" as a whole."
       ; implementation= With_fd Cli_operations.vm_call_plugin
@@ -1875,10 +1916,10 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help=
           "Calls function fn within the plugin on the host where the VM is \
            running with arguments (args:key=value). To pass a \"value\" string \
-           with special characters in it (e.g. new line), an alternative \
-           syntax args:key:file=local_file can be used in place, where the \
-           content of local_file will be retrieved and assigned to \"key\" as \
-           a whole."
+           with special characters in it (for example, new line), an \
+           alternative syntax args:key:file=local_file can be used in place, \
+           where the content of local_file will be retrieved and assigned to \
+           \"key\" as a whole."
       ; implementation= With_fd Cli_operations.vm_call_host_plugin
       ; flags= []
       }
@@ -2234,7 +2275,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
         reqd= ["name-label"; "type"]
       ; optn=
           [
-            "host-uuid"
+            "name-description"
+          ; "host-uuid"
           ; "device-config:"
           ; "shared"
           ; "physical-size"
@@ -2242,8 +2284,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           ; "sm-config:"
           ]
       ; help=
-          "Create an SR, also a PBD. the device-config parameters can be \
-           specified by e.g. device-config:foo=baa."
+          "Create an SR, also a PBD. The device-config parameters can be \
+           specified by device-config:foo=baa, for example."
       ; implementation= With_fd Cli_operations.sr_create
       ; flags= []
       }
@@ -2254,7 +2296,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= ["host-uuid"; "device-config:"; "sm-config:"]
       ; help=
           "Perform a storage probe.  The device-config parameters can be \
-           specified by e.g. device-config:devs=/dev/sdb1."
+           specified by device-config:devs=/dev/sdb1, for example."
       ; implementation= No_fd Cli_operations.sr_probe
       ; flags= []
       }
@@ -2265,9 +2307,9 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= ["host-uuid"; "device-config:"; "sm-config:"]
       ; help=
           "Perform a storage probe. The device-config parameters can be \
-           specified by e.g. device-config:devs=/dev/sdb1. Unlike sr-probe, \
-           this command returns results in the same human-readable format for \
-           every SR type."
+           specified by device-config:devs=/dev/sdb1, for example. Unlike \
+           sr-probe, this command returns results in the same human-readable \
+           format for every SR type."
       ; implementation= No_fd Cli_operations.sr_probe_ext
       ; flags= []
       }
@@ -2286,7 +2328,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "sr-introduce"
     , {
         reqd= ["name-label"; "type"; "uuid"]
-      ; optn= ["shared"; "content-type"]
+      ; optn= ["name-description"; "shared"; "content-type"]
       ; help= "Introduces an SR (but does not create any PBDs)."
       ; implementation= No_fd Cli_operations.sr_introduce
       ; flags= []
@@ -2480,10 +2522,10 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "vdi-pool-migrate"
     , {
         reqd= ["uuid"; "sr-uuid"]
-      ; optn= []
+      ; optn= ["dest-img-format"]
       ; help=
-          "Migrate a VDI to a specified SR, while the VDI is attached to a \
-           running guest."
+          "Migrate a VDI to a specified SR, while it is attached to a running \
+           guest. You can specify the image format for the destination."
       ; implementation= No_fd Cli_operations.vdi_pool_migrate
       ; flags= []
       }
@@ -2758,6 +2800,16 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Return the secureboot readiness of the VM."
       ; implementation= No_fd Cli_operations.vm_get_secureboot_readiness
       ; flags= []
+      }
+    )
+  ; ( "vm-update-secureboot-certificates-on-boot"
+    , {
+        reqd= ["mark"]
+      ; optn= []
+      ; help= "Mark/unmark secure boot certificate update for next VM boot."
+      ; implementation=
+          No_fd Cli_operations.vm_update_secureboot_certificates_on_boot
+      ; flags= [Vm_selectors]
       }
     )
   ; ( "vm-group-create"

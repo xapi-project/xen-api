@@ -333,7 +333,7 @@ open! Cmdliner
 let cmd =
   let info = Cmd.info daemon_name in
   let log_level =
-    let doc = "Syslog level. E.g. debug, info etc." in
+    let doc = "Syslog level. For example, debug, info etc." in
     let level_conv =
       let parse s =
         try `Ok (Syslog.level_of_string s)

@@ -101,6 +101,8 @@ let rel_nile_preview = "nile-preview"
 
 let rel_nile = "nile"
 
+let rel_orinoco = "orinoco"
+
 type api_release = {
     code_name: string option
   ; version_major: int
@@ -350,6 +352,13 @@ let release_order_full =
     ; version_major= 2
     ; version_minor= 21
     ; branding= "XenServer 8"
+    ; release_date= None
+    }
+  ; {
+      code_name= Some rel_orinoco
+    ; version_major= 2
+    ; version_minor= 23
+    ; branding= "XenServer 9"
     ; release_date= None
     }
   ]

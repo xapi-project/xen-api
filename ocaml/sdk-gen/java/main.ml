@@ -501,15 +501,6 @@ let get_types_json types =
           ("name", `String type_string)
         ; ("class_name", `String class_name)
         ; ("method_name", `String method_name)
-        ; ( "suppress_unchecked_warning"
-          , `Bool
-              ( match t with
-              | Map _ | Record _ | Option (Record _) | Option (Map _) ->
-                  true
-              | _ ->
-                  false
-              )
-          )
         ; ( "generate_reference_task_result_func"
           , `Bool generate_reference_task_result_func
           )

@@ -356,35 +356,7 @@ and gen_class out_chan cls =
         )
   ) ;
 
-  print
-    ";\n\
-    \        }\n\n\
-    \        [Obsolete(\"Use the calls setting individual fields of the API \
-     object instead.\")]\n\
-    \        public override string SaveChanges(Session session, string \
-     opaqueRef, %s server)\n\
-    \        {\n\
-    \            if (opaqueRef == null)\n\
-    \            {"
-    exposed_class_name ;
-
-  if cls.gen_constructor_destructor then
-    print
-      "\n\
-      \                var reference = create(session, this);\n\
-      \                return reference == null ? null : reference.opaque_ref;\n"
-  else
-    print
-      "\n\
-      \                System.Diagnostics.Debug.Assert(false, \"Cannot create \
-       instances of this type on the server\");\n\
-      \                return \"\";\n" ;
-
-  print "            }\n            else\n            {\n" ;
-
-  gen_save_changes out_chan exposed_class_name messages contents ;
-
-  print "\n            }\n        }\n" ;
+  print ";\n        }\n\n" ;
 
   let gen_exposed_method_overloads cls message =
     let generator x = gen_exposed_method cls message x in
@@ -605,63 +577,6 @@ and exposed_call_params message classname params =
       refParam :: exposedParams
   in
   String.concat ", " ("session.opaque_ref" :: exposedParams)
-
-(* 'messages' are methods, 'contents' are fields *)
-and gen_save_changes out_chan exposed_class_name messages contents =
-  let fields = List.concat_map flatten_content contents in
-  let fields2 =
-    List.filter
-      (fun fr -> fr.qualifier == RW && not (List.mem "public" fr.full_name))
-      fields
-  in
-  (* Find all StaticRO fields which have corresponding messages (methods) of the form set_readonlyField *)
-  let readonlyFieldsWithSetters =
-    List.filter
-      (fun field ->
-        field.qualifier == StaticRO
-        && List.exists
-             (fun msg ->
-               msg.msg_name = String.concat "" ["set_"; full_name field]
-             )
-             messages
-      )
-      fields
-  in
-  let length = List.length fields2 + List.length readonlyFieldsWithSetters in
-  let print format = fprintf out_chan format in
-  if length == 0 then
-    print
-      "              throw new InvalidOperationException(\"This type has no \
-       read/write properties\");"
-  else (
-    List.iter (gen_save_changes_to_field out_chan exposed_class_name) fields2 ;
-    (* Generate calls to any set_ methods *)
-    List.iter
-      (gen_save_changes_to_field out_chan exposed_class_name)
-      readonlyFieldsWithSetters ;
-    print "\n                return null;"
-  )
-
-and flatten_content content =
-  match content with
-  | Field fr ->
-      [fr]
-  | Namespace (_, c) ->
-      List.concat_map flatten_content c
-
-and gen_save_changes_to_field out_chan exposed_class_name fr =
-  let print format = fprintf out_chan format in
-  let full_name_fr = full_name fr in
-  let equality =
-    (* Use AreEqual2 - see CA-19220 *)
-    sprintf "Helper.AreEqual2(_%s, server._%s)" full_name_fr full_name_fr
-  in
-  print
-    "                if (!%s)\n\
-    \                {\n\
-    \                    %s.set_%s(session, opaqueRef, _%s);\n\
-    \                }\n"
-    equality exposed_class_name full_name_fr full_name_fr
 
 and gen_exposed_field out_chan cls content =
   match content with
