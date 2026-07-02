@@ -918,7 +918,6 @@ module Dhclient : sig
   val is_running : ?ipv6:bool -> interface -> bool
 
   val stop : ?ipv6:bool -> interface -> unit
-  (** stop: stop the DHCP client managing [interface] if running and to unconfigure addresses. *)
 
   val ensure_running :
        ?ipv6:bool
@@ -1051,32 +1050,27 @@ end = struct
         ]
       )
 
+  let stop ?(ipv6 = false) interface =
+    try
+      ignore
+        (call_script dhclient
+           [
+             "-r"
+           ; "-pf"
+           ; pid_file ~ipv6 interface
+           ; "-lf"
+           ; lease_file ~ipv6 interface
+           ; interface
+           ]
+        ) ;
+      Unix.unlink (pid_file ~ipv6 interface)
+    with _ -> ()
+
   let is_running ?(ipv6 = false) interface =
     try
       Unix.access (pid_file ~ipv6 interface) [Unix.F_OK] ;
       true
     with Unix.Unix_error _ -> false
-
-  let stop ?(ipv6 = false) interface =
-    if is_running ~ipv6 interface then
-      try
-        (* release DHCP lease and close the DHCP client *)
-        ignore
-          (call_script dhclient
-             [
-               "-r"
-             ; "-pf"
-             ; pid_file ~ipv6 interface
-             ; "-lf"
-             ; lease_file ~ipv6 interface
-             ; interface
-             ]
-          ) ;
-        (* flush configured addresses *)
-        Ip.flush_ip_addr ~ipv6 interface ;
-        (* remove the pid file *)
-        Unix.unlink (pid_file ~ipv6 interface)
-      with _ -> ()
 
   let ensure_running ?(ipv6 = false) interface options =
     if not (is_running ~ipv6 interface) then

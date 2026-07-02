@@ -486,7 +486,8 @@ module Interface = struct
         match conf with
         | None4 ->
             if List.mem name (Sysfs.list ()) then (
-              Dhclient.stop name ; Ip.flush_ip_addr name
+              if Dhclient.is_running name then ignore (Dhclient.stop name) ;
+              Ip.flush_ip_addr name
             )
         | DHCP4 ->
             let gateway =
@@ -504,7 +505,10 @@ module Interface = struct
             let options = gateway @ dns in
             Dhclient.ensure_running name options
         | Static4 addrs ->
-            Dhclient.stop name ;
+            if Dhclient.is_running name then (
+              ignore (Dhclient.stop name) ;
+              Ip.flush_ip_addr name
+            ) ;
             (* the function is meant to be idempotent and we want to avoid
                CA-239919 *)
             let cur_addrs = Ip.get_ipv4 name in
@@ -569,13 +573,15 @@ module Interface = struct
           match conf with
           | None6 ->
               if List.mem name (Sysfs.list ()) then (
-                Dhclient.stop ~ipv6:true name ;
+                if Dhclient.is_running ~ipv6:true name then
+                  ignore (Dhclient.stop ~ipv6:true name) ;
                 Sysctl.set_ipv6_autoconf name false ;
                 Ip.flush_ip_addr ~ipv6:true name
               )
           | Linklocal6 ->
               if List.mem name (Sysfs.list ()) then (
-                Dhclient.stop ~ipv6:true name ;
+                if Dhclient.is_running ~ipv6:true name then
+                  ignore (Dhclient.stop ~ipv6:true name) ;
                 Sysctl.set_ipv6_autoconf name false ;
                 Ip.flush_ip_addr ~ipv6:true name ;
                 Ip.set_ipv6_link_local_addr name
@@ -591,21 +597,24 @@ module Interface = struct
                   ~some:(fun n -> [`dns n])
                   !config.dns_interface
               in
-              Dhclient.stop ~ipv6:true name ;
+              if Dhclient.is_running ~ipv6:true name then
+                ignore (Dhclient.stop ~ipv6:true name) ;
               Sysctl.set_ipv6_autoconf name false ;
               Ip.flush_ip_addr ~ipv6:true name ;
               Ip.set_ipv6_link_local_addr name ;
               let options = gateway @ dns in
               ignore (Dhclient.ensure_running ~ipv6:true name options)
           | Autoconf6 ->
-              Dhclient.stop ~ipv6:true name ;
+              if Dhclient.is_running ~ipv6:true name then
+                ignore (Dhclient.stop ~ipv6:true name) ;
               Ip.flush_ip_addr ~ipv6:true name ;
               Ip.set_ipv6_link_local_addr name ;
               Sysctl.set_ipv6_autoconf name true
               (* Cannot link set down/up due to CA-89882 - IPv4 default route
                  cleared *)
           | Static6 addrs ->
-              Dhclient.stop ~ipv6:true name ;
+              if Dhclient.is_running ~ipv6:true name then
+                ignore (Dhclient.stop ~ipv6:true name) ;
               Sysctl.set_ipv6_autoconf name false ;
               (* add the link_local and clean the old one only when needed *)
               let cur_addrs =
