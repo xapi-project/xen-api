@@ -1015,8 +1015,7 @@ end = struct
     let file = conf_file ~ipv6 interface in
     try Unix.unlink file with _ -> ()
 
-  (** dhclient_start: configure and start dhclient. *)
-  let dhclient_start ~ipv6 interface options =
+  let start ?(ipv6 = false) interface options =
     (* If we have a gateway interface, pass it to dhclient-script via -e *)
     (* This prevents the default route being set erroneously on CentOS *)
     (* Normally this wouldn't happen as we're not requesting routers, *)
@@ -1036,15 +1035,16 @@ end = struct
       else
         ["-e"; "PEERDNS=no"]
     in
+    write_conf_file ~ipv6 interface options ;
     let ipv6' =
       if ipv6 then
         ["-6"]
       else
         []
     in
-    (* create an up-to-date configuration file. *)
-    write_conf_file ~ipv6 interface options ;
-    (* start dhclient *)
+    (* remove previously assigned addresses (like static ones) *)
+    Ip.flush_ip_addr interface ;
+    (* start DHCP client *)
     ignore
       (call_script ~timeout:None dhclient
          (ipv6'
@@ -1063,31 +1063,6 @@ end = struct
          )
       )
 
-  (* dhclient_stop: stop the running dhclient. release lease if asked. *)
-  let dhclient_stop ~ipv6 ~release interface =
-    remove_conf_file ~ipv6 interface ;
-    ignore
-      (call_script dhclient
-         [
-           ( if release then
-               "-r"
-             else
-               "-x"
-           )
-         ; "-pf"
-         ; pid_file ~ipv6 interface
-         ; "-lf"
-         ; lease_file ~ipv6 interface
-         ; interface
-         ]
-      )
-
-  let start ?(ipv6 = false) interface options =
-    (* remove previously assigned addresses (like static ones) *)
-    Ip.flush_ip_addr interface ;
-    (* start DHCP client *)
-    dhclient_start ~ipv6 interface options
-
   (* is_running: returns if the DHCP client is running. *)
   let is_running ~ipv6 interface =
     try
@@ -1099,7 +1074,17 @@ end = struct
     if is_running ~ipv6 interface then
       try
         (* release DHCP lease and close the DHCP client *)
-        dhclient_stop ~ipv6 ~release:true interface ;
+        ignore
+          (call_script dhclient
+             [
+               "-r"
+             ; "-pf"
+             ; pid_file ~ipv6 interface
+             ; "-lf"
+             ; lease_file ~ipv6 interface
+             ; interface
+             ]
+          ) ;
         (* flush configured addresses *)
         Ip.flush_ip_addr ~ipv6 interface ;
         (* remove the pid file *)
@@ -1111,12 +1096,13 @@ end = struct
       (* dhclient is not running, so we need to start it. *)
       start ~ipv6 interface options
     else
-      (* dhclient is running, if the config has changed, reload it. *)
+      (* dhclient is running - if the config has changed, update the config file
+         and restart. *)
       let current_conf = read_conf_file ~ipv6 interface in
       let new_conf = generate_conf ~ipv6 interface options in
       if current_conf <> Some new_conf then (
-        dhclient_stop ~ipv6 ~release:false interface ;
-        dhclient_start ~ipv6 interface options
+        stop ~ipv6 interface ;
+        start ~ipv6 interface options
       )
 end
 
