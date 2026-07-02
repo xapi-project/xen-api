@@ -288,14 +288,17 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
     VDISet.map get_snapshot_of snap_disks_reverted
   in
 
+  let vm_disks_without_snapshot =
+    let ( --- ) = VDISet.diff in
+    vm_disks_all --- snap_disks_snapshot_of
+  in
+
   let vm_disks_to_be_destroyed =
     let ( --- ) = VDISet.diff in
     let ( +++ ) = VDISet.union in
 
-    (* Disks without snapshot are left unattached after the revert is complete. *)
-    let vm_disks_without_snapshot = vm_disks_all --- snap_disks_snapshot_of in
-
     vm_disks_all
+    (* Disks without snapshot are left unattached after the revert is complete. *)
     --- vm_disks_without_snapshot
     --- vm_disks_already_reverted
     +++ vm_suspend_VDI
@@ -310,7 +313,9 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
 
   let vm_vbds_to_be_destroyed =
     let ( +++ ) = VBDSet.union in
-    filter_vbds_from_vdis vm_VBDs_all vm_disks_to_be_destroyed +++ vm_VBDs_CD
+    filter_vbds_from_vdis vm_VBDs_all vm_disks_to_be_destroyed
+    +++ filter_vbds_from_vdis vm_VBDs_all vm_disks_without_snapshot
+    +++ vm_VBDs_CD
   in
 
   let snap_VBDs_reverted =
