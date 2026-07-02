@@ -1,4 +1,5 @@
 _build/
+_mock/
 *.bak
 *.native
 .merlin
@@ -7,6 +8,8 @@ _coverage/
 *.swp
 compile_flags.txt
 _opam
+**/*.[ch]~
+.zed/
 
 # tests
 xapi-db.xml

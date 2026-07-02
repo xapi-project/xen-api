@@ -1574,14 +1574,13 @@ let get_uncooperative_domains ~__context ~self:_ = []
 
 let install_ca_certificate ~__context ~host:_ ~name ~cert =
   (* don't modify db - Pool.install_ca_certificate will handle that *)
-  Certificates.(host_install CA_Certificate ~name ~cert)
+  Certificates.(host_install Root_legacy ~name ~cert)
 
 let uninstall_ca_certificate ~__context ~host:_ ~name ~force =
   (* don't modify db - Pool.uninstall_ca_certificate will handle that *)
-  Certificates.(host_uninstall CA_Certificate ~name ~force)
+  Certificates.(host_uninstall Root_legacy ~name ~force)
 
-let certificate_list ~__context ~host:_ =
-  Certificates.(local_list CA_Certificate)
+let certificate_list ~__context ~host:_ = Certificates.(local_list Root_legacy)
 
 let crl_install ~__context ~host:_ ~name ~crl =
   Certificates.(host_install CRL ~name ~cert:crl)
@@ -1612,12 +1611,13 @@ let replace_host_certificate ~__context ~type' ~host
   with_cert_lock @@ fun () ->
   let old_certs = Db_util.get_host_certs ~__context ~type' ~host in
   let new_cert = write_cert_fs () in
-  let (_ : API.ref_Certificate) =
+  let (_ : API.ref_Certificate), _ =
     match type' with
     | `host ->
-        Db_util.add_cert ~__context ~type':(`host host) new_cert
+        Db_util.add_cert ~__context ~type':(`host host) ~purpose:[] new_cert
     | `host_internal ->
-        Db_util.add_cert ~__context ~type':(`host_internal host) new_cert
+        Db_util.add_cert ~__context ~type':(`host_internal host) ~purpose:[]
+          new_cert
   in
   List.iter (Db_util.remove_cert_by_ref ~__context) old_certs ;
   let task = Context.get_task_id __context in
@@ -1979,6 +1979,21 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
 let disable_external_auth ~__context ~host ~config ~force =
   disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
     ~force ()
+
+(* Enable or disable LDAPS for external authentication on a host *)
+let external_auth_set_ldaps ~__context ~host ~ldaps ~force =
+  let open Api_errors in
+  let auth_error_to_set_ldaps_error f =
+    try f ()
+    with Server_error (code, params) when code = auth_service_error ->
+      raise (Server_error (auth_set_ldaps_failed, Ref.string_of host :: params))
+  in
+
+  (* Just dispatch to the backend *)
+  with_lock serialize_host_enable_disable_extauth @@ fun () ->
+  auth_error_to_set_ldaps_error @@ fun () ->
+  Extauth.call_with_exception_handler @@ fun () ->
+  (Ext_auth.d ()).set_ldaps ~__context ~ldaps ~force
 
 module Static_vdis_list = Xapi_database.Static_vdis_list
 

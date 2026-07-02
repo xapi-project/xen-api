@@ -965,6 +965,38 @@ let upgrade_ca_fingerprints =
       )
   }
 
+let upgrade_secureboot_certificates_state =
+  {
+    description= "Set secureboot_certificates_state for existing VMs"
+  ; version= (fun x -> x < (5, 903))
+  ; fn=
+      (fun ~__context ->
+        List.iter
+          (fun self ->
+            if
+              Db.VM.get_is_control_domain ~__context ~self
+              || Db.VM.get_is_default_template ~__context ~self
+            then
+              ()
+            else
+              let boot_params = Db.VM.get_HVM_boot_params ~__context ~self in
+              let is_uefi =
+                List.assoc_opt "firmware" boot_params = Some "uefi"
+              in
+              if is_uefi then
+                let state =
+                  ( Xapi_vm_helpers.check_secureboot_certificates_state
+                      ~__context ~self
+                    :> API.vm_secureboot_certificates_state
+                    )
+                in
+                Db.VM.set_secureboot_certificates_state ~__context ~self
+                  ~value:state
+          )
+          (Db.VM.get_all ~__context)
+      )
+  }
+
 let rules =
   [
     upgrade_domain_type
@@ -995,6 +1027,7 @@ let rules =
   ; empty_pool_uefi_certificates
   ; upgrade_update_guidance
   ; upgrade_ca_fingerprints
+  ; upgrade_secureboot_certificates_state
   ]
 
 (* Maybe upgrade most recent db *)

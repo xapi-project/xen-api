@@ -2676,6 +2676,12 @@ let vm_record rpc session_id vm =
               Client.VM.set_groups ~rpc ~session_id ~self:vm ~value
           )
           ()
+      ; make_field ~name:"secureboot-certificates-state"
+          ~get:(fun () ->
+            Record_util.vm_secureboot_certificates_state_to_string
+              (x ()).API.vM_secureboot_certificates_state
+          )
+          ()
       ; make_field ~name:"snapshot-schedule"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_snapshot_schedule)
           ~set:(fun x ->
@@ -3956,6 +3962,12 @@ let sm_record rpc session_id sm =
           ()
       ; make_field ~name:"required-cluster-stack"
           ~get:(fun () -> concat_with_comma (x ()).API.sM_required_cluster_stack)
+          ()
+      ; make_field ~name:"supported-image-formats"
+          ~get:(fun () ->
+            map_and_concat Record_util.image_format_type_to_string
+              (x ()).API.sM_supported_image_formats
+          )
           ()
       ]
   }
@@ -5462,6 +5474,12 @@ let certificate_record rpc session_id certificate =
           ()
       ; make_field ~name:"fingerprint_sha1"
           ~get:(fun () -> (x ()).API.certificate_fingerprint_sha1)
+          ()
+      ; make_field ~name:"purpose"
+          ~get:(fun () ->
+            map_and_concat Record_util.certificate_purpose_to_string
+              (x ()).API.certificate_purpose
+          )
           ()
       ]
   }

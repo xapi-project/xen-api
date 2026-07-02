@@ -843,6 +843,13 @@ functor
       let data_destroy =
         destroy_and_data_destroy "VDI.data_destroy" Impl.VDI.data_destroy
 
+      let revert context ~dbg ~sr ~snapshot_info =
+        with_dbg ~name:"VDI.revert" ~dbg @@ fun di ->
+        info "VDI.revert dbg:%s sr:%s snapshot:%s" di.log (s_of_sr sr)
+          (string_of_vdi_info snapshot_info) ;
+        let dbg = Debug_info.to_string di in
+        Impl.VDI.revert context ~dbg ~sr ~snapshot_info
+
       let stat context ~dbg ~sr ~vdi =
         with_dbg ~name:"VDI.stat" ~dbg @@ fun di ->
         info "VDI.stat dbg:%s sr:%s vdi:%s" di.log (s_of_sr sr) (s_of_vdi vdi) ;
@@ -1156,7 +1163,7 @@ functor
           (s_of_vdi vdi) url (s_of_sr dest) ;
         Impl.DATA.copy context ~dbg ~sr ~vdi ~vm ~url ~dest
 
-      let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~dest:_ =
+      let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~image_format:_ ~vm:_ ~dest:_ =
         Storage_interface.unimplemented __FUNCTION__
 
       let stat _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~key:_ =
@@ -1206,8 +1213,8 @@ functor
       module MIRROR = struct
         type context = unit
 
-        let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
-            ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
+        let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~image_format:_
+            ~mirror_vm:_ ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
             ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
           Storage_interface.unimplemented __FUNCTION__
 
@@ -1227,7 +1234,7 @@ functor
             ~similar ~vm
 
         let receive_start3 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
-            ~similar:_ ~vm:_ =
+            ~image_format:_ ~similar:_ ~vm:_ =
           (* See Storage_smapiv1_migrate.receive_start3 *)
           Storage_interface.unimplemented __FUNCTION__
 

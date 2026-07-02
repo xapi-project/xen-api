@@ -322,6 +322,7 @@ module Vif = struct
   type ipv4_configuration =
     | Unspecified4
     | Static4 of string list * string option
+    | DHCP4
   [@@deriving rpcty]
 
   (* a list of CIDRs and optionally a gateway *)
@@ -331,6 +332,7 @@ module Vif = struct
   type ipv6_configuration =
     | Unspecified6
     | Static6 of string list * string option
+    | Autoconf6
   [@@deriving rpcty]
 
   (* a list of CIDRs and optionally a gateway *)

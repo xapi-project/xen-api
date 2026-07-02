@@ -124,8 +124,6 @@ install:
 	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
-	$(IPROG) xe-switch-network-backend-bash-completion $(DESTDIR)/etc/bash_completion.d/xe-switch-network-backend
-	$(IPROG) xe-switch-network-backend $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-syslog-reconfigure $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xe-install-supplemental-pack $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-enable-ipv6 $(DESTDIR)$(OPTDIR)/bin

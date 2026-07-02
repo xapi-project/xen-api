@@ -1,7 +1,7 @@
 (executable
   (modes exe)
   (name jsapi)
-  (libraries    
+  (libraries
     mustache
     rpclib.core
     rpclib.json
@@ -10,7 +10,6 @@
     xapi-consts
     xapi-datamodel
     xapi-stdext-pervasives
-    xapi-stdext-std
     xapi-stdext-unix
   )
   (preprocess (pps ppx_deriving_rpc))

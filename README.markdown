@@ -59,6 +59,10 @@ To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/d
 
     ```bash
     opam install xs-toolstack
+
+    # Install developer tools (utop, ocamlformat, ocaml-lsp-server, etc.)
+    opam install dev-tools
+
     # Update the current switch. (You're already on the correct one, just refresh it).
     eval $(opam env)
     ```

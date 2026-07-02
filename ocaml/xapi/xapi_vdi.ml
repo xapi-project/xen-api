@@ -39,7 +39,7 @@ let feature_of_op =
       Some Vdi_resize_online
   | `generate_config ->
       Some Vdi_generate_config
-  | `clone ->
+  | `clone | `revert_to | `revert_from ->
       Some Vdi_clone
   | `mirror ->
       Some Vdi_mirror
@@ -210,11 +210,16 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
     (* check to see whether VBDs exist which are using this VDI *)
 
     (* If the VBD is currently_attached then some operations can still be
-       performed ie: VDI.clone (if the VM is suspended we have to have the
-        'allow_clone_suspended_vm' flag); VDI.snapshot; VDI.resize_online;
-        'blocked' (CP-831); VDI.data_destroy: it is not allowed on VDIs linked
-        to a VM, but the implementation first waits for the VDI's VBDs to be
-        unplugged and destroyed, and the checks are performed there.
+       performed ie:
+       - VDI.clone (if the VM is suspended we have to have the
+         'allow_clone_suspended_vm' flag)
+       - VDI.snapshot
+       - VDI.resize_online
+       - VDI.blocked (CP-831)
+       - VDI.data_destroy: it is not allowed on VDIs linked to a VM, but the
+         implementation first waits for the VDI's VBDs to be unplugged and
+         destroyed, and the checks are performed there
+       - VDI.revert: is allowed as checkpoints have currently_attached VBDs
     *)
     let operation_can_be_performed_live =
       match op with
@@ -222,6 +227,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
       | `resize_online
       | `blocked
       | `clone
+      | `revert_to
       | `mirror
       | `enable_cbt
       | `disable_cbt
@@ -305,6 +311,8 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
       | `resize
       | `resize_online
       | `snapshot
+      | `revert_to
+      | `revert_from
       | `set_on_boot ->
           false
       | `blocked
@@ -347,6 +355,8 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
       | `resize
       | `resize_online
       | `snapshot
+      | `revert_to
+      | `revert_from
       | `update ->
           true
     in
@@ -387,7 +397,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
           Error (Api_errors.vdi_has_rrds, [_ref])
         else
           Ok ()
-    | `destroy ->
+    | `destroy | `revert_from ->
         check_destroy ()
     | `data_destroy ->
         if not record.Db_actions.vDI_is_a_snapshot then
@@ -443,6 +453,11 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
             )
         else if reset_on_boot then
           Error (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
+        else
+          Ok ()
+    | `revert_to ->
+        if not record.Db_actions.vDI_is_a_snapshot then
+          Error (Api_errors.only_revert_snapshot, [])
         else
           Ok ()
     | `mirror
@@ -531,36 +546,6 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   Helpers.cancel_tasks ~__context ~ops ~all_tasks_in_db ~task_ids ~set
 
 (**************************************************************************************)
-
-(* Helper function to create a new VDI record with all fields copied from
-   an original, except ref and *_operations, UUID and others supplied as optional arguments.
-   If a new UUID is not supplied, a fresh one is generated.
-   storage_lock defaults to false.
-   Parent defaults to Ref.null.
-*)
-(*let clone_record ~uuid ?name_label ?name_description ?sR ?virtual_size ?location
-    ?physical_utilisation ?_type ?sharable ?read_only ?storage_lock ?other_config ?parent
-    ?xenstore_data ?sm_config ~current_operations ~__context ~original () =
-  let a = Db.VDI.get_record_internal ~__context ~self:original in
-  let r = Ref.make () in
-  Db.VDI.create ~__context ~ref:r
-    ~uuid:(Uuidx.to_string uuid)
-    ~name_label:(default a.Db_actions.vDI_name_label name_label)
-    ~name_description:(default a.Db_actions.vDI_name_description name_description)
-    ~allowed_operations:[] ~current_operations
-    ~sR:(default a.Db_actions.vDI_SR sR)
-    ~virtual_size:(default a.Db_actions.vDI_virtual_size virtual_size)
-    ~physical_utilisation:(default a.Db_actions.vDI_physical_utilisation physical_utilisation)
-    ~_type:(default a.Db_actions.vDI_type _type)
-    ~sharable:(default a.Db_actions.vDI_sharable sharable)
-    ~read_only:(default a.Db_actions.vDI_read_only read_only)
-    ~other_config:(default a.Db_actions.vDI_other_config other_config)
-    ~storage_lock:(default false storage_lock)
-    ~location:(default a.Db_actions.vDI_location location) ~managed:true ~missing:false
-    ~xenstore_data:(default a.Db_actions.vDI_xenstore_data xenstore_data)
-    ~sm_config:(default a.Db_actions.vDI_sm_config sm_config)
-    ~parent:(default Ref.null parent);
-  r*)
 
 (* This function updates xapi's database for a single VDI. The row will be created if it doesn't exist *)
 let update_vdi_db ~__context ~sr newvdi =
@@ -1132,6 +1117,35 @@ let clone ~__context ~vdi ~driver_params =
           raise e
       )
   )
+
+let revert' ~__context ~snapshot =
+  let module C = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
+    let rpc = Storage_access.rpc
+  end)) in
+  let sr = Db.VDI.get_SR ~__context ~self:snapshot in
+  Sm.assert_pbd_is_plugged ~__context ~sr ;
+  Xapi_vdi_helpers.assert_managed ~__context ~vdi:snapshot ;
+  let snapshot_rec = Db.VDI.get_record ~__context ~self:snapshot in
+
+  let task = Context.get_task_id __context in
+  let snapshot_info =
+    Storage_smapiv1.vdi_info_of_vdi_rec __context snapshot_rec
+  in
+  let sr' =
+    Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string
+  in
+  (* We don't use transform_storage_exn because of the fallback below *)
+  C.VDI.revert (Ref.string_of task) sr' snapshot_info
+
+let revert ~__context ~snapshot =
+  let __FUN = __FUNCTION__ in
+  Storage_utils.transform_storage_exn @@ fun () ->
+  try revert' ~__context ~snapshot
+  with Storage_interface.Storage_error (Unimplemented _) ->
+    let msg = [Ref.string_of (Db.VDI.get_SR ~__context ~self:snapshot)] in
+    debug "%s: Backend reported not implemented despite it offering the feature"
+      __FUN ;
+    raise Api_errors.(Server_error (unimplemented_in_sm_backend, msg))
 
 let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi ;

@@ -161,10 +161,10 @@ _xe()
                     suggested_modes="dhcp,static,none,autoconf"
                 elif [ "${COMP_WORDS[1]}" == "vif-configure-ipv4" ]; then
                     IFS=$'\n,'
-                    suggested_modes="static,none"
+                    suggested_modes="dhcp,static,none"
                 elif [ "${COMP_WORDS[1]}" == "vif-configure-ipv6" ]; then
                     IFS=$'\n,'
-                    suggested_modes="static,none"
+                    suggested_modes="static,none,autoconf"
                 elif [ "${OLDSTYLE_WORDS[1]}" == "bond-set-mode" ] || [ "${OLDSTYLE_WORDS[1]}" == "bond-create" ]; then
                     IFS=$'\n,'
                     suggested_modes="balance-slb,active-backup,lacp"
@@ -585,7 +585,7 @@ _xe()
 
                     # Show corresponding name labels for each UUID
                     SHOW_DESCRIPTION=1
-                    local name_label_cmd="$xe ${class}-list params=name-label 2>/dev/null --minimal uuid="
+                    local name_label_cmd="$xe ${class}-list params=name-label,device 2>/dev/null --minimal uuid="
                     __xe_debug "triggering autocompletion for UUIDs, list command is '${class}-list'"
                     __xe_debug "name_label_cmd is '$name_label_cmd'"
 

@@ -31,4 +31,6 @@ val with_dbg :
   -> (t -> 'a)
   -> 'a
 
+val span_of : t -> Tracing.Span.t option
+
 val traceparent_of_dbg : string -> string option

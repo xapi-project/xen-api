@@ -21,7 +21,9 @@ open D
 let proxy_port_name vif =
   (* Interface names in Linux are at most 15 characters. We derive a
      name from the MAC address to ensure uniqueness, and make it fit. *)
-  let mac = Xapi_stdext_std.Xstringext.String.replace ":" "" vif.API.vIF_MAC in
+  let mac =
+    Astring.String.filter (function ':' -> false | _ -> true) vif.API.vIF_MAC
+  in
   Printf.sprintf "pvs%s" mac
 
 (** [proxies] returns all currently attached proxies *)

@@ -70,6 +70,7 @@ val mirror_snapshot :
   -> dp:string
   -> mirror_id:string
   -> local_vdi:Storage_interface.vdi_info
+  -> image_format:string
   -> Storage_interface.vdi_info
 
 val mirror_checker : string -> Tapctl.tapdev -> unit
