@@ -32,26 +32,36 @@ let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
    amount becomes available *)
 let rec worker_loop ~bucket ~process_queue ~process_queue_lock
     ~worker_thread_cond ~should_terminate =
-  let process_item cost callback =
-    Token_bucket.delay_then_consume bucket cost ;
-    callback ()
-  in
-  let item_opt =
+  let peeked =
     with_lock process_queue_lock (fun () ->
         while
           Queue.is_empty process_queue && not (Atomic.get should_terminate)
         do
           Condition.wait worker_thread_cond process_queue_lock
         done ;
-        Queue.take_opt process_queue
+        match Queue.peek_opt process_queue with
+        | None ->
+            None
+        | Some (cost, _) ->
+            let delay = Token_bucket.get_delay_until_available bucket cost in
+            Some (cost, delay)
     )
   in
-  match item_opt with
+  match peeked with
   | None ->
       (* Queue is empty only when termination was signalled *)
       D.debug "%s: queue empty in deleted rate limiter; exiting" __FUNCTION__
-  | Some (cost, callback) ->
-      process_item cost callback ;
+  | Some (cost, delay) ->
+      if delay > 0. then Thread.delay delay ;
+      let callback_opt =
+        with_lock process_queue_lock (fun () ->
+            if Token_bucket.consume bucket cost then
+              Option.map snd (Queue.take_opt process_queue)
+            else
+              None
+        )
+      in
+      Option.iter (fun cb -> cb ()) callback_opt ;
       worker_loop ~bucket ~process_queue ~process_queue_lock ~worker_thread_cond
         ~should_terminate
 
