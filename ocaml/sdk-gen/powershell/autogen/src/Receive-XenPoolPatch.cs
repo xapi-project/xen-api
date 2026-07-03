@@ -58,8 +58,8 @@ namespace Citrix.XenServer.Commands
             GetSession();
 
             RunApiCall(() => XenAPI.HTTP_actions.get_pool_patch_download(DataCopiedDelegate,
-                CancellingDelegate, TimeoutMs, XenHost, Proxy, Path, TaskRef,
-                session.opaque_ref, Uuid));
+                CancellingDelegate, TimeoutMs, XenHost, Proxy, CertificateValidationCallback,
+                Path, TaskRef, session.opaque_ref, Uuid));
         }
 
         #endregion
