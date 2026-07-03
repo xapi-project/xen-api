@@ -144,12 +144,15 @@ let test_snapshot_ignore_vdi rpc session_id vm vdi vdi2 =
   check_vdi_snapshot_of rpc session_id vbds ~vdi "0"
 
 let test_revert rpc session_id vm vdi vdi2 ~change =
-  let snapshot = take_snapshot rpc session_id vm ~origin:__FUNCTION__ in
+  let snapshot =
+    take_snapshot rpc session_id vm ~origin:__FUNCTION__ ~ignore_vdis:[vdi2]
+  in
   Client.Client.VM.revert ~rpc ~session_id ~snapshot ;
 
   let vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:vm in
+  Alcotest.(check int)
+    "There should only be one VBD after VM.revert" 1 (List.length vbds) ;
   let vdi_after = get_vdi_with_user_device rpc session_id vbds "0" in
-  let vdi_after2 = get_vdi_with_user_device rpc session_id vbds "1" in
 
   let check =
     if change then
@@ -158,7 +161,7 @@ let test_revert rpc session_id vm vdi vdi2 ~change =
     else
       check_vdis_same
   in
-  check vdi vdi_after ; check vdi2 vdi_after2
+  check vdi vdi_after
 
 let test_revert_cds rpc session_id vm vdi vdi2 =
   let snapshot = take_snapshot rpc session_id vm ~origin:__FUNCTION__ in
