@@ -132,6 +132,30 @@ let test_submit_sync_concurrent () =
   done ;
   Rate_limit.delete rl
 
+let test_no_skip_ahead_during_worker_delay () =
+  (* A caller arriving while the worker is delaying the only queued item
+     must not skip ahead of it. The queued item has a large cost so the
+     worker's delay is long enough for the bucket to refill enough that a
+     newly-arriving cheap caller could opportunistically consume without
+     the fix. *)
+  let rl = Rate_limit.create ~burst_size:10.0 ~fill_rate:100.0 in
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) 10.0 ;
+  let execution_order = ref [] in
+  let order_mutex = Mutex.create () in
+  let record_execution id =
+    Mutex.lock order_mutex ;
+    execution_order := id :: !execution_order ;
+    Mutex.unlock order_mutex
+  in
+  Rate_limit.submit_async rl ~callback:(fun () -> record_execution 1) 10.0 ;
+  Thread.delay 0.02 ;
+  Rate_limit.submit_async rl ~callback:(fun () -> record_execution 2) 1.0 ;
+  Thread.delay 0.2 ;
+  let order = List.rev !execution_order in
+  Alcotest.(check (list int))
+    "late arrival does not overtake queued item" [1; 2] order ;
+  Rate_limit.delete rl
+
 let test_submit_sync_interleaved () =
   (* Test interleaving submit and submit_sync *)
   let rl = Rate_limit.create ~burst_size:2.0 ~fill_rate:10.0 in
@@ -157,6 +181,10 @@ let test =
   ; ("Submit sync with queue", `Slow, test_submit_sync_with_queued_items)
   ; ("Submit sync concurrent", `Slow, test_submit_sync_concurrent)
   ; ("Submit sync interleaved", `Slow, test_submit_sync_interleaved)
+  ; ( "No skip-ahead during worker delay"
+    , `Slow
+    , test_no_skip_ahead_during_worker_delay
+    )
   ]
 
 let () = Alcotest.run "Rate limit library" [("Rate limit tests", test)]
