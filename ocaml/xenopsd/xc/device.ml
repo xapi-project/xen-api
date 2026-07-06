@@ -826,10 +826,11 @@ module Vif = struct
       ?(extra_private_keys = []) ?(extra_xenserver_keys = [])
       (task : Xenops_task.task_handle) domid =
     debug
-      "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s \
+      "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s trunks=%s \
        other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]"
       domid devid mac carrier
       (match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b)
+      (String.concat "," (List.map Int64.to_string trunks))
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
       (String.concat "; "
          (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys)
