@@ -252,7 +252,7 @@ let prototyped_of_message = function
   | "VTPM", "create" ->
       Some "22.26.0"
   | "VDI", "revert" ->
-      Some "26.15.0-next"
+      Some "26.16.0"
   | "host", "set_servertime" ->
       Some "26.0.0"
   | "host", "get_ntp_synchronized" ->
@@ -312,7 +312,7 @@ let prototyped_of_message = function
   | "pool", "exchange_trusted_certificates_on_join" ->
       Some "26.13.0"
   | "pool", "sync_trusted_certificates_from" ->
-      Some "26.15.0-next"
+      Some "26.16.0"
   | "pool", "uninstall_trusted_certificate" ->
       Some "26.13.0"
   | "pool", "install_trusted_certificate" ->
