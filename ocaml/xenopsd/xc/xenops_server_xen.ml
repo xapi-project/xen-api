@@ -5476,12 +5476,16 @@ module VIF = struct
         | Network.Sriov _ ->
             raise (Xenopsd_error (Unimplemented "network SR-IOV"))
         | Network.Local _ | Network.Remote _ ->
-            let open Device_common in
             (* If the device is gone then this is ok *)
             let device = device_by_id xc xs vm Vif (id_of vif) in
+            let path = Device_common.get_private_data_path_of_device device in
+            let trunks_path = path ^ "/trunks" in
             let trunks_str =
               String.concat "," (List.map Int64.to_string trunks)
             in
+            (* Update xenstore key *)
+            xs.Xs.write trunks_path trunks_str ;
+            (* Apply the configuration *)
             let setup port_name =
               debug "set_trunks: setup: %s trunks=[%s]" port_name trunks_str ;
               try
