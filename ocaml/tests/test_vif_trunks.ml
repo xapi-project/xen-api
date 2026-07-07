@@ -62,14 +62,23 @@ let test_trunks_coherence_vif_set () =
   let vM = T.make_vm ~__context () in
   let vif = T.make_vif ~__context ~device:"1" ~vM ~network:vlan_network () in
   Alcotest.(check_raises)
-    "test_trunks_coherence_vif_set testing"
+    "test_trunks_coherence_vif_set testing (add_trunks)"
     Api_errors.(
       Server_error
         ( Api_errors.network_incompatible_with_trunks
         , [Ref.string_of vlan_network]
         )
     )
-    (fun () -> Xapi_vif.add_trunks ~__context ~self:vif ~value:2201L)
+    (fun () -> Xapi_vif.add_trunks ~__context ~self:vif ~value:2201L) ;
+  Alcotest.(check_raises)
+    "test_trunks_coherence_vif_set testing (set_trunks)"
+    Api_errors.(
+      Server_error
+        ( Api_errors.network_incompatible_with_trunks
+        , [Ref.string_of vlan_network]
+        )
+    )
+    (fun () -> Xapi_vif.set_trunks ~__context ~self:vif ~value:[2201L])
 
 (** try to add VIF (with trunks) on incompatible network *)
 let test_trunks_coherence_vif_add () =
@@ -114,22 +123,35 @@ let test_trunks_coherence_pif_vlan () =
   let _vif =
     T.make_vif ~__context ~device:"1" ~vM ~network ~trunks:[3201L] ()
   in
+  (* prepare to create a VLAN *)
+  let host = T.make_host ~__context () in
+  let network2 = T.make_network ~__context () in
+  let tagged_PIF = T.make_pif ~__context ~network:network2 ~host () in
+  let tag = 2201L in
   Alcotest.(check_raises)
-    "test_trunks_coherence_pif_vlan testing"
+    "test_trunks_coherence_pif_vlan testing via T.make_pif"
     Api_errors.(
       Server_error
         (Api_errors.network_incompatible_with_trunks, [Ref.string_of network])
     )
     (fun () ->
-      (* create a VLAN *)
-      let host = T.make_host ~__context () in
-      let network2 = T.make_network ~__context () in
-      let tagged_PIF = T.make_pif ~__context ~network:network2 ~host () in
-      let tag = 2201L in
       let untagged_PIF = T.make_pif ~__context ~network ~host ~vLAN:tag () in
       let _vlan = T.make_vlan ~__context ~tagged_PIF ~untagged_PIF ~tag () in
       ()
     )
+(* can't call Xapi_vlan.create in test: it is hanging while trying to contact networkd *)
+(* ;
+  Alcotest.(check_raises)
+    "test_trunks_coherence_pif_vlan testing via Xapi_vlan.create"
+    Api_errors.(
+      Server_error
+        (Api_errors.network_incompatible_with_trunks, [Ref.string_of network])
+    )
+    (fun () ->
+      let _vlan = Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network in
+      ()
+    )
+  *)
 
 let test_trunks_move () =
   let __context = T.make_test_database () in
@@ -142,6 +164,7 @@ let test_trunks_move () =
     "test_trunks_move testing" ()
     (Xapi_vif.move ~__context ~self:vif ~network:network2)
 
+(** try to move a VIF (with trunks) to VLAN *)
 let test_trunks_move_to_vlan () =
   let __context = T.make_test_database () in
   (* create VM + VIF (with trunks) *)
