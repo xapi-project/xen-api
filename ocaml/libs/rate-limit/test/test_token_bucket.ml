@@ -253,6 +253,102 @@ let test_edge_cases () =
   Alcotest.(check bool)
     "Consuming very small amount should succeed" true success_small
 
+let test_oversized_consume_goes_negative () =
+  let initial_time = Mtime.Span.of_uint64_ns 0L in
+  let tb =
+    Token_bucket.create_with_timestamp initial_time ~burst_size:5.0
+      ~fill_rate:1.0
+  in
+  let success =
+    Token_bucket.consume_with_timestamp (fun () -> initial_time) tb 10.0
+  in
+  Alcotest.(check bool)
+    "Oversized consume from a full bucket should succeed" true success ;
+  Alcotest.(check (float 0.0))
+    "Bucket should be negative by (amount - burst_size)" (-5.0)
+    (Token_bucket.peek_with_timestamp initial_time tb)
+
+let test_second_oversized_consume_waits_for_burst () =
+  let initial_time = Mtime.Span.of_uint64_ns 0L in
+  let tb =
+    Token_bucket.create_with_timestamp initial_time ~burst_size:5.0
+      ~fill_rate:1.0
+  in
+  let _ =
+    Token_bucket.consume_with_timestamp (fun () -> initial_time) tb 10.0
+  in
+
+  (* After 5s: -5 + 5*1 = 0 tokens; bucket must still be at burst_size (5)
+     before a second oversized request can run. *)
+  let five_s = Mtime.Span.of_uint64_ns 5_000_000_000L in
+  Alcotest.(check (float 0.0))
+    "5s later, tokens have climbed to zero" 0.0
+    (Token_bucket.peek_with_timestamp five_s tb) ;
+  Alcotest.(check (float 0.0))
+    "Delay until second oversized request is (burst - current) / fill_rate" 5.0
+    (Token_bucket.get_delay_until_available_timestamp five_s tb 6.0) ;
+  let fail_now =
+    Token_bucket.consume_with_timestamp (fun () -> five_s) tb 6.0
+  in
+  Alcotest.(check bool)
+    "Oversized consume before bucket reaches burst_size should fail" false
+    fail_now ;
+
+  (* At 10s: -5 + 10*1 = 5 tokens (capped at burst_size), consume 6 succeeds
+     and leaves the bucket at -1. *)
+  let ten_s = Mtime.Span.of_uint64_ns 10_000_000_000L in
+  let success = Token_bucket.consume_with_timestamp (fun () -> ten_s) tb 6.0 in
+  Alcotest.(check bool)
+    "Second oversized consume succeeds once bucket refills to burst_size" true
+    success ;
+  Alcotest.(check (float 0.0))
+    "Bucket sits at burst_size - amount after second oversized consume" (-1.0)
+    (Token_bucket.peek_with_timestamp ten_s tb)
+
+(* Regression guard for the hang: previously, [delay_then_consume] on an
+   amount greater than [burst_size] looped forever because [consume] can
+   never see enough tokens (refill caps at [burst_size]) and
+   [get_delay_until_available] kept returning the same non-zero delay. Each
+   case here drains the bucket first so the operation must go through the
+   refill path, then runs it in a worker thread and asserts it completes
+   within a generous bound. A regression would leave the flag unset and
+   fail the alcotest check rather than deadlock the whole suite. *)
+let test_delay_then_consume_always_terminates () =
+  let cases =
+    [
+      (* label, burst_size, fill_rate, amount, bound_s *)
+      ("standard request from drained bucket", 5.0, 100.0, 3.0, 1.0)
+    ; ("amount equal to burst_size", 5.0, 100.0, 5.0, 1.0)
+    ; ("oversized request, tight bucket", 0.5, 200.0, 10.0, 1.0)
+    ; ("oversized request, small bucket", 1.0, 100.0, 5.0, 1.0)
+    ]
+  in
+  List.iter
+    (fun (label, burst_size, fill_rate, amount, bound_s) ->
+      let tb = Token_bucket.create ~burst_size ~fill_rate in
+      ignore (Token_bucket.consume tb burst_size) ;
+      let done_flag = Atomic.make false in
+      let _worker =
+        Thread.create
+          (fun () ->
+            Token_bucket.delay_then_consume tb amount ;
+            Atomic.set done_flag true
+          )
+          ()
+      in
+      let start = Mtime_clock.counter () in
+      let elapsed_s () =
+        Mtime.Span.to_float_ns (Mtime_clock.count start) *. 1e-9
+      in
+      while (not (Atomic.get done_flag)) && elapsed_s () < bound_s do
+        Thread.delay 0.01
+      done ;
+      Alcotest.(check bool)
+        (Printf.sprintf "delay_then_consume terminates: %s" label)
+        true (Atomic.get done_flag)
+    )
+    cases
+
 let test_consume_quickcheck =
   let open QCheck.Gen in
   let gen_operations =
@@ -397,6 +493,18 @@ let test =
     )
   ; ("Delay until available", `Quick, test_delay_until_available)
   ; ("Edge cases", `Quick, test_edge_cases)
+  ; ( "Oversized consume drives the bucket negative"
+    , `Quick
+    , test_oversized_consume_goes_negative
+    )
+  ; ( "Second oversized consume waits for burst refill"
+    , `Quick
+    , test_second_oversized_consume_waits_for_burst
+    )
+  ; ( "delay_then_consume always terminates"
+    , `Quick
+    , test_delay_then_consume_always_terminates
+    )
   ; QCheck_alcotest.to_alcotest test_consume_quickcheck
   ]
 

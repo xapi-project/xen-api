@@ -37,6 +37,10 @@ let peek_with_timestamp timestamp tb =
 
 let peek tb = peek_with_timestamp (Mtime_clock.elapsed ()) tb
 
+(* A request whose cost exceeds [burst_size] can never wait for its full
+   amount to accumulate (refill caps at [burst_size]). We admit such a
+   request once the bucket is full and let [tokens] go negative; the debt
+   is repaid at [fill_rate] before any later request can proceed. *)
 let consume_with_timestamp get_time tb amount =
   let rec try_consume () =
     let timestamp = get_time () in
@@ -45,8 +49,9 @@ let consume_with_timestamp get_time tb amount =
       compute_tokens timestamp old_state ~burst_size:tb.burst_size
         ~fill_rate:tb.fill_rate
     in
+    let required = Float.min amount tb.burst_size in
     let success, final_tokens =
-      if new_tokens >= amount then
+      if new_tokens >= required then
         (true, new_tokens -. amount)
       else
         (false, new_tokens)
@@ -67,7 +72,8 @@ let get_delay_until_available_timestamp timestamp tb amount =
     compute_tokens timestamp {tokens; last_refill} ~burst_size:tb.burst_size
       ~fill_rate:tb.fill_rate
   in
-  let required_tokens = max 0. (amount -. current_tokens) in
+  let required = Float.min amount tb.burst_size in
+  let required_tokens = max 0. (required -. current_tokens) in
   required_tokens /. tb.fill_rate
 
 let get_delay_until_available tb amount =
