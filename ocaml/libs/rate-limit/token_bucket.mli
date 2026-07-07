@@ -25,6 +25,12 @@
     only when sufficient tokens are available - otherwise, the operations can
     be delayed until enough tokens are available.
 
+    A single request whose cost exceeds [burst_size] cannot be satisfied by
+    a full bucket. Rather than being rejected, such a request is admitted
+    once the bucket reaches [burst_size] and the token count is allowed to
+    go negative; the debt is repaid at [fill_rate] before any subsequent
+    request can proceed. [peek] therefore may return a value below zero.
+
     To avoid doing unnecessary work to refill the bucket, token amounts are
     only updated when a consume operation is carried out. The buckets keep a
     last_refill timestamp which is updated on consume in tandem with the token
@@ -51,15 +57,20 @@ val peek : t -> float
    *)
 
 val consume : t -> float -> bool
-(** Consume tokens from the bucket in a thread-safe manner.
+(** Consume tokens from the bucket in a thread-safe manner. Succeeds when
+    the bucket contains at least [min amount burst_size] tokens; on success
+    [amount] is subtracted, which may leave the token count negative if
+    [amount > burst_size].
      @param tb Token bucket
      @param amount How many tokens to consume
      @return Whether the tokens were successfully consumed
    *)
 
 val get_delay_until_available : t -> float -> float
-(** Get number of seconds that need to pass until bucket is expected to have
-    enough tokens to fulfil the request
+(** Get number of seconds that need to pass until [consume tb amount] is
+    expected to succeed. For [amount > burst_size] this is the time until
+    the bucket reaches [burst_size] (after which the request is admitted
+    and the bucket goes negative).
     @param tb Token bucket
     @param amount How many tokens we want to consume
     @return Number of seconds until tokens are available
