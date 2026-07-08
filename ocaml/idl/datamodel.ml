@@ -3386,6 +3386,21 @@ module PBD = struct
         ]
       ~doc:"Sets the PBD's device_config field" ~allowed_roles:_R_POOL_OP ()
 
+  let set_storage_driver_domain =
+    call ~name:"set_storage_driver_domain" ~in_oss_since:None ~lifecycle:[]
+      ~params:
+        [
+          (Ref _pbd, "self", "The PBD to modify")
+        ; ( Ref _vm
+          , "value"
+          , "The VM which hosts the storage backend for this PBD (null means \
+             dom0)"
+          )
+        ]
+      ~errs:[Api_errors.invalid_value]
+      ~doc:"Set the VM which hosts the storage backend for this PBD"
+      ~allowed_roles:_R_POOL_ADMIN ()
+
   let t =
     create_obj ~in_db:true
       ~lifecycle:
@@ -3400,7 +3415,7 @@ module PBD = struct
       ~descr:"The physical block devices through which hosts access SRs"
       ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
-      ~messages:[plug; unplug; set_device_config]
+      ~messages:[plug; unplug; set_device_config; set_storage_driver_domain]
       ~contents:
         [
           uid
@@ -3452,6 +3467,10 @@ module PBD = struct
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _vm) ~lifecycle:[]
+            ~default_value:(Some (VRef null_ref)) "storage_driver_domain"
+            "the VM which hosts the storage backend for this PBD (null means \
+             dom0); set with set_storage_driver_domain"
         ]
       ()
 end
@@ -10644,6 +10663,7 @@ let all_relations =
   ; ((_tunnel, "transport_PIF"), (_pif, "tunnel_transport_PIF_of"))
   ; ((_pbd, "host"), (_host, "PBDs"))
   ; ((_pbd, "SR"), (_sr, "PBDs"))
+  ; ((_pbd, "storage_driver_domain"), (_vm, "storage_driver_domain_of"))
   ; ((_vbd, "VDI"), (_vdi, "VBDs"))
   ; ((_crashdump, "VDI"), (_vdi, "crash_dumps"))
   ; (*  (_vdi, "parent"), (_vdi, "children"); *)

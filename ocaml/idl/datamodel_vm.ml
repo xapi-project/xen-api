@@ -2885,6 +2885,9 @@ let t =
             ~lifecycle:[(Published, rel_rio, "virtual block devices")]
             ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs"
             "virtual block devices"
+        ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:(Set (Ref _pbd))
+            "storage_driver_domain_of"
+            "the PBDs for which this VM is the storage driver domain"
         ; field
             ~lifecycle:[(Published, rel_rio, "virtual usb devices")]
             ~qualifier:DynamicRO ~ty:(Set (Ref _vusb)) "VUSBs"

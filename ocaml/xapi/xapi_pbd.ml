@@ -56,7 +56,7 @@ let create_common ~__context ~host ~sR ~device_config ~currently_attached =
   let ref = Ref.make () in
   let uuid = Uuidx.to_string (Uuidx.make ()) in
   Db.PBD.create ~__context ~ref ~uuid ~host ~sR ~device_config:dev_cfg
-    ~currently_attached ~other_config:[] ;
+    ~currently_attached ~other_config:[] ~storage_driver_domain:Ref.null ;
   ref
 
 let create ~__context ~host ~sR ~device_config ~other_config:_ =
@@ -183,6 +183,28 @@ let plug ~__context ~self =
     let sr = Db.PBD.get_SR ~__context ~self in
     let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
     let host = Db.PBD.get_host ~__context ~self in
+    (* If this PBD's storage backend runs in a driver domain rather than dom0,
+       that VM must be running on this host before we can attach the SR through
+       it, so start it here if it is currently halted.
+       NOTE: starting the domain is necessary but not sufficient -- the storage
+       implementation is responsible for ensuring the in-guest storage service
+       is actually ready before SR.attach can succeed. This only guarantees the
+       domain exists and is running on the host that owns the PBD. Non-halted,
+       non-running states (paused/suspended) are left untouched: SR.attach will
+       fail if the backend is not reachable. *)
+    ( let sdd = Db.PBD.get_storage_driver_domain ~__context ~self in
+      if Db.is_valid_ref __context sdd then
+        match Db.VM.get_power_state ~__context ~self:sdd with
+        | `Running ->
+            ()
+        | `Halted ->
+            Helpers.call_api_functions ~__context (fun rpc session_id ->
+                Client.Client.VM.start_on ~rpc ~session_id ~vm:sdd ~host
+                  ~start_paused:false ~force:false
+            )
+        | `Paused | `Suspended ->
+            ()
+    ) ;
     (* This must NOT be done while holding the lock, because the functions that
        eventually get called also grab the clustering lock. We can call this
        unconditionally because the operations it calls should be idempotent. *)
@@ -292,6 +314,41 @@ let set_device_config ~__context ~self ~value =
   (* Only allowed from the SM plugin *)
   assert_no_srmaster_key value ;
   Db.PBD.set_device_config ~__context ~self ~value
+
+let set_storage_driver_domain ~__context ~self ~value =
+  (* A null value means the storage backend runs in dom0. Any non-null value
+     must reference an existing VM (the driver domain). *)
+  if value <> Ref.null && not (Db.is_valid_ref __context value) then
+    raise
+      (Api_errors.Server_error
+         (Api_errors.invalid_value, ["value"; Ref.string_of value])
+      ) ;
+  ( if value <> Ref.null then
+      (* A storage driver domain runs on exactly one host, so every PBD it
+         serves must belong to that host. Reject an assignment that would make
+         the domain span hosts: either against the PBDs it already serves, or
+         against the host it is currently running on. Without this, a PBD could
+         be bound to a domain that could never boot on the PBD's host (see
+         Xapi_vm_helpers.assert_matches_storage_driver_domain_host). *)
+      let pbd_host = Db.PBD.get_host ~__context ~self in
+      let reject reason =
+        raise
+          (Api_errors.Server_error (Api_errors.operation_not_allowed, [reason]))
+      in
+      List.iter
+        (fun pbd ->
+          if pbd <> self && Db.PBD.get_host ~__context ~self:pbd <> pbd_host then
+            reject
+              "storage driver domain already serves a PBD on a different host"
+        )
+        (Db.VM.get_storage_driver_domain_of ~__context ~self:value) ;
+      let resident = Db.VM.get_resident_on ~__context ~self:value in
+      if Db.is_valid_ref __context resident && resident <> pbd_host then
+        reject
+          "storage driver domain is running on a host that does not own this \
+           PBD"
+  ) ;
+  Db.PBD.set_storage_driver_domain ~__context ~self ~value
 
 let get_locally_attached ~__context =
   let host = Helpers.get_localhost ~__context in
