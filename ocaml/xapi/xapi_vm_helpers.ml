@@ -158,6 +158,19 @@ let update_vm_virtual_hardware_platform_version ~__context ~vm =
 let destroy ~__context ~self =
   (* Used to be a call to hard shutdown here, but this will be redundant *)
   (* given the call to 'assert_operation_valid' *)
+  (* A storage driver domain must not be destroyed while any PBD still names it
+     as its storage backend; doing so would leave those PBDs orphaned. *)
+  ( match System_domains.pbds_of_vm ~__context ~vm:self with
+  | [] ->
+      ()
+  | _ :: _ ->
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.operation_not_allowed
+           , ["VM is a storage driver domain with PBDs referencing it"]
+           )
+        )
+  ) ;
   debug "VM.destroy: deleting DB records" ;
   (* Should we be destroying blobs? It's possible to create a blob and then
      	   add its reference to multiple objects. Perhaps we want to just leave the
@@ -627,6 +640,28 @@ let assert_matches_control_domain_affinity ~__context ~self ~host =
              )
           )
 
+(* A storage driver domain may only boot on the host that owns the PBD(s) it
+   serves; it is pinned there for the same reasons it must not migrate. *)
+let assert_matches_storage_driver_domain_host ~__context ~self ~host =
+  let pbds = System_domains.pbds_of_vm ~__context ~vm:self in
+  if
+    pbds <> []
+    && not
+         (List.for_all
+            (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = host)
+            pbds
+         )
+  then
+    raise
+      (Api_errors.Server_error
+         ( Api_errors.operation_not_allowed
+         , [
+             "Cannot boot a storage driver domain on a host that does not own \
+              its PBD(s)"
+           ]
+         )
+      )
+
 let assert_enough_pcpus ~__context ~self ~host ?remote () =
   let vcpus = Db.VM.get_VCPUs_max ~__context ~self in
   let pcpus =
@@ -687,6 +722,7 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check
   validate_basic_parameters ~__context ~self ~snapshot ;
   assert_host_is_live ~__context ~host ;
   assert_matches_control_domain_affinity ~__context ~self ~host ;
+  assert_matches_storage_driver_domain_host ~__context ~self ~host ;
   let is_local_live_migration =
     Db.VM.get_power_state ~__context ~self = `Running
     && Db.VM.get_resident_on ~__context ~self = host

@@ -32,17 +32,18 @@ let get_is_system_domain ~__context ~self =
    previous other-config:storage_driver_domain key, which was dropped for security
    hardening (XSA-489 / CVE-2026-23561). *)
 
-open Xapi_database.Db_filter_types
+let pbds_of_vm ~__context ~vm =
+  (* Use the auto-maintained PBD.storage_driver_domain <->
+     VM.storage_driver_domain_of relation rather than a manual DB query. *)
+  if Db.is_valid_ref __context vm then
+    Db.VM.get_storage_driver_domain_of ~__context ~self:vm
+  else
+    []
 
 let pbd_of_vm ~__context ~vm =
-  match
-    Db.PBD.get_refs_where ~__context
-      ~expr:(Eq (Field "storage_driver_domain", Literal (Ref.string_of vm)))
-  with
-  | pbd :: _ ->
-      Some pbd
-  | [] ->
-      None
+  match pbds_of_vm ~__context ~vm with pbd :: _ -> Some pbd | [] -> None
+
+let is_storage_driver_domain ~__context ~vm = pbds_of_vm ~__context ~vm <> []
 
 let storage_driver_domain_of_pbd ~__context ~pbd =
   let domain = Db.PBD.get_storage_driver_domain ~__context ~self:pbd in

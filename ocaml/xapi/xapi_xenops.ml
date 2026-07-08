@@ -1351,7 +1351,7 @@ module MD = struct
        a value has already been provided in platformdata. Other VMs are left
        with the defaults. *)
     let is_storage_driver_domain =
-      System_domains.pbd_of_vm ~__context ~vm:vmref <> None
+      System_domains.is_storage_driver_domain ~__context ~vm:vmref
     in
     let ssidref =
       if is_storage_driver_domain then
