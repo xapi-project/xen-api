@@ -26,16 +26,45 @@ let is_system_domain snapshot = snapshot.API.vM_is_control_domain
 let get_is_system_domain ~__context ~self =
   is_system_domain (Db.VM.get_record ~__context ~self)
 
-(* NOTE: the storage domain functionality used to be based on
-   other-config:storage_driver_domain, which has been dropped *)
+(* The storage driver domain for a PBD is now configured through the first-class
+   PBD.storage_driver_domain field (a reference to the VM hosting the SR backend).
+   A null (or dangling) reference means the backend runs in dom0. This replaces the
+   previous other-config:storage_driver_domain key, which was dropped for security
+   hardening (XSA-489 / CVE-2026-23561). *)
 
-let pbd_of_vm ~__context:_ ~vm:_ = None
+open Xapi_database.Db_filter_types
 
-let storage_driver_domain_of_pbd ~__context ~pbd:_ =
-  Helpers.get_domain_zero ~__context
+let pbd_of_vm ~__context ~vm =
+  match
+    Db.PBD.get_refs_where ~__context
+      ~expr:(Eq (Field "storage_driver_domain", Literal (Ref.string_of vm)))
+  with
+  | pbd :: _ ->
+      Some pbd
+  | [] ->
+      None
 
-let storage_driver_domain_of_vbd ~__context ~vbd:_ =
-  Helpers.get_domain_zero ~__context
+let storage_driver_domain_of_pbd ~__context ~pbd =
+  let domain = Db.PBD.get_storage_driver_domain ~__context ~self:pbd in
+  if Db.is_valid_ref __context domain then
+    domain
+  else
+    Helpers.get_domain_zero ~__context
+
+let storage_driver_domain_of_vbd ~__context ~vbd =
+  let dom0 = Helpers.get_domain_zero ~__context in
+  let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+  if Db.is_valid_ref __context vdi then
+    let sr = Db.VDI.get_SR ~__context ~self:vdi in
+    let sr_pbds = Db.SR.get_PBDs ~__context ~self:sr in
+    let my_pbds = List.map fst (Helpers.get_my_pbds __context) in
+    match Xapi_stdext_std.Listext.List.intersect sr_pbds my_pbds with
+    | pbd :: _ ->
+        storage_driver_domain_of_pbd ~__context ~pbd
+    | _ ->
+        dom0
+  else
+    dom0
 
 let storage_driver_domain_of_sr_type ~__context ~_type:_ =
   Helpers.get_domain_zero ~__context

@@ -6028,6 +6028,12 @@ functor
         let remote_fn = Client.PBD.set_device_config ~self ~value in
         forward_pbd_op ~local_fn ~__context ~self ~remote_fn
 
+      (* A pure database update on the coordinator; no host forwarding needed. *)
+      let set_storage_driver_domain ~__context ~self ~value =
+        info "PBD.set_storage_driver_domain: PBD = '%s'; VM = '%s'"
+          (pbd_uuid ~__context self) (Ref.string_of value) ;
+        Local.PBD.set_storage_driver_domain ~__context ~self ~value
+
       (* Mark the SR and check, if we are the 'SRmaster' that no VDI
          current_operations are present (eg snapshot, clone) since these are all
          done on the SR master. *)

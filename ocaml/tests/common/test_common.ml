@@ -388,9 +388,10 @@ let make_sr ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
 
 let make_pbd ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(host = Ref.make ()) ?(sR = Ref.make ()) ?(device_config = [])
-    ?(currently_attached = true) ?(other_config = []) () =
+    ?(currently_attached = true) ?(other_config = [])
+    ?(storage_driver_domain = Ref.null) () =
   Db.PBD.create ~__context ~ref ~uuid ~host ~sR ~device_config
-    ~currently_attached ~other_config ;
+    ~currently_attached ~other_config ~storage_driver_domain ;
   ref
 
 let make_vbd ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())

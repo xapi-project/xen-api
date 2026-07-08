@@ -4175,6 +4175,19 @@ let pbd_record rpc session_id pbd =
           )
           ~get_map:(fun () -> (x ()).API.pBD_other_config)
           ()
+      ; make_field ~name:"storage-driver-domain"
+          ~get:(fun () ->
+            get_uuid_from_ref_or_null (x ()).API.pBD_storage_driver_domain
+          )
+          ~set:(fun x ->
+            if x = "" then
+              Client.PBD.set_storage_driver_domain ~rpc ~session_id ~self:pbd
+                ~value:Ref.null
+            else
+              Client.PBD.set_storage_driver_domain ~rpc ~session_id ~self:pbd
+                ~value:(Client.VM.get_by_uuid ~rpc ~session_id ~uuid:x)
+          )
+          ()
       ]
   }
 
