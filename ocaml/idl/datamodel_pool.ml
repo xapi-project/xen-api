@@ -2365,8 +2365,12 @@ let t =
              created VM whose Secure Boot certificates are due to expire by \
              setting VM.secureboot_certificates_state to update_on_boot (the \
              same effect as VM.update_secureboot_certificates_on_boot), so the \
-             certificates are updated on the VM's next boot. Only applies to \
-             VM.create."
+             certificates are updated on the VM's next boot. This applies to \
+             VMs created by VM.create, including those created by operations \
+             that internally call it: the HTTP(s) PUT /import and \
+             /import_metadata calls and disaster recovery (VM.recover and \
+             VM_appliance.recover); it does not apply to VM.clone or VM.copy, \
+             which inherit the source VM's state."
         ]
       )
     ()
