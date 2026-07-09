@@ -2049,7 +2049,7 @@ let external_auth_set_ldaps =
     ~lifecycle:
       [
         ( Published
-        , "26.1.14-next"
+        , "26.1.15-next"
         , "This call enables or disables LDAPS for external authentication on \
            the host"
         )
@@ -2060,21 +2060,21 @@ let external_auth_set_ldaps =
           param_type= Ref _host
         ; param_name= "host"
         ; param_doc= "The host whose LDAPS configuration should be set"
-        ; param_release= numbered_release "26.1.14-next"
+        ; param_release= numbered_release "26.1.15-next"
         ; param_default= None
         }
       ; {
           param_type= Bool
         ; param_name= "ldaps"
         ; param_doc= "Whether to enable or disable LDAPS"
-        ; param_release= numbered_release "26.1.14-next"
+        ; param_release= numbered_release "26.1.15-next"
         ; param_default= None
         }
       ; {
           param_type= Bool
         ; param_name= "force"
         ; param_doc= "Force the operation even if already in the desired state"
-        ; param_release= numbered_release "26.1.14-next"
+        ; param_release= numbered_release "26.1.15-next"
         ; param_default= Some (VBool false)
         }
       ]
