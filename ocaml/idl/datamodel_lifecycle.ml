@@ -306,7 +306,7 @@ let prototyped_of_message = function
   | "pool", "exchange_trusted_certificates_on_join" ->
       Some "26.1.12"
   | "pool", "sync_trusted_certificates_from" ->
-      Some "26.1.14"
+      Some "26.1.15-next"
   | "pool", "uninstall_trusted_certificate" ->
       Some "26.1.12"
   | "pool", "install_trusted_certificate" ->
