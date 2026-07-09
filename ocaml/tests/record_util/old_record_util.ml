@@ -299,6 +299,10 @@ let vdi_operation_to_string : API.vdi_operations -> string = function
       "set_on_boot"
   | `blocked ->
       "blocked"
+  | `revert_to ->
+      "revert_to"
+  | `revert_from ->
+      "revert_from"
 
 let sr_operation_to_string : API.storage_operations -> string = function
   | `scan ->
@@ -356,6 +360,8 @@ let sr_operation_to_string : API.storage_operations -> string = function
       "VDI.resize_online"
   | `vdi_update ->
       "VDI.update"
+  | `vdi_revert ->
+      "VDI.revert"
 
 let vbd_operation_to_string = function
   | `attach ->

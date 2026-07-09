@@ -1125,6 +1125,24 @@ module SMAPIv1 : Server_impl = struct
           raise (Storage_error (Backend_error (code, params)))
       | Sm.MasterOnly ->
           redirect sr
+
+    let call_revert ~__context ~dbg ~sr ~snapshot_info =
+      let snap = find_vdi ~__context sr snapshot_info.vdi |> fst in
+      for_vdi ~dbg ~sr ~vdi:snapshot_info.snapshot_of "VDI.revert"
+        (fun device_config _type sr self ->
+          Sm.vdi_revert ~dbg device_config _type sr self snap
+      )
+
+    let revert _context ~dbg ~sr ~snapshot_info =
+      with_dbg ~name:"VDI.revert" ~dbg @@ fun di ->
+      let dbg = Debug_info.to_string di in
+      try
+        Server_helpers.exec_with_new_task "VDI.revert"
+          ~subtask_of:(Ref.of_string dbg) (fun __context ->
+            call_revert ~__context ~dbg ~sr ~snapshot_info
+        )
+      with Smint.Not_implemented_in_backend ->
+        raise (Storage_error (Unimplemented "VDI.revert"))
   end
 
   let get_by_name _context ~dbg:_ ~name:_ = assert false
@@ -1150,12 +1168,11 @@ module SMAPIv1 : Server_impl = struct
           ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
         assert false
 
-      let receive_start _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~image_format:_
-          ~similar:_ =
+      let receive_start _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ =
         assert false
 
-      let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~image_format:_
-          ~similar:_ ~vm:_ =
+      let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_
+          ~vm:_ =
         assert false
 
       let receive_start3 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_

@@ -143,26 +143,39 @@ let test_snapshot_ignore_vdi rpc session_id vm vdi vdi2 =
     (has_been_snapshot "1") ;
   check_vdi_snapshot_of rpc session_id vbds ~vdi "0"
 
-let test_revert rpc session_id vm vdi vdi2 =
-  let snapshot = take_snapshot rpc session_id vm ~origin:__FUNCTION__ in
+let test_revert rpc session_id vm vdi vdi2 ~change =
+  let snapshot =
+    take_snapshot rpc session_id vm ~origin:__FUNCTION__ ~ignore_vdis:[vdi2]
+  in
   Client.Client.VM.revert ~rpc ~session_id ~snapshot ;
 
   let vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:vm in
+  Alcotest.(check int)
+    "There should only be one VBD after VM.revert" 1 (List.length vbds) ;
   let vdi_after = get_vdi_with_user_device rpc session_id vbds "0" in
-  let vdi_after2 = get_vdi_with_user_device rpc session_id vbds "1" in
 
-  (* Xapi forces VDI clones, the VDIs' IDs will always change *)
-  check_vdis_different vdi vdi_after ;
-  check_vdis_different vdi2 vdi_after2
+  let check =
+    if change then
+      (* Xapi forces VDI clones, the VDIs' IDs will always change *)
+      check_vdis_different
+    else
+      check_vdis_same
+  in
+  check vdi vdi_after
 
 let test_revert_cds rpc session_id vm vdi vdi2 =
   let snapshot = take_snapshot rpc session_id vm ~origin:__FUNCTION__ in
+
+  let snap_vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:snapshot in
+  Alcotest.(check int) "Snapshot must only have 2 VBDs" 2 (List.length snap_vbds) ;
+
   Client.Client.VM.revert ~rpc ~session_id ~snapshot ;
 
   let vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:vm in
   let vdi_after = get_vdi_with_user_device rpc session_id vbds "0" in
   let vdi_after2 = get_vdi_with_user_device rpc session_id vbds "1" in
 
+  Alcotest.(check int) "VM must only have 2 VBDs" 2 (List.length vbds) ;
   (* CD VDIs are considered immutable and the clone code ignores them *)
   check_vdis_same vdi vdi_after ;
   check_vdis_same vdi2 vdi_after2
@@ -178,13 +191,35 @@ let suite name with_setup tests sr_ops =
   |> sr SR.(all |> allowed_operations sr_ops)
   |> vm_template Qt.VM.Template.other
 
+let suite_split_revert name with_setup =
+  let open Qt_filter in
+  let needed_ops = [`vdi_create] in
+  let old_ops = [`vdi_clone] in
+  let new_ops = [`vdi_revert] in
+  let sr_candidates = SR.(all |> allowed_operations needed_ops) in
+  let sr_native = sr_candidates |> SR.allowed_operations new_ops in
+  let sr_clonables =
+    sr_candidates
+    |> SR.unavailable_operations new_ops
+    |> SR.allowed_operations old_ops
+  in
+  let tests (filter_name, sr_filter) tests_f =
+    let name = Printf.sprintf "%s (%s)" name filter_name in
+    [(name, `Slow, a_test with_setup tests_f)]
+    |> conn
+    |> sr sr_filter
+    |> vm_template Qt.VM.Template.other
+  in
+  tests ("with VDI.revert", sr_native) [test_revert ~change:false]
+  @ tests ("with cloning method", sr_clonables) [test_revert ~change:true]
+
 let tests () =
   List.concat
     [
-      suite "VM snapshot tests" with_setup
+      suite "VM snapshot" with_setup
         [test_snapshot; test_snapshot_ignore_vdi]
         [`vdi_create]
-    ; suite "VM revert tests" with_setup [test_revert] [`vdi_create; `vdi_clone]
-    ; suite "VM revert with CD tests" with_cd_setup [test_revert_cds]
+    ; suite_split_revert "VM revert" with_setup
+    ; suite "VM revert with CD" with_cd_setup [test_revert_cds]
         [`vdi_create; `vdi_clone]
     ]

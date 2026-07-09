@@ -175,6 +175,9 @@ module VDI = struct
 
   let list_changed_blocks ctx ~dbg ~sr ~vdi_from ~vdi_to =
     Storage_interface.unimplemented __FUNCTION__
+
+  let revert ctx ~dbg ~sr ~snapshot_info =
+    Storage_interface.unimplemented __FUNCTION__
 end
 
 let get_by_name ctx ~dbg ~name = Storage_interface.unimplemented __FUNCTION__
@@ -203,10 +206,10 @@ module DATA = struct
         ~verify_dest =
       Storage_interface.unimplemented __FUNCTION__
 
-    let receive_start ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar =
+    let receive_start ctx ~dbg ~sr ~vdi_info ~id ~similar =
       Storage_interface.unimplemented __FUNCTION__
 
-    let receive_start2 ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm =
+    let receive_start2 ctx ~dbg ~sr ~vdi_info ~id ~similar ~vm =
       Storage_interface.unimplemented __FUNCTION__
 
     let receive_start3 ctx ~dbg ~sr ~vdi_info ~mirror_id ~image_format ~similar

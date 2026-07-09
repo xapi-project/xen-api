@@ -843,6 +843,13 @@ functor
       let data_destroy =
         destroy_and_data_destroy "VDI.data_destroy" Impl.VDI.data_destroy
 
+      let revert context ~dbg ~sr ~snapshot_info =
+        with_dbg ~name:"VDI.revert" ~dbg @@ fun di ->
+        info "VDI.revert dbg:%s sr:%s snapshot:%s" di.log (s_of_sr sr)
+          (string_of_vdi_info snapshot_info) ;
+        let dbg = Debug_info.to_string di in
+        Impl.VDI.revert context ~dbg ~sr ~snapshot_info
+
       let stat context ~dbg ~sr ~vdi =
         with_dbg ~name:"VDI.stat" ~dbg @@ fun di ->
         info "VDI.stat dbg:%s sr:%s vdi:%s" di.log (s_of_sr sr) (s_of_vdi vdi) ;
@@ -1211,26 +1218,20 @@ functor
             ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
           Storage_interface.unimplemented __FUNCTION__
 
-        let receive_start context ~dbg ~sr ~vdi_info ~id ~image_format ~similar
-            =
-          info
-            "DATA.MIRROR.receive_start dbg:%s sr:%s id:%s image_format:%s \
-             similar:[%s]"
-            dbg (s_of_sr sr) id image_format
+        let receive_start context ~dbg ~sr ~vdi_info ~id ~similar =
+          info "DATA.MIRROR.receive_start dbg:%s sr:%s id:%s similar:[%s]" dbg
+            (s_of_sr sr) id
             (String.concat "," similar) ;
-          Impl.DATA.MIRROR.receive_start context ~dbg ~sr ~vdi_info ~id
-            ~image_format ~similar
+          Impl.DATA.MIRROR.receive_start context ~dbg ~sr ~vdi_info ~id ~similar
 
-        let receive_start2 context ~dbg ~sr ~vdi_info ~id ~image_format ~similar
-            ~vm =
+        let receive_start2 context ~dbg ~sr ~vdi_info ~id ~similar ~vm =
           info
-            "DATA.MIRROR.receive_start2 dbg:%s sr:%s id:%s image_format:%s \
-             similar:[%s] vm:%s"
-            dbg (s_of_sr sr) id image_format
+            "DATA.MIRROR.receive_start2 dbg:%s sr:%s id:%s similar:[%s] vm:%s"
+            dbg (s_of_sr sr) id
             (String.concat "," similar)
             (s_of_vm vm) ;
           Impl.DATA.MIRROR.receive_start2 context ~dbg ~sr ~vdi_info ~id
-            ~image_format ~similar ~vm
+            ~similar ~vm
 
         let receive_start3 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
             ~image_format:_ ~similar:_ ~vm:_ =

@@ -352,7 +352,9 @@ let compute_evacuation_plan_no_wlb ~__context ~host ?(ignore_ha = false) () =
     List.iter
       (fun (vm, _) ->
         Hashtbl.replace plans vm
-          (Error (Api_errors.host_not_enough_free_memory, [Ref.string_of vm]))
+          (Error
+             (Api_errors.host_evacuate_vm_not_ha_protected, [Ref.string_of vm])
+          )
       )
       unprotected_vms ;
     let migratable_vms, _ =
@@ -811,8 +813,13 @@ let restart_agent ~__context ~host:_ =
 let shutdown_agent ~__context =
   debug "Host.shutdown_agent: Host agent will shutdown in 1s!!!!" ;
   let host_uuid = Helpers.get_localhost_uuid () in
-  Xapi_hooks.xapi_pre_shutdown ~__context ~host_uuid
-    ~reason:Xapi_hooks.reason__clean_shutdown ;
+  ( try
+      Xapi_hooks.xapi_pre_shutdown ~__context ~host_uuid
+        ~reason:Xapi_hooks.reason__clean_shutdown
+    with exn ->
+      warn "%s: xapi_pre_shutdown hook failed: %s" __FUNCTION__
+        (Printexc.to_string exn)
+  ) ;
   Xapi_fuse.light_fuse_and_dont_restart ~fuse_length:1. ()
 
 let disable ~__context ~host ~auto_enable =
@@ -1979,6 +1986,21 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
 let disable_external_auth ~__context ~host ~config ~force =
   disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
     ~force ()
+
+(* Enable or disable LDAPS for external authentication on a host *)
+let external_auth_set_ldaps ~__context ~host ~ldaps ~force =
+  let open Api_errors in
+  let auth_error_to_set_ldaps_error f =
+    try f ()
+    with Server_error (code, params) when code = auth_service_error ->
+      raise (Server_error (auth_set_ldaps_failed, Ref.string_of host :: params))
+  in
+
+  (* Just dispatch to the backend *)
+  with_lock serialize_host_enable_disable_extauth @@ fun () ->
+  auth_error_to_set_ldaps_error @@ fun () ->
+  Extauth.call_with_exception_handler @@ fun () ->
+  (Ext_auth.d ()).set_ldaps ~__context ~ldaps ~force
 
 module Static_vdis_list = Xapi_database.Static_vdis_list
 

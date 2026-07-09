@@ -48,6 +48,7 @@ let all_ops : API.storage_operations_set =
   ; `vdi_list_changed_blocks
   ; `vdi_set_on_boot
   ; `vdi_introduce
+  ; `vdi_revert
   ; `update
   ; `pbd_create
   ; `pbd_destroy
@@ -89,6 +90,7 @@ let sm_cap_table : (API.storage_operations * _) list =
   ; (`vdi_list_changed_blocks, Vdi_configure_cbt)
   ; (`vdi_set_on_boot, Vdi_reset_on_boot)
   ; (`update, Sr_update)
+  ; (`vdi_revert, Vdi_revert)
   ; (* We fake clone ourselves *)
     (`vdi_snapshot, Vdi_snapshot)
   ]

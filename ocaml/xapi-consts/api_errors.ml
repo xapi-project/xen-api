@@ -1007,6 +1007,9 @@ let cannot_evacuate_host = add_error "CANNOT_EVACUATE_HOST"
 
 let host_evacuate_in_progress = add_error "HOST_EVACUATE_IN_PROGRESS"
 
+let host_evacuate_vm_not_ha_protected =
+  add_error "HOST_EVACUATE_VM_NOT_HA_PROTECTED"
+
 let system_status_retrieval_failed = add_error "SYSTEM_STATUS_RETRIEVAL_FAILED"
 
 let system_status_must_use_tar_on_oem =
@@ -1032,6 +1035,10 @@ let auth_unknown_type = add_error "AUTH_UNKNOWN_TYPE"
 
 let auth_is_disabled = add_error "AUTH_IS_DISABLED"
 
+let auth_invalid_trusted_certs = add_error "AUTH_INVALID_TRUSTED_CERTS"
+
+let auth_no_trusted_certs = add_error "AUTH_NO_TRUSTED_CERTS"
+
 let auth_suffix_wrong_credentials = "_WRONG_CREDENTIALS"
 
 let auth_suffix_permission_denied = "_PERMISSION_DENIED"
@@ -1043,6 +1050,16 @@ let auth_suffix_unavailable = "_UNAVAILABLE"
 let auth_suffix_invalid_ou = "_INVALID_OU"
 
 let auth_suffix_invalid_account = "_INVALID_ACCOUNT"
+
+let auth_suffix_invalid_trusted_certs = "_INVALID_TRUSTED_CERTS"
+
+let auth_suffix_no_trusted_certs = "_NO_TRUSTED_CERTS"
+
+let auth_suffix_setup_tls_connection = "_SETUP_TLS_CONNECTION"
+
+let auth_suffix_no_support_encrypt_type = "_NO_SUPPORT_ENCRYPT_TYPE"
+
+let auth_setup_tls_connection = add_error "AUTH_SETUP_TLS_CONNECTION"
 
 let auth_enable_failed = add_error "AUTH_ENABLE_FAILED"
 
@@ -1063,6 +1080,15 @@ let auth_enable_failed_invalid_ou =
 
 let auth_enable_failed_invalid_account =
   add_error $ auth_enable_failed ^ auth_suffix_invalid_account
+
+let auth_enable_failed_invalid_trusted_certs =
+  add_error $ auth_enable_failed ^ auth_suffix_invalid_trusted_certs
+
+let auth_enable_failed_no_trusted_certs =
+  add_error $ auth_enable_failed ^ auth_suffix_no_trusted_certs
+
+let auth_enable_failed_no_supp_encrypt_type =
+  add_error $ auth_enable_failed ^ auth_suffix_no_support_encrypt_type
 
 let auth_disable_failed = add_error "AUTH_DISABLE_FAILED"
 
@@ -1096,8 +1122,22 @@ let pool_auth_enable_failed_invalid_ou =
 let pool_auth_enable_failed_invalid_account =
   add_error $ pool_auth_enable_failed ^ auth_suffix_invalid_account
 
+let pool_auth_enable_failed_invalid_trusted_certs =
+  add_error $ pool_auth_enable_failed ^ auth_suffix_invalid_trusted_certs
+
+let pool_auth_enable_failed_no_trusted_certs =
+  add_error $ pool_auth_enable_failed ^ auth_suffix_no_trusted_certs
+
+let pool_auth_enable_failed_no_supp_encrypt_type =
+  add_error $ pool_auth_enable_failed ^ auth_suffix_no_support_encrypt_type
+
+let pool_auth_enable_failed_setup_tls_connection =
+  add_error $ pool_auth_enable_failed ^ auth_suffix_setup_tls_connection
+
 let pool_auth_enable_failed_duplicate_hostname =
   add_error $ pool_auth_enable_failed ^ "_DUPLICATE_HOSTNAME"
+
+let auth_set_ldaps_failed = add_error "AUTH_SET_LDAPS_FAILED"
 
 let pool_auth_disable_failed =
   add_error $ pool_auth_prefix ^ auth_disable_failed

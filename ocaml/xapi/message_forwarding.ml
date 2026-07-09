@@ -975,6 +975,12 @@ functor
           (pool_uuid ~__context pool) ;
         Local.Pool.disable_external_auth ~__context ~pool
 
+      let external_auth_set_ldaps ~__context ~pool ~ldaps ~force =
+        info "Pool.external_auth_set_ldaps: pool = '%s'; ldaps = %b; force = %b"
+          (pool_uuid ~__context pool)
+          ldaps force ;
+        Local.Pool.external_auth_set_ldaps ~__context ~pool ~ldaps ~force
+
       let enable_redo_log ~__context ~sr =
         info "Pool.enable_redo_log: pool = '%s'; sr_uuid = '%s'"
           (current_pool_uuid ~__context)
@@ -1267,6 +1273,21 @@ functor
           (pool_uuid ~__context self)
           (certificate_uuid ~__context certificate) ;
         Local.Pool.uninstall_trusted_certificate ~__context ~self ~certificate
+
+      let sync_trusted_certificates_from ~__context ~self ~remote_pool
+          ~remote_session ~remote_certificate ~ca =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs
+          ~doc:"Pool.sync_trusted_certificates_from"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info
+          "Pool.sync_trusted_certificates_from: pool=%S remote_pool=%S \
+           remote_certificate=%S ca=%b"
+          (pool_uuid ~__context self)
+          remote_pool remote_certificate ca ;
+        Local.Pool.sync_trusted_certificates_from ~__context ~self ~remote_pool
+          ~remote_session ~remote_certificate ~ca
 
       let exchange_trusted_certificates_on_join ~__context ~self ~ca ~import
           ~export =
@@ -3863,6 +3884,16 @@ functor
         in
         do_op_on ~local_fn ~__context ~host ~remote_fn
 
+      let external_auth_set_ldaps ~__context ~host ~ldaps ~force =
+        info "Host.external_auth_set_ldaps: host = '%s'; ldaps = %b; force = %b"
+          (host_uuid ~__context host)
+          ldaps force ;
+        let local_fn = Local.Host.external_auth_set_ldaps ~host ~ldaps ~force in
+        let remote_fn =
+          Client.Host.external_auth_set_ldaps ~host ~ldaps ~force
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
+
       let install_ca_certificate ~__context ~host ~name ~cert =
         info "Host.install_ca_certificate: host = '%s'; name = '%s'"
           (host_uuid ~__context host)
@@ -5562,6 +5593,23 @@ functor
           ~doc:"VDI.clone" (fun () ->
             forward_vdi_op ~local_fn ~__context ~self:vdi ~remote_fn
         )
+
+      let revert ~__context ~snapshot =
+        let ( let@ ) f x = f x in
+        let doc = "VDI.revert" in
+        info "%s: snapshot = '%s'" doc (vdi_uuid ~__context snapshot) ;
+        let local_fn = Local.VDI.revert ~snapshot in
+        let remote_fn = Client.VDI.revert ~snapshot in
+        let sr = Db.VDI.get_SR ~__context ~self:snapshot in
+        let vdi = Db.VDI.get_snapshot_of ~__context ~self:snapshot in
+        let op () =
+          forward_vdi_op ~local_fn ~__context ~self:snapshot ~remote_fn
+        in
+        let@ () =
+          with_sr_andor_vdi ~__context ~sr:(sr, `vdi_revert)
+            ~vdi:(snapshot, `revert_to) ~doc
+        in
+        with_sr_andor_vdi ~__context ~vdi:(vdi, `revert_from) ~doc op
 
       let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
         info "VDI.copy: VDI = '%s'; SR = '%s'; base_vdi = '%s'; into_vdi = '%s'"

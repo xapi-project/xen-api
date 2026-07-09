@@ -159,6 +159,8 @@ let prototyped_of_field = function
       Some "23.18.0"
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
+  | "pool", "auto_update_vm_secureboot_certificates" ->
+      Some "26.16.0-next"
   | "pool", "vm_console_idle_timeout" ->
       Some "26.1.0"
   | "pool", "limit_console_sessions" ->
@@ -251,6 +253,8 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
+  | "VDI", "revert" ->
+      Some "26.16.0"
   | "host", "set_servertime" ->
       Some "26.0.0"
   | "host", "get_ntp_synchronized" ->
@@ -309,6 +313,8 @@ let prototyped_of_message = function
       Some "26.13.0"
   | "pool", "exchange_trusted_certificates_on_join" ->
       Some "26.13.0"
+  | "pool", "sync_trusted_certificates_from" ->
+      Some "26.16.0"
   | "pool", "uninstall_trusted_certificate" ->
       Some "26.13.0"
   | "pool", "install_trusted_certificate" ->

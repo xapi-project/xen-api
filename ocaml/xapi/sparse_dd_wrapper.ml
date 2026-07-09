@@ -122,7 +122,7 @@ let dd_internal progress_cb base prezeroed verify_cert ?(proto = None) infile
                     ; "-size"
                     ; Int64.to_string size
                     ; "-good-ciphersuites"
-                    ; Constants.good_ciphersuites
+                    ; Tls_policy.Openssl.default_ciphers
                     ]
                   ; ( if prezeroed then
                         ["-prezeroed"]
