@@ -140,7 +140,12 @@ let connect_via_ktls_helper ~host ~port ~verify_cert =
   let args = helper_args ~host ~port ~fd_uuid ~verify_cert in
   D.debug "spawning %s for %s:%d" !helper_path host port ;
   let pid =
-    try Forkhelpers.safe_close_and_exec None None None configs !helper_path args
+    (* Route the helper's stdout+stderr to syslog under "ktls-helper" so its
+       "kTLS active" line and any error line are visible. *)
+    try
+      Forkhelpers.safe_close_and_exec None None None configs
+        ~syslog_stdout:(Forkhelpers.Syslog_WithKey "ktls-helper")
+        ~redirect_stderr_to_stdout:true !helper_path args
     with e -> close_ignore sock_helper ; close_ignore sock_xenopsd ; raise e
   in
   (* The helper now holds its own copy of sock_helper; we don't need ours. *)

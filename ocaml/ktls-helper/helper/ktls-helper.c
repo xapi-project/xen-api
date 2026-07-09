@@ -257,6 +257,15 @@ int main(int argc, char **argv) {
         die("kTLS RX not installed (kernel lacks TLS_RX for the negotiated "
             "cipher); negotiated cipher = %s", SSL_get_cipher_name(ssl));
 
+    /* Report the negotiated TLS version and cipher of the kTLS socket before
+       handoff. xenopsd forwards the helper's stdout and stderr to syslog (key
+       "ktls-helper"). Flush explicitly, as stdout to forkexecd is buffered;
+       otherwise the line is lost if the helper is killed on the xenopsd
+       timeout after the fd is sent. */
+    printf("kTLS active: %s %s\n", SSL_get_version(ssl),
+           SSL_get_cipher_name(ssl));
+    fflush(stdout);
+
     if (send_fd(send_fd_num, fd) < 0)
         die("sendmsg(SCM_RIGHTS) on fd %d: %s", send_fd_num, strerror(errno));
 
