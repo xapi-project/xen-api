@@ -233,6 +233,13 @@ let refresh_caller_rate_limit ~__context caller_ref =
         ~rate_limit_ref:record.API.caller_rate_limit
         ~caller_uuid:record.caller_uuid
 
+(* Install the caller_table refresh callback at module load time. The API
+   server can accept requests before [register] runs, and any
+   [Rate_limit.add_caller] that lands in that window would otherwise leave
+   the caller_table entry with rate_limit_ref = Ref.null (because
+   [notify_caller_changed] would fall through to the default no-op). *)
+let () = Xapi_rate_limit.set_caller_refresh_callback refresh_caller_rate_limit
+
 (* One token corresponds to a cheap DB read; expensive services cost multiples.
    The costs are loaded at startup from [Xapi_globs.call_costs_file], one
    "Class.method = cost" per line (key=value, '#' comments), so the values can be
@@ -413,7 +420,6 @@ let register ~__context =
       "Rate limiting disabled (rate_limit=false); skipping caller registration"
   else (
     load_token_costs () ;
-    Xapi_rate_limit.set_caller_refresh_callback refresh_caller_rate_limit ;
     List.iter
       (fun self ->
         let record = Db.Caller.get_record ~__context ~self in
