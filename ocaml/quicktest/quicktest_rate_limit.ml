@@ -2,14 +2,27 @@ module Caller = Client.Client.Caller
 module Rate_limit = Client.Client.Rate_limit
 module Pool = Client.Client.Pool
 
-(* Create an RPC function that uses a specific User-Agent header *)
+(* Create an RPC function that uses a specific User-Agent header. Mirrors the
+   transport chosen for the framework's default RPC so that the throttled and
+   unthrottled measurements go over the same channel. *)
 let make_rpc_with_user_agent user_agent =
   let http =
     Http.Request.make ~user_agent ~version:"1.1" ~keep_alive:false Http.Post "/"
   in
+  let open Xmlrpc_client in
+  let transport =
+    if !Quicktest_args.using_unix_domain_socket then
+      Unix Xapi_globs.unix_domain_socket
+    else
+      SSL
+        ( SSL.make ~use_fork_exec_helper:false
+            ~verify_cert:(Stunnel_client.pool ()) ()
+        , !Quicktest_args.host
+        , 443
+        )
+  in
   fun xml ->
-    Xmlrpc_client.XMLRPC_protocol.rpc ~srcstr:"quicktest" ~dststr:"xapi"
-      ~transport:(Unix Xapi_globs.unix_domain_socket) ~http xml
+    XMLRPC_protocol.rpc ~srcstr:"quicktest" ~dststr:"xapi" ~transport ~http xml
 
 (* Build a caller + rate-limit pair and link them. Returns a cleanup
    thunk that tears them down in dependency order. *)
@@ -50,10 +63,13 @@ let rate_limit_throttling_test rpc session_id () =
   let test_user_agent =
     "quicktest-rate-limit-throttle-" ^ Uuidx.(to_string (make ()))
   in
-  let burst_size = 0.5 in
-  let fill_rate = 2.0 in
-  (* Token cost for pool.get_all from xapi_caller.ml (default_token_cost) *)
-  let call_cost = 0.1 in
+  (* pool.get_all is not listed in call-costs.conf, so its cost falls back to
+     xapi_caller.ml's default_token_cost of 1.0. Pick burst/fill so 100 calls
+     take a few seconds while still throttling well below the unthrottled
+     rate. *)
+  let burst_size = 10.0 in
+  let fill_rate = 40.0 in
+  let call_cost = 1.0 in
   with_throttled_caller rpc session_id ~name:"quicktest-throttle"
     ~user_agent:test_user_agent ~burst_size ~fill_rate (fun caller_ref _ ->
       let throttled_rpc = make_rpc_with_user_agent test_user_agent in
@@ -87,22 +103,23 @@ let rate_limit_throttling_test rpc session_id () =
         in
         Printf.printf "%d throttled calls took %.3f seconds\n%!" num_calls
           elapsed_throttled ;
-        let throttle_ratio =
-          elapsed_throttled /. max elapsed_unthrottled 0.001
-        in
-        Printf.printf "Throttle ratio: %.2fx slower\n%!" throttle_ratio ;
-        (* Throttled calls should take noticeably longer - at least 2x slower *)
-        Alcotest.(check bool)
-          "Rate limiting causes observable slowdown" true (throttle_ratio > 2.0) ;
-        (* Absolute upper bound: time should not exceed theoretical maximum
-           based on token bucket math: (total_cost - burst) / fill_rate *)
+        (* Token-bucket adds a fixed delay once the initial burst is drained:
+           (N*cost - burst)/fill_rate. The unthrottled baseline captures
+           per-call RPC overhead, so subtracting it isolates the throttler's
+           contribution. Bound above and below to catch both under- and
+           over-limiting. Requires both paths to share a transport. *)
         let num_calls_f = Float.of_int num_calls in
-        let total_cost = num_calls_f *. call_cost in
-        let max_time = (total_cost -. burst_size) /. fill_rate in
-        Printf.printf "Max expected time: %.3f seconds\n%!" max_time ;
+        let floor =
+          Float.max 0.0 (((num_calls_f *. call_cost) -. burst_size) /. fill_rate)
+        in
+        let tolerance_low = 0.10 *. floor in
+        let tolerance_high = 0.5 +. (0.20 *. floor) in
         Alcotest.(check bool)
-          "Execution time within theoretical bound" true
-          (elapsed_throttled <= max_time)
+          "Throttled call time above predicted rate limit overhead" true
+          (elapsed_throttled >= floor -. tolerance_low) ;
+        Alcotest.(check bool)
+          "Throttled time below unthrottled + rate limit overhead" true
+          (elapsed_throttled <= floor +. elapsed_unthrottled +. tolerance_high)
   )
 
 (* Test that invalid rate limits are rejected *)
