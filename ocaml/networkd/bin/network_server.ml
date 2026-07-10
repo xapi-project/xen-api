@@ -910,20 +910,19 @@ module Interface = struct
         List.iter
           (function
             | ( name
-              , ( {
-                    ipv4_conf
-                  ; ipv4_gateway
-                  ; ipv6_conf
-                  ; ipv6_gateway
-                  ; ipv4_routes
-                  ; dns
-                  ; mtu
-                  ; ethtool_settings
-                  ; ethtool_offload
-                  ; _
-                  } as c
-                ) ) ->
-                update_config name c ;
+              , {
+                  ipv4_conf
+                ; ipv4_gateway
+                ; ipv6_conf
+                ; ipv6_gateway
+                ; ipv4_routes
+                ; dns
+                ; mtu
+                ; ethtool_settings
+                ; ethtool_offload
+                ; persistent_i
+                } ) ->
+                exec (fun () -> set_persistent dbg name persistent_i) ;
                 exec (fun () ->
                     match dns with
                     | None ->
