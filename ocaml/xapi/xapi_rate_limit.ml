@@ -93,14 +93,17 @@ let destroy ~__context ~self =
   Db.Rate_limit.destroy ~__context ~self
 
 let add_caller ~__context ~self ~caller =
-  (* One rate limit per caller: clear any existing attachment first. *)
+  (* One rate limit per caller. Set the new value directly: the datamodel's
+     reverse-relation machinery removes the caller from any previous
+     Rate_limit's [callers] set automatically. The previous implementation
+     cleared to Ref.null first and then set the target, which briefly
+     left the caller unlimited and triggered two full refreshes (each
+     an extra DB read for the callback). *)
   let previous = Db.Caller.get_rate_limit ~__context ~self:caller in
-  if previous <> Ref.null && previous <> self then (
-    Db.Caller.set_rate_limit ~__context ~self:caller ~value:Ref.null ;
+  if previous <> self then (
+    Db.Caller.set_rate_limit ~__context ~self:caller ~value:self ;
     notify_caller_changed ~__context caller
-  ) ;
-  Db.Caller.set_rate_limit ~__context ~self:caller ~value:self ;
-  notify_caller_changed ~__context caller
+  )
 
 let remove_caller ~__context ~self ~caller =
   let current = Db.Caller.get_rate_limit ~__context ~self:caller in
@@ -109,23 +112,22 @@ let remove_caller ~__context ~self ~caller =
     notify_caller_changed ~__context caller
   )
 
+(* No [notify_caller_changed] on parameter changes: the caller_table entry
+   still points at the same rate_limit_ref, and [install_bucket] has
+   already swapped the in-memory bucket - the next [find_bucket] on the
+   dispatch path picks up the new parameters. Notifying attached callers
+   here would just be an extra DB read per caller with no state change. *)
 let set_burst_size ~__context ~self ~value =
   let fill_rate = Db.Rate_limit.get_fill_rate ~__context ~self in
   validate_params ~burst_size:value ~fill_rate ;
   Db.Rate_limit.set_burst_size ~__context ~self ~value ;
-  install_bucket ~self ~burst_size:value ~fill_rate ;
-  List.iter
-    (notify_caller_changed ~__context)
-    (Db.Rate_limit.get_callers ~__context ~self)
+  install_bucket ~self ~burst_size:value ~fill_rate
 
 let set_fill_rate ~__context ~self ~value =
   let burst_size = Db.Rate_limit.get_burst_size ~__context ~self in
   validate_params ~burst_size ~fill_rate:value ;
   Db.Rate_limit.set_fill_rate ~__context ~self ~value ;
-  install_bucket ~self ~burst_size ~fill_rate:value ;
-  List.iter
-    (notify_caller_changed ~__context)
-    (Db.Rate_limit.get_callers ~__context ~self)
+  install_bucket ~self ~burst_size ~fill_rate:value
 
 let register ~__context =
   if not !Xapi_globs.rate_limit_enabled then
