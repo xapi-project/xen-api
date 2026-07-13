@@ -759,5 +759,19 @@ let client_of_req_and_fd req fd =
         None
   )
 
+(* An IPv4 connection may arrive as an IPv4-mapped IPv6 address
+   (e.g. ::ffff:1.2.3.4) depending on how the listening socket is bound.
+   [Ipaddr.to_string] preserves the IPv6 form, which then fails to
+   match string comparisons against the plain IPv4 form of the same
+   address. Callers that use the string for exact matching (e.g. the
+   per-caller rate-limit table) should route the value through this
+   helper first. *)
+let canonical_ip_string ip =
+  match Ipaddr.to_v4 ip with
+  | Some v4 ->
+      Ipaddr.V4.to_string v4
+  | None ->
+      Ipaddr.to_string ip
+
 let string_of_client (protocol, ip) =
-  Printf.sprintf "%s %s" (string_of_protocol protocol) (Ipaddr.to_string ip)
+  Printf.sprintf "%s %s" (string_of_protocol protocol) (canonical_ip_string ip)

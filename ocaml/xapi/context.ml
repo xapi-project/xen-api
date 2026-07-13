@@ -522,7 +522,7 @@ let get_test_clusterd_rpc context = context.test_clusterd_rpc
 let get_client context = context.client |> Option.map Http_svr.string_of_client
 
 let get_client_ip context =
-  context.client |> Option.map (fun (_, ip) -> Ipaddr.to_string ip)
+  context.client |> Option.map (fun (_, ip) -> Http_svr.canonical_ip_string ip)
 
 let get_user_agent context =
   match context.origin with
