@@ -36,8 +36,19 @@ type entry = {
 
 let caller_table : entry Caller_table.t = Caller_table.create ()
 
-(* Serialises the read-then-create path that auto-populates unknown callers. *)
-let create_mutex = Mutex.create ()
+(* Serialises ALL mutations of [caller_table] on the master. Caller_table
+   itself uses Atomic for lock-free reads, but its writers are non-CAS
+   Atomic.get/set pairs and its higher-level "delete then insert" refresh
+   is not atomic - two concurrent refreshes for the same caller can
+   otherwise interleave so that the later insert is silently refused
+   as a duplicate, leaving the table with stale state. Held around
+   create/destroy/refresh_caller_rate_limit and the auto-create path.
+   NOT held by [register] because that runs single-threaded at startup. *)
+let caller_table_mutex = Mutex.create ()
+
+let with_caller_table_mutex f =
+  Mutex.lock caller_table_mutex ;
+  Fun.protect ~finally:(fun () -> Mutex.unlock caller_table_mutex) f
 
 let pattern_of_db_string : string -> Caller_table.Key.match_pattern =
  fun s ->
@@ -92,32 +103,20 @@ let validate_request_fields ~user_agent ~client_ip =
           )
       )
 
-let insert_entry ~caller_ref ~caller_uuid ~pattern_key ~rate_limit_ref =
-  let entry =
-    {
-      caller_ref
-    ; pattern_key
-    ; stats= Caller_statistics.create ~caller_uuid
-    ; rate_limit_ref
-    }
-  in
+(* All [insert_entry_locked] callers must hold [caller_table_mutex], except
+   [register] which runs single-threaded at startup. *)
+let insert_entry_locked ~caller_ref ~stats ~pattern_key ~rate_limit_ref =
+  let entry = {caller_ref; pattern_key; stats; rate_limit_ref} in
   if not (Caller_table.insert caller_table ~pattern:pattern_key entry) then
     debug
       "Caller_table.insert refused entry (duplicate or all-wildcard) for \
        caller %s"
       (Ref.string_of caller_ref)
 
-let create ~__context ~name_label ~name_description ~user_agent ~client_ip =
-  validate_request_fields ~user_agent ~client_ip ;
-  let pattern_key = pattern_key_of_fields ~user_agent ~client_ip in
-  if Caller_table.Key.is_all_wildcard pattern_key then
-    raise
-      Api_errors.(
-        Server_error
-          ( invalid_value
-          , ["user_agent/client_ip"; "all-wildcard pattern not allowed"]
-          )
-      ) ;
+(* Body of [create]; assumes [caller_table_mutex] is held and that
+   [pattern_key] has already been validated. *)
+let create_locked ~__context ~name_label ~name_description ~user_agent
+    ~client_ip ~pattern_key =
   match Caller_table.get_exact caller_table ~pattern:pattern_key with
   | Some entry ->
       (* Idempotent: an in-memory entry already mirrors this pattern. Update
@@ -133,14 +132,33 @@ let create ~__context ~name_label ~name_description ~user_agent ~client_ip =
       Db.Caller.create ~__context ~ref ~uuid ~name_label ~name_description
         ~user_agent ~client_ip ~last_access:Clock.Date.epoch ~groups:[]
         ~rate_limit:Ref.null ;
-      insert_entry ~caller_ref:ref ~caller_uuid:uuid ~pattern_key
-        ~rate_limit_ref:Ref.null ;
+      insert_entry_locked ~caller_ref:ref
+        ~stats:(Caller_statistics.create ~caller_uuid:uuid)
+        ~pattern_key ~rate_limit_ref:Ref.null ;
       ref
+
+let create ~__context ~name_label ~name_description ~user_agent ~client_ip =
+  validate_request_fields ~user_agent ~client_ip ;
+  let pattern_key = pattern_key_of_fields ~user_agent ~client_ip in
+  if Caller_table.Key.is_all_wildcard pattern_key then
+    raise
+      Api_errors.(
+        Server_error
+          ( invalid_value
+          , ["user_agent/client_ip"; "all-wildcard pattern not allowed"]
+          )
+      ) ;
+  with_caller_table_mutex (fun () ->
+      create_locked ~__context ~name_label ~name_description ~user_agent
+        ~client_ip ~pattern_key
+  )
 
 let destroy ~__context ~self =
   let record = Db.Caller.get_record ~__context ~self in
   let pattern_key = pattern_key_of_record record in
-  Caller_table.delete caller_table ~pattern:pattern_key ;
+  with_caller_table_mutex (fun () ->
+      Caller_table.delete caller_table ~pattern:pattern_key
+  ) ;
   Db.Caller.destroy ~__context ~self
 
 let add_group ~__context ~self ~group =
@@ -219,19 +237,38 @@ let query_all_usage ~__context =
   )
 
 (** Re-read the caller's rate_limit ref from DB and rebuild its entry. Called
-    by Xapi_rate_limit whenever the caller's rate_limit field changes. *)
+    by Xapi_rate_limit whenever the caller's rate_limit field changes.
+
+    Held under [caller_table_mutex] so the DB read + delete + insert are
+    seen as one step: concurrent refreshes for the same caller can
+    otherwise both start from the DB state seen before either mutation,
+    and the later insert then silently loses to the earlier one.
+
+    User_agent and client_ip are StaticRO in the datamodel, so a caller's
+    pattern_key never changes; we preserve the existing [stats] across
+    the swap so that attaching or detaching a rate_limit doesn't reset
+    the "calls / tokens since Xapi startup" counters. *)
 let refresh_caller_rate_limit ~__context caller_ref =
-  match
-    try Some (Db.Caller.get_record ~__context ~self:caller_ref) with _ -> None
-  with
-  | None ->
-      ()
-  | Some record ->
-      let pattern_key = pattern_key_of_record record in
-      Caller_table.delete caller_table ~pattern:pattern_key ;
-      insert_entry ~caller_ref ~pattern_key
-        ~rate_limit_ref:record.API.caller_rate_limit
-        ~caller_uuid:record.caller_uuid
+  with_caller_table_mutex (fun () ->
+      match
+        try Some (Db.Caller.get_record ~__context ~self:caller_ref)
+        with _ -> None
+      with
+      | None ->
+          ()
+      | Some record ->
+          let pattern_key = pattern_key_of_record record in
+          let stats =
+            match Caller_table.get_exact caller_table ~pattern:pattern_key with
+            | Some existing ->
+                existing.stats
+            | None ->
+                Caller_statistics.create ~caller_uuid:record.caller_uuid
+          in
+          Caller_table.delete caller_table ~pattern:pattern_key ;
+          insert_entry_locked ~caller_ref ~stats ~pattern_key
+            ~rate_limit_ref:record.API.caller_rate_limit
+  )
 
 (* Install the caller_table refresh callback at module load time. The API
    server can accept requests before [register] runs, and any
@@ -314,20 +351,22 @@ let maybe_autocreate ~task_create ~user_agent ~client_ip ~existing =
   let fully_specified_request = user_agent <> "" && client_ip <> "" in
   if (not fully_specified_request) || any_fully_specified existing then
     ()
-  else (
-    Mutex.lock create_mutex ;
-    Fun.protect
-      ~finally:(fun () -> Mutex.unlock create_mutex)
-      (fun () ->
-        let target = target_of_request ~user_agent ~client_ip in
-        let existing = Caller_table.get caller_table ~caller_id:target in
-        if any_fully_specified existing then
-          ()
-        else
-          task_create (fun __context ->
+  else
+    task_create (fun __context ->
+        with_caller_table_mutex (fun () ->
+            (* Re-check under the lock: another thread may have auto-created
+               a matching row while we were racing to acquire the mutex. *)
+            let target = target_of_request ~user_agent ~client_ip in
+            let existing = Caller_table.get caller_table ~caller_id:target in
+            if any_fully_specified existing then
+              ()
+            else
               try
+                let pattern_key =
+                  pattern_key_of_fields ~user_agent ~client_ip
+                in
                 let caller_ref =
-                  create ~__context
+                  create_locked ~__context
                     ~name_label:
                       (Printf.sprintf "user_agent: %s, client_ip: %s" user_agent
                          client_ip
@@ -337,16 +376,15 @@ let maybe_autocreate ~task_create ~user_agent ~client_ip ~existing =
                          "Autogenerated caller for user_agent %s, client_ip %s"
                          user_agent client_ip
                       )
-                    ~user_agent ~client_ip
+                    ~user_agent ~client_ip ~pattern_key
                 in
                 Db.Caller.set_last_access ~__context ~self:caller_ref
                   ~value:(Clock.Date.now ())
               with e ->
                 warn "Auto-create of caller for (%s, %s) failed: %s" user_agent
                   client_ip (Printexc.to_string e)
-          )
-      )
-  )
+        )
+    )
 
 let submit ~submit_fn ~user_agent ~client_ip ~callback ~task_create amount =
   if not !Xapi_globs.rate_limit_enabled then
@@ -420,13 +458,14 @@ let register ~__context =
       "Rate limiting disabled (rate_limit=false); skipping caller registration"
   else (
     load_token_costs () ;
+    (* Runs single-threaded at start-of-day, so bypasses caller_table_mutex. *)
     List.iter
       (fun self ->
         let record = Db.Caller.get_record ~__context ~self in
         let pattern_key = pattern_key_of_record record in
-        insert_entry ~caller_ref:self ~pattern_key
-          ~rate_limit_ref:record.API.caller_rate_limit
-          ~caller_uuid:record.caller_uuid
+        insert_entry_locked ~caller_ref:self
+          ~stats:(Caller_statistics.create ~caller_uuid:record.caller_uuid)
+          ~pattern_key ~rate_limit_ref:record.API.caller_rate_limit
       )
       (Db.Caller.get_all ~__context) ;
     start_reporter ()
