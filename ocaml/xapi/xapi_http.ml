@@ -372,7 +372,7 @@ let add_handler (name, handler) =
     let client_id =
       match (req.Http.Request.user_agent, client_info) with
       | Some user_agent, Some (_, ip) ->
-          Some (user_agent, Ipaddr.to_string ip)
+          Some (user_agent, Http_svr.canonical_ip_string ip)
       | _ ->
           None
     in
