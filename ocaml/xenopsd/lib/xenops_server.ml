@@ -2437,7 +2437,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
       info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit ;
       let url = make_url "/migrate/vm/" new_dest_id in
       let https = Uri.scheme url = Some "https" in
-      Open_uri.with_open_uri ~verify_cert url (fun vm_fd ->
+      Migrate_connect.with_open_uri ~verify_cert url (fun vm_fd ->
           let module Handshake = Xenops_migrate.Handshake in
           let do_request fd extra_cookies url =
             if not https then Sockopt.set_sock_keepalives fd ;
@@ -2518,7 +2518,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
           in
           let save ?vgpu_fd () =
             let url = make_url "/migrate/mem/" new_dest_id in
-            Open_uri.with_open_uri ~verify_cert url (fun mem_fd ->
+            Migrate_connect.with_open_uri ~verify_cert url (fun mem_fd ->
                 (* vm_fd: signaling channel, mem_fd: memory stream *)
                 do_request mem_fd [] url ;
                 Handshake.recv_success mem_fd ;
@@ -2557,7 +2557,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
                 make_url "/migrate/vgpu/"
                   (VGPU_DB.string_of_id (new_dest_id, dev_id))
               in
-              Open_uri.with_open_uri ~verify_cert url (fun vgpu_fd ->
+              Migrate_connect.with_open_uri ~verify_cert url (fun vgpu_fd ->
                   if not https then Sockopt.set_sock_keepalives vgpu_fd ;
                   do_request vgpu_fd [(cookie_vgpu_migration, "")] url ;
                   Handshake.recv_success vgpu_fd ;
