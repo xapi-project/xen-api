@@ -207,12 +207,16 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
       in
       match sync_ty with
       | `Sync ->
-          Xapi_caller.submit_sync ~user_agent ~client_ip ~callback:sync
+          Xapi_caller.submit_sync
+            ?parent:(Context.tracing_of __context)
+            ~user_agent ~client_ip ~callback:sync
             ~task_create:(fun f -> f __context)
             token_cost
       | `Async ->
           let need_complete = not (Context.forwarded_task __context) in
-          Xapi_caller.submit_async ~user_agent ~client_ip
+          Xapi_caller.submit_async
+            ?parent:(Context.tracing_of __context)
+            ~user_agent ~client_ip
             ~callback:(fun () -> async ~need_complete)
             ~task_create:(fun f -> f __context)
             token_cost ;

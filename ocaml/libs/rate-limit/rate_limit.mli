@@ -32,8 +32,15 @@ val delete : t -> unit
     until the worker thread has finished. Subsequent calls to [submit_async]
     or [submit_sync] will raise [Invalid_argument]. *)
 
+type delay_observer = {on_start: unit -> unit; on_end: unit -> unit}
+
 val submit_async :
-  t -> callback:(unit -> unit) -> caller_details:string -> float -> unit
+     t
+  -> ?observer:delay_observer
+  -> callback:(unit -> unit)
+  -> caller_details:string
+  -> float
+  -> unit
 (** [submit_async t ~callback amount] submits a callback under rate limiting.
     If tokens are immediately available and no callbacks are queued, the
     callback runs synchronously on the calling thread. Otherwise it is
@@ -41,7 +48,12 @@ val submit_async :
     available. Returns immediately. *)
 
 val submit_sync :
-  t -> callback:(unit -> 'a) -> caller_details:string -> float -> 'a
+     t
+  -> ?observer:delay_observer
+  -> callback:(unit -> 'a)
+  -> caller_details:string
+  -> float
+  -> 'a
 (** [submit_sync t ~callback amount] submits a callback under rate limiting
     and blocks until it completes, returning the callback's result. If tokens
     are immediately available and no callbacks are queued, the callback runs
