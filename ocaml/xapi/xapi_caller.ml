@@ -484,17 +484,19 @@ let bookkeeping_and_bucket ~task_create ~user_agent ~client_ip ~cost =
           )
           matches
     ) ;
-  let bucket =
+  let entry_and_bucket =
     List.find_map
       (fun entry ->
         if entry.rate_limit_ref = Ref.null then
           None
         else
-          Xapi_rate_limit.find_bucket entry.rate_limit_ref
+          Option.map
+            (fun rl -> (entry, rl))
+            (Xapi_rate_limit.find_bucket entry.rate_limit_ref)
       )
       matches
   in
-  (matches, bucket)
+  (matches, entry_and_bucket)
 
 (* Drop the auto-registered caller with the least recent call. Assumes
    [caller_table_mutex] is held. Only ever scans the (bounded) in-memory table
@@ -571,30 +573,64 @@ let maybe_autocreate ~task_create ~user_agent ~client_ip ~existing =
         )
     )
 
-let submit ~submit_fn ~user_agent ~client_ip ~callback ~task_create amount =
+let make_observer ~parent ~entry ~user_agent ~client_ip ~cost =
+  let span : Tracing.Span.t option ref = ref None in
+  let attributes =
+    [
+      ("xapi.rate_limit.user_agent", user_agent)
+    ; ("xapi.rate_limit.client_ip", client_ip)
+    ; ("xapi.rate_limit.caller", Ref.string_of entry.caller_ref)
+    ; ("xapi.rate_limit.bucket", Ref.string_of entry.rate_limit_ref)
+    ; ("xapi.rate_limit.cost", Printf.sprintf "%g" cost)
+    ]
+  in
+  let tracer = Tracing.Tracer.get_tracer ~name:"xapi" in
+  let on_start () =
+    match
+      Tracing.Tracer.start ~tracer ~name:"xapi.rate_limit.delay"
+        ~parent:(Some parent) ~span_kind:Tracing.SpanKind.Internal ~attributes
+        ()
+    with
+    | Ok s ->
+        span := s
+    | Error _ ->
+        ()
+  in
+  let on_end () = ignore (Tracing.Tracer.finish !span) in
+  {Rate_limit.on_start; on_end}
+
+let submit ~submit_fn ?parent ~user_agent ~client_ip ~callback ~task_create
+    amount =
   if not !Xapi_globs.rate_limit_enabled then
     callback ()
   else
-    let matches, bucket =
+    let matches, entry_and_bucket =
       bookkeeping_and_bucket ~task_create ~user_agent ~client_ip ~cost:amount
     in
     maybe_autocreate ~task_create ~user_agent ~client_ip ~existing:matches ;
-    match bucket with
-    | Some rl ->
+    match entry_and_bucket with
+    | Some (entry, rl) ->
+        let observer =
+          Option.map
+            (fun p ->
+              make_observer ~parent:p ~entry ~user_agent ~client_ip ~cost:amount
+            )
+            parent
+        in
         let caller_details =
           Printf.sprintf "client_ip: %s, user_agent: %s" client_ip user_agent
         in
-        submit_fn rl ~callback ~caller_details amount
+        submit_fn rl ?observer ~callback ~caller_details amount
     | None ->
         callback ()
 
-let submit_sync ~user_agent ~client_ip ~callback ~task_create amount =
-  submit ~submit_fn:Rate_limit.submit_sync ~user_agent ~client_ip ~callback
-    ~task_create amount
+let submit_sync ?parent ~user_agent ~client_ip ~callback ~task_create amount =
+  submit ~submit_fn:Rate_limit.submit_sync ?parent ~user_agent ~client_ip
+    ~callback ~task_create amount
 
-let submit_async ~user_agent ~client_ip ~callback ~task_create amount =
-  submit ~submit_fn:Rate_limit.submit_async ~user_agent ~client_ip ~callback
-    ~task_create amount
+let submit_async ?parent ~user_agent ~client_ip ~callback ~task_create amount =
+  submit ~submit_fn:Rate_limit.submit_async ?parent ~user_agent ~client_ip
+    ~callback ~task_create amount
 
 (* We publish two derive data sources per caller group to xcp-rrdd: the group's
    cumulative tokens consumed and its cumulative call count, summed over the
