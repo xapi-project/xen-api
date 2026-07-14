@@ -2359,6 +2359,19 @@ let t =
              means never timeout. This setting applies only to VM consoles; \
              for host consoles, use the separate parameter \
              'host.console_idle_timeout'."
+        ; field ~writer_roles:_R_POOL_OP ~qualifier:RW ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool false))
+            "auto_update_vm_secureboot_certificates"
+            "When true, at VM.create time the pool automatically marks a newly \
+             created VM whose Secure Boot certificates are due to expire by \
+             setting VM.secureboot_certificates_state to update_on_boot (the \
+             same effect as VM.update_secureboot_certificates_on_boot), so the \
+             certificates are updated on the VM's next boot. This applies to \
+             VMs created by VM.create, including those created by operations \
+             that internally call it: the HTTP(s) PUT /import and \
+             /import_metadata calls and disaster recovery (VM.recover and \
+             VM_appliance.recover); it does not apply to VM.clone or VM.copy, \
+             which inherit the source VM's state."
         ]
       )
     ()
