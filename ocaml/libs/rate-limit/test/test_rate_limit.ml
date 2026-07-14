@@ -172,6 +172,171 @@ let test_submit_sync_interleaved () =
     "sync callback sees async already executed" true sync_result ;
   Rate_limit.delete rl
 
+(* A recording observer used by the tests below. [event] captures ordering of
+   observer callbacks relative to the user callback via monotonically-increasing
+   timestamps, which is what we want to assert. *)
+let make_recording_observer () =
+  let mtx = Mutex.create () in
+  let started = ref 0 in
+  let ended = ref 0 in
+  let start_time = ref None in
+  let end_time = ref None in
+  let stamp r =
+    Mutex.lock mtx ;
+    r := Some (Mtime_clock.now ()) ;
+    Mutex.unlock mtx
+  in
+  let bump c = Mutex.lock mtx ; incr c ; Mutex.unlock mtx in
+  let observer =
+    Rate_limit.
+      {
+        on_start= (fun () -> bump started ; stamp start_time)
+      ; on_end= (fun () -> bump ended ; stamp end_time)
+      }
+  in
+  (observer, fun () -> (!started, !ended, !start_time, !end_time))
+
+let test_observer_not_fired_when_immediate () =
+  let rl = Rate_limit.create ~burst_size:10.0 ~fill_rate:10.0 in
+  let observer, snapshot = make_recording_observer () in
+  let result =
+    Rate_limit.submit_sync rl ~observer ~callback:(fun () -> 42) 1.0
+  in
+  Alcotest.(check int) "callback ran" 42 result ;
+  let started, ended, _, _ = snapshot () in
+  Alcotest.(check int) "on_start not fired" 0 started ;
+  Alcotest.(check int) "on_end not fired" 0 ended ;
+  let observer2, snapshot2 = make_recording_observer () in
+  Rate_limit.submit_async rl ~observer:observer2 ~callback:(fun () -> ()) 1.0 ;
+  let started2, ended2, _, _ = snapshot2 () in
+  Alcotest.(check int) "async on_start not fired" 0 started2 ;
+  Alcotest.(check int) "async on_end not fired" 0 ended2 ;
+  Rate_limit.delete rl
+
+let test_observer_fired_when_delayed_sync () =
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:5.0 in
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) 1.0 ;
+  let observer, snapshot = make_recording_observer () in
+  let callback_seen_end = ref false in
+  let ended_before_cb = ref false in
+  let _ =
+    Rate_limit.submit_sync rl ~observer
+      ~callback:(fun () ->
+        let _, ended, _, _ = snapshot () in
+        ended_before_cb := ended = 1 ;
+        callback_seen_end := true
+      )
+      1.0
+  in
+  let started, ended, start_time, end_time = snapshot () in
+  Alcotest.(check int) "on_start fired once" 1 started ;
+  Alcotest.(check int) "on_end fired once" 1 ended ;
+  Alcotest.(check bool) "callback ran" true !callback_seen_end ;
+  Alcotest.(check bool)
+    "on_end observed before callback runs" true !ended_before_cb ;
+  ( match (start_time, end_time) with
+  | Some s, Some e ->
+      Alcotest.(check bool)
+        "on_start precedes on_end" true
+        (Mtime.is_earlier s ~than:e || Mtime.equal s e)
+  | _ ->
+      Alcotest.fail "timestamps missing"
+  ) ;
+  Rate_limit.delete rl
+
+let test_observer_fired_when_delayed_async () =
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:5.0 in
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) 1.0 ;
+  let observer, snapshot = make_recording_observer () in
+  let done_mtx = Mutex.create () in
+  let done_cond = Condition.create () in
+  let ran = ref false in
+  let ended_before_cb = ref false in
+  Rate_limit.submit_async rl ~observer
+    ~callback:(fun () ->
+      let _, ended, _, _ = snapshot () in
+      ended_before_cb := ended = 1 ;
+      Mutex.lock done_mtx ;
+      ran := true ;
+      Condition.signal done_cond ;
+      Mutex.unlock done_mtx
+    )
+    1.0 ;
+  let started_immediately, _, _, _ = snapshot () in
+  Alcotest.(check int)
+    "on_start fires synchronously on caller thread" 1 started_immediately ;
+  Mutex.lock done_mtx ;
+  while not !ran do
+    Condition.wait done_cond done_mtx
+  done ;
+  Mutex.unlock done_mtx ;
+  let started, ended, _, _ = snapshot () in
+  Alcotest.(check int) "on_start fired once" 1 started ;
+  Alcotest.(check int) "on_end fired once" 1 ended ;
+  Alcotest.(check bool)
+    "on_end observed before callback ran" true !ended_before_cb ;
+  Rate_limit.delete rl
+
+let test_observer_exception_isolated () =
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:20.0 in
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) 1.0 ;
+  let raising_observer =
+    Rate_limit.
+      {
+        on_start= (fun () -> failwith "boom on_start")
+      ; on_end= (fun () -> failwith "boom on_end")
+      }
+  in
+  (* Async: raising observer must not stop the callback or crash the worker. *)
+  let done_mtx = Mutex.create () in
+  let done_cond = Condition.create () in
+  let ran_first = ref false in
+  Rate_limit.submit_async rl ~observer:raising_observer
+    ~callback:(fun () ->
+      Mutex.lock done_mtx ;
+      ran_first := true ;
+      Condition.signal done_cond ;
+      Mutex.unlock done_mtx
+    )
+    1.0 ;
+  Mutex.lock done_mtx ;
+  while not !ran_first do
+    Condition.wait done_cond done_mtx
+  done ;
+  Mutex.unlock done_mtx ;
+  Alcotest.(check bool)
+    "async callback ran despite observer raising" true !ran_first ;
+  (* Now confirm the worker is still healthy and processes further items. *)
+  let ran_second = ref false in
+  Rate_limit.submit_async rl
+    ~callback:(fun () ->
+      Mutex.lock done_mtx ;
+      ran_second := true ;
+      Condition.signal done_cond ;
+      Mutex.unlock done_mtx
+    )
+    1.0 ;
+  Mutex.lock done_mtx ;
+  while not !ran_second do
+    Condition.wait done_cond done_mtx
+  done ;
+  Mutex.unlock done_mtx ;
+  Alcotest.(check bool) "worker still processes later items" true !ran_second ;
+  (* Sync: raising observer must not reach the caller as an exception. *)
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) 1.0 ;
+  let sync_ran = ref false in
+  let sync_result =
+    Rate_limit.submit_sync rl ~observer:raising_observer
+      ~callback:(fun () ->
+        sync_ran := true ;
+        7
+      )
+      1.0
+  in
+  Alcotest.(check int) "sync callback returned normally" 7 sync_result ;
+  Alcotest.(check bool) "sync callback ran" true !sync_ran ;
+  Rate_limit.delete rl
+
 let test =
   [
     ("Create invalid", `Quick, test_create_invalid)
@@ -185,6 +350,19 @@ let test =
     , `Slow
     , test_no_skip_ahead_during_worker_delay
     )
+  ; ( "Observer not fired when immediate"
+    , `Quick
+    , test_observer_not_fired_when_immediate
+    )
+  ; ( "Observer fired when delayed sync"
+    , `Slow
+    , test_observer_fired_when_delayed_sync
+    )
+  ; ( "Observer fired when delayed async"
+    , `Slow
+    , test_observer_fired_when_delayed_async
+    )
+  ; ("Observer exception isolated", `Slow, test_observer_exception_isolated)
   ]
 
 let () = Alcotest.run "Rate limit library" [("Rate limit tests", test)]

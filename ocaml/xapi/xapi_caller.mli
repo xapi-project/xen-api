@@ -21,20 +21,26 @@ val default_token_cost : float
 val get_token_cost : string -> float
 
 val submit_sync :
-     user_agent:string
+     ?parent:Tracing.Span.t
+  -> user_agent:string
   -> client_ip:string
   -> callback:(unit -> 'a)
   -> task_create:((Context.t -> unit) -> unit)
   -> float
   -> 'a
+(** [parent], when supplied, is the parent span used to record a
+    [xapi.rate_limit.delay] child span whenever the call is actually
+    queued/delayed. No span is emitted when tokens are available immediately. *)
 
 val submit_async :
-     user_agent:string
+     ?parent:Tracing.Span.t
+  -> user_agent:string
   -> client_ip:string
   -> callback:(unit -> unit)
   -> task_create:((Context.t -> unit) -> unit)
   -> float
   -> unit
+(** See {!submit_sync} for the meaning of [parent]. *)
 
 val create :
      __context:Context.t

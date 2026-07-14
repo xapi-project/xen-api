@@ -362,6 +362,11 @@ let add_handler (name, handler) =
       | Some (user_agent, client_ip) ->
           debug "Rate limiting handler %s with user_agent %s client_ip %s" name
             user_agent client_ip ;
+          (* No [?parent] span here: [__context] is built lazily inside
+             [Server_helpers.exec_with_new_task] and is not in scope at this
+             point, so a rate-limit delay on an HTTP handler is not currently
+             visible in traces. Only the XenAPI RPC dispatch paths in
+             [Server_helpers.do_dispatch] wire the parent span through. *)
           Xapi_caller.submit_async ~user_agent ~client_ip ~callback:handler
             ~task_create:(Server_helpers.exec_with_new_task "Add new caller")
             Xapi_caller.default_token_cost
