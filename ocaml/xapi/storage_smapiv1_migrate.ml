@@ -634,7 +634,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
         mirror_cleanup ~dbg ~sr ~snapshot
 
   let receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm
-      (module SMAPI : SMAPIv2) =
+      ~url ~verify_dest (module SMAPI : SMAPIv2) =
     let on_fail : (unit -> unit) list ref = ref [] in
     let vdis = SMAPI.SR.scan dbg sr in
     (* We drop cbt_metadata VDIs that do not have any actual data *)
@@ -734,8 +734,8 @@ module MIRROR : SMAPIv2_MIRROR = struct
               ; parent_vdi= parent.vdi
               ; remote_vdi= vdi_info.vdi
               ; mirror_vm= vm
-              ; url= ""
-              ; verify_dest= false
+              ; url
+              ; verify_dest
               }
         ) ;
       let nearest_content_id = Option.map (fun x -> x.content_id) nearest in
@@ -763,7 +763,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
       (string_of_vdi_info vdi_info)
       id image_format ;
     receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format ~similar
-      ~vm:(Vm.of_string "0")
+      ~vm:(Vm.of_string "0") ~url:"" ~verify_dest:false
       (module Local)
 
   let receive_start2 _ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm =
@@ -772,6 +772,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
       (string_of_vdi_info vdi_info)
       id image_format ;
     receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm
+      ~url:"" ~verify_dest:false
       (module Local)
 
   let receive_start3 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~image_format ~similar
@@ -786,7 +787,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
       Storage_migrate_helper.get_remote_backend url verify_dest
     in
     receive_start_common ~dbg ~sr ~vdi_info ~id:mirror_id ~image_format ~similar
-      ~vm
+      ~vm ~url ~verify_dest
       (module Remote)
 
   let receive_finalize _ctx ~dbg ~id =
@@ -808,10 +809,17 @@ module MIRROR : SMAPIv2_MIRROR = struct
           (Vdi.string_of r.leaf_vdi) ;
         SMAPI.DP.destroy2 dbg r.leaf_dp r.sr r.leaf_vdi r.mirror_vm false ;
         SMAPI.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
-        (* On SMAPIv3, compose would have removed the now invalid dummy vdi, so
-           there is no need to destroy it anymore, while this is necessary on SMAPIv1 SRs. *)
+        (* Destroy the dummy backend volume on the dest SR. On SMAPIv1
+           this also drops the dest XAPI DB row; on SMAPIv3 only the
+           backend volume is removed. *)
         D.log_and_ignore_exn (fun () -> SMAPI.VDI.destroy dbg r.sr r.dummy_vdi
         ) ;
+        (* Forget the dest XAPI DB row that survives on SMAPIv3. The forget
+           runs against the dest pool via the XenAPI session embedded in the
+           SXM url, so it works both intra-pool and cross-pool. No-op on
+           SMAPIv1 where the row was already dropped above. *)
+        Storage_migrate_helper.forget_orphan_dest_vdi ~url:r.url
+          ~verify_dest:r.verify_dest ~sr:r.sr ~vdi:r.dummy_vdi ;
         SMAPI.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
       )
       recv_state ;
@@ -932,7 +940,11 @@ module MIRROR : SMAPIv2_MIRROR = struct
         D.log_and_ignore_exn (fun () -> Remote.DP.destroy dbg r.leaf_dp false) ;
         List.iter
           (fun v ->
-            D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr v)
+            D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr v) ;
+            (* The cancel path runs before compose, so the dest XAPI DB row
+               for each VDI may also linger on SMAPIv3. Forget on dest pool. *)
+            Storage_migrate_helper.forget_orphan_dest_vdi ~url ~verify_dest
+              ~sr:r.sr ~vdi:v
           )
           [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
       )

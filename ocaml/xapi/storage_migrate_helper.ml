@@ -314,6 +314,34 @@ module State = struct
           (Sr.of_string sr, Vdi.of_string (String.concat "/" rest))
     | _ ->
         failwith "Bad id"
+
+  (** A single (source → destination) snapshot pairing recorded during SMAPIv3
+      live migration. Used after mirroring to update VBD references and restore
+      snapshot metadata on the destination. *)
+  type snapshot_relation = {
+      src_vdi: Storage_interface.Vdi.t
+    ; dest_vdi: Storage_interface.Vdi.t
+    ; snapshot_time: Clock.Date.t
+  }
+
+  type snapshot_mappings_table = (string, snapshot_relation list) Hashtbl.t
+
+  let snapshot_mappings : snapshot_mappings_table = Hashtbl.create 10
+
+  let set_snapshot_mappings mirror_id relations =
+    Xapi_stdext_threads.Threadext.Mutex.execute mutex (fun () ->
+        Hashtbl.replace snapshot_mappings mirror_id relations
+    )
+
+  let get_snapshot_mappings mirror_id =
+    Xapi_stdext_threads.Threadext.Mutex.execute mutex (fun () ->
+        Hashtbl.find_opt snapshot_mappings mirror_id |> Option.value ~default:[]
+    )
+
+  let remove_snapshot_mappings mirror_id =
+    Xapi_stdext_threads.Threadext.Mutex.execute mutex (fun () ->
+        Hashtbl.remove snapshot_mappings mirror_id
+    )
 end
 
 let vdi_info = function
@@ -344,6 +372,76 @@ module Local = StorageAPI (Idl.Exn.GenClient (struct
 end))
 
 module type SMAPIv2 = module type of Local
+
+(* Forget an orphan VDI row on the SXM destination pool. Uses the XenAPI
+   session embedded in the SXM url so the lookup runs against the dest
+   pool's DB — required for cross-pool SXM where the source pool has no
+   row for the dest SR. Empty url means a legacy intra-pool path that
+   already cleaned the row via SMAPIv1 vdi_delete; no-op then. *)
+let forget_orphan_dest_vdi ~url ~verify_dest ~sr ~vdi =
+  if url = "" then
+    SXM.debug "%s: no url, skipping dest forget" __FUNCTION__
+  else
+    SXM.log_and_ignore_exn (fun () ->
+        let parsed = Http.Url.of_string url in
+        let session_id_opt =
+          List.assoc_opt "session_id" (Http.Url.get_query_params parsed)
+          |> Option.map Ref.of_string
+        in
+        let host_opt =
+          match fst parsed with
+          | Http.Url.Http {host; _} ->
+              Some host
+          | _ ->
+              None
+        in
+        match (session_id_opt, host_opt) with
+        | Some session_id, Some host ->
+            Server_helpers.exec_with_new_task "SXM forget orphan dest VDI"
+              (fun __context ->
+                let verify_cert =
+                  if verify_dest then
+                    Stunnel_client.pool ()
+                  else
+                    None
+                in
+                let uuid = Vdi.string_of vdi in
+                let lookup host =
+                  let rpc =
+                    Helpers.make_remote_rpc ~verify_cert ~__context host
+                  in
+                  (Client.Client.VDI.get_by_uuid ~rpc ~session_id ~uuid, rpc)
+                in
+                let resolve () =
+                  try Some (lookup host) with
+                  | Api_errors.Server_error (code, master_ip :: _)
+                    when code = Api_errors.host_is_slave -> (
+                    try Some (lookup master_ip) with _ -> None
+                  )
+                  | _ ->
+                      None
+                in
+                match resolve () with
+                | None ->
+                    ()
+                | Some (vdi_ref, rpc) ->
+                    let rec_ =
+                      Client.Client.VDI.get_record ~rpc ~session_id
+                        ~self:vdi_ref
+                    in
+                    if rec_.API.vDI_is_a_snapshot then (
+                      SXM.info "%s forgetting orphan VDI %s on dest sr %s"
+                        __FUNCTION__ uuid (Sr.string_of sr) ;
+                      Client.Client.VDI.forget ~rpc ~session_id ~vdi:vdi_ref
+                    ) else
+                      SXM.warn
+                        "%s skipping non-snapshot row at vdi %s on dest sr %s"
+                        __FUNCTION__ uuid (Sr.string_of sr)
+            )
+        | _ ->
+            SXM.warn "%s url missing session_id or host, skipping forget"
+              __FUNCTION__
+    )
 
 let get_remote_backend url verify_dest =
   let remote_url = Storage_utils.connection_args_of_uri ~verify_dest url in
