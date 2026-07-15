@@ -58,8 +58,8 @@ namespace Citrix.XenServer.Commands
                 return;
 
             RunApiCall(() => XenAPI.HTTP_actions.put_oem_patch_stream(ProgressDelegate,
-                CancellingDelegate, TimeoutMs, XenHost, Proxy, Path, TaskRef,
-                session.opaque_ref));
+                CancellingDelegate, TimeoutMs, XenHost, Proxy, CertificateValidationCallback,
+                Path, TaskRef, session.opaque_ref));
         }
 
         #endregion
