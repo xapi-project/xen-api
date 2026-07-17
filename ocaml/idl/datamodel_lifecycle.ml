@@ -1,8 +1,8 @@
 let prototyped_of_class = function
   | "Rate_limit" ->
-      Some "26.14.0"
+      Some "26.16.1-next"
   | "Caller" ->
-      Some "26.14.0"
+      Some "26.16.1-next"
   | "Driver_variant" ->
       Some "25.2.0"
   | "Host_driver" ->
@@ -18,33 +18,33 @@ let prototyped_of_class = function
 
 let prototyped_of_field = function
   | "Rate_limit", "fill_rate" ->
-      Some "26.14.0"
+      Some "26.16.1-next"
   | "Rate_limit", "burst_size" ->
-      Some "26.14.0"
+      Some "26.16.1-next"
   | "Rate_limit", "callers" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Rate_limit", "name__description" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Rate_limit", "name__label" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Rate_limit", "uuid" ->
-      Some "26.14.0"
+      Some "26.16.1-next"
   | "Caller", "rate_limit" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Caller", "groups" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Caller", "last_access" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Caller", "client_ip" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Caller", "user_agent" ->
-      Some "26.14.0"
+      Some "26.16.1-next"
   | "Caller", "name__description" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Caller", "name__label" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Caller", "uuid" ->
-      Some "26.14.0"
+      Some "26.16.1-next"
   | "Driver_variant", "status" ->
       Some "25.2.0"
   | "Driver_variant", "priority" ->
@@ -191,6 +191,8 @@ let prototyped_of_field = function
       Some "23.18.0"
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
+  | "pool", "auto_update_vm_secureboot_certificates" ->
+      Some "26.16.0-next"
   | "pool", "vm_console_idle_timeout" ->
       Some "26.1.0"
   | "pool", "limit_console_sessions" ->
@@ -236,15 +238,15 @@ let prototyped_of_field = function
 
 let prototyped_of_message = function
   | "Rate_limit", "set_fill_rate" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Rate_limit", "set_burst_size" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Rate_limit", "remove_caller" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Rate_limit", "add_caller" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Caller", "query_all_usage" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Caller", "query_group_call_count" ->
       Some "26.15.0"
   | "Caller", "query_group_token_usage" ->
@@ -254,9 +256,9 @@ let prototyped_of_message = function
   | "Caller", "query_token_usage" ->
       Some "26.15.0"
   | "Caller", "remove_group" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Caller", "add_group" ->
-      Some "26.7.0"
+      Some "26.16.1-next"
   | "Driver_variant", "select" ->
       Some "25.2.0"
   | "Host_driver", "rescan" ->
@@ -306,7 +308,7 @@ let prototyped_of_message = function
   | "VTPM", "create" ->
       Some "22.26.0"
   | "VDI", "revert" ->
-      Some "26.15.0-next"
+      Some "26.16.0"
   | "host", "set_servertime" ->
       Some "26.0.0"
   | "host", "get_ntp_synchronized" ->
@@ -366,7 +368,7 @@ let prototyped_of_message = function
   | "pool", "exchange_trusted_certificates_on_join" ->
       Some "26.13.0"
   | "pool", "sync_trusted_certificates_from" ->
-      Some "26.15.0-next"
+      Some "26.16.0"
   | "pool", "uninstall_trusted_certificate" ->
       Some "26.13.0"
   | "pool", "install_trusted_certificate" ->
