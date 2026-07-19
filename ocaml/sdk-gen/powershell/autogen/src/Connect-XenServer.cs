@@ -29,7 +29,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Management.Automation;
 using System.Net;
 #if NET8_0_OR_GREATER
@@ -38,9 +37,7 @@ using System.Net.Http;
 using System.Net.Security;
 using System.Runtime.InteropServices;
 using System.Security;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.Xml;
 using XenAPI;
 
 namespace Citrix.XenServer.Commands
@@ -48,11 +45,8 @@ namespace Citrix.XenServer.Commands
     [Cmdlet("Connect", "XenServer")]
     public class ConnectXenServerCommand : PSCmdlet
     {
-        private const string CertificatesPathVariable = "global:KnownServerCertificatesFilePath";
-
-        private readonly object _certificateValidationLock = new object();
-
-        private static readonly string DefaultUserAgent = $"XenServerPSModule/@SDK_VERSION@";
+        private static readonly string DefaultUserAgent = "XenServerPSModule/@SDK_VERSION@";
+        private static readonly object CertificateValidationLock = new object();
 
         public ConnectXenServerCommand()
         {
@@ -228,10 +222,10 @@ namespace Citrix.XenServer.Commands
                         {
                             if (ShouldContinue(ex.Message, ex.Caption))
                             {
-                                var certPath = GetCertificatesPath();
-                                var certificates = LoadCertificates(certPath);
+                                var certPath = CommonCmdletFunctions.GetCertificatesPath(this);
+                                var certificates = CommonCmdletFunctions.LoadCertificates(certPath);
                                 certificates[ex.Hostname] = ex.Fingerprint;
-                                SaveCertificates(certPath, certificates);
+                                CommonCmdletFunctions.SaveCertificates(certPath, certificates);
                                 i--;
                                 continue;
                             }
@@ -274,171 +268,53 @@ namespace Citrix.XenServer.Commands
                 WriteObject(newSessions.Values, true);
         }
 
-        private bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+        private bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain,
+            SslPolicyErrors sslPolicyErrors)
         {
             if (sslPolicyErrors == SslPolicyErrors.None)
                 return true;
 
-            lock (_certificateValidationLock)
-            {
-                bool ignoreChanged = Force || NoWarnCertificates || (bool)GetVariableValue("NoWarnCertificates", false);
-                bool ignoreNew = Force || NoWarnNewCertificates || (bool)GetVariableValue("NoWarnNewCertificates", false);
-
 #if NET8_0_OR_GREATER
-                var requestMessage = sender as HttpRequestMessage;
-                string hostname = requestMessage?.RequestUri?.Host ?? string.Empty;
+            var requestMessage = sender as HttpRequestMessage;
+            string hostname = requestMessage?.RequestUri?.Host ?? string.Empty;
 #else
-                var webreq = sender as HttpWebRequest;
-                string hostname = webreq?.Address?.Host ?? string.Empty;
+            var webreq = sender as HttpWebRequest;
+            string hostname = webreq?.Address?.Host ?? string.Empty;
 #endif
-                string fingerprint = CommonCmdletFunctions.FingerprintPrettyString(certificate.GetCertHashString());
 
-                bool trusted = VerifyInAllStores(new X509Certificate2(certificate));
+            string fingerprint = CommonCmdletFunctions.FingerprintPrettyString(certificate.GetCertHashString());
 
-                var certPath = GetCertificatesPath();
-                var certificates = LoadCertificates(certPath);
+            lock (CertificateValidationLock)
+            {
+                var certPath = CommonCmdletFunctions.GetCertificatesPath(this);
+                var certificates = CommonCmdletFunctions.LoadCertificates(certPath);
 
                 if (certificates.TryGetValue(hostname, out var fingerprintOld))
                 {
                     if (fingerprintOld == fingerprint)
                         return true;
 
+                    bool ignoreChanged = Force || NoWarnCertificates || (bool)GetVariableValue("NoWarnCertificates", false);
                     if (!ignoreChanged)
-                        throw new CertificateChangedException(fingerprint, fingerprintOld, trusted, hostname);
+                    {
+                        var trusted = CommonCmdletFunctions.VerifyInAllStores(new X509Certificate2(certificate));
+                        throw new CertificateChangedException(fingerprint, trusted, hostname);
+                    }
                 }
                 else
                 {
+                    bool ignoreNew = Force || NoWarnNewCertificates || (bool)GetVariableValue("NoWarnNewCertificates", false);
                     if (!ignoreNew)
+                    {
+                        var trusted = CommonCmdletFunctions.VerifyInAllStores(new X509Certificate2(certificate));
                         throw new CertificateNotFoundException(fingerprint, trusted, hostname);
+                    }
                 }
 
                 certificates[hostname] = fingerprint;
-                SaveCertificates(certPath, certificates);
+                CommonCmdletFunctions.SaveCertificates(certPath, certificates);
                 return true;
             }
         }
-
-        private bool VerifyInAllStores(X509Certificate2 certificate2)
-        {
-            try
-            {
-                X509Chain chain = new X509Chain(true);
-                return chain.Build(certificate2) || certificate2.Verify();
-            }
-            catch (CryptographicException)
-            {
-                return false;
-            }
-        }
-
-        private string GetCertificatesPath()
-        {
-            var certPathObject = SessionState.PSVariable.GetValue(CertificatesPathVariable);
-
-            return certPathObject is PSObject psObject
-                ? psObject.BaseObject as string
-                : certPathObject?.ToString() ?? string.Empty;
-        }
-
-        private Dictionary<string, string> LoadCertificates(string certPath)
-        {
-            var certificates = new Dictionary<string, string>();
-
-            if (File.Exists(certPath))
-            {
-                var doc = new XmlDocument();
-                doc.Load(certPath);
-
-                foreach (XmlNode node in doc.GetElementsByTagName("certificate"))
-                {
-                    var hostAtt = node.Attributes?["hostname"];
-                    var fngprtAtt = node.Attributes?["fingerprint"];
-
-                    if (hostAtt != null && fngprtAtt != null)
-                        certificates[hostAtt.Value] = fngprtAtt.Value;
-                }
-            }
-
-            return certificates;
-        }
-
-        private void SaveCertificates(string certPath, Dictionary<string, string> certificates)
-        {
-            string dirName = Path.GetDirectoryName(certPath);
-
-            if (!Directory.Exists(dirName))
-                Directory.CreateDirectory(dirName);
-
-            XmlDocument doc = new XmlDocument();
-            XmlDeclaration decl = doc.CreateXmlDeclaration("1.0", "utf-8", null);
-            doc.AppendChild(decl);
-            XmlNode node = doc.CreateElement("certificates");
-
-            foreach (KeyValuePair<string, string> cert in certificates)
-            {
-                XmlNode certNode = doc.CreateElement("certificate");
-                XmlAttribute hostname = doc.CreateAttribute("hostname");
-                XmlAttribute fingerprint = doc.CreateAttribute("fingerprint");
-                hostname.Value = cert.Key;
-                fingerprint.Value = cert.Value;
-                certNode.Attributes?.Append(hostname);
-                certNode.Attributes?.Append(fingerprint);
-                node.AppendChild(certNode);
-            }
-
-            doc.AppendChild(node);
-            doc.Save(certPath);
-        }
-    }
-
-    internal abstract class CertificateValidationException : Exception
-    {
-        protected const string CERT_TRUSTED = "The certificate on this server is trusted. It is recommended you re-issue this server's certificate.";
-        protected const string CERT_NOT_TRUSTED = "The certificate on this server is not trusted.";
-
-        protected readonly bool Trusted;
-        public readonly string Fingerprint;
-        public readonly string Hostname;
-
-        protected CertificateValidationException(string fingerprint, bool trusted, string hostname)
-        {
-            Fingerprint = fingerprint;
-            Trusted = trusted;
-            Hostname = hostname;
-        }
-
-        public abstract string Caption { get; }
-    }
-
-    internal class CertificateChangedException : CertificateValidationException
-    {
-        private readonly string _oldFingerprint;
-
-        public CertificateChangedException(string fingerprint, string oldFingerprint, bool trusted, string hostname)
-            : base(fingerprint, trusted, hostname)
-        {
-            _oldFingerprint = oldFingerprint;
-        }
-
-        public override string Caption => "Security Certificate Changed";
-
-        public override string Message => $"The certificate fingerprint of the server you have connected to is:\n{Fingerprint}\n" +
-                                          $"But was expected to be:\n{_oldFingerprint}\n" +
-                                          (Trusted ? CERT_TRUSTED : CERT_NOT_TRUSTED) +
-                                          "\nDo you wish to continue?";
-    }
-
-    internal class CertificateNotFoundException : CertificateValidationException
-    {
-        public CertificateNotFoundException(string fingerprint, bool trusted, string hostname)
-            : base(fingerprint, trusted, hostname)
-        {
-        }
-
-        public override string Caption => "New Security Certificate";
-
-        public override string Message => $"The certificate fingerprint of the server you have connected to is :\n{Fingerprint}\n" +
-                                          (Trusted ? CERT_TRUSTED : CERT_NOT_TRUSTED) +
-                                          "\nDo you wish to continue?";
     }
 }

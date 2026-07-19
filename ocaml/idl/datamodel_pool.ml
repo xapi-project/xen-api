@@ -665,7 +665,7 @@ let external_auth_set_ldaps =
     ~lifecycle:
       [
         ( Published
-        , "26.15.0-next"
+        , "26.16.0"
         , "This call enables or disables LDAPS for external authentication on \
            all hosts in the pool"
         )
@@ -676,21 +676,21 @@ let external_auth_set_ldaps =
           param_type= Ref _pool
         ; param_name= "pool"
         ; param_doc= "The pool whose LDAPS configuration should be set"
-        ; param_release= numbered_release "26.15.0-next"
+        ; param_release= numbered_release "26.16.0"
         ; param_default= None
         }
       ; {
           param_type= Bool
         ; param_name= "ldaps"
         ; param_doc= "Whether to enable or disable LDAPS"
-        ; param_release= numbered_release "26.15.0-next"
+        ; param_release= numbered_release "26.16.0"
         ; param_default= None
         }
       ; {
           param_type= Bool
         ; param_name= "force"
         ; param_doc= "Force the operation even if already in the desired state"
-        ; param_release= numbered_release "26.15.0-next"
+        ; param_release= numbered_release "26.16.0"
         ; param_default= Some (VBool false)
         }
       ]
@@ -2429,6 +2429,19 @@ let t =
              means never timeout. This setting applies only to VM consoles; \
              for host consoles, use the separate parameter \
              'host.console_idle_timeout'."
+        ; field ~writer_roles:_R_POOL_OP ~qualifier:RW ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool false))
+            "auto_update_vm_secureboot_certificates"
+            "When true, at VM.create time the pool automatically marks a newly \
+             created VM whose Secure Boot certificates are due to expire by \
+             setting VM.secureboot_certificates_state to update_on_boot (the \
+             same effect as VM.update_secureboot_certificates_on_boot), so the \
+             certificates are updated on the VM's next boot. This applies to \
+             VMs created by VM.create, including those created by operations \
+             that internally call it: the HTTP(s) PUT /import and \
+             /import_metadata calls and disaster recovery (VM.recover and \
+             VM_appliance.recover); it does not apply to VM.clone or VM.copy, \
+             which inherit the source VM's state."
         ]
       )
     ()

@@ -1007,6 +1007,9 @@ let cannot_evacuate_host = add_error "CANNOT_EVACUATE_HOST"
 
 let host_evacuate_in_progress = add_error "HOST_EVACUATE_IN_PROGRESS"
 
+let host_evacuate_vm_not_ha_protected =
+  add_error "HOST_EVACUATE_VM_NOT_HA_PROTECTED"
+
 let system_status_retrieval_failed = add_error "SYSTEM_STATUS_RETRIEVAL_FAILED"
 
 let system_status_must_use_tar_on_oem =
