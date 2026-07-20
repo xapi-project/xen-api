@@ -97,6 +97,8 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
+  | "PBD", "storage_driver_domain" ->
+      Some "26.16.0-next"
   | "SM", "supported_image_formats" ->
       Some "26.15.0"
   | "SM", "host_pending_features" ->
@@ -157,6 +159,8 @@ let prototyped_of_field = function
       Some "24.10.0"
   | "VM", "recommended_guidances" ->
       Some "23.18.0"
+  | "VM", "storage_driver_domain_of" ->
+      Some "26.16.0-next"
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "auto_update_vm_secureboot_certificates" ->
@@ -253,6 +257,8 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
+  | "PBD", "set_storage_driver_domain" ->
+      Some "26.16.0-next"
   | "VDI", "revert" ->
       Some "26.16.0"
   | "host", "set_servertime" ->

@@ -1345,10 +1345,33 @@ module MD = struct
       warn
         "The machine-address-size option used by VM %s is no longer implemented"
         vm.API.vM_uuid ;
+    (* A VM acting as a storage driver domain must run with this ssidref and a
+       larger maptrack table so that Xen permits it to map grant references from
+       the VMs it is serving storage to. Default to 1024 maptrack frames unless
+       a value has already been provided in platformdata. Other VMs are left
+       with the defaults. *)
+    let is_storage_driver_domain =
+      System_domains.is_storage_driver_domain ~__context ~vm:vmref
+    in
+    let ssidref =
+      if is_storage_driver_domain then
+        123000l
+      else
+        0l
+    in
+    let platformdata =
+      if
+        is_storage_driver_domain
+        && not (List.mem_assoc "max_maptrack_frames" platformdata)
+      then
+        ("max_maptrack_frames", "1024") :: platformdata
+      else
+        platformdata
+    in
     {
       id= vm.API.vM_uuid
     ; name= vm.API.vM_name_label
-    ; ssidref= 0l
+    ; ssidref
     ; xsdata= vm.API.vM_xenstore_data
     ; platformdata
     ; bios_strings= vm.API.vM_bios_strings

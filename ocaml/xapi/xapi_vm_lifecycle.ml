@@ -489,6 +489,15 @@ let check_operation_error ~__context ~ref =
   let is_snapshort_schedule_valid =
     Db.is_valid_ref __context vmr.Db_actions.vM_snapshot_schedule
   in
+  (* PBDs for which this VM is the storage driver domain, and whether any of
+     them are currently plugged (in which case the VM is actively serving
+     storage and must not be disrupted). *)
+  let sdd_pbds = System_domains.pbds_of_vm ~__context ~vm:ref in
+  let sdd_serving =
+    List.exists
+      (fun pbd -> Db.PBD.get_currently_attached ~__context ~self:pbd)
+      sdd_pbds
+  in
 
   fun ~op ~strict ->
     let current_error = None in
@@ -562,6 +571,41 @@ let check_operation_error ~__context ~ref =
           | (`suspend | `checkpoint | `pool_migrate | `migrate_send)
             when not (is_mobile ~__context ref strict metrics) ->
               Some (Api_errors.vm_is_immobile, [ref_str])
+          | _ ->
+              None
+      )
+    in
+    (* A storage driver domain must not be disrupted while it is serving
+       storage (i.e. while any of its PBDs are plugged). *)
+    let current_error =
+      check current_error (fun () ->
+          match op with
+          | `clean_shutdown
+          | `hard_shutdown
+          | `clean_reboot
+          | `hard_reboot
+          | `suspend
+          | `checkpoint
+          | `pause
+            when sdd_serving ->
+              Some
+                ( Api_errors.operation_not_allowed
+                , ["VM is a storage driver domain with plugged PBDs"]
+                )
+          | _ ->
+              None
+      )
+    in
+    (* A storage driver domain is pinned to the host owning its PBDs and must
+       never migrate, even when it is shut down. *)
+    let current_error =
+      check current_error (fun () ->
+          match op with
+          | (`pool_migrate | `migrate_send) when sdd_pbds <> [] ->
+              Some
+                ( Api_errors.operation_not_allowed
+                , ["VM is a storage driver domain"]
+                )
           | _ ->
               None
       )

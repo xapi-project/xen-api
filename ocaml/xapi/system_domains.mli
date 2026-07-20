@@ -40,6 +40,14 @@ val pbd_of_vm : __context:Context.t -> vm:API.ref_VM -> API.ref_PBD option
 (** [pbd_of_vm __context vm] returns (Some pbd) if [vm] is a driver domain
     	for [pbd] and None otherwise. *)
 
+val pbds_of_vm : __context:Context.t -> vm:API.ref_VM -> API.ref_PBD list
+(** [pbds_of_vm __context vm] returns all the PBDs for which [vm] is the
+    storage driver domain. *)
+
+val is_storage_driver_domain : __context:Context.t -> vm:API.ref_VM -> bool
+(** [is_storage_driver_domain __context vm] returns true if [vm] is the storage
+    driver domain of one or more PBDs. *)
+
 (** One of many service running in a driver domain *)
 type service = {uuid: string; ty: string; instance: string; url: string}
 

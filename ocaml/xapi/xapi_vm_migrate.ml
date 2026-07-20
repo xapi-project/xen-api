@@ -1938,6 +1938,11 @@ let migration_type ~__context ~remote =
 
 let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
     ~vgpu_map =
+  if System_domains.is_storage_driver_domain ~__context ~vm then
+    raise
+      (Api_errors.Server_error
+         (Api_errors.operation_not_allowed, ["VM is a storage driver domain"])
+      ) ;
   Xapi_vm_helpers.assert_no_legacy_hardware ~__context ~vm ;
   assert_licensed_storage_motion ~__context ;
   let remote = remote_of_dest ~__context dest in
