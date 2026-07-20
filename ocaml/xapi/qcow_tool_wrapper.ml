@@ -19,7 +19,7 @@ let receive (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
     (path : string) =
   let args = ["stream_decode"; path] in
   let qcow_tool = !Xapi_globs.qcow_stream_tool in
-  Vhd_qcow_parsing.run_tool qcow_tool progress_cb args ~input_fd:unix_fd
+  Vhd_qcow_parsing.run_tool qcow_tool args ~progress_cb ~input_fd:unix_fd
 
 let read_header qcow_path =
   let progress_cb _ = () in
@@ -28,7 +28,7 @@ let read_header qcow_path =
       (fun () ->
         Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () ->
-            Vhd_qcow_parsing.run_tool tool progress_cb args
+            Vhd_qcow_parsing.run_tool tool args ~progress_cb
               ~output_fd:pipe_writer ~replace_fds
           )
           (fun () -> Unix.close pipe_writer)
@@ -134,7 +134,7 @@ let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
   in
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
-      Vhd_qcow_parsing.run_tool qcow_tool progress_cb args ~output_fd:unix_fd
+      Vhd_qcow_parsing.run_tool qcow_tool args ~progress_cb ~output_fd:unix_fd
         ?replace_fds
     )
     (fun () ->
