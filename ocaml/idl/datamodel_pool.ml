@@ -660,6 +660,45 @@ let disable_external_auth =
       "This call disables external authentication on all the hosts of the pool"
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let external_auth_set_ldaps =
+  call ~flags:[`Session] ~name:"external_auth_set_ldaps" ~in_oss_since:None
+    ~lifecycle:
+      [
+        ( Published
+        , "26.1.16-next"
+        , "This call enables or disables LDAPS for external authentication on \
+           all hosts in the pool"
+        )
+      ]
+    ~versioned_params:
+      [
+        {
+          param_type= Ref _pool
+        ; param_name= "pool"
+        ; param_doc= "The pool whose LDAPS configuration should be set"
+        ; param_release= numbered_release "26.1.16-next"
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "ldaps"
+        ; param_doc= "Whether to enable or disable LDAPS"
+        ; param_release= numbered_release "26.1.16-next"
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "force"
+        ; param_doc= "Force the operation even if already in the desired state"
+        ; param_release= numbered_release "26.1.16-next"
+        ; param_default= Some (VBool false)
+        }
+      ]
+    ~doc:
+      "This call enables or disables LDAPS for external authentication on all \
+       hosts in the pool"
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 let detect_nonhomogeneous_external_auth =
   call ~flags:[`Session] ~name:"detect_nonhomogeneous_external_auth"
     ~in_oss_since:None
@@ -1663,6 +1702,36 @@ let uninstall_trusted_certificate =
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ~lifecycle:[] ()
 
+let sync_trusted_certificates_from =
+  call ~name:"sync_trusted_certificates_from"
+    ~doc:
+      "Download trusted TLS certificates from a remote pool and install them \
+       in this pool. Certificates already present locally (matched by \
+       fingerprint and purpose) are skipped."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( String
+        , "remote_pool"
+        , "The hostname or IP address of the coordinator of the remote pool \
+           from which the certificates are downloaded"
+        )
+      ; ( Ref _session
+        , "remote_session"
+        , "A session obtained from the remote pool, used to authenticate the \
+           download"
+        )
+      ; ( String
+        , "remote_certificate"
+        , "The PEM-encoded TLS certificate of the remote pool's coordinator, \
+           used to verify the TLS connection to the remote pool."
+        )
+      ; (Bool, "ca", "true for 'ca' or false for 'pinned'")
+      ]
+    ~result:(Set (Ref _certificate), "The references of certificates synced.")
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~lifecycle:[] ()
+
 let trusted_certs = Map (String, Set String)
 
 let exchange_trusted_certificates_on_join =
@@ -1752,6 +1821,7 @@ let t =
       ; disable_binary_storage
       ; enable_external_auth
       ; disable_external_auth
+      ; external_auth_set_ldaps
       ; detect_nonhomogeneous_external_auth
       ; initialize_wlb
       ; deconfigure_wlb
@@ -1814,6 +1884,7 @@ let t =
       ; set_ssh_auto_mode
       ; install_trusted_certificate
       ; uninstall_trusted_certificate
+      ; sync_trusted_certificates_from
       ; exchange_trusted_certificates_on_join
       ; exchange_crls_on_join
       ]

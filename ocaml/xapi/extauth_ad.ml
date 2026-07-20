@@ -22,11 +22,9 @@ open D
 module AD_type = struct
   exception Unknown_AD_type of string
 
-  type t = Pbis | Winbind
+  type t = Winbind
 
   let of_string = function
-    | "pbis" ->
-        Pbis
     | "winbind" ->
         Winbind
     | _ as at ->
@@ -36,20 +34,14 @@ end
 
 module AD = struct
   let start_backend_daemon ~wait_until_success = function
-    | AD_type.Pbis ->
-        Extauth_plugin_ADpbis.Lwsmd.start ~wait_until_success ~timeout:5.
     | AD_type.Winbind ->
         Extauth_plugin_ADwinbind.Winbind.start ~wait_until_success ~timeout:5.
 
   let stop_backend_daemon ~wait_until_success = function
-    | AD_type.Pbis ->
-        Extauth_plugin_ADpbis.Lwsmd.stop ~wait_until_success ~timeout:3.
     | AD_type.Winbind ->
         Extauth_plugin_ADwinbind.Winbind.stop ~wait_until_success ~timeout:3.
 
   let init_service ~__context = function
-    | AD_type.Pbis ->
-        Extauth_plugin_ADpbis.Lwsmd.init_service ~__context
     | AD_type.Winbind ->
         Extauth_plugin_ADwinbind.Winbind.init_service ~__context
 end
@@ -71,7 +63,5 @@ let init_service ~__context =
 
 let methods () =
   match !Xapi_globs.extauth_ad_backend |> AD_type.of_string with
-  | Pbis ->
-      Extauth_plugin_ADpbis.AuthADlw.methods
   | Winbind ->
       Extauth_plugin_ADwinbind.AuthADWinbind.methods
