@@ -154,7 +154,7 @@ let prototyped_of_field = function
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "auto_update_vm_secureboot_certificates" ->
-      Some "26.1.15-next"
+      Some "26.1.16"
   | "pool", "vm_console_idle_timeout" ->
       Some "26.1.0"
   | "pool", "limit_console_sessions" ->
@@ -306,7 +306,7 @@ let prototyped_of_message = function
   | "pool", "exchange_trusted_certificates_on_join" ->
       Some "26.1.12"
   | "pool", "sync_trusted_certificates_from" ->
-      Some "26.1.16-next"
+      Some "26.1.17"
   | "pool", "uninstall_trusted_certificate" ->
       Some "26.1.12"
   | "pool", "install_trusted_certificate" ->
