@@ -60,3 +60,7 @@ val destroy : __context:Context.t -> self:[`VLAN] Ref.t -> unit
 (** Destroy a VLAN. Removes the VLAN object as well as the VLAN master PIF. *)
 
 val vlan_mac : string
+
+val assert_valid_VLAN_tag : int64 -> unit
+(** Checks the parameter is sensible value for VLAN tag (0 - 4094 inclusive);
+ * 4095 is reserved for implementation use (802.1Q) *)

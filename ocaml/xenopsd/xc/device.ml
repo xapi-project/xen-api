@@ -822,14 +822,15 @@ end
 
 module Vif = struct
   let add ~xs ~devid ~mac ?mtu ?(rate = None) ?(backend_domid = 0)
-      ?(other_config = []) ~netty ~carrier ?(protocol = Protocol_Native)
+      ?(other_config = []) ~netty ~carrier ~trunks ?(protocol = Protocol_Native)
       ?(extra_private_keys = []) ?(extra_xenserver_keys = [])
       (task : Xenops_task.task_handle) domid =
     debug
-      "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s \
+      "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s trunks=%s \
        other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]"
       domid devid mac carrier
       (match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b)
+      (String.concat "," (List.map Int64.to_string trunks))
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
       (String.concat "; "
          (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys)
@@ -917,6 +918,7 @@ module Vif = struct
     let extra_private_keys =
       extra_private_keys
       @ ("mac", mac)
+        :: ("trunks", String.concat "," (List.map Int64.to_string trunks))
         ::
         ( match mtu with
         | Some mtu when mtu > 0 ->

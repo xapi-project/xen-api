@@ -3831,6 +3831,48 @@ module VIF = struct
         ]
       ~allowed_roles:_R_VM_OP ()
 
+  let add_trunks =
+    call ~name:"add_trunks" ~lifecycle:[]
+      ~doc:"Associates a 802.1Q VLAN with this VIF"
+      ~params:
+        [
+          ( Ref _vif
+          , "self"
+          , "The VIF which the 802.1Q VLAN will be associated with"
+          )
+        ; (Int, "value", "The 802.1Q VLAN which will be associated with the VIF")
+        ]
+      ~allowed_roles:_R_VM_ADMIN ()
+
+  let remove_trunks =
+    call ~name:"remove_trunks" ~lifecycle:[]
+      ~doc:"Removes a 802.1Q VLAN from this VIF"
+      ~params:
+        [
+          ( Ref _vif
+          , "self"
+          , "The VIF from which the 802.1Q VLAN will be removed"
+          )
+        ; (Int, "value", "The 802.1Q VLAN which will be removed from the VIF")
+        ]
+      ~allowed_roles:_R_VM_ADMIN ()
+
+  let set_trunks =
+    call ~name:"set_trunks" ~lifecycle:[]
+      ~doc:"Set the 802.1Q VLANs to which traffic on this VIF can be restricted"
+      ~params:
+        [
+          ( Ref _vif
+          , "self"
+          , "The VIF which the 802.1Q VLANs will be associated with"
+          )
+        ; ( Set Int
+          , "value"
+          , "The 802.1Q VLANs which will be associated with the VIF"
+          )
+        ]
+      ~allowed_roles:_R_VM_ADMIN ()
+
   (** A virtual network interface *)
   let t =
     create_obj ~in_db:true
@@ -3854,6 +3896,9 @@ module VIF = struct
         ; remove_ipv6_allowed
         ; configure_ipv4
         ; configure_ipv6
+        ; add_trunks
+        ; remove_trunks
+        ; set_trunks
         ]
       ~contents:
         ([
@@ -4044,6 +4089,10 @@ module VIF = struct
               ~internal_only:true ~qualifier:DynamicRO "reserved_pci"
               "pci of network SR-IOV VF which is reserved for this vif"
               ~default_value:(Some (VRef null_ref))
+          ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:(Set Int)
+              ~default_value:(Some (VSet [])) "trunks"
+              "the 802.1Q VLANs that this port trunks (if available) ; if it \
+               is empty, then the port trunks all VLANs."
           ]
         )
       ()

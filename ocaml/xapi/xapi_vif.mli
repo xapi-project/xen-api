@@ -54,6 +54,7 @@ val create :
   -> locking_mode:API.vif_locking_mode
   -> ipv4_allowed:string list
   -> ipv6_allowed:string list
+  -> trunks:int64 list
   -> API.ref_VIF
 (** Create a new VIF instance *)
 
@@ -129,3 +130,14 @@ val configure_ipv6 :
   -> gateway:string
   -> unit
 (** Change the IP configuration of a VIF *)
+
+val add_trunks : __context:Context.t -> self:[`VIF] Ref.t -> value:int64 -> unit
+(** Associate a 802.1Q VLAN with this VIF. *)
+
+val remove_trunks :
+  __context:Context.t -> self:[`VIF] Ref.t -> value:int64 -> unit
+(** Remove a 802.1Q VLAN from this VIF. *)
+
+val set_trunks :
+  __context:Context.t -> self:[`VIF] Ref.t -> value:int64 list -> unit
+(** Set the list of 802.1Q VLANs allowed to use this VIF. *)

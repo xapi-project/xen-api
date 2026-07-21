@@ -121,6 +121,30 @@ let get_pif_topo ~__context ~pif_rec =
   let pif_t_list = List.rev pif_t_list in
   pif_t_list
 
+(** Checks the Network is compatible with trunks attribute on VIF (no PIF with VLAN configured). *)
+let assert_network_compatible_with_trunks_on_pif ~__context ~network =
+  let pif_has_vlan =
+    Db.Network.get_PIFs ~__context ~self:network
+    |> List.exists (fun self -> Db.PIF.get_VLAN ~__context ~self <> -1L)
+  in
+  if pif_has_vlan then
+    raise
+      (Api_errors.Server_error
+         (Api_errors.network_incompatible_with_trunks, [Ref.string_of network])
+      )
+
+(** Checks the Network is compatible with trunks attribute on VIF (no VIF with trunks attribute). *)
+let assert_network_compatible_with_trunks_on_vif ~__context ~network =
+  let vif_has_trunks =
+    Db.Network.get_VIFs ~__context ~self:network
+    |> List.exists (fun self -> Db.VIF.get_trunks ~__context ~self <> [])
+  in
+  if vif_has_trunks then
+    raise
+      (Api_errors.Server_error
+         (Api_errors.network_incompatible_with_trunks, [Ref.string_of network])
+      )
+
 let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec:_ ~pif_topo ~tag:_ =
   match pif_topo with
   | Physical pif_rec :: _ when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
