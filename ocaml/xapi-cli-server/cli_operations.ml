@@ -2826,7 +2826,7 @@ let vif_create printer rpc session_id params =
     Client.VIF.create ~rpc ~session_id ~device ~network ~vM ~mAC ~mTU
       ~other_config:[] ~currently_attached:false ~qos_algorithm_type:""
       ~qos_algorithm_params:[] ~locking_mode:`network_default ~ipv4_allowed:[]
-      ~ipv6_allowed:[]
+      ~ipv6_allowed:[] ~trunks:[]
   in
   let uuid = Client.VIF.get_uuid ~rpc ~session_id ~self:vif in
   printer (Cli_printer.PList [uuid])
