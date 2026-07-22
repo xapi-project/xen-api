@@ -119,6 +119,42 @@ let determine_other_config ~__context pif_rc net_rc =
   (pool_oc |> Listext.update_assoc net_oc |> Listext.update_assoc pif_oc)
   @ additional
 
+(* Build the LLDP configuration to push to networkd for the NIC of a managed
+   physical PIF. The effective state follows the configuration matrix: an
+   explicit PIF.lldp_mode of enabled/disabled overrides the pool-wide
+   pool.lldp_enabled, and 'enabled' additionally sets 'force' to override the
+   networkd driver blocklist. *)
+let determine_lldp ~__context pif_rc =
+  let pool = Helpers.get_pool ~__context in
+  let host = pif_rc.API.pIF_host in
+  let enabled, force =
+    match pif_rc.API.pIF_lldp_mode with
+    | `enabled ->
+        (true, true)
+    | `disabled ->
+        (false, false)
+    | `default ->
+        (Db.Pool.get_lldp_enabled ~__context ~self:pool, false)
+  in
+  let address =
+    match Db.Pool.get_lldp_multicast_address ~__context ~self:pool with
+    | `nearestbridge ->
+        Nearest_bridge
+    | `nearestnontpmrbridge ->
+        Nearest_non_tpmr_bridge
+    | `nearestcustomerbridge ->
+        Nearest_customer_bridge
+  in
+  Some
+    {
+      force
+    ; chassis_id= Db.Host.get_uuid ~__context ~self:host
+    ; system_name= Db.Host.get_name_label ~__context ~self:host
+    ; system_description= Db.Host.get_name_description ~__context ~self:host
+    ; enabled
+    ; address= [address]
+    }
+
 let create_bond ~__context bond mtu persistent =
   (* Get all information we need from the DB before doing anything that may drop our
      	 * management connection *)
@@ -438,6 +474,7 @@ let rec create_bridges ~__context pif_rc net_rc =
             ; ethtool_settings
             ; ethtool_offload
             ; persistent_i= persistent
+            ; lldp= determine_lldp ~__context pif_rc
             }
           )
         ]
