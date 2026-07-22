@@ -500,7 +500,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         ~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
         ~iPv6:[""] ~ipv6_gateway:""
         ~primary_address_type:primary_slave_address_type ~managed:true
-        ~properties:pif_properties ~capabilities:[] ~pCI:Ref.null ;
+        ~properties:pif_properties ~capabilities:[] ~pCI:Ref.null
+        ~lldp_mode:`default ;
       Db.Bond.create ~__context ~ref:bond
         ~uuid:(Uuidx.to_string (Uuidx.make ()))
         ~master ~other_config:[] ~primary_slave ~mode ~properties ~links_up:0L

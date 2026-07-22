@@ -75,7 +75,7 @@ let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
     ~management:false ~other_config:[] ~disallow_unplug:false
     ~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:""
     ~primary_address_type ~managed:true ~properties:[] ~capabilities:[]
-    ~pCI:Ref.null ;
+    ~pCI:Ref.null ~lldp_mode:`default ;
   let () =
     Db.VLAN.create ~__context ~ref:vlan ~uuid:vlan_uuid ~tagged_PIF
       ~untagged_PIF ~tag ~other_config:[]

@@ -1782,6 +1782,24 @@ let exchange_crls_on_join =
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ~hide_from_docs:true ~lifecycle:[] ()
 
+let lldp_multicast_address =
+  Enum
+    ( "lldp_multicast_address"
+    , [
+        ( "nearestbridge"
+        , "Nearest bridge group address (MAC 01:80:C2:00:00:0E). LLDP frames \
+           reach only the immediate neighbor on the physical link."
+        )
+      ; ( "nearestnontpmrbridge"
+        , "Nearest non-TPMR (Two-Port MAC Relay) bridge group address (MAC \
+           01:80:C2:00:00:03)."
+        )
+      ; ( "nearestcustomerbridge"
+        , "Nearest customer bridge group address (MAC 01:80:C2:00:00:00)."
+        )
+      ]
+    )
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true
@@ -2442,6 +2460,19 @@ let t =
              /import_metadata calls and disaster recovery (VM.recover and \
              VM_appliance.recover); it does not apply to VM.clone or VM.copy, \
              which inherit the source VM's state."
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool false)) "lldp_enabled"
+            "When true, LLDP is enabled on the NIC associated with each \
+             managed physical PIF on every host in the pool. When false, it is \
+             disabled. However, it can be overwritten by PIF.lldp_mode \
+             settings when mode is not default. LLDP receiving and advertising \
+             are always enabled or disabled together."
+        ; field ~writer_roles:_R_POOL_OP ~qualifier:RW ~lifecycle:[]
+            ~ty:lldp_multicast_address
+            ~default_value:(Some (VEnum "nearestbridge"))
+            "lldp_multicast_address"
+            "The multicast MAC address used for LLDP advertising. To apply a \
+             change, use pool.set_lldp_enabled with force=true."
         ]
       )
     ()

@@ -37,7 +37,7 @@ let create_internal ~__context ~physical_PIF ~physical_rec ~network =
     ~vLAN_master_of:Ref.null ~management:false ~other_config:[]
     ~disallow_unplug:false ~ipv6_configuration_mode:`None ~iPv6:[]
     ~ipv6_gateway:"" ~primary_address_type ~managed:true ~properties:[]
-    ~capabilities:[] ~pCI:Ref.null ;
+    ~capabilities:[] ~pCI:Ref.null ~lldp_mode:`default ;
   info "network-sriov create uuid=%s" sriov_uuid ;
   Db.Network_sriov.create ~__context ~ref:sriov ~uuid:sriov_uuid ~physical_PIF
     ~logical_PIF ~requires_reboot:false ~configuration_mode:`unknown ;

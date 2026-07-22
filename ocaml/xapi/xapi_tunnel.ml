@@ -55,7 +55,7 @@ let create_internal ~__context ~transport_PIF ~network ~host ~protocol =
     ~bond_slave_of:Ref.null ~vLAN_master_of:Ref.null ~management:false
     ~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
     ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type ~managed:true
-    ~properties:[] ~capabilities:[] ~pCI:Ref.null ;
+    ~properties:[] ~capabilities:[] ~pCI:Ref.null ~lldp_mode:`default ;
   Db.Tunnel.create ~__context ~ref:tunnel
     ~uuid:(Uuidx.to_string (Uuidx.make ()))
     ~access_PIF ~transport_PIF

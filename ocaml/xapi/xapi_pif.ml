@@ -516,7 +516,7 @@ let pool_introduce ~__context ~device ~network ~host ~mAC ~mTU ~vLAN ~physical
       ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of:Ref.null
       ~vLAN_master_of ~management ~other_config ~disallow_unplug
       ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type
-      ~managed ~properties ~capabilities:[] ~pCI:Ref.null
+      ~managed ~properties ~capabilities:[] ~pCI:Ref.null ~lldp_mode:`default
   in
   pif_ref
 
@@ -570,7 +570,7 @@ let introduce_internal ?network ?(physical = true) ~t ~__context ~host ~mAC ~mTU
       ~management:false ~other_config:[] ~disallow_unplug
       ~ipv6_configuration_mode:`None ~iPv6:[] ~ipv6_gateway:""
       ~primary_address_type ~managed ~properties:default_properties
-      ~capabilities ~pCI:pci
+      ~capabilities ~pCI:pci ~lldp_mode:`default
   in
   (* If I'm a pool slave and this pif represents my management
      	 * interface then leave it alone: if the interface goes down
