@@ -7004,6 +7004,9 @@ functor
         in
         Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
     end
+
+    module Caller = Xapi_caller
+    module Rate_limit = Xapi_rate_limit
   end
 
 (* for unit tests *)
