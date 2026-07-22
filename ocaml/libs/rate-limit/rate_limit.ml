@@ -89,8 +89,17 @@ let create ~burst_size ~fill_rate =
   }
 
 let delete data =
-  if Atomic.compare_and_set data.should_terminate false true then
-    Condition.signal data.worker_thread_cond ;
+  (* Set the termination flag and signal under [process_queue_lock]. The worker
+     evaluates its wait predicate (queue empty && not terminated) and calls
+     [Condition.wait] while holding this lock, so taking it here makes the
+     flag update and the signal atomic with respect to that check. Signalling
+     without the lock races the worker between its predicate check and
+     [Condition.wait]: the signal would be lost and the worker would sleep
+     forever, hanging [Thread.join] below. *)
+  with_lock data.process_queue_lock (fun () ->
+      Atomic.set data.should_terminate true ;
+      Condition.signal data.worker_thread_cond
+  ) ;
   Thread.join data.worker_thread
 
 let check_not_terminated should_terminate =
