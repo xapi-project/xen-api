@@ -3857,6 +3857,35 @@ let set_igmp_snooping_enabled ~__context ~self ~value =
           )
   )
 
+let set_lldp_enabled ~__context ~self ~value ~force =
+  if force || Db.Pool.get_lldp_enabled ~__context ~self <> value then (
+    Db.Pool.set_lldp_enabled ~__context ~self ~value ;
+    (* LLDP runs on physical NICs. Standalone physical PIFs are plugged
+       directly; bonded NICs are (re)configured by plugging the bond master.
+       Both apply the per-PIF PIF.lldp_mode against the new pool setting. *)
+    let pifs =
+      Db.PIF.get_all_records ~__context
+      |> List.filter (fun (_, r) ->
+          r.API.pIF_managed
+          && ((r.API.pIF_physical && r.API.pIF_bond_slave_of = Ref.null)
+             || r.API.pIF_bond_master_of <> []
+             )
+      )
+      |> List.map fst
+    in
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        List.filter_map
+          (fun pif ->
+            try
+              Client.PIF.plug ~rpc ~session_id ~self:pif ;
+              None
+            with e -> Some (pif, ExnHelper.string_of_exn e)
+          )
+          pifs
+    )
+  ) else
+    []
+
 let has_extension ~__context ~self:_ ~name =
   let hosts = Db.Host.get_all ~__context in
   List.for_all

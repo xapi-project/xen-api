@@ -498,6 +498,16 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-set-lldp-enabled"
+    , {
+        reqd= ["value"]
+      ; optn= ["uuid"; "force"]
+      ; help=
+          "Enable or disable LLDP on every managed physical PIF in the pool."
+      ; implementation= No_fd Cli_operations.pool_set_lldp_enabled
+      ; flags= []
+      }
+    )
   ; ( "pool-set-vswitch-controller"
     , {
         reqd= ["address"]
@@ -2120,6 +2130,17 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= []
       ; help= "Change the primary address type used by this PIF."
       ; implementation= No_fd Cli_operations.pif_set_primary_address_type
+      ; flags= []
+      }
+    )
+  ; ( "pif-set-lldp-mode"
+    , {
+        reqd= ["uuid"; "value"]
+      ; optn= ["force"]
+      ; help=
+          "Set the LLDP mode (default, enabled or disabled) of a managed \
+           physical PIF."
+      ; implementation= No_fd Cli_operations.pif_set_lldp_mode
       ; flags= []
       }
     )

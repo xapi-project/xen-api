@@ -1190,6 +1190,29 @@ let set_igmp_snooping_enabled =
     ~doc:"Enable or disable IGMP Snooping on the pool."
     ~allowed_roles:_R_POOL_OP ()
 
+let set_lldp_enabled =
+  call ~name:"set_lldp_enabled" ~lifecycle:[]
+    ~doc:
+      "Enable or disable LLDP on the NIC of every managed physical PIF in the \
+       pool, then apply the change by re-plugging the affected PIFs."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; (Bool, "value", "true to enable LLDP, false to disable it")
+      ; ( Bool
+        , "force"
+        , "When true, apply the change to all managed physical PIFs even if \
+           value already matches pool.lldp_enabled; otherwise apply only when \
+           value differs from pool.lldp_enabled."
+        )
+      ]
+    ~result:
+      ( Map (Ref _pif, String)
+      , "A map of the PIFs that failed to be reconfigured and the \
+         corresponding error message."
+      )
+    ~allowed_roles:_R_POOL_OP ()
+
 let has_extension =
   call ~name:"has_extension"
     ~lifecycle:
@@ -1869,6 +1892,7 @@ let t =
       ; enable_ssl_legacy
       ; disable_ssl_legacy
       ; set_igmp_snooping_enabled
+      ; set_lldp_enabled
       ; has_extension
       ; add_to_guest_agent_config
       ; remove_from_guest_agent_config

@@ -135,6 +135,14 @@ val set_primary_address_type :
   -> unit
 (** Change the primary address type between IPv4 and IPv6 *)
 
+val set_lldp_mode :
+     __context:Context.t
+  -> self:API.ref_PIF
+  -> value:[`default | `disabled | `enabled]
+  -> force:bool
+  -> unit
+(** Set the LLDP mode of a managed physical PIF and apply the change *)
+
 val set_default_properties : __context:Context.t -> self:API.ref_PIF -> unit
 (** Set the default properties of a PIF *)
 

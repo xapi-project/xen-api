@@ -1945,6 +1945,20 @@ let pool_disable_client_certificate_auth _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   Client.Pool.disable_client_certificate_auth ~rpc ~session_id ~self:pool
 
+let pool_set_lldp_enabled printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let value = bool_of_string "value" (List.assoc "value" params) in
+  let force = get_bool_param params "force" in
+  let failures =
+    Client.Pool.set_lldp_enabled ~rpc ~session_id ~self:pool ~value ~force
+  in
+  let table =
+    List.map
+      (fun (pif, msg) -> (Client.PIF.get_uuid ~rpc ~session_id ~self:pif, msg))
+      failures
+  in
+  printer (Cli_printer.PTable [table])
+
 let pool_sync_updates printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   let force = get_bool_param params "force" in
@@ -6710,6 +6724,14 @@ let pif_set_primary_address_type _printer rpc session_id params =
       ~primary_address_type
   in
   ()
+
+let pif_set_lldp_mode _printer rpc session_id params =
+  let pif =
+    Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "uuid" params)
+  in
+  let value = Record_util.pif_lldp_mode_of_string (List.assoc "value" params) in
+  let force = get_bool_param params "force" in
+  Client.PIF.set_lldp_mode ~rpc ~session_id ~self:pif ~value ~force
 
 let pif_unplug _printer rpc session_id params =
   let pif =

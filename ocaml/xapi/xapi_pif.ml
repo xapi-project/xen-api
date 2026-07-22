@@ -961,6 +961,41 @@ let set_primary_address_type ~__context ~self ~primary_address_type =
   Monitor_dbcalls_cache.clear_cache_for_pif
     ~pif_name:(Db.PIF.get_device ~__context ~self)
 
+(* LLDP is configurable on any managed physical PIF, i.e. a standalone
+   physical NIC or a bond member NIC. Bond masters, VLAN, tunnel and SR-IOV
+   PIFs are excluded, as they do not represent a physical NIC. *)
+let assert_lldp_configurable ~__context ~self =
+  Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;
+  let pif_rec = Db.PIF.get_record ~__context ~self in
+  match Xapi_pif_helpers.get_pif_type pif_rec with
+  | Xapi_pif_helpers.Physical _ ->
+      ()
+  | _ ->
+      raise
+        (Api_errors.Server_error
+           (Api_errors.pif_is_not_physical, [Ref.string_of self])
+        )
+
+(* LLDP runs on the physical NIC. A standalone physical PIF is plugged
+   directly; a bond member's configuration is applied by (re)plugging the
+   bond master, which brings its member NICs up. *)
+let pif_to_plug_for_lldp ~__context ~self =
+  match Db.PIF.get_bond_slave_of ~__context ~self with
+  | bond when bond <> Ref.null ->
+      Db.Bond.get_master ~__context ~self:bond
+  | _ ->
+      self
+
+let set_lldp_mode ~__context ~self ~value ~force =
+  assert_lldp_configurable ~__context ~self ;
+  if force || Db.PIF.get_lldp_mode ~__context ~self <> value then (
+    Db.PIF.set_lldp_mode ~__context ~self ~value ;
+    let to_plug = pif_to_plug_for_lldp ~__context ~self in
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        Client.Client.PIF.plug ~rpc ~session_id ~self:to_plug
+    )
+  )
+
 let set_property ~__context ~self ~name ~value =
   let fail () =
     raise
