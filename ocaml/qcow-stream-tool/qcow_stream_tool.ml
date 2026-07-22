@@ -2,7 +2,8 @@ open Cmdliner
 
 module Impl = struct
   let stream_decode output =
-    Qcow_stream.stream_decode Unix.stdin output ;
+    let progress_cb x = if x < 100 then Printf.printf "%03d%!" x in
+    Qcow_stream.stream_decode ~progress_cb Unix.stdin output ;
     `Ok ()
 end
 
