@@ -5,6 +5,10 @@
 STATE_DIR=/etc/xensource/static-vdis
 
 [ -d ${STATE_DIR} ] || exit 0
+if [ -z "$(find ${STATE_DIR} -mindepth 1)" ]; then
+   # directory is empty
+   exit 0
+fi
 [ -e /opt/xensource/bin/static-vdis ] || exit 0
 
 clear_stale_state(){
