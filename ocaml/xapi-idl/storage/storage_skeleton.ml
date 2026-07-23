@@ -164,6 +164,12 @@ module VDI = struct
   let remove_from_sm_config ctx ~dbg ~sr ~vdi ~key =
     Storage_interface.unimplemented __FUNCTION__
 
+  let add_tags ctx ~dbg ~sr ~vdi ~key =
+    Storage_interface.unimplemented __FUNCTION__
+
+  let remove_tags ctx ~dbg ~sr ~vdi ~key =
+    Storage_interface.unimplemented __FUNCTION__
+
   let enable_cbt ctx ~dbg ~sr ~vdi =
     Storage_interface.unimplemented __FUNCTION__
 
