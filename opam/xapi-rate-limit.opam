@@ -9,8 +9,14 @@ bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.20"}
   "ocaml" {>= "4.12"}
-  "xapi-log"
-  "xapi-stdext-unix"
+  "clock" {= version}
+  "mtime"
+  "xapi-log" {= version}
+  "xapi-stdext-threads" {= version}
+  "alcotest" {with-test}
+  "fmt" {with-test}
+  "qcheck-core" {with-test}
+  "qcheck-alcotest" {with-test}
   "odoc" {with-doc}
 ]
 build: [
