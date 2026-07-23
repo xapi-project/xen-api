@@ -16,6 +16,7 @@ depends: [
   "ppx_deriving_rpc"
   "xapi-client" {= version}
   "xapi-idl" {= version}
+  "xapi-rate-limit" {= version}
   "xapi-types" {= version}
   "xapi-stdext-zerocheck" {= version}
   "xapi-work-queues" {= version}
