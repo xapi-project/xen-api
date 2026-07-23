@@ -218,13 +218,13 @@ let reset_state () =
   config := Network_config.read_management_conf reset_order
 
 let set_gateway_interface _dbg name =
-  (* Remove dhclient conf (if any) for the old and new gateway interfaces.
-   * This ensures that dhclient gets restarted with an updated conf file when
+  (* Mark the DHCP configuration as stale for the old and new gateway interfaces.
+   * This ensures that DHCP client will be restarted with an updated conf file when
    * necessary. *)
   ( match !config.gateway_interface with
   | Some old_iface when name <> old_iface ->
-      Dhclient.remove_conf_file name ;
-      Dhclient.remove_conf_file old_iface
+      Dhclient.set_stale name ;
+      Dhclient.set_stale old_iface
   | _ ->
       ()
   ) ;
@@ -232,13 +232,13 @@ let set_gateway_interface _dbg name =
   config := {!config with gateway_interface= Some name}
 
 let set_dns_interface _dbg name =
-  (* Remove dhclient conf (if any) for the old and new DNS interfaces.
-   * This ensures that dhclient gets restarted with an updated conf file when
+  (* Mark the DHCP configuration as stale for the old and new DNS interfaces.
+   * This ensures that DHCP client will be restarted with an updated conf file when
    * necessary. *)
   ( match !config.dns_interface with
   | Some old_iface when name <> old_iface ->
-      Dhclient.remove_conf_file name ;
-      Dhclient.remove_conf_file old_iface
+      Dhclient.set_stale name ;
+      Dhclient.set_stale old_iface
   | _ ->
       ()
   ) ;
@@ -474,6 +474,17 @@ module Interface = struct
       )
       ()
 
+  let config_to_dhcp_options config =
+    let gateway =
+      Option.fold ~none:[]
+        ~some:(fun n -> [`gateway n])
+        config.gateway_interface
+    in
+    let dns =
+      Option.fold ~none:[] ~some:(fun n -> [`dns n]) config.dns_interface
+    in
+    gateway @ dns
+
   let get_ipv4_addr dbg name =
     Debug.with_thread_associated dbg (fun () -> Ip.get_ipv4 name) ()
 
@@ -482,33 +493,27 @@ module Interface = struct
       (fun () ->
         debug "Configuring IPv4 address for %s: %s" name
           (conf |> Rpcmarshal.marshal typ_of_ipv4 |> Jsonrpc.to_string) ;
-        update_config name {(get_config name) with ipv4_conf= conf} ;
+        let previous_config = get_config name in
+        let previous = previous_config.ipv4_conf in
+        update_config name {previous_config with ipv4_conf= conf} ;
+        (* deconfigure previous *)
+        Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun () ->
+            match previous with
+            | None4 ->
+                ()
+            | DHCP4 ->
+                if conf <> DHCP4 then Dhclient.stop name
+            | Static4 _ -> (
+              match conf with Static4 _ -> () | _ -> Ip.flush_ip_addr name
+            )
+        ) ;
+        (* configure conf *)
         match conf with
         | None4 ->
-            if List.mem name (Sysfs.list ()) then (
-              if Dhclient.is_running name then ignore (Dhclient.stop name) ;
-              Ip.flush_ip_addr name
-            )
+            ()
         | DHCP4 ->
-            let gateway =
-              Option.fold ~none:[]
-                ~some:(fun n -> [`gateway n])
-                !config.gateway_interface
-            in
-            let dns =
-              Option.fold ~none:[]
-                ~some:(fun n -> [`dns n])
-                !config.dns_interface
-            in
-            if not (Dhclient.is_running name) then (* Remove any static IPs *)
-              Ip.flush_ip_addr name ;
-            let options = gateway @ dns in
-            Dhclient.ensure_running name options
+            Dhclient.ensure_running name (config_to_dhcp_options !config)
         | Static4 addrs ->
-            if Dhclient.is_running name then (
-              ignore (Dhclient.stop name) ;
-              Ip.flush_ip_addr name
-            ) ;
             (* the function is meant to be idempotent and we want to avoid
                CA-239919 *)
             let cur_addrs = Ip.get_ipv4 name in
@@ -569,53 +574,47 @@ module Interface = struct
         else (
           debug "Configuring IPv6 address for %s: %s" name
             (conf |> Rpcmarshal.marshal typ_of_ipv6 |> Jsonrpc.to_string) ;
-          update_config name {(get_config name) with ipv6_conf= conf} ;
+          let previous_config = get_config name in
+          let previous = previous_config.ipv6_conf in
+          update_config name {previous_config with ipv6_conf= conf} ;
+          (* deconfigure previous *)
+          Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun () ->
+              match previous with
+              | None6 ->
+                  ()
+              | Linklocal6 ->
+                  if conf <> Linklocal6 then Ip.flush_ip_addr ~ipv6:true name
+              | DHCP6 ->
+                  if conf <> DHCP6 then Dhclient.stop ~ipv6:true name
+              | Autoconf6 ->
+                  if conf <> Autoconf6 then (
+                    Sysctl.set_ipv6_autoconf name false ;
+                    Ip.flush_ip_addr ~ipv6:true name
+                  )
+              | Static6 _ -> (
+                match conf with
+                | Static6 _ ->
+                    ()
+                | _ ->
+                    Ip.flush_ip_addr ~ipv6:true name
+              )
+          ) ;
+          (* configure conf *)
           match conf with
           | None6 ->
-              if List.mem name (Sysfs.list ()) then (
-                if Dhclient.is_running ~ipv6:true name then
-                  ignore (Dhclient.stop ~ipv6:true name) ;
-                Sysctl.set_ipv6_autoconf name false ;
-                Ip.flush_ip_addr ~ipv6:true name
-              )
+              ()
           | Linklocal6 ->
-              if List.mem name (Sysfs.list ()) then (
-                if Dhclient.is_running ~ipv6:true name then
-                  ignore (Dhclient.stop ~ipv6:true name) ;
-                Sysctl.set_ipv6_autoconf name false ;
-                Ip.flush_ip_addr ~ipv6:true name ;
-                Ip.set_ipv6_link_local_addr name
-              )
+              Ip.set_ipv6_link_local_addr name
           | DHCP6 ->
-              let gateway =
-                Option.fold ~none:[]
-                  ~some:(fun n -> [`gateway n])
-                  !config.gateway_interface
-              in
-              let dns =
-                Option.fold ~none:[]
-                  ~some:(fun n -> [`dns n])
-                  !config.dns_interface
-              in
-              if Dhclient.is_running ~ipv6:true name then
-                ignore (Dhclient.stop ~ipv6:true name) ;
-              Sysctl.set_ipv6_autoconf name false ;
-              Ip.flush_ip_addr ~ipv6:true name ;
               Ip.set_ipv6_link_local_addr name ;
-              let options = gateway @ dns in
-              ignore (Dhclient.ensure_running ~ipv6:true name options)
+              Dhclient.ensure_running ~ipv6:true name
+                (config_to_dhcp_options !config)
           | Autoconf6 ->
-              if Dhclient.is_running ~ipv6:true name then
-                ignore (Dhclient.stop ~ipv6:true name) ;
-              Ip.flush_ip_addr ~ipv6:true name ;
               Ip.set_ipv6_link_local_addr name ;
               Sysctl.set_ipv6_autoconf name true
               (* Cannot link set down/up due to CA-89882 - IPv4 default route
-                 cleared *)
+                cleared *)
           | Static6 addrs ->
-              if Dhclient.is_running ~ipv6:true name then
-                ignore (Dhclient.stop ~ipv6:true name) ;
-              Sysctl.set_ipv6_autoconf name false ;
               (* add the link_local and clean the old one only when needed *)
               let cur_addrs =
                 let addrs = Ip.get_ipv6 name in
@@ -910,20 +909,19 @@ module Interface = struct
         List.iter
           (function
             | ( name
-              , ( {
-                    ipv4_conf
-                  ; ipv4_gateway
-                  ; ipv6_conf
-                  ; ipv6_gateway
-                  ; ipv4_routes
-                  ; dns
-                  ; mtu
-                  ; ethtool_settings
-                  ; ethtool_offload
-                  ; _
-                  } as c
-                ) ) ->
-                update_config name c ;
+              , {
+                  ipv4_conf
+                ; ipv4_gateway
+                ; ipv6_conf
+                ; ipv6_gateway
+                ; ipv4_routes
+                ; dns
+                ; mtu
+                ; ethtool_settings
+                ; ethtool_offload
+                ; persistent_i
+                } ) ->
+                exec (fun () -> set_persistent dbg name persistent_i) ;
                 exec (fun () ->
                     match dns with
                     | None ->
