@@ -74,6 +74,7 @@ type domain_create_flag = Xenctrl.domain_create_flag =
   | CDF_IOMMU
   | CDF_NESTED_VIRT
   | CDF_VPMU
+  | CDF_TRAP_UNMAPPED_ACCESSES
 [@@deriving rpcty]
 
 type domain_create_iommu_opts = Xenctrl.domain_create_iommu_opts =
