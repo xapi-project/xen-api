@@ -336,22 +336,23 @@ end = struct
   end)
 
   let add_cert ~__context ~type' ~purpose certificate =
-    let name, host, _type, post_action =
+    let name, host, _type, post_action, is_trusted =
       match type' with
       | `host host ->
-          ("", host, `host, Fun.id)
+          ("", host, `host, Fun.id, false)
       | `host_internal host ->
-          ("", host, `host_internal, Fun.id)
+          ("", host, `host_internal, Fun.id, false)
       | `ca name when name <> "" ->
+          (* Legacy CA *)
           let certs = get_ca_certs ~__context name in
           let remove_obsoleted_copies () =
             List.iter (remove_cert_by_ref ~__context) certs
           in
-          (name, Ref.null, `ca, remove_obsoleted_copies)
+          (name, Ref.null, `ca, remove_obsoleted_copies, false)
       | `ca _name ->
-          ("", Ref.null, `ca, Fun.id)
+          ("", Ref.null, `ca, Fun.id, true)
       | `pinned ->
-          ("", Ref.null, `pinned, Fun.id)
+          ("", Ref.null, `pinned, Fun.id, true)
     in
     let date_of_ptime time = Date.of_unix_time (Ptime.to_float_s time) in
     let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
@@ -360,26 +361,28 @@ end = struct
     in
     let fingerprint_sha256 = pp_fingerprint ~hash_type:`SHA256 certificate in
     let fingerprint_sha1 = pp_fingerprint ~hash_type:`SHA1 certificate in
-    let expr =
-      let open Xapi_database.Db_filter_types in
-      let type' = Record_util.certificate_type_to_string _type in
-      let type' = Eq (Field "type", Literal type') in
-      let fingerprint_sha256 =
-        Eq (Field "fingerprint_sha256", Literal fingerprint_sha256)
-      in
-      And (type', fingerprint_sha256)
-    in
-    Db.Certificate.get_records_where ~__context ~expr
-    |> List.filter (fun (_, cert_rec) -> cert_rec.API.certificate_name = "")
-    |> List.filter (fun (_, cert_rec) ->
-        let open PurposeSet in
-        let s1 = of_list purpose in
-        let s2 = of_list cert_rec.API.certificate_purpose in
-        equal s1 s2 || not (is_empty (inter s1 s2))
-    )
-    |> List.iter (fun _ ->
-        raise_server_error [fingerprint_sha256]
-          trusted_certificate_already_exists
+    ( if is_trusted then
+        (* Legacy CA is not applicable to this check. *)
+        let expr =
+          let open Xapi_database.Db_filter_types in
+          let type' = Record_util.certificate_type_to_string _type in
+          let type' = Eq (Field "type", Literal type') in
+          let fingerprint_sha256 =
+            Eq (Field "fingerprint_sha256", Literal fingerprint_sha256)
+          in
+          And (type', fingerprint_sha256)
+        in
+        Db.Certificate.get_records_where ~__context ~expr
+        |> List.filter (fun (_, cert_rec) ->
+            let open PurposeSet in
+            let s1 = of_list purpose in
+            let s2 = of_list cert_rec.API.certificate_purpose in
+            equal s1 s2 || not (is_empty (inter s1 s2))
+        )
+        |> List.iter (fun _ ->
+            raise_server_error [fingerprint_sha256]
+              trusted_certificate_already_exists
+        )
     ) ;
     let uuid = Uuidx.(to_string (make ())) in
     let ref' = Ref.make () in
