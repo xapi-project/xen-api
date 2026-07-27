@@ -990,10 +990,13 @@ let set_lldp_mode ~__context ~self ~value ~force =
   assert_lldp_configurable ~__context ~self ;
   if force || Db.PIF.get_lldp_mode ~__context ~self <> value then (
     Db.PIF.set_lldp_mode ~__context ~self ~value ;
+    (* Re-apply to networkd only if the NIC is up; an unplugged PIF will pick
+       up the new setting the next time it is brought up. *)
     let to_plug = pif_to_plug_for_lldp ~__context ~self in
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.PIF.plug ~rpc ~session_id ~self:to_plug
-    )
+    if Db.PIF.get_currently_attached ~__context ~self:to_plug then
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Client.PIF.plug ~rpc ~session_id ~self:to_plug
+      )
   )
 
 let set_property ~__context ~self ~name ~value =
