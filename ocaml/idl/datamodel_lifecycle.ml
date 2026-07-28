@@ -29,6 +29,8 @@ let prototyped_of_field = function
       Some "26.1.21-next"
   | "Rate_limit", "uuid" ->
       Some "26.1.21-next"
+  | "Caller", "auto_registered" ->
+      Some "26.1.21-next"
   | "Caller", "rate_limit" ->
       Some "26.1.21-next"
   | "Caller", "groups" ->
