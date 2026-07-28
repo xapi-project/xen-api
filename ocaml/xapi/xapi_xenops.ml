@@ -1465,8 +1465,8 @@ let create_metadata ~__context ~self =
       )
   in
   let vifs' = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs in
-  let pcis = MD.pcis_of_vm ~__context (self, vm) in
   let vgpus = MD.vgpus_of_vm ~__context (self, vm) in
+  let pcis = MD.pcis_of_vm ~__context (self, vm) in
   let vusbs = MD.vusbs_of_vm ~__context (self, vm) in
   let domains =
     (* For suspended VMs, the last_booted_record contains the "live" xenopsd state. *)
