@@ -203,7 +203,7 @@ namespace XenAPI
         /// Read HTTP headers, doing any redirects as necessary
         /// </summary>
         /// <returns>True if a redirect has occurred - headers will need to be resent.</returns>
-        private static bool ReadHttpHeaders(ref Stream stream, IWebProxy proxy, bool nodelay, int timeout_ms, List<string> headers = null)
+        private static bool ReadHttpHeaders(ref Stream stream, IWebProxy proxy, RemoteCertificateValidationCallback callback, bool nodelay, int timeoutMs, List<string> headers = null)
         {
             // read headers/fields
             string line = ReadLine(stream);
@@ -277,7 +277,7 @@ namespace XenAPI
                     string url = header == null ? "" : header.Substring(9).Trim();
                     Uri redirect = new Uri(url);
                     stream.Close();
-                    stream = ConnectStream(redirect, proxy, nodelay, timeout_ms);
+                    stream = ConnectStream(redirect, proxy, callback, nodelay, timeoutMs);
                     return true; // headers need to be sent again
 
                 default:
@@ -307,20 +307,6 @@ namespace XenAPI
         {
             string[] bits = line.Split(' ');
             return bits.Length < 2 ? 0 : Int32.Parse(bits[1]);
-        }
-
-        public static bool UseSSL(Uri uri)
-        {
-            return uri.Scheme == "https" || uri.Port == DEFAULT_HTTPS_PORT;
-        }
-
-        private static bool ValidateServerCertificate(
-              object sender,
-              X509Certificate certificate,
-              X509Chain chain,
-              SslPolicyErrors sslPolicyErrors)
-        {
-            return true;
         }
 
         /// <summary>
@@ -475,45 +461,24 @@ namespace XenAPI
         /// </summary>
         /// <param name="uri"></param>
         /// <param name="proxy"></param>
+        /// <param name="callback"></param>
         /// <param name="nodelay"></param>
         /// <param name="timeoutMs">Timeout, in ms. 0 for no timeout.</param>
-        public static Stream ConnectStream(Uri uri, IWebProxy proxy, bool nodelay, int timeoutMs)
+        private static Stream ConnectStream(Uri uri, IWebProxy proxy, RemoteCertificateValidationCallback callback, bool nodelay, int timeoutMs)
         {
             if (proxy is IMockWebProxy mockProxy)
                 return mockProxy.GetStream(uri);
 
-            Stream stream;
-            bool useProxy = proxy != null && !proxy.IsBypassed(uri);
-
-            if (useProxy)
-            {
-                Uri proxyURI = proxy.GetProxy(uri);
-                stream = ConnectSocket(proxyURI, nodelay, timeoutMs);
-            }
-            else
-            {
-                stream = ConnectSocket(uri, nodelay, timeoutMs);
-            }
+            Stream stream = null;
 
             try
             {
-                if (useProxy)
+                stream = AuthenticateProxy(uri, proxy, callback, nodelay, timeoutMs);
+
+                if (uri.Scheme == "https" || uri.Port == DEFAULT_HTTPS_PORT)
                 {
-                    string line = $"CONNECT {uri.Host}:{uri.Port} HTTP/1.0";
-                    WriteLine(line, stream);
-                    WriteLine(stream);
-
-                    List<string> initialResponse = new List<string>();
-                    ReadHttpHeaders(ref stream, proxy, nodelay, timeoutMs, initialResponse);
-
-                    AuthenticateProxy(ref stream, uri, proxy, nodelay, timeoutMs, initialResponse, line);
-                }
-
-                if (UseSSL(uri))
-                {
-                    SslStream sslStream = new SslStream(stream, false, ValidateServerCertificate, null);
+                    SslStream sslStream = new SslStream(stream, false, callback, null);
                     sslStream.AuthenticateAsClient("", null, SslProtocols.Tls12, true);
-
                     stream = sslStream;
                 }
 
@@ -521,25 +486,37 @@ namespace XenAPI
             }
             catch
             {
-                stream.Close();
+                stream?.Close();
                 throw;
             }
         }
 
-        private static void AuthenticateProxy(ref Stream stream, Uri uri, IWebProxy proxy, bool nodelay, int timeoutMs, List<string> initialResponse, string header)
+        private static Stream AuthenticateProxy(Uri uri, IWebProxy proxy, RemoteCertificateValidationCallback callback, bool nodelay, int timeoutMs)
         {
+            if (proxy == null || proxy.IsBypassed(uri))
+                return ConnectSocket(uri, nodelay, timeoutMs);
+
+            Uri proxyUri = proxy.GetProxy(uri);
+            Stream stream = ConnectSocket(proxyUri, nodelay, timeoutMs);
+
+            string header = $"CONNECT {uri.Host}:{uri.Port} HTTP/1.0";
+            WriteLine(header, stream);
+            WriteLine(stream);
+
+            var initialResponse = new List<string>();
+            ReadHttpHeaders(ref stream, proxy, callback, nodelay, timeoutMs, initialResponse);
+
             // perform authentication only if proxy requires it
             List<string> fields = initialResponse.FindAll(str => str.StartsWith("Proxy-Authenticate:", StringComparison.InvariantCultureIgnoreCase));
             if (fields.Count <= 0)
-                return;
+                return stream;
 
             // clean up (if initial server response specifies "Proxy-Connection: Close" then stream cannot be re-used)
             string field = initialResponse.Find(str => str.StartsWith("Proxy-Connection: Close", StringComparison.InvariantCultureIgnoreCase));
             if (!string.IsNullOrEmpty(field))
             {
                 stream.Close();
-                Uri proxyURI = proxy.GetProxy(uri);
-                stream = ConnectSocket(proxyURI, nodelay, timeoutMs);
+                stream = ConnectSocket(proxyUri, nodelay, timeoutMs);
             }
 
             if (proxy.Credentials == null)
@@ -675,7 +652,8 @@ namespace XenAPI
 
             // handle authentication attempt response
             List<string> authenticatedResponse = new List<string>();
-            ReadHttpHeaders(ref stream, proxy, nodelay, timeoutMs, authenticatedResponse);
+            ReadHttpHeaders(ref stream, proxy, callback, nodelay, timeoutMs, authenticatedResponse);
+
             if (authenticatedResponse.Count == 0)
                 throw new BadServerResponseException("No response from the proxy server after authentication attempt.");
 
@@ -688,11 +666,13 @@ namespace XenAPI
                 default:
                     throw new BadServerResponseException($"Received error code {authenticatedResponse[0]} from the server");
             }
+
+            return stream;
         }
 
-        private static Stream DoHttp(Uri uri, IWebProxy proxy, bool noDelay, int timeoutMs, params string[] headers)
+        private static Stream DoHttp(Uri uri, IWebProxy proxy, RemoteCertificateValidationCallback callback, bool noDelay, int timeoutMs, params string[] headers)
         {
-            Stream stream = ConnectStream(uri, proxy, noDelay, timeoutMs);
+            Stream stream = ConnectStream(uri, proxy, callback, noDelay, timeoutMs);
 
             int redirects = 0;
 
@@ -709,7 +689,7 @@ namespace XenAPI
 
                 stream.Flush();
             }
-            while (ReadHttpHeaders(ref stream, proxy, noDelay, timeoutMs));
+            while (ReadHttpHeaders(ref stream, proxy, callback, noDelay, timeoutMs));
 
             return stream;
         }
@@ -717,7 +697,7 @@ namespace XenAPI
         /// <summary>
         /// Adds HTTP CONNECT headers returning the stream ready for use
         /// </summary>
-        public static Stream HttpConnectStream(Uri uri, IWebProxy proxy, string session, int timeoutMs, Dictionary<string, string> additionalHeaders = null)
+        public static Stream HttpConnectStream(Uri uri, IWebProxy proxy, RemoteCertificateValidationCallback callback, string session, int timeoutMs, Dictionary<string, string> additionalHeaders = null)
         {
             var allHeaders = new List<string>
             {
@@ -732,13 +712,13 @@ namespace XenAPI
                     allHeaders.Add($"{kvp.Key}: {kvp.Value}");
             }
 
-            return DoHttp(uri, proxy, true, timeoutMs, allHeaders.ToArray());
+            return DoHttp(uri, proxy, callback, true, timeoutMs, allHeaders.ToArray());
         }
 
         /// <summary>
         /// Adds HTTP PUT headers returning the stream ready for use
         /// </summary>
-        public static Stream HttpPutStream(Uri uri, IWebProxy proxy, long contentLength, int timeoutMs, Dictionary<string, string> additionalHeaders = null)
+        public static Stream HttpPutStream(Uri uri, IWebProxy proxy, RemoteCertificateValidationCallback callback, long contentLength, int timeoutMs, Dictionary<string, string> additionalHeaders = null)
         {
             var allHeaders = new List<string>
             {
@@ -753,13 +733,13 @@ namespace XenAPI
                     allHeaders.Add($"{kvp.Key}: {kvp.Value}");
             }
 
-            return DoHttp(uri, proxy, false, timeoutMs, allHeaders.ToArray());
+            return DoHttp(uri, proxy, callback, false, timeoutMs, allHeaders.ToArray());
         }
 
         /// <summary>
         /// Adds HTTP GET headers returning the stream ready for use
         /// </summary>
-        public static Stream HttpGetStream(Uri uri, IWebProxy proxy, int timeoutMs, Dictionary<string, string> additionalHeaders = null)
+        public static Stream HttpGetStream(Uri uri, IWebProxy proxy, RemoteCertificateValidationCallback callback, int timeoutMs, Dictionary<string, string> additionalHeaders = null)
         {
             var allHeaders = new List<string>
             {
@@ -773,7 +753,7 @@ namespace XenAPI
                     allHeaders.Add($"{kvp.Key}: {kvp.Value}");
             }
 
-            return DoHttp(uri, proxy, false, timeoutMs, allHeaders.ToArray());
+            return DoHttp(uri, proxy, callback, false, timeoutMs, allHeaders.ToArray());
         }
 
         /// <summary>
@@ -783,13 +763,14 @@ namespace XenAPI
         /// <param name="cancellingDelegate">Delegate called periodically to see if need to cancel</param>
         /// <param name="uri">URI to PUT to</param>
         /// <param name="proxy">A proxy to handle the HTTP connection</param>
+        /// <param name="callback"></param>
         /// <param name="path">Path to file to put</param>
         /// <param name="timeoutMs">Timeout for the connection in ms. 0 for no timeout.</param>
         public static void Put(UpdateProgressDelegate progressDelegate, FuncBool cancellingDelegate,
-            Uri uri, IWebProxy proxy, string path, int timeoutMs)
+            Uri uri, IWebProxy proxy, RemoteCertificateValidationCallback callback, string path, int timeoutMs)
         {
             using (Stream fileStream = new FileStream(path, FileMode.Open, FileAccess.Read),
-                requestStream = HttpPutStream(uri, proxy, fileStream.Length, timeoutMs))
+                requestStream = HttpPutStream(uri, proxy, callback, fileStream.Length, timeoutMs))
             {
                 long len = fileStream.Length;
                 DataCopiedDelegate dataCopiedDelegate = delegate(long bytes)
@@ -809,10 +790,11 @@ namespace XenAPI
         /// <param name="cancellingDelegate">Delegate called periodically to see if need to cancel</param>
         /// <param name="uri">URI to GET from</param>
         /// <param name="proxy">A proxy to handle the HTTP connection</param>
+        /// <param name="callback"></param>
         /// <param name="path">Path to file to receive the data</param>
         /// <param name="timeoutMs">Timeout for the connection in ms. 0 for no timeout.</param>
         public static void Get(DataCopiedDelegate dataCopiedDelegate, FuncBool cancellingDelegate,
-            Uri uri, IWebProxy proxy, string path, int timeoutMs)
+            Uri uri, IWebProxy proxy, RemoteCertificateValidationCallback callback, string path, int timeoutMs)
         {
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentException(nameof(path));
@@ -833,7 +815,7 @@ namespace XenAPI
             try
             {
                 using (Stream fileStream = new FileStream(tmpFile, FileMode.Create, FileAccess.Write, FileShare.None),
-                       downloadStream = HttpGetStream(uri, proxy, timeoutMs))
+                       downloadStream = HttpGetStream(uri, proxy, callback, timeoutMs))
                 {
                     CopyStream(downloadStream, fileStream, dataCopiedDelegate, cancellingDelegate);
                     fileStream.Flush();

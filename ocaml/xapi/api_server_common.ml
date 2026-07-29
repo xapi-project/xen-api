@@ -132,6 +132,8 @@ module Actions = struct
   module Observer = Xapi_observer
   module Host_driver = Xapi_host_driver
   module Driver_variant = Xapi_host_driver.Variant
+  module Caller = Xapi_caller
+  module Rate_limit = Xapi_rate_limit
 end
 
 (** Use the server functor to make an XML-RPC dispatcher. *)

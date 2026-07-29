@@ -7,7 +7,7 @@ Xen API (or xapi) is a management stack that configures and controls
 Xen-enabled hosts and resource pools, and coordinates resources
 within the pool. Xapi exposes the Xen API interface for many
 languages and is a component of the XenServer project.
-Xen API is written mostly in [OCaml](http://caml.inria.fr/ocaml/)
+Xen API is written mostly in [OCaml](https://ocaml.org)
 4.07.
 
 Xapi is the main component produced by the Linux Foundation's

@@ -167,6 +167,7 @@ module Vif : sig
     -> ?other_config:(string * string) list
     -> netty:Netman.netty
     -> carrier:bool
+    -> trunks:int64 list
     -> ?protocol:protocol
     -> ?extra_private_keys:(string * string) list
     -> ?extra_xenserver_keys:(string * string) list

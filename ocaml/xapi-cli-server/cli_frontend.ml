@@ -3933,6 +3933,85 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "caller-create"
+    , {
+        reqd= []
+      ; optn= ["name-label"; "name-description"; "user-agent"; "client-ip"]
+      ; help=
+          "Create a caller record. Either user-agent or client-ip must be \
+           non-empty."
+      ; implementation= No_fd Cli_operations.Caller.create
+      ; flags= []
+      }
+    )
+  ; ( "caller-destroy"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Destroy the given caller."
+      ; implementation= No_fd Cli_operations.Caller.destroy
+      ; flags= []
+      }
+    )
+  ; ( "caller-query-usage"
+    , {
+        reqd= []
+      ; optn= ["uuid"; "group"]
+      ; help=
+          "Return cumulative token and call count statistics for a caller. \
+           Specify exactly one of uuid= or group=. Counters are taken from the \
+           in-memory table since XAPI startup."
+      ; implementation= No_fd Cli_operations.Caller.query_usage
+      ; flags= []
+      }
+    )
+  ; ( "caller-list-usage"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          "List every known caller (uuid, name-label, tokens, calls) ranked by \
+           token use, highest first."
+      ; implementation= No_fd Cli_operations.Caller.list_usage
+      ; flags= []
+      }
+    )
+  ; ( "rate-limit-create"
+    , {
+        reqd= ["burst-size"; "fill-rate"]
+      ; optn= ["name-label"; "name-description"; "caller-uuids"]
+      ; help= "Create a rate limiter."
+      ; implementation= No_fd Cli_operations.Rate_limit.create
+      ; flags= []
+      }
+    )
+  ; ( "rate-limit-destroy"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Destroy the given rate limiter."
+      ; implementation= No_fd Cli_operations.Rate_limit.destroy
+      ; flags= []
+      }
+    )
+  ; ( "rate-limit-add-caller"
+    , {
+        reqd= ["uuid"; "caller-uuid"]
+      ; optn= []
+      ; help= "Attach a caller to a rate limiter."
+      ; implementation= No_fd Cli_operations.Rate_limit.add_caller
+      ; flags= []
+      }
+    )
+  ; ( "rate-limit-remove-caller"
+    , {
+        reqd= ["uuid"; "caller-uuid"]
+      ; optn= []
+      ; help= "Detach a caller from a rate limiter."
+      ; implementation= No_fd Cli_operations.Rate_limit.remove_caller
+      ; flags= []
+      }
+    )
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t = Hashtbl.create 50

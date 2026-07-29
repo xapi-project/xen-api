@@ -243,12 +243,12 @@ module Daemon = struct
 
   let is_enabled () = Atomic.get enabled
 
-  let maybe_call_script ~__context script params =
+  let maybe_call_script ~__context ?timeout script params =
     match Context.get_test_clusterd_rpc __context with
     | Some _ ->
         debug "in unit test, not calling %s %s" script (String.concat " " params)
     | None ->
-        ignore (Helpers.call_script script params)
+        ignore (Helpers.call_script ?timeout script params)
 
   let maybe_update_firewall ~__context ~status =
     match Context.get_test_clusterd_rpc __context with
@@ -264,6 +264,17 @@ module Daemon = struct
 
   let service = "xapi-clusterd"
 
+  (* Add a timeout to `systemctl start` so it cannot block pool-join if it hangs. *)
+  let start_timeout = Mtime.Span.(60 * s)
+
+  (* [systemctl is-active], gated for unit tests where systemctl is not called. *)
+  let is_service_active ~__context =
+    match Context.get_test_clusterd_rpc __context with
+    | Some _ ->
+        false
+    | None ->
+        Fe_systemctl.is_active ~service
+
   let enable ~__context =
     debug "Enabling and starting the clustering daemon" ;
     ( try maybe_call_script ~__context !Xapi_globs.systemctl ["cat"; service]
@@ -275,7 +286,13 @@ module Daemon = struct
     ( try
         maybe_update_firewall ~__context ~status:Firewall.Enabled ;
         maybe_call_script ~__context !Xapi_globs.systemctl ["enable"; service] ;
-        maybe_call_script ~__context !Xapi_globs.systemctl ["start"; service]
+        (* A redundant start of an already-active unit may hang forever waiting
+         * for a JobRemoved signal; skip it if running. *)
+        if is_service_active ~__context then
+          debug "%s already active, skipping redundant start" service
+        else
+          maybe_call_script ~__context ~timeout:start_timeout
+            !Xapi_globs.systemctl ["start"; service]
       with _ -> Helpers.internal_error "could not start %s" service
     ) ;
     Atomic.set enabled true ;

@@ -64,6 +64,16 @@ val world : verification_config
 
 val external_host : string -> verification_config
 
+module Openssl : sig
+  val default_ciphers : string
+  (** OpenSSL cipher list the stunnel client negotiates; the single source of
+      truth the ktls-helper mirrors. *)
+
+  val default_curve : string
+  (** OpenSSL ECDHE curve the stunnel client pins; the single source of truth
+      the ktls-helper mirrors. *)
+end
+
 val with_connect :
      ?unique_id:int
   -> ?use_fork_exec_helper:bool

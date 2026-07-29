@@ -502,6 +502,26 @@ let set_pvs_proxy vm vif proxy () =
   in
   DB.write vm {d with Domain.vifs}
 
+let set_trunks vm vif trunks () =
+  let d = DB.read_exn vm in
+  let this_one x = x.Vif.id = vif.Vif.id in
+  let vifs =
+    List.map
+      (fun vif ->
+        {
+          vif with
+          Vif.trunks=
+            ( if this_one vif then
+                trunks
+              else
+                vif.Vif.trunks
+            )
+        }
+      )
+      d.Domain.vifs
+  in
+  DB.write vm {d with Domain.vifs}
+
 let remove_pci vm pci () =
   let d = DB.read_exn vm in
   let this_one x = x.Pci.id = pci.Pci.id in
@@ -738,6 +758,8 @@ module VIF = struct
   let get_state vm vif = with_lock m (vif_state vm vif)
 
   let get_device_action_request _vm _vif = None
+
+  let set_trunks _ vm vif trunks = with_lock m (set_trunks vm vif trunks)
 end
 
 module UPDATES = struct

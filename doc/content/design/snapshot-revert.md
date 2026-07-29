@@ -16,12 +16,12 @@ the contents of that disk and then use the new clone as the storage for the VM.
 Because `VDI.clone` creates new VDI refs and uuids, some problematic
 behaviours arise:
 
-- Clients such as 
+- Clients such as
   [Apache CloudStack](http://cloudstack.apache.org) need to include complex
   logic to keep track of the disks they are actively managing
 - Because the snapshot is cloned and the original vdi is deleted, VDI
   references to the VDI become invalid, like `VDI.snapshot_of`. This means
-  that the database has to be combed through to change these references. 
+  that the database has to be combed through to change these references.
   Because the database doesn't support transactions this operation is not atomic
   and can produce inconsistent database states.
 
@@ -46,7 +46,7 @@ We will fix these problems by:
 
 ## Current VM.revert behaviour
 
-The code that reverts the state of storage is located in 
+The code that reverts the state of storage is located in
 [update_vifs_vbds_vgpus_and_vusbs](https://github.com/xapi-project/xen-api/blob/bc0ba4e9dc8dc4b85b7cbdbf3e0ba5915b4ad76d/ocaml/xapi/xapi_vm_snapshot.ml#L211).
 The steps it does is:
 1. destroys the VM's VBDs (both disks and CDs)
@@ -94,9 +94,9 @@ The function `vdi_revert` is defined with the following arguments:
 
 - in: `sr_uuid`: the UUID of the SR containing both the VDI and the snapshot
 - in: `vdi_uuid`: the UUID of the snapshot whose contents must be duplicated
-- in: `target_uuid`: the UUID of the target whose contents must be replaced
+- in: `target_ref`: reference of the target VDI whose contents must be replaced
 
-The function will replace the contents of the `target_uuid` VDI with the
+The function will replace the contents of the `target_ref` VDI with the
 contents of the `vdi_uuid` VDI without changing the identify of the target
 (i.e. name-label, uuid and location are guaranteed to remain the same).
 The `vdi_uuid` is preserved by this operation. The operation is obvoiusly

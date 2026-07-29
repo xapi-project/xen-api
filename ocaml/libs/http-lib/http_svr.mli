@@ -136,4 +136,11 @@ val https_client_of_req : Http.Request.t -> Ipaddr.t option
 
 val client_of_req_and_fd : Http.Request.t -> Unix.file_descr -> client option
 
+val canonical_ip_string : Ipaddr.t -> string
+(** [canonical_ip_string ip] returns [ip] as a string, normalising an
+    IPv4-mapped IPv6 address (e.g. ::ffff:1.2.3.4) to its plain IPv4
+    form. Use before comparing a request's source IP against caller
+    records so that IPv4 patterns match connections that surface as
+    IPv4-mapped IPv6. *)
+
 val string_of_client : client -> string

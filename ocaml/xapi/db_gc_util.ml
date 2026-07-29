@@ -637,6 +637,17 @@ let gc_updates_requiring_reboot ~__context =
     )
     (Db.Host.get_all ~__context)
 
+let gc_tunnels ~__context =
+  gc_connector ~__context Db.Tunnel.get_all Db.Tunnel.get_record
+    (fun x -> valid_ref __context x.tunnel_access_PIF)
+    (fun x -> valid_ref __context x.tunnel_transport_PIF)
+    (fun ~__context ~self ->
+      let access = Db.Tunnel.get_access_PIF ~__context ~self in
+      Db.Tunnel.destroy ~__context ~self ;
+      if valid_ref __context access then
+        try Db.PIF.destroy ~__context ~self:access with _ -> ()
+    )
+
 (* do VDIs first because this will cause some VBDs to be affected *)
 let gc_subtask_list =
   [
@@ -669,4 +680,5 @@ let gc_subtask_list =
   ; ("Updates requiring reboot", gc_updates_requiring_reboot)
   ; ("Host drivers", gc_Host_drivers)
   ; ("Host driver variants", gc_Host_driver_variants)
+  ; ("Tunnels", gc_tunnels)
   ]

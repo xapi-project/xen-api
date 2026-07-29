@@ -3831,6 +3831,48 @@ module VIF = struct
         ]
       ~allowed_roles:_R_VM_OP ()
 
+  let add_trunks =
+    call ~name:"add_trunks" ~lifecycle:[]
+      ~doc:"Associates a 802.1Q VLAN with this VIF"
+      ~params:
+        [
+          ( Ref _vif
+          , "self"
+          , "The VIF which the 802.1Q VLAN will be associated with"
+          )
+        ; (Int, "value", "The 802.1Q VLAN which will be associated with the VIF")
+        ]
+      ~allowed_roles:_R_VM_ADMIN ()
+
+  let remove_trunks =
+    call ~name:"remove_trunks" ~lifecycle:[]
+      ~doc:"Removes a 802.1Q VLAN from this VIF"
+      ~params:
+        [
+          ( Ref _vif
+          , "self"
+          , "The VIF from which the 802.1Q VLAN will be removed"
+          )
+        ; (Int, "value", "The 802.1Q VLAN which will be removed from the VIF")
+        ]
+      ~allowed_roles:_R_VM_ADMIN ()
+
+  let set_trunks =
+    call ~name:"set_trunks" ~lifecycle:[]
+      ~doc:"Set the 802.1Q VLANs to which traffic on this VIF can be restricted"
+      ~params:
+        [
+          ( Ref _vif
+          , "self"
+          , "The VIF which the 802.1Q VLANs will be associated with"
+          )
+        ; ( Set Int
+          , "value"
+          , "The 802.1Q VLANs which will be associated with the VIF"
+          )
+        ]
+      ~allowed_roles:_R_VM_ADMIN ()
+
   (** A virtual network interface *)
   let t =
     create_obj ~in_db:true
@@ -3854,6 +3896,9 @@ module VIF = struct
         ; remove_ipv6_allowed
         ; configure_ipv4
         ; configure_ipv6
+        ; add_trunks
+        ; remove_trunks
+        ; set_trunks
         ]
       ~contents:
         ([
@@ -4044,6 +4089,10 @@ module VIF = struct
               ~internal_only:true ~qualifier:DynamicRO "reserved_pci"
               "pci of network SR-IOV VF which is reserved for this vif"
               ~default_value:(Some (VRef null_ref))
+          ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:(Set Int)
+              ~default_value:(Some (VSet [])) "trunks"
+              "the 802.1Q VLANs that this port trunks (if available) ; if it \
+               is empty, then the port trunks all VLANs."
           ]
         )
       ()
@@ -10609,6 +10658,8 @@ let all_system =
   ; Datamodel_vm_group.t
   ; Datamodel_host_driver.t
   ; Datamodel_driver_variant.t
+  ; Datamodel_caller.t
+  ; Datamodel_rate_limit.t
   ]
 
 (* If the relation is one-to-many, the "many" nodes (one edge each) must come before the "one" node (many edges) *)
@@ -10702,6 +10753,7 @@ let all_relations =
   ; ((_certificate, "host"), (_host, "certificates"))
   ; ((_vm, "groups"), (_vm_group, "VMs"))
   ; ((_driver_variant, "driver"), (_host_driver, "variants"))
+  ; ((_caller, "rate_limit"), (_rate_limit, "callers"))
   ]
 
 let update_lifecycles =
@@ -10860,6 +10912,8 @@ let expose_get_all_messages_for =
   ; _observer
   ; _host_driver
   ; _driver_variant
+  ; _caller
+  ; _rate_limit
   ]
 
 let no_task_id_for = [_task; (* _alert; *) _event]
@@ -11215,6 +11269,11 @@ let http_actions =
     )
   ; ("put_bundle", (Put, Constants.put_bundle_uri, true, [], _R_POOL_OP, []))
   ]
+
+(* Actions that incorporate the rate limiter from Xapi_rate_limiting within
+   their handler - handlers not listed here get rate limited when accessed *)
+let custom_rate_limit_http_actions =
+  ["post_root"; "post_RPC2"; "post_jsonrpc"; "post_cli"]
 
 (* these public http actions will NOT be checked by RBAC *)
 (* they are meant to be used in exceptional cases where RBAC is already *)

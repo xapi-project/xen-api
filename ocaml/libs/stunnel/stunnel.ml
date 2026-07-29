@@ -173,6 +173,17 @@ let debug_conf_of_env () : string =
   |> String.lowercase_ascii
   |> fun x -> List.mem x ["yes"; "true"; "1"] |> debug_conf_of_bool
 
+module Openssl = struct
+  (* The OpenSSL-rendered cipher list and ECDHE curve the stunnel client
+     negotiates, re-exported from the single source of truth in Tls_policy so
+     callers that must match it (the ktls-helper, which replaces the
+     per-migration stunnel client) share one definition instead of keeping a
+     second copy that can drift. *)
+  let default_ciphers = Tls_policy.Openssl.default_ciphers
+
+  let default_curve = Tls_policy.Openssl.default_curve
+end
+
 let config_file ?(accept = None) config host port =
   ( match config with
   | None ->

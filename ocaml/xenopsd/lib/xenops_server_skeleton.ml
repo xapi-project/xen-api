@@ -190,6 +190,8 @@ module VIF = struct
   let get_state _ _ = unplugged_vif
 
   let get_device_action_request _ _ = None
+
+  let set_trunks _ _ = unimplemented __FUNCTION__
 end
 
 module VGPU = struct

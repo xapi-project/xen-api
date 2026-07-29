@@ -889,6 +889,7 @@ module MD = struct
           else
             Some vlan
     in
+    let trunks = Db.VIF.get_trunks ~__context ~self:vif_ref in
     {
       Vif.id= (vm.API.vM_uuid, vif.API.vIF_device)
     ; position= int_of_string vif.API.vIF_device
@@ -904,6 +905,7 @@ module MD = struct
     ; ipv6_configuration
     ; pvs_proxy
     ; vlan
+    ; trunks
     }
 
   let pcis_of_vm ~__context (vmref, vm) =
@@ -4471,6 +4473,21 @@ let vif_set_ipv6_configuration ~__context ~self =
       let module Client = (val make_client queue_name : XENOPS) in
       Client.VIF.set_ipv6_configuration dbg vif.Vif.id
         vif.Vif.ipv6_configuration
+      |> sync_with_task __context queue_name ;
+      Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ()
+  )
+
+let vif_set_trunks ~__context ~self =
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let vm = Db.VIF.get_VM ~__context ~self in
+  let queue_name = queue_of_vm ~__context ~self:vm in
+  transform_xenops_exn ~__context ~vm queue_name (fun () ->
+      assert_resident_on ~__context ~self:vm ;
+      let vif = md_of_vif ~__context ~self in
+      info "xenops: VIF.vif_set_trunks %s.%s" (fst vif.Vif.id) (snd vif.Vif.id) ;
+      let dbg = Context.string_of_task_and_tracing __context in
+      let module Client = (val make_client queue_name : XENOPS) in
+      Client.VIF.set_trunks dbg vif.Vif.id vif.Vif.trunks
       |> sync_with_task __context queue_name ;
       Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ()
   )

@@ -54,6 +54,23 @@
  (depends xapi-log xapi-stdext-unix))
 
 (package
+ (name xapi-rate-limit)
+ (synopsis "A simple token bucket-based rate limter for XAPI")
+ (depends
+   (ocaml (>= 4.12))
+   (clock
+    (= :version))
+   mtime
+   (xapi-log
+    (= :version))
+   (xapi-stdext-threads
+    (= :version))
+   (alcotest :with-test)
+   (fmt :with-test)
+   (qcheck-core :with-test)
+   (qcheck-alcotest :with-test)))
+
+(package
  (name xml-light2))
 
 (package
@@ -176,6 +193,8 @@
   (xapi-client
    (= :version))
   (xapi-idl
+   (= :version))
+  (xapi-rate-limit
    (= :version))
   (xapi-types
    (= :version))
@@ -328,6 +347,7 @@
   x509
   xapi-log
   xapi-types
+  xapi-rate-limit
   xapi-stdext-pervasives
   xapi-stdext-unix
   xapi-stdext-zerocheck
@@ -471,6 +491,8 @@
   (xapi-inventory
    (= :version))
   (xapi-log
+   (= :version))
+  (xapi-rate-limit
    (= :version))
   (xapi-stdext-pervasives
    (= :version))

@@ -55,6 +55,7 @@ depends: [
   "x509"
   "xapi-log"
   "xapi-types"
+  "xapi-rate-limit"
   "xapi-stdext-pervasives"
   "xapi-stdext-unix"
   "xapi-stdext-zerocheck"

@@ -1,4 +1,8 @@
 let prototyped_of_class = function
+  | "Rate_limit" ->
+      Some "26.16.1-next"
+  | "Caller" ->
+      Some "26.16.1-next"
   | "Driver_variant" ->
       Some "25.2.0"
   | "Host_driver" ->
@@ -13,6 +17,34 @@ let prototyped_of_class = function
       None
 
 let prototyped_of_field = function
+  | "Rate_limit", "fill_rate" ->
+      Some "26.16.1-next"
+  | "Rate_limit", "burst_size" ->
+      Some "26.16.1-next"
+  | "Rate_limit", "callers" ->
+      Some "26.16.1-next"
+  | "Rate_limit", "name__description" ->
+      Some "26.16.1-next"
+  | "Rate_limit", "name__label" ->
+      Some "26.16.1-next"
+  | "Rate_limit", "uuid" ->
+      Some "26.16.1-next"
+  | "Caller", "rate_limit" ->
+      Some "26.16.1-next"
+  | "Caller", "groups" ->
+      Some "26.16.1-next"
+  | "Caller", "last_access" ->
+      Some "26.16.1-next"
+  | "Caller", "client_ip" ->
+      Some "26.16.1-next"
+  | "Caller", "user_agent" ->
+      Some "26.16.1-next"
+  | "Caller", "name__description" ->
+      Some "26.16.1-next"
+  | "Caller", "name__label" ->
+      Some "26.16.1-next"
+  | "Caller", "uuid" ->
+      Some "26.16.1-next"
   | "Driver_variant", "status" ->
       Some "25.2.0"
   | "Driver_variant", "priority" ->
@@ -101,6 +133,8 @@ let prototyped_of_field = function
       Some "26.15.0"
   | "SM", "host_pending_features" ->
       Some "24.37.0"
+  | "VIF", "trunks" ->
+      Some "26.16.0-next"
   | "host", "timezone" ->
       Some "26.0.0"
   | "host", "ntp_custom_servers" ->
@@ -205,6 +239,28 @@ let prototyped_of_field = function
       None
 
 let prototyped_of_message = function
+  | "Rate_limit", "set_fill_rate" ->
+      Some "26.16.1-next"
+  | "Rate_limit", "set_burst_size" ->
+      Some "26.16.1-next"
+  | "Rate_limit", "remove_caller" ->
+      Some "26.16.1-next"
+  | "Rate_limit", "add_caller" ->
+      Some "26.16.1-next"
+  | "Caller", "query_all_usage" ->
+      Some "26.16.1-next"
+  | "Caller", "query_group_call_count" ->
+      Some "26.15.0"
+  | "Caller", "query_group_token_usage" ->
+      Some "26.15.0"
+  | "Caller", "query_call_count" ->
+      Some "26.15.0"
+  | "Caller", "query_token_usage" ->
+      Some "26.15.0"
+  | "Caller", "remove_group" ->
+      Some "26.16.1-next"
+  | "Caller", "add_group" ->
+      Some "26.16.1-next"
   | "Driver_variant", "select" ->
       Some "25.2.0"
   | "Host_driver", "rescan" ->
@@ -255,6 +311,12 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VDI", "revert" ->
       Some "26.16.0"
+  | "VIF", "set_trunks" ->
+      Some "26.16.0-next"
+  | "VIF", "remove_trunks" ->
+      Some "26.16.0-next"
+  | "VIF", "add_trunks" ->
+      Some "26.16.0-next"
   | "host", "set_servertime" ->
       Some "26.0.0"
   | "host", "get_ntp_synchronized" ->

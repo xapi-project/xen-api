@@ -28,44 +28,45 @@
  */
 
 using System.Net;
+using System.Net.Security;
 
 namespace XenAPI
 {
     public partial class HTTP_actions
     {
         private static void Get(HTTP.DataCopiedDelegate dataCopiedDelegate, HTTP.FuncBool cancellingDelegate, int timeout_ms,
-            string hostname, string remotePath, IWebProxy proxy, string localPath, params object[] args)
+            string hostname, string remotePath, IWebProxy proxy, RemoteCertificateValidationCallback callback, string localPath, params object[] args)
         {
-            HTTP.Get(dataCopiedDelegate, cancellingDelegate, HTTP.BuildUri(hostname, remotePath, args), proxy, localPath, timeout_ms);
+            HTTP.Get(dataCopiedDelegate, cancellingDelegate, HTTP.BuildUri(hostname, remotePath, args), proxy, callback, localPath, timeout_ms);
         }
 
         private static void Put(HTTP.UpdateProgressDelegate progressDelegate, HTTP.FuncBool cancellingDelegate, int timeout_ms,
-            string hostname, string remotePath, IWebProxy proxy, string localPath, params object[] args)
+            string hostname, string remotePath, IWebProxy proxy, RemoteCertificateValidationCallback callback, string localPath, params object[] args)
         {
-            HTTP.Put(progressDelegate, cancellingDelegate, HTTP.BuildUri(hostname, remotePath, args), proxy, localPath, timeout_ms);
+            HTTP.Put(progressDelegate, cancellingDelegate, HTTP.BuildUri(hostname, remotePath, args), proxy, callback, localPath, timeout_ms);
         }
 
 {{#http_actions}}
         public static void {{name}}(HTTP.{{#isPut}}UpdateProgressDelegate progressDelegate{{/isPut}}{{#isGet}}DataCopiedDelegate dataCopiedDelegate{{/isGet}}, HTTP.FuncBool cancellingDelegate, int timeout_ms,
-            string hostname, IWebProxy proxy, string path, string task_id = null, string session_id = null{{#args}}, {{{arg_decl}}}{{/args}})
+            string hostname, IWebProxy proxy, RemoteCertificateValidationCallback callback, string path, string task_id = null, string session_id = null{{#args}}, {{{arg_decl}}}{{/args}})
         {
-            {{#isPut}}Put{{/isPut}}{{#isGet}}Get{{/isGet}}({{#isPut}}progressDelegate{{/isPut}}{{#isGet}}dataCopiedDelegate{{/isGet}}, cancellingDelegate, timeout_ms, hostname, "{{uri}}", proxy, path,
+            {{#isPut}}Put{{/isPut}}{{#isGet}}Get{{/isGet}}({{#isPut}}progressDelegate{{/isPut}}{{#isGet}}dataCopiedDelegate{{/isGet}}, cancellingDelegate, timeout_ms, hostname, "{{uri}}", proxy, callback, path,
                 "task_id", task_id, "session_id", session_id{{#args}}, {{{arg_use}}}{{/args}});
         }
 
 {{/http_actions}}
 
         public static void get_pool_patch_download(HTTP.DataCopiedDelegate dataCopiedDelegate, HTTP.FuncBool cancellingDelegate, int timeout_ms,
-            string hostname, IWebProxy proxy, string path, string task_id, string session_id, string uuid)
+            string hostname, IWebProxy proxy, RemoteCertificateValidationCallback callback, string path, string task_id, string session_id, string uuid)
         {
-            Get(dataCopiedDelegate, cancellingDelegate, timeout_ms, hostname, "/pool_patch_download", proxy, path,
+            Get(dataCopiedDelegate, cancellingDelegate, timeout_ms, hostname, "/pool_patch_download", proxy, callback, path,
                 "task_id", task_id, "session_id", session_id, "uuid", uuid);
         }
 
         public static void put_oem_patch_stream(HTTP.UpdateProgressDelegate progressDelegate, HTTP.FuncBool cancellingDelegate, int timeout_ms,
-            string hostname, IWebProxy proxy, string path, string task_id, string session_id)
+            string hostname, IWebProxy proxy, RemoteCertificateValidationCallback callback, string path, string task_id, string session_id)
         {
-            Put(progressDelegate, cancellingDelegate, timeout_ms, hostname, "/oem_patch_stream", proxy, path,
+            Put(progressDelegate, cancellingDelegate, timeout_ms, hostname, "/oem_patch_stream", proxy, callback, path,
                 "task_id", task_id, "session_id", session_id);
         }
     }
