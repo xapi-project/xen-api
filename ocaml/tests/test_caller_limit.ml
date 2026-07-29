@@ -105,11 +105,48 @@ let test_negative_limit_is_unbounded () =
         ["agent-1"; "agent-2"; "agent-3"]
   )
 
+(* The RRD reporter aggregates per-caller usage into per-group totals. A caller
+   in several groups contributes to each; a caller in no group contributes to
+   none. *)
+let test_group_totals_aggregate_callers () =
+  with_setup ~limit:100 (fun ~__context ->
+      let mk user_agent client_ip =
+        Xapi_caller.create ~__context ~name_label:user_agent
+          ~name_description:"" ~user_agent ~client_ip
+      in
+      let c1 = mk "a1" "10.0.0.1" in
+      let c2 = mk "a2" "10.0.0.2" in
+      let _ungrouped = mk "a3" "10.0.0.3" in
+      (* Accumulate stats: one call for a1, two for a2, one for the ungrouped
+         caller a3 (which should not show up in any group total). *)
+      call ~__context ~user_agent:"a1" ~client_ip:"10.0.0.1" ;
+      call ~__context ~user_agent:"a2" ~client_ip:"10.0.0.2" ;
+      call ~__context ~user_agent:"a2" ~client_ip:"10.0.0.2" ;
+      call ~__context ~user_agent:"a3" ~client_ip:"10.0.0.3" ;
+      Xapi_caller.add_group ~__context ~self:c1 ~group:"g1" ;
+      Xapi_caller.add_group ~__context ~self:c2 ~group:"g1" ;
+      Xapi_caller.add_group ~__context ~self:c2 ~group:"g2" ;
+      let summary =
+        Xapi_caller.group_totals ()
+        |> List.map (fun (g, tokens, calls) ->
+            Printf.sprintf "%s:%.0f:%d" g tokens calls
+        )
+        |> List.sort String.compare
+      in
+      (* g1 = a1 (1) + a2 (2); g2 = a2 (2); a3 is in no group. *)
+      Alcotest.(check (list string))
+        "per-group token/call totals" ["g1:3:3"; "g2:2:2"] summary
+  )
+
 let test =
   [
     ( "test_evicts_least_recently_called"
     , `Quick
     , test_evicts_least_recently_called
+    )
+  ; ( "test_group_totals_aggregate_callers"
+    , `Quick
+    , test_group_totals_aggregate_callers
     )
   ; ("test_manual_callers_not_evicted", `Quick, test_manual_callers_not_evicted)
   ; ( "test_zero_limit_disables_autoregistration"

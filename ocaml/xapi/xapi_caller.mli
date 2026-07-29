@@ -62,6 +62,11 @@ val query_group_call_count : __context:Context.t -> group:string -> int64
 
 val query_all_usage : __context:Context.t -> string list list
 
+val group_totals : unit -> (string * float * int) list
+(** [(group, tokens, calls)] totals, summed over all callers in each group, from
+    in-memory state (no database access). This is the data published per group by
+    the RRD reporter. Callers in no group do not appear. *)
+
 val register : __context:Context.t -> unit
 (** Populate caller_table from persisted Caller rows and install
     [Xapi_rate_limit]'s caller-refresh callback. Must run after

@@ -38,7 +38,9 @@ let next_call_sequence () = Atomic.fetch_and_add call_sequence 1
     resolved to a live bucket via [Xapi_rate_limit.find_bucket] at dispatch
     time; [auto_registered] is true for callers created by [maybe_autocreate]
     rather than by an administrator; [last_call] is the [call_sequence] value
-    seen on this caller's most recent call, used to pick the eviction victim. *)
+    seen on this caller's most recent call, used to pick the eviction victim;
+    [groups] mirrors the caller's DB [groups] field so the RRD reporter can
+    aggregate usage per group without touching the database. *)
 type entry = {
     caller_ref: API.ref_Caller
   ; pattern_key: Caller_table.Key.pattern_key
@@ -46,6 +48,7 @@ type entry = {
   ; rate_limit_ref: API.ref_Rate_limit
   ; auto_registered: bool
   ; last_call: int Atomic.t
+  ; groups: string list
 }
 
 let caller_table : entry Caller_table.t = Caller_table.create ()
@@ -130,7 +133,7 @@ let validate_request_fields ~user_agent ~client_ip =
    stamped with the current [call_sequence] so a just-registered caller is
    treated as recently used rather than an immediate eviction candidate. *)
 let insert_entry_locked ~caller_ref ~stats ~pattern_key ~rate_limit_ref
-    ~auto_registered ?last_call () =
+    ~auto_registered ~groups ?last_call () =
   let last_call =
     match last_call with
     | Some v ->
@@ -139,7 +142,15 @@ let insert_entry_locked ~caller_ref ~stats ~pattern_key ~rate_limit_ref
         Atomic.make (next_call_sequence ())
   in
   let entry =
-    {caller_ref; pattern_key; stats; rate_limit_ref; auto_registered; last_call}
+    {
+      caller_ref
+    ; pattern_key
+    ; stats
+    ; rate_limit_ref
+    ; auto_registered
+    ; last_call
+    ; groups
+    }
   in
   if not (Caller_table.insert caller_table ~pattern:pattern_key entry) then
     debug
@@ -160,7 +171,7 @@ let promote_entry_locked ~__context entry =
   Caller_table.delete caller_table ~pattern:entry.pattern_key ;
   insert_entry_locked ~caller_ref:entry.caller_ref ~stats:entry.stats
     ~pattern_key:entry.pattern_key ~rate_limit_ref:entry.rate_limit_ref
-    ~auto_registered:false ~last_call:entry.last_call ()
+    ~auto_registered:false ~groups:entry.groups ~last_call:entry.last_call ()
 
 (* Body of [create]; assumes [caller_table_mutex] is held and that
    [pattern_key] has already been validated. [auto_registered] marks whether the
@@ -189,7 +200,7 @@ let create_locked ~__context ~name_label ~name_description ~user_agent
         ~rate_limit:Ref.null ~auto_registered ;
       insert_entry_locked ~caller_ref:ref
         ~stats:(Caller_statistics.create ~caller_uuid:uuid)
-        ~pattern_key ~rate_limit_ref:Ref.null ~auto_registered () ;
+        ~pattern_key ~rate_limit_ref:Ref.null ~auto_registered ~groups:[] () ;
       if auto_registered then incr auto_registered_count ;
       ref
 
@@ -225,12 +236,6 @@ let destroy_locked ~__context ~self =
 
 let destroy ~__context ~self =
   with_caller_table_mutex (fun () -> destroy_locked ~__context ~self)
-
-let add_group ~__context ~self ~group =
-  Db.Caller.add_groups ~__context ~self ~value:group
-
-let remove_group ~__context ~self ~group =
-  Db.Caller.remove_groups ~__context ~self ~value:group
 
 let entries_of_table () = Caller_table.to_list caller_table |> List.map snd
 
@@ -301,21 +306,23 @@ let query_all_usage ~__context =
       ]
   )
 
-(** Re-read the caller's rate_limit ref from DB and rebuild its entry. Called
-    by Xapi_rate_limit whenever the caller's rate_limit field changes.
+(** Re-read the caller's record from DB and rebuild its in-memory entry. Called
+    by Xapi_rate_limit whenever the caller's rate_limit field changes, and
+    whenever its group membership changes.
 
     Held under [caller_table_mutex] so the DB read + delete + insert are
     seen as one step: concurrent refreshes for the same caller can
     otherwise both start from the DB state seen before either mutation,
     and the later insert then silently loses to the earlier one.
 
+    User_agent and client_ip are StaticRO in the datamodel, so a caller's
     pattern_key never changes; we preserve the existing [stats] and recency
-    stamp across the swap so that attaching or detaching a rate_limit doesn't
-    reset the "calls / tokens since Xapi startup" counters. The rate_limit ref is
-    taken from the freshly read record; the auto-registered flag likewise, except
-    that attaching a rate-limit rule to an auto-registered caller promotes it
-    (see below). *)
-let refresh_caller_rate_limit ~__context caller_ref =
+    stamp across the swap so that attaching or detaching a rate_limit (or
+    changing groups) doesn't reset the "calls / tokens since Xapi startup"
+    counters. The rate_limit ref and group membership are taken from the freshly
+    read record; the auto-registered flag likewise, except that attaching a
+    rate-limit rule to an auto-registered caller promotes it (see below). *)
+let refresh_caller_entry ~__context caller_ref =
   with_caller_table_mutex (fun () ->
       match
         try Some (Db.Caller.get_record ~__context ~self:caller_ref)
@@ -360,15 +367,56 @@ let refresh_caller_rate_limit ~__context caller_ref =
           Caller_table.delete caller_table ~pattern:pattern_key ;
           insert_entry_locked ~caller_ref ~stats ~pattern_key
             ~rate_limit_ref:record.API.caller_rate_limit ~auto_registered
-            ?last_call ()
+            ~groups:record.API.caller_groups ?last_call ()
   )
+
+(* Group names are administrator-supplied and flow verbatim into RRD data source
+   names (see [make_group_dss]), so constrain them at the point of entry:
+   restrict to characters that are safe in a data source name, and bound the
+   length so a single group cannot blow the reporter's per-data-source size
+   estimate (see [reporter_bytes_per_ds]) and reintroduce the "not enough
+   memory" failure. Rejecting bad names here (rather than mangling them at report
+   time) also keeps names collision-free, so distinct groups never merge into one
+   data source. *)
+let max_group_name_length = 64
+
+let valid_group_name_char = function
+  | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_' | '-' | '.' ->
+      true
+  | _ ->
+      false
+
+let validate_group_name group =
+  let invalid reason =
+    raise Api_errors.(Server_error (invalid_value, ["group"; reason]))
+  in
+  if group = "" then invalid "empty group name" ;
+  if String.length group > max_group_name_length then
+    invalid
+      (Printf.sprintf "group name must be at most %d characters"
+         max_group_name_length
+      ) ;
+  if not (String.for_all valid_group_name_char group) then
+    invalid
+      "group name may only contain alphanumerics and '_', '-' or '.' characters"
+
+let add_group ~__context ~self ~group =
+  validate_group_name group ;
+  Db.Caller.add_groups ~__context ~self ~value:group ;
+  (* Keep the in-memory entry's [groups] in step so the RRD reporter aggregates
+     correctly. *)
+  refresh_caller_entry ~__context self
+
+let remove_group ~__context ~self ~group =
+  Db.Caller.remove_groups ~__context ~self ~value:group ;
+  refresh_caller_entry ~__context self
 
 (* Install the caller_table refresh callback at module load time. The API
    server can accept requests before [register] runs, and any
    [Rate_limit.add_caller] that lands in that window would otherwise leave
    the caller_table entry with rate_limit_ref = Ref.null (because
    [notify_caller_changed] would fall through to the default no-op). *)
-let () = Xapi_rate_limit.set_caller_refresh_callback refresh_caller_rate_limit
+let () = Xapi_rate_limit.set_caller_refresh_callback refresh_caller_entry
 
 (* One token corresponds to a cheap DB read; expensive services cost multiples.
    The costs are loaded at startup from [Xapi_globs.call_costs_file], one
@@ -545,30 +593,98 @@ let submit_async ~user_agent ~client_ip ~callback ~task_create amount =
   submit ~submit_fn:Rate_limit.submit_async ~user_agent ~client_ip ~callback
     ~task_create amount
 
-(* We publish two derive data sources per known caller to xcp-rrdd: cumulative
-   tokens consumed and cumulative call count. *)
+(* We publish two derive data sources per caller group to xcp-rrdd: the group's
+   cumulative tokens consumed and its cumulative call count, summed over the
+   callers in that group. Reporting is per group rather than per caller, which
+   both matches how usage is analysed and bounds the number of data sources
+   (groups are administrator-defined, callers are not). Callers that belong to no
+   group are not reported. *)
 
-let reporter_uid = "xapi-rate-limit-callers"
+let reporter_uid = "xapi-rate-limit-groups"
 
-let make_caller_dss () =
-  Caller_table.to_list caller_table
-  |> List.concat_map (fun (_pattern, entry) ->
-      let uuid = Caller_statistics.get_uuid entry.stats in
+(* Sizing of the reporter's local shared-memory payload. The V2 protocol writes,
+   per data source, an 8-byte value plus its JSON metadata (name, description,
+   units, ...); a group's name-based data source comes to a few hundred bytes, so
+   512 bytes each is a safe over-estimate. Two data sources (tokens, calls) are
+   published per group. A single fixed 4 KB page previously overflowed at ~8
+   data sources, failing the writer with Failure "not enough memory". *)
+let reporter_page_size = 4096
+
+let reporter_bytes_per_ds = 512
+
+let reporter_fixed_overhead = 256
+
+(* Group names are administrator-defined and not bounded by any config, so size
+   the reporter generously. The backing file is sparse - only pages actually
+   written are committed - so an ample bound costs almost nothing, and the clamp
+   in [make_group_dss] guarantees the payload never exceeds the allocation. *)
+let reporter_max_groups = 1024
+
+(* Pages needed for two data sources per group plus fixed protocol overhead. *)
+let reporter_page_count max_groups =
+  let bytes =
+    reporter_fixed_overhead + (2 * max_groups * reporter_bytes_per_ds)
+  in
+  max 1 ((bytes + reporter_page_size - 1) / reporter_page_size)
+
+(* Ceiling on data sources written per cycle, captured when the reporter starts
+   so it matches the shared memory actually allocated. 0 means no reporter is
+   running yet. *)
+let reporter_max_datasources = ref 0
+
+(* Aggregate per-caller statistics into per-group [(group, tokens, calls)]
+   totals. Group membership is mirrored into each entry, so this needs no
+   database access - important because it runs on the reporter thread, which has
+   no context. *)
+let group_totals () =
+  let totals : (string, float * int) Hashtbl.t = Hashtbl.create 64 in
+  entries_of_table ()
+  |> List.iter (fun entry ->
       let tokens = Caller_statistics.get_token_count entry.stats in
       let calls = Caller_statistics.get_call_count entry.stats in
+      List.iter
+        (fun group ->
+          let t, c =
+            Option.value ~default:(0.0, 0) (Hashtbl.find_opt totals group)
+          in
+          Hashtbl.replace totals group (t +. tokens, c + calls)
+        )
+        entry.groups
+  ) ;
+  Hashtbl.fold (fun group (t, c) acc -> (group, t, c) :: acc) totals []
+
+let make_group_dss () =
+  let groups = group_totals () in
+  let groups =
+    let max_groups = !reporter_max_datasources / 2 in
+    if max_groups > 0 && List.length groups > max_groups then (
+      (* Defensive: never emit more data sources than the shared memory was
+         sized for. If somehow over, keep the busiest groups by token usage. *)
+      debug
+        "caller RRD reporter: %d groups exceed reporter capacity (%d); \
+         reporting the busiest"
+        (List.length groups) max_groups ;
+      groups
+      |> List.sort (fun (_, t1, _) (_, t2, _) -> compare t2 t1)
+      |> List.filteri (fun i _ -> i < max_groups)
+    ) else
+      groups
+  in
+  groups
+  |> List.concat_map (fun (group, tokens, calls) ->
       [
         ( Rrd.Host
         , Ds.ds_make
-            ~name:(Printf.sprintf "caller_%s_tokens" uuid)
+            ~name:(Printf.sprintf "group_%s_tokens" group)
             ~description:
-              (Printf.sprintf "Total tokens consumed by caller %s" uuid)
+              (Printf.sprintf "Total tokens consumed by caller group %s" group)
             ~value:(Rrd.VT_Float tokens) ~ty:Rrd.Derive ~default:true
             ~units:"tokens" ~min:0.0 ()
         )
       ; ( Rrd.Host
         , Ds.ds_make
-            ~name:(Printf.sprintf "caller_%s_calls" uuid)
-            ~description:(Printf.sprintf "Total calls by caller %s" uuid)
+            ~name:(Printf.sprintf "group_%s_calls" group)
+            ~description:(Printf.sprintf "Total calls by caller group %s" group)
             ~value:(Rrd.VT_Int64 (Int64.of_int calls))
             ~ty:Rrd.Derive ~default:true ~units:"calls" ~min:0.0 ()
         )
@@ -578,12 +694,15 @@ let make_caller_dss () =
 let reporter : Rrdd_plugin.Reporter.t option ref = ref None
 
 let start_reporter () =
+  reporter_max_datasources := 2 * reporter_max_groups ;
+  let page_count = reporter_page_count reporter_max_groups in
   try
     let r =
       Rrdd_plugin.Reporter.start_async
         (module D : Debug.DEBUG)
-        ~uid:reporter_uid ~neg_shift:0.5 ~target:(Rrdd_plugin.Reporter.Local 1)
-        ~protocol:Rrd_interface.V2 ~dss_f:make_caller_dss
+        ~uid:reporter_uid ~neg_shift:0.5
+        ~target:(Rrdd_plugin.Reporter.Local page_count)
+        ~protocol:Rrd_interface.V2 ~dss_f:make_group_dss
     in
     reporter := Some r
   with e ->
@@ -604,7 +723,8 @@ let register ~__context =
         insert_entry_locked ~caller_ref:self
           ~stats:(Caller_statistics.create ~caller_uuid:record.caller_uuid)
           ~pattern_key ~rate_limit_ref:record.API.caller_rate_limit
-          ~auto_registered:record.API.caller_auto_registered () ;
+          ~auto_registered:record.API.caller_auto_registered
+          ~groups:record.API.caller_groups () ;
         if record.API.caller_auto_registered then incr auto_registered_count
       )
       (Db.Caller.get_all ~__context) ;
