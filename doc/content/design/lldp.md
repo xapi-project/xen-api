@@ -51,15 +51,15 @@ Type: `enum pif_lldp_mode`
 
 Values:
 
-- `default`: follow `pool.lldp_enabled`;
+- `inherited`: follow `pool.lldp_enabled`;
 - `enabled`: LLDP is enabled on the NIC associated with the managed physical PIF;
 - `disabled`: LLDP is disabled on the NIC associated with the managed physical PIF.
 
 This setting does not apply to other types of PIFs, such as non-managed PIFs, bond PIFs, VLAN PIFs, tunnel PIFs, or SR-IOV PIFs.
 
-Default after update/RPU from a version/release without LLDP support to a version/release with LLDP support: `default`.
+Default after update/RPU from a version/release without LLDP support to a version/release with LLDP support: `inherited`.
 
-Default after fresh install: `default`.
+Default after fresh install: `inherited`.
 
 ### `pool.lldp_multicast_address`
 
@@ -110,7 +110,7 @@ Behavior:
 Parameters:
 
 - `self`: the PIF reference;
-- `value`: `default`, `enabled`, or `disabled`;
+- `value`: `inherited`, `enabled`, or `disabled`;
 - `force`: `bool`, default `false`.
 
 Behavior:
@@ -172,9 +172,9 @@ The effective LLDP state on a NIC is determined by `pool.lldp_enabled`, `PIF.lld
 
 | `pool.lldp_enabled` | `PIF.lldp_mode` | parameter passed to networkd | NIC driver in blocking list | effective LLDP state |
 | --- | --- | --- | --- | --- |
-| `true` | `default` | `true` | `no` | `enabled` |
-| `true` | `default` | `true` | `yes` | `disabled` |
-| `false` | `default` | `false` | `*` | `disabled` |
+| `true` | `inherited` | `true` | `no` | `enabled` |
+| `true` | `inherited` | `true` | `yes` | `disabled` |
+| `false` | `inherited` | `false` | `*` | `disabled` |
 | `*` | `enabled` | `true` | `*` | `enabled` |
 | `*` | `disabled` | `false` | `*` | `disabled` |
 

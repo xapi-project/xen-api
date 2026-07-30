@@ -2269,7 +2269,9 @@ module PIF = struct
     Enum
       ( "pif_lldp_mode"
       , [
-          ("default", "LLDP is enabled or disabled based on pool.lldp_enabled.")
+          ( "inherited"
+          , "LLDP is enabled or disabled based on pool.lldp_enabled."
+          )
         ; ( "enabled"
           , "LLDP is enabled on the NIC of the managed physical PIF, \
              overriding pool.lldp_enabled."
@@ -2291,7 +2293,7 @@ module PIF = struct
           (Ref _pif, "self", "the PIF object to reconfigure")
         ; ( lldp_mode
           , "value"
-          , "the LLDP mode to set (default, enabled or disabled)"
+          , "the LLDP mode to set (inherited, enabled or disabled)"
           )
         ; ( Bool
           , "force"
@@ -2929,7 +2931,7 @@ module PIF = struct
             ~default_value:(Some (VRef null_ref)) "PCI"
             "Link to underlying PCI device"
         ; field ~qualifier:DynamicRO ~ty:lldp_mode ~lifecycle:[]
-            ~default_value:(Some (VEnum "default")) "lldp_mode"
+            ~default_value:(Some (VEnum "inherited")) "lldp_mode"
             "The LLDP mode of the physical NIC for the PIF. This setting does \
              not apply to other types of PIFs, such as non-managed PIFs, bond \
              PIFs, VLAN PIFs, tunnel PIFs, or SR-IOV PIFs."

@@ -138,7 +138,7 @@ val set_primary_address_type :
 val set_lldp_mode :
      __context:Context.t
   -> self:API.ref_PIF
-  -> value:[`default | `disabled | `enabled]
+  -> value:[`disabled | `enabled | `inherited]
   -> force:bool
   -> unit
 (** Set the LLDP mode of a managed physical PIF and apply the change *)

@@ -2489,8 +2489,8 @@ let t =
             "When true, LLDP is enabled on the NIC associated with each \
              managed physical PIF on every host in the pool. When false, it is \
              disabled. However, it can be overwritten by PIF.lldp_mode \
-             settings when mode is not default. LLDP receiving and advertising \
-             are always enabled or disabled together."
+             settings when mode is not inherited. LLDP receiving and \
+             advertising are always enabled or disabled together."
         ; field ~writer_roles:_R_POOL_OP ~qualifier:RW ~lifecycle:[]
             ~ty:lldp_multicast_address
             ~default_value:(Some (VEnum "nearestbridge"))

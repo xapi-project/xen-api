@@ -133,7 +133,7 @@ let determine_lldp ~__context pif_rc =
         (true, true)
     | `disabled ->
         (false, false)
-    | `default ->
+    | `inherited ->
         (Db.Pool.get_lldp_enabled ~__context ~self:pool, false)
   in
   let address =

@@ -2138,7 +2138,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
         reqd= ["uuid"; "value"]
       ; optn= ["force"]
       ; help=
-          "Set the LLDP mode (default, enabled or disabled) of a managed \
+          "Set the LLDP mode (inherited, enabled or disabled) of a managed \
            physical PIF."
       ; implementation= No_fd Cli_operations.pif_set_lldp_mode
       ; flags= []
