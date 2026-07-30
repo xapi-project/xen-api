@@ -116,7 +116,7 @@ let submit_async
     ; worker_thread_cond
     ; should_terminate
     ; _
-    } ~callback amount =
+    } ~callback ~caller_details amount =
   check_not_terminated should_terminate ;
   let run_immediately =
     with_lock process_queue_lock (fun () ->
@@ -133,10 +133,10 @@ let submit_async
   if run_immediately then
     callback ()
   else
-    D.debug "%s: rate limiting call" __FUNCTION__
+    D.debug "%s: rate limiting call from %s" __FUNCTION__ caller_details
 
 (* Block and execute on the same thread *)
-let submit_sync bucket_data ~callback amount =
+let submit_sync bucket_data ~callback ~caller_details amount =
   check_not_terminated bucket_data.should_terminate ;
   let channel_opt =
     with_lock bucket_data.process_queue_lock (fun () ->
@@ -160,6 +160,6 @@ let submit_sync bucket_data ~callback amount =
   | None ->
       callback ()
   | Some channel ->
-      D.debug "%s: rate limiting call" __FUNCTION__ ;
+      D.debug "%s: rate limiting call from %s" __FUNCTION__ caller_details ;
       Event.sync (Event.receive channel) ;
       callback ()

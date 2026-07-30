@@ -581,7 +581,10 @@ let submit ~submit_fn ~user_agent ~client_ip ~callback ~task_create amount =
     maybe_autocreate ~task_create ~user_agent ~client_ip ~existing:matches ;
     match bucket with
     | Some rl ->
-        submit_fn rl ~callback amount
+        let caller_details =
+          Printf.sprintf "client_ip: %s, user_agent: %s" client_ip user_agent
+        in
+        submit_fn rl ~callback ~caller_details amount
     | None ->
         callback ()
 
