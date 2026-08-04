@@ -15,6 +15,14 @@ module D = Debug.Make (struct let name = "xapi_vlan" end)
 
 open D
 
+let assert_valid_VLAN_tag tag =
+  if tag < 0L || tag > 4094L then
+    raise
+      (Api_errors.Server_error
+         (Api_errors.vlan_tag_invalid, [Int64.to_string tag])
+      ) ;
+  ()
+
 (* Dummy MAC used by the VLAN *)
 let vlan_mac = "fe:ff:ff:ff:ff:ff"
 
@@ -48,6 +56,8 @@ let pool_introduce ~__context ~tagged_PIF ~untagged_PIF ~tag ~other_config =
   vlan
 
 let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
+  Xapi_pif_helpers.assert_network_compatible_with_trunks_on_vif ~__context
+    ~network ;
   let vlan = Ref.make () and vlan_uuid = Uuidx.to_string (Uuidx.make ()) in
   let untagged_PIF = Ref.make () in
   (* Copy the MTU and metrics from the base PIF *)
@@ -83,12 +93,7 @@ let create ~__context ~tagged_PIF ~tag ~network =
     ~pif_topo ~tag ;
   Xapi_network_helpers.assert_vlan_network_compatible_with_pif ~__context
     ~network ~tagged_PIF ~pif_topo ;
-  (* Check the VLAN tag is sensible;  4095 is reserved for implementation use (802.1Q) *)
-  if tag < 0L || tag > 4094L then
-    raise
-      (Api_errors.Server_error
-         (Api_errors.vlan_tag_invalid, [Int64.to_string tag])
-      ) ;
+  assert_valid_VLAN_tag tag ;
   let device = pif_rec.API.pIF_device in
   let vlans =
     let open Xapi_database.Db_filter_types in
