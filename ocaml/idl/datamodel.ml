@@ -5412,7 +5412,19 @@ module VDI = struct
 
   let resize_online =
     call ~name:"resize_online" ~in_oss_since:None
-      ~lifecycle:[(Published, rel_rio, "")]
+      ~lifecycle:
+        [
+          (Published, rel_rio, "")
+        ; (Deprecated, rel_inverness, "Dummy transition")
+        ; ( Removed
+          , rel_inverness
+          , "Online VDI resize is not supported by any of the storage backends."
+          )
+        ; ( Published
+          , "26.16.1-next"
+          , "Reintroduced to allow online resize of a VDI whose SR supports it"
+          )
+        ]
       ~params:
         [
           (Ref _vdi, "vdi", "The VDI to resize")

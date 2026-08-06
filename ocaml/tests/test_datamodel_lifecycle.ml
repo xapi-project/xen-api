@@ -49,6 +49,15 @@ module SuccessfulLifecycleCreation = Generic.MakeStateless (struct
             ]
           , Removed_s
           )
+        ; (* A removed element can be reintroduced by publishing it again *)
+          ( [
+              (Published, "release1", "")
+            ; (Deprecated, "release2", "")
+            ; (Removed, "release3", "")
+            ; (Published, "release4", "")
+            ]
+          , Published_s
+          )
         ]
 end)
 
@@ -81,14 +90,6 @@ module FailingLifecycleCreation = Generic.MakeStateless (struct
         [
           ( [(Removed, "release1", "")]
           , Invalid "Invalid transition Removed from Unreleased_s"
-          )
-        ; ( [
-              (Published, "release1", "")
-            ; (Deprecated, "release2", "")
-            ; (Removed, "release3", "")
-            ; (Published, "release4", "")
-            ]
-          , Invalid "Invalid transition Published from Removed_s"
           )
         ]
 end)
