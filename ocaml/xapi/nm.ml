@@ -537,7 +537,15 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                 let bond_record = Db.Bond.get_record ~__context ~self:bond in
                 List.iter
                   (fun self ->
-                    Db.PIF.set_currently_attached ~__context ~self ~value:false
+                    Db.PIF.set_currently_attached ~__context ~self ~value:false ;
+                    let slave_net = Db.PIF.get_network ~__context ~self in
+                    let bond_mtu = net_rc.API.network_MTU in
+                    if Db.Network.get_MTU ~__context ~self:slave_net <> bond_mtu
+                    then (
+                      debug "Setting MTU of slave network MTU to %Ld" bond_mtu ;
+                      Db.Network.set_MTU ~__context ~self:slave_net
+                        ~value:bond_mtu
+                    )
                   )
                   bond_record.API.bond_slaves ;
                 maybe_update_master_pif_mac ~__context bond_record rc pif
