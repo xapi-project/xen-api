@@ -196,12 +196,7 @@ let software_version () =
     ; (_date, Xapi_version.date)
     ]
 
-let pygrub_path = "/usr/bin/pygrub"
-
-let eliloader_path = "/usr/bin/eliloader"
-
-let supported_bootloaders =
-  [("pygrub", pygrub_path); ("eliloader", eliloader_path)]
+let supported_bootloaders = ["pygrub"; "eliloader"]
 
 (* Deprecated: *)
 let is_guest_installer_network = "is_guest_installer_network"
