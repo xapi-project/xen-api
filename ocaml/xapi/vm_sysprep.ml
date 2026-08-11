@@ -92,7 +92,7 @@ let on_startup ~__context =
       Db.SR.get_PBDs ~__context ~self:sr
       |> List.iter (fun self -> Client.PBD.unplug ~rpc ~session_id ~self) ;
       Client.SR.forget ~rpc ~session_id ~sr
-  | true, Some sr when !Xapi_globs.vm_sysprep_enabled -> (
+  | true, Some sr -> (
       Db.SR.get_VDIs ~__context ~self:sr
       |> List.iter @@ fun self ->
          match Db.VDI.get_record ~__context ~self with
