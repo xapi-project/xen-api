@@ -12,11 +12,11 @@ func deserialize{{func_name_suffix}}(context string, input interface{}) (value {
 		return
 	}
 	strValue := fmt.Sprintf("%v", input)
-	value, err = strconv.Atoi(strValue)
+	value, err = strconv.ParseInt(strValue, 10, 64)
 	if err != nil {
 		floatValue, err1 := strconv.ParseFloat(strValue, 64)
 		if err1 == nil {
-			return int(floatValue), nil
+			return int64(floatValue), nil
 		}
 	}
 	return
