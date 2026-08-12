@@ -736,6 +736,11 @@ let pif_record rpc session_id pif =
               (x ()).API.pIF_igmp_snooping_status
           )
           ()
+      ; make_field ~name:"lldp-mode"
+          ~get:(fun () ->
+            Record_util.pif_lldp_mode_to_string (x ()).API.pIF_lldp_mode
+          )
+          ()
       ]
   }
 
@@ -1335,6 +1340,19 @@ let pool_record rpc session_id pool =
           ~set:(fun x ->
             Client.Pool.set_igmp_snooping_enabled ~rpc ~session_id ~self:pool
               ~value:(bool_of_string x)
+          )
+          ()
+      ; make_field ~name:"lldp-enabled"
+          ~get:(fun () -> string_of_bool (x ()).API.pool_lldp_enabled)
+          ()
+      ; make_field ~name:"lldp-multicast-address"
+          ~get:(fun () ->
+            Record_util.lldp_multicast_address_to_string
+              (x ()).API.pool_lldp_multicast_address
+          )
+          ~set:(fun v ->
+            Client.Pool.set_lldp_multicast_address ~rpc ~session_id ~self:pool
+              ~value:(Record_util.lldp_multicast_address_of_string v)
           )
           ()
       ; make_field ~name:"gui-config"

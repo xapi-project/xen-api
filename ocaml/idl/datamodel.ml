@@ -2265,6 +2265,44 @@ module PIF = struct
       ~lifecycle:[(Published, rel_tampa, "")]
       ~allowed_roles:_R_POOL_OP ()
 
+  let lldp_mode =
+    Enum
+      ( "pif_lldp_mode"
+      , [
+          ( "inherited"
+          , "LLDP is enabled or disabled based on pool.lldp_enabled."
+          )
+        ; ( "enabled"
+          , "LLDP is enabled on the NIC of the managed physical PIF, \
+             overriding pool.lldp_enabled."
+          )
+        ; ( "disabled"
+          , "LLDP is disabled on the NIC of the managed physical PIF, \
+             overriding pool.lldp_enabled."
+          )
+        ]
+      )
+
+  let set_lldp_mode =
+    call ~name:"set_lldp_mode" ~lifecycle:[]
+      ~doc:
+        "Set the LLDP mode of this PIF, then apply the change by re-plugging \
+         the PIF. Only valid for managed physical PIFs."
+      ~params:
+        [
+          (Ref _pif, "self", "the PIF object to reconfigure")
+        ; ( lldp_mode
+          , "value"
+          , "the LLDP mode to set (inherited, enabled or disabled)"
+          )
+        ; ( Bool
+          , "force"
+          , "When true, apply the change even if value already matches the \
+             current PIF.lldp_mode; otherwise apply only when value differs."
+          )
+        ]
+      ~allowed_roles:_R_POOL_OP ()
+
   let scan =
     call ~name:"scan"
       ~doc:
@@ -2608,6 +2646,7 @@ module PIF = struct
         ; db_introduce
         ; db_forget
         ; set_property
+        ; set_lldp_mode
         ]
       ~contents:
         [
@@ -2891,6 +2930,11 @@ module PIF = struct
             ~lifecycle:[(Published, rel_kolkata, "")]
             ~default_value:(Some (VRef null_ref)) "PCI"
             "Link to underlying PCI device"
+        ; field ~qualifier:DynamicRO ~ty:lldp_mode ~lifecycle:[]
+            ~default_value:(Some (VEnum "inherited")) "lldp_mode"
+            "The LLDP mode of the physical NIC for the PIF. This setting does \
+             not apply to other types of PIFs, such as non-managed PIFs, bond \
+             PIFs, VLAN PIFs, tunnel PIFs, or SR-IOV PIFs."
         ]
       ()
 end

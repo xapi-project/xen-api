@@ -324,6 +324,15 @@ val set_igmp_snooping_enabled :
   __context:Context.t -> self:API.ref_pool -> value:bool -> unit
 (** Set on/off for IGMP Snooping *)
 
+val set_lldp_enabled :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> value:bool
+  -> force:bool
+  -> (API.ref_PIF * string) list
+(** Enable or disable LLDP on every managed physical PIF in the pool, returning
+    a map of the PIFs that failed and the corresponding error message. *)
+
 val has_extension :
   __context:Context.t -> self:API.ref_pool -> name:string -> bool
 
