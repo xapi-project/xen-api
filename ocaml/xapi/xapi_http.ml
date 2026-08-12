@@ -360,8 +360,6 @@ let add_handler (name, handler) =
       | None ->
           handler ()
       | Some (user_agent, client_ip) ->
-          debug "Rate limiting handler %s with user_agent %s client_ip %s" name
-            user_agent client_ip ;
           Xapi_caller.submit_async ~user_agent ~client_ip ~callback:handler
             ~task_create:(Server_helpers.exec_with_new_task "Add new caller")
             Xapi_caller.default_token_cost

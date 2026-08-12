@@ -14,10 +14,23 @@
 
 module D = Debug.Make (struct let name = __MODULE__ end)
 
+type delay_observer = {on_start: unit -> unit; on_end: unit -> unit}
+
+let safe_observe context f =
+  try f ()
+  with e ->
+    D.warn "Rate_limit: delay_observer %s raised: %s" context
+      (Printexc.to_string e)
+
+type queue_item = {
+    cost: float
+  ; callback: unit -> unit  (** run when tokens are granted (worker thread) *)
+  ; on_worker_end: unit -> unit
+}
+
 type t = {
     bucket: Token_bucket.t
-  ; process_queue:
-      (float * (unit -> unit)) Queue.t (* contains token cost and callback *)
+  ; process_queue: queue_item Queue.t
   ; process_queue_lock: Mutex.t
   ; worker_thread_cond: Condition.t
   ; should_terminate: bool Atomic.t
@@ -27,6 +40,8 @@ type t = {
 }
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
+let noop () = ()
 
 (* The worker thread is responsible for calling the callback when the token
    amount becomes available *)
@@ -42,7 +57,7 @@ let rec worker_loop ~bucket ~process_queue ~process_queue_lock
         match Queue.peek_opt process_queue with
         | None ->
             None
-        | Some (cost, _) ->
+        | Some {cost; _} ->
             let delay = Token_bucket.get_delay_until_available bucket cost in
             Some (cost, delay)
     )
@@ -53,15 +68,20 @@ let rec worker_loop ~bucket ~process_queue ~process_queue_lock
       D.debug "%s: queue empty in deleted rate limiter; exiting" __FUNCTION__
   | Some (cost, delay) ->
       if delay > 0. then Thread.delay delay ;
-      let callback_opt =
+      let item_opt =
         with_lock process_queue_lock (fun () ->
             if Token_bucket.consume bucket cost then
-              Option.map snd (Queue.take_opt process_queue)
+              Queue.take_opt process_queue
             else
               None
         )
       in
-      Option.iter (fun cb -> cb ()) callback_opt ;
+      Option.iter
+        (fun {callback; on_worker_end; _} ->
+          safe_observe "on_end" on_worker_end ;
+          callback ()
+        )
+        item_opt ;
       worker_loop ~bucket ~process_queue ~process_queue_lock ~worker_thread_cond
         ~should_terminate
 
@@ -116,15 +136,22 @@ let submit_async
     ; worker_thread_cond
     ; should_terminate
     ; _
-    } ~callback amount =
+    } ?observer ~callback ~caller_details amount =
   check_not_terminated should_terminate ;
+  let on_start, on_worker_end =
+    match observer with
+    | Some {on_start; on_end} ->
+        (on_start, on_end)
+    | None ->
+        (noop, noop)
+  in
   let run_immediately =
     with_lock process_queue_lock (fun () ->
         let immediate =
           Queue.is_empty process_queue && Token_bucket.consume bucket amount
         in
         if not immediate then (
-          Queue.add (amount, callback) process_queue ;
+          Queue.add {cost= amount; callback; on_worker_end} process_queue ;
           Condition.signal worker_thread_cond
         ) ;
         immediate
@@ -132,12 +159,21 @@ let submit_async
   in
   if run_immediately then
     callback ()
-  else
-    D.debug "%s: rate limiting call" __FUNCTION__
+  else (
+    D.debug "%s: rate limiting call from %s" __FUNCTION__ caller_details ;
+    safe_observe "on_start" on_start
+  )
 
 (* Block and execute on the same thread *)
-let submit_sync bucket_data ~callback amount =
+let submit_sync bucket_data ?observer ~callback ~caller_details amount =
   check_not_terminated bucket_data.should_terminate ;
+  let on_start, on_end =
+    match observer with
+    | Some {on_start; on_end} ->
+        (on_start, on_end)
+    | None ->
+        (noop, noop)
+  in
   let channel_opt =
     with_lock bucket_data.process_queue_lock (fun () ->
         if
@@ -150,7 +186,11 @@ let submit_sync bucket_data ~callback amount =
           (* Rate limited, need to retrieve function result via channel *)
           let channel = Event.new_channel () in
           Queue.add
-            (amount, fun () -> Event.sync (Event.send channel ()))
+            {
+              cost= amount
+            ; callback= (fun () -> Event.sync (Event.send channel ()))
+            ; on_worker_end= noop
+            }
             bucket_data.process_queue ;
           Condition.signal bucket_data.worker_thread_cond ;
           Some channel
@@ -160,6 +200,8 @@ let submit_sync bucket_data ~callback amount =
   | None ->
       callback ()
   | Some channel ->
-      D.debug "%s: rate limiting call" __FUNCTION__ ;
+      D.debug "%s: rate limiting call from %s" __FUNCTION__ caller_details ;
+      safe_observe "on_start" on_start ;
       Event.sync (Event.receive channel) ;
+      safe_observe "on_end" on_end ;
       callback ()

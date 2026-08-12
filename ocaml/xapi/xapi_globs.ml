@@ -196,12 +196,7 @@ let software_version () =
     ; (_date, Xapi_version.date)
     ]
 
-let pygrub_path = "/usr/bin/pygrub"
-
-let eliloader_path = "/usr/bin/eliloader"
-
-let supported_bootloaders =
-  [("pygrub", pygrub_path); ("eliloader", eliloader_path)]
+let supported_bootloaders = ["pygrub"; "eliloader"]
 
 (* Deprecated: *)
 let is_guest_installer_network = "is_guest_installer_network"
@@ -1202,6 +1197,14 @@ let event_next_delay, event_next_entry =
     ~delay_before:Mtime.Span.(200 * ms)
     ~delay_between:Mtime.Span.(50 * ms)
 
+(** Upper bound on the number of callers that [Xapi_caller] may auto-register.
+    When the limit is reached and a new caller must be registered, the
+    auto-registered caller with the least recent call is dropped first.
+    A value of 0 disables auto-registration entirely; a negative value means
+    unbounded. Manually created callers do not count towards this limit and are
+    never auto-evicted. *)
+let max_auto_registered_callers = ref 100
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1294,6 +1297,7 @@ let xapi_globs_spec =
   ; ("test-open", Int test_open) (* for consistency with xenopsd *)
   ; ("local_yum_repo_port", Int local_yum_repo_port)
   ; ("ha_best_effort_max_retries", Int ha_best_effort_max_retries)
+  ; ("max-auto-registered-callers", Int max_auto_registered_callers)
   ]
 
 let xapi_globs_spec_with_descriptions =
