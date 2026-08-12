@@ -887,6 +887,11 @@ module SMAPIv1 : Server_impl = struct
             ~value:content_id
       )
 
+    let set_snapshot_metadata _context ~dbg:_ ~sr:_ ~vdi:_ ~snapshot_of:_
+        ~snapshot_time:_ ~is_a_snapshot:_ =
+      (* SMAPIv1 doesn't need this - snapshot metadata is managed by xapi database only *)
+      ()
+
     let similar_content _context ~dbg ~sr ~vdi =
       with_dbg ~name:"VDI.similar_content" ~dbg @@ fun di ->
       info "VDI.similar_content dbg:%s sr:%s vdi:%s" di.log (s_of_sr sr)

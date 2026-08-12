@@ -155,6 +155,10 @@ module VDI = struct
   let set_content_id ctx ~dbg ~sr ~vdi ~content_id =
     Storage_interface.unimplemented __FUNCTION__
 
+  let set_snapshot_metadata ctx ~dbg ~sr ~vdi ~snapshot_of ~snapshot_time
+      ~is_a_snapshot =
+    Storage_interface.unimplemented __FUNCTION__
+
   let compose ctx ~dbg ~sr ~vdi1 ~vdi2 =
     Storage_interface.unimplemented __FUNCTION__
 
