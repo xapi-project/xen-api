@@ -28,7 +28,7 @@ let rmmod = ref "/usr/sbin/rmmod"
 
 let hvmloader = ref "hvmloader"
 
-let pygrub = ref "pygrub-wrapper"
+let pygrub = ref "pygrub"
 
 let eliloader = ref "eliloader"
 

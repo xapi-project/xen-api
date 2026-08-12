@@ -5464,6 +5464,10 @@ module VDI = struct
           , rel_inverness
           , "Online VDI resize is not supported by any of the storage backends."
           )
+        ; ( Published
+          , "26.16.1-next"
+          , "Reintroduced to allow online resize of a VDI whose SR supports it"
+          )
         ]
       ~params:
         [

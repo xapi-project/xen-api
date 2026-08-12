@@ -1,8 +1,8 @@
 let prototyped_of_class = function
   | "Rate_limit" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Caller" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Driver_variant" ->
       Some "25.2.0"
   | "Host_driver" ->
@@ -18,33 +18,35 @@ let prototyped_of_class = function
 
 let prototyped_of_field = function
   | "Rate_limit", "fill_rate" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Rate_limit", "burst_size" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Rate_limit", "callers" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Rate_limit", "name__description" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Rate_limit", "name__label" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Rate_limit", "uuid" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
+  | "Caller", "auto_registered" ->
+      Some "26.17.0"
   | "Caller", "rate_limit" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Caller", "groups" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Caller", "last_access" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Caller", "client_ip" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Caller", "user_agent" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Caller", "name__description" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Caller", "name__label" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Caller", "uuid" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Driver_variant", "status" ->
       Some "25.2.0"
   | "Driver_variant", "priority" ->
@@ -134,7 +136,7 @@ let prototyped_of_field = function
   | "SM", "host_pending_features" ->
       Some "24.37.0"
   | "VIF", "trunks" ->
-      Some "26.16.0-next"
+      Some "26.17.0"
   | "host", "timezone" ->
       Some "26.0.0"
   | "host", "ntp_custom_servers" ->
@@ -194,7 +196,7 @@ let prototyped_of_field = function
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "auto_update_vm_secureboot_certificates" ->
-      Some "26.16.0-next"
+      Some "26.16.1"
   | "pool", "vm_console_idle_timeout" ->
       Some "26.1.0"
   | "pool", "limit_console_sessions" ->
@@ -240,15 +242,15 @@ let prototyped_of_field = function
 
 let prototyped_of_message = function
   | "Rate_limit", "set_fill_rate" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Rate_limit", "set_burst_size" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Rate_limit", "remove_caller" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Rate_limit", "add_caller" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Caller", "query_all_usage" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Caller", "query_group_call_count" ->
       Some "26.15.0"
   | "Caller", "query_group_token_usage" ->
@@ -258,9 +260,9 @@ let prototyped_of_message = function
   | "Caller", "query_token_usage" ->
       Some "26.15.0"
   | "Caller", "remove_group" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Caller", "add_group" ->
-      Some "26.16.1-next"
+      Some "26.17.0"
   | "Driver_variant", "select" ->
       Some "25.2.0"
   | "Host_driver", "rescan" ->
@@ -312,11 +314,11 @@ let prototyped_of_message = function
   | "VDI", "revert" ->
       Some "26.16.0"
   | "VIF", "set_trunks" ->
-      Some "26.16.0-next"
+      Some "26.17.0"
   | "VIF", "remove_trunks" ->
-      Some "26.16.0-next"
+      Some "26.17.0"
   | "VIF", "add_trunks" ->
-      Some "26.16.0-next"
+      Some "26.17.0"
   | "host", "set_servertime" ->
       Some "26.0.0"
   | "host", "get_ntp_synchronized" ->
