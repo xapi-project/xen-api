@@ -47,8 +47,9 @@ To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/d
 5) Get the Recommended Packages.
 
     ```bash
-    # Add the xs-opam library as the main repo to check for versions at:
-    opam repo add xs-opam https://github.com/xapi-project/xs-opam.git
+    # Add branch 6.99-lcm of the xs-opam library as the main repo
+    # to check for versions at:
+    opam repo add xs-opam-6.99-lcm "https://github.com/xapi-project/xs-opam.git#6.99-lcm"
     # Remove the default, because how it handles version conflicts is different:
     opam repo remove default
     # (NOT needed with opam>=2.1.0) Have opam now figure out what versions of each package to use:
