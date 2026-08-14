@@ -24,8 +24,12 @@ open D
 
 let valid_ref x = Db.is_valid_ref x
 
-let gc_connector ~__context get_all get_record valid_ref1 valid_ref2
-    delete_record =
+(* [valid_ref1]/[valid_ref2] each check one field of the connector object.
+   They take the object's own reference and fetch only the field they need,
+   rather than materialising the whole record via [get_record]: every caller
+   here only looks at two ref fields, and this runs every 30s under the global
+   DB lock once per connector object. *)
+let gc_connector ~__context get_all valid_ref1 valid_ref2 delete_record =
   let db = Context.database_of __context in
   let module DB =
     (val Xapi_database.Db_cache.get db : Xapi_database.Db_interface.DB_ACCESS2)
@@ -38,9 +42,8 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2
       else
         "INVALID"
     in
-    let record = get_record ~__context ~self:ref in
-    let ref_1_valid = valid_ref1 record in
-    let ref_2_valid = valid_ref2 record in
+    let ref_1_valid = valid_ref1 ~__context ~self:ref in
+    let ref_2_valid = valid_ref2 ~__context ~self:ref in
     if not (ref_1_valid && ref_2_valid) then (
       let table, reference, valid1, valid2 =
         ( ( match DB.get_table_from_ref db (Ref.string_of ref) with
@@ -98,9 +101,13 @@ let gc_Host_driver_variants ~__context =
     variants
 
 let gc_PIFs ~__context =
-  gc_connector ~__context Db.PIF.get_all Db.PIF.get_record
-    (fun x -> valid_ref __context x.pIF_host)
-    (fun x -> valid_ref __context x.pIF_network)
+  gc_connector ~__context Db.PIF.get_all
+    (fun ~__context ~self ->
+      valid_ref __context (Db.PIF.get_host ~__context ~self)
+    )
+    (fun ~__context ~self ->
+      valid_ref __context (Db.PIF.get_network ~__context ~self)
+    )
     (fun ~__context ~self ->
       (* We need to destroy the PIF, it's metrics and any VLAN/bond records that this PIF was a master of. *)
       (* bonds/tunnels/sriovs_to_gc is actually a list which is either empty (not part of a bond/tunnel/sriov)
@@ -132,9 +139,14 @@ let gc_PIFs ~__context =
     )
 
 let gc_VBDs ~__context =
-  gc_connector ~__context Db.VBD.get_all Db.VBD.get_record
-    (fun x -> valid_ref __context x.vBD_VM)
-    (fun x -> valid_ref __context x.vBD_VDI || x.vBD_empty)
+  gc_connector ~__context Db.VBD.get_all
+    (fun ~__context ~self ->
+      valid_ref __context (Db.VBD.get_VM ~__context ~self)
+    )
+    (fun ~__context ~self ->
+      valid_ref __context (Db.VBD.get_VDI ~__context ~self)
+      || Db.VBD.get_empty ~__context ~self
+    )
     (fun ~__context ~self ->
       (* When GCing VBDs that are CDs, set them to empty rather than destroy them entirely *)
       if
@@ -151,15 +163,23 @@ let gc_VBDs ~__context =
     )
 
 let gc_crashdumps ~__context =
-  gc_connector ~__context Db.Crashdump.get_all Db.Crashdump.get_record
-    (fun x -> valid_ref __context x.crashdump_VM)
-    (fun x -> valid_ref __context x.crashdump_VDI)
+  gc_connector ~__context Db.Crashdump.get_all
+    (fun ~__context ~self ->
+      valid_ref __context (Db.Crashdump.get_VM ~__context ~self)
+    )
+    (fun ~__context ~self ->
+      valid_ref __context (Db.Crashdump.get_VDI ~__context ~self)
+    )
     Db.Crashdump.destroy
 
 let gc_VIFs ~__context =
-  gc_connector ~__context Db.VIF.get_all Db.VIF.get_record
-    (fun x -> valid_ref __context x.vIF_VM)
-    (fun x -> valid_ref __context x.vIF_network)
+  gc_connector ~__context Db.VIF.get_all
+    (fun ~__context ~self ->
+      valid_ref __context (Db.VIF.get_VM ~__context ~self)
+    )
+    (fun ~__context ~self ->
+      valid_ref __context (Db.VIF.get_network ~__context ~self)
+    )
     (fun ~__context ~self ->
       let metrics = Db.VIF.get_metrics ~__context ~self in
       (try Db.VIF_metrics.destroy ~__context ~self:metrics with _ -> ()) ;
@@ -167,27 +187,43 @@ let gc_VIFs ~__context =
     )
 
 let gc_PBDs ~__context =
-  gc_connector ~__context Db.PBD.get_all Db.PBD.get_record
-    (fun x -> valid_ref __context x.pBD_host)
-    (fun x -> valid_ref __context x.pBD_SR)
+  gc_connector ~__context Db.PBD.get_all
+    (fun ~__context ~self ->
+      valid_ref __context (Db.PBD.get_host ~__context ~self)
+    )
+    (fun ~__context ~self ->
+      valid_ref __context (Db.PBD.get_SR ~__context ~self)
+    )
     Db.PBD.destroy
 
 let gc_PUSBs ~__context =
-  gc_connector ~__context Db.PUSB.get_all Db.PUSB.get_record
-    (fun x -> valid_ref __context x.pUSB_host)
-    (fun x -> valid_ref __context x.pUSB_USB_group)
+  gc_connector ~__context Db.PUSB.get_all
+    (fun ~__context ~self ->
+      valid_ref __context (Db.PUSB.get_host ~__context ~self)
+    )
+    (fun ~__context ~self ->
+      valid_ref __context (Db.PUSB.get_USB_group ~__context ~self)
+    )
     Db.PUSB.destroy
 
 let gc_Cluster_hosts ~__context =
-  gc_connector ~__context Db.Cluster_host.get_all Db.Cluster_host.get_record
-    (fun x -> valid_ref __context x.cluster_host_host)
-    (fun x -> valid_ref __context x.cluster_host_PIF)
+  gc_connector ~__context Db.Cluster_host.get_all
+    (fun ~__context ~self ->
+      valid_ref __context (Db.Cluster_host.get_host ~__context ~self)
+    )
+    (fun ~__context ~self ->
+      valid_ref __context (Db.Cluster_host.get_PIF ~__context ~self)
+    )
     Db.Cluster_host.destroy
 
 let gc_VGPUs ~__context =
-  gc_connector ~__context Db.VGPU.get_all Db.VGPU.get_record
-    (fun x -> valid_ref __context x.vGPU_VM)
-    (fun x -> valid_ref __context x.vGPU_GPU_group)
+  gc_connector ~__context Db.VGPU.get_all
+    (fun ~__context ~self ->
+      valid_ref __context (Db.VGPU.get_VM ~__context ~self)
+    )
+    (fun ~__context ~self ->
+      valid_ref __context (Db.VGPU.get_GPU_group ~__context ~self)
+    )
     (fun ~__context ~self -> Db.VGPU.destroy ~__context ~self)
 
 let gc_PGPUs ~__context =
@@ -255,9 +291,13 @@ let gc_Features ~__context =
   )
 
 let gc_Host_patches ~__context =
-  gc_connector ~__context Db.Host_patch.get_all Db.Host_patch.get_record
-    (fun x -> valid_ref __context x.host_patch_host)
-    (fun x -> valid_ref __context x.host_patch_pool_patch)
+  gc_connector ~__context Db.Host_patch.get_all
+    (fun ~__context ~self ->
+      valid_ref __context (Db.Host_patch.get_host ~__context ~self)
+    )
+    (fun ~__context ~self ->
+      valid_ref __context (Db.Host_patch.get_pool_patch ~__context ~self)
+    )
     Db.Host_patch.destroy
 
 let gc_host_cpus ~__context =
@@ -600,25 +640,34 @@ let gc_consoles ~__context =
     (Db.Console.get_all ~__context)
 
 let gc_PVS_proxies ~__context =
-  gc_connector ~__context Db.PVS_proxy.get_all Db.PVS_proxy.get_record
-    (fun x -> valid_ref __context x.pVS_proxy_VIF)
-    (fun x -> valid_ref __context x.pVS_proxy_site)
+  gc_connector ~__context Db.PVS_proxy.get_all
+    (fun ~__context ~self ->
+      valid_ref __context (Db.PVS_proxy.get_VIF ~__context ~self)
+    )
+    (fun ~__context ~self ->
+      valid_ref __context (Db.PVS_proxy.get_site ~__context ~self)
+    )
     Db.PVS_proxy.destroy
 
 (* A PVS server refers to a PVS site. We delete it, if the reference
  * becomes invalid. At creation, the server is connected to a site and
  * hence we never GC a server right after it was created. *)
 let gc_PVS_servers ~__context =
-  gc_connector ~__context Db.PVS_server.get_all Db.PVS_server.get_record
-    (fun _ -> true)
-    (fun x -> valid_ref __context x.pVS_server_site)
+  gc_connector ~__context Db.PVS_server.get_all
+    (fun ~__context:_ ~self:_ -> true)
+    (fun ~__context ~self ->
+      valid_ref __context (Db.PVS_server.get_site ~__context ~self)
+    )
     Db.PVS_server.destroy
 
 let gc_PVS_cache_storage ~__context =
   gc_connector ~__context Db.PVS_cache_storage.get_all
-    Db.PVS_cache_storage.get_record
-    (fun x -> valid_ref __context x.pVS_cache_storage_site)
-    (fun x -> valid_ref __context x.pVS_cache_storage_host)
+    (fun ~__context ~self ->
+      valid_ref __context (Db.PVS_cache_storage.get_site ~__context ~self)
+    )
+    (fun ~__context ~self ->
+      valid_ref __context (Db.PVS_cache_storage.get_host ~__context ~self)
+    )
     Db.PVS_cache_storage.destroy
 
 let gc_updates_requiring_reboot ~__context =
@@ -638,9 +687,13 @@ let gc_updates_requiring_reboot ~__context =
     (Db.Host.get_all ~__context)
 
 let gc_tunnels ~__context =
-  gc_connector ~__context Db.Tunnel.get_all Db.Tunnel.get_record
-    (fun x -> valid_ref __context x.tunnel_access_PIF)
-    (fun x -> valid_ref __context x.tunnel_transport_PIF)
+  gc_connector ~__context Db.Tunnel.get_all
+    (fun ~__context ~self ->
+      valid_ref __context (Db.Tunnel.get_access_PIF ~__context ~self)
+    )
+    (fun ~__context ~self ->
+      valid_ref __context (Db.Tunnel.get_transport_PIF ~__context ~self)
+    )
     (fun ~__context ~self ->
       let access = Db.Tunnel.get_access_PIF ~__context ~self in
       Db.Tunnel.destroy ~__context ~self ;
