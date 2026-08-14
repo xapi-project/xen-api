@@ -83,9 +83,12 @@ Default after fresh install: `nearestbridge`.
 
 Type: `map(string, string)`
 
-Stores the received LLDP TLVs from the corresponding PIF.
+Stores the effective LLDP information for the physical NIC of the corresponding PIF:
 
-Default: empty
+- `state`: the effective LLDP state of the NIC, one of `enabled`, `disabled` or `blocked` (`blocked` means the NIC driver is in the blocking list). Always present for a managed physical NIC.
+- `system_name`, `port_id`, `port_description`: the TLVs received from the neighbour, present only when a neighbour is seen.
+
+Default: empty (also empty for PIFs that are not managed physical NICs).
 
 ## XenAPI changes
 
@@ -200,19 +203,26 @@ Some advertised values follow the default behavior of `lldpd`, while others are 
 networkd periodically queries statistics for individual NICs and writes them to the in-memory file `/dev/shm/network_stats`. The file format is defined in `ocaml/xapi-idl/network/network_stats.ml` and is extended with a new field, `lldp_neighbor`.
 
 ```ocaml
-type lldp_rx = {
+type lldp_state = Enabled | Disabled | Blocked
+
+type lldp_neighbor = {
   system_name: string option;
   port_id: string option;
   port_description: string option;
+}
+
+type lldp_rx = {
+  state: lldp_state;
+  neighbor: lldp_neighbor option;
 }
 [@@deriving rpcty]
 
 type iface_stats = {
   ...
-  lldp_neighbor: lldp_rx option;
+  lldp_rx: lldp_rx option;
 }
 ```
-networkd queries `lldpd` for the LLDP TLVs received on individual NICs and writes them into `/dev/shm/network_stats`.
+networkd derives the `state` from `lldpcli show interfaces` (a NIC reporting `RX and TX` is `Enabled`; otherwise it is `Blocked` when its driver is in the blocking list, else `Disabled`) and queries `lldpd` for the LLDP TLVs received on individual NICs, writing both into `/dev/shm/network_stats`.
 Monitor_dbcalls.monitor_dbcall_thread in XAPI reads the in-memory file `/dev/shm/network_stats` periodically, and exposes the data through `PIF_metrics.lldp_neighbor` by storing them in XenAPI map form.
 
 ## Scenarios
