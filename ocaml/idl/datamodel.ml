@@ -3014,6 +3014,15 @@ module PIF_metrics = struct
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~default_value:(Some (VMap []))
+            ~ty:(Map (String, String))
+            "lldp_neighbor"
+            "The LLDP information for the physical NIC of the corresponding \
+             PIF: the effective LLDP state (key 'state', one of enabled, \
+             disabled or blocked) and, when a neighbour is seen, the received \
+             TLVs (keys 'system_name', 'port_id' and 'port_description'). \
+             Empty for PIFs that are not managed physical NICs."
         ]
       ()
 end

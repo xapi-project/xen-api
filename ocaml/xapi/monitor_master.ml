@@ -189,7 +189,7 @@ let update_pifs ~__context host pifs =
                   ~carrier:false ~device_name:"" ~vendor_name:"" ~device_id:""
                   ~vendor_id:"" ~speed:0L ~duplex:false ~pci_bus_path:""
                   ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:Date.epoch
-                  ~other_config:[] ;
+                  ~other_config:[] ~lldp_neighbor:[] ;
                 Db.PIF.set_metrics ~__context ~self:pifdev ~value:ref ;
                 ref
             in
