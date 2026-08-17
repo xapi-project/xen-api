@@ -9,6 +9,7 @@ let () =
      ; ("Test_pci_helpers", Test_pci_helpers.test)
      ; ("Test_vdi_allowed_operations", Test_vdi_allowed_operations.test)
      ; ("Test_vm_migrate", Test_vm_migrate.test)
+     ; ("Test_storage_smapiv3_migrate", Test_storage_smapiv3_migrate.test)
      ; ("Test_no_migrate", Test_no_migrate.test)
      ; ("Test_vm_check_operation_error", Test_vm_check_operation_error.test)
      ; ("Test_xapi_vbd_helpers", Test_xapi_vbd_helpers.test)

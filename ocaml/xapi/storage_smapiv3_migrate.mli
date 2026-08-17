@@ -15,3 +15,18 @@
 module type SMAPIv2_MIRROR = Storage_interface.MIRROR
 
 module MIRROR : SMAPIv2_MIRROR
+
+(* Below exposed only for ease of testing *)
+
+(** A node in the VM snapshot tree, projected onto a single disk position. *)
+type snapshot_tree_node = {
+    vdi_uuid: string
+  ; snapshot_time: Clock.Date.t
+  ; on_active_path: bool
+  ; children: snapshot_tree_node list
+}
+
+val get_snapshot_tree :
+  dbg:string -> vdi:Storage_interface.vdi -> snapshot_tree_node list
+(** Projects each snapshot VM onto [vdi]'s lineage; reads only the database.
+    Roots are sorted by [snapshot_time], oldest first. *)
