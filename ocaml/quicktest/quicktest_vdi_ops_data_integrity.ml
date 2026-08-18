@@ -77,6 +77,27 @@ let check_vdi_unchanged rpc session_id ~vdi_size ~prepare_vdi ~vdi_op
       )
   )
 
+let check_vdi_unchanged_migration rpc session_id ~vdi_size ~prepare_vdi
+    ~backing_format vm sr_infos () =
+  let checksum_original = ref "" in
+  let prepare_vdi vdi =
+    prepare_vdi rpc session_id vdi ;
+    checksum_original := checksum rpc session_id vdi
+  in
+  let post_migration vdi =
+    let checksum_copy = checksum rpc session_id vdi in
+    if checksum_copy <> !checksum_original then
+      failwith
+        (Printf.sprintf
+           "New VDI (checksum: %s) has different data than original (checksum: \
+            %s)."
+           checksum_copy !checksum_original
+        )
+  in
+  Quicktest_vm_migration.local_vdi_migration ~backing_format
+    ~virtual_size:vdi_size ~prepare_vdi ~post_migration rpc session_id vm
+    sr_infos ()
+
 let check_vdi_delta rpc session_id ~vdi_size ~prepare_vdi ~prepare_vdi_base
     ~vdi_op ~backing_format sr_info () =
   let sR = sr_info.Qt.sr in
@@ -204,6 +225,41 @@ let data_integrity_tests vdi_op op_name backing_format =
     )
   ]
 
+let migration_data_integrity_tests backing_format =
+  let op_name = Printf.sprintf "VDI.pool_migrate from %s" backing_format in
+  [
+    ( op_name ^ ": small empty VDI"
+    , `Slow
+    , check_vdi_unchanged_migration
+        ~vdi_size:Sizes.(4L ** mib)
+        ~prepare_vdi:noop ~backing_format
+    )
+  ; ( op_name ^ ": small random VDI"
+    , `Slow
+    , check_vdi_unchanged_migration
+        ~vdi_size:Sizes.(4L ** mib)
+        ~prepare_vdi:write_random_data ~backing_format
+    )
+  ; ( op_name ^ ": small full VDI"
+    , `Slow
+    , check_vdi_unchanged_migration
+        ~vdi_size:Sizes.(4L ** mib)
+        ~prepare_vdi:fill ~backing_format
+    )
+  ; ( op_name ^ ": ~2GiB empty VDI"
+    , `Slow
+    , check_vdi_unchanged_migration
+        ~vdi_size:Sizes.(2L ** gib)
+        ~prepare_vdi:noop ~backing_format
+    )
+  ; ( op_name ^ ": ~2GiB random VDI"
+    , `Slow
+    , check_vdi_unchanged_migration
+        ~vdi_size:Sizes.(2L ** gib)
+        ~prepare_vdi:write_random_data ~backing_format
+    )
+  ]
+
 let delta_data_integrity_tests vdi_op op_name backing_format =
   [
     ( op_name ^ ": delta between empty & empty VDI"
@@ -274,6 +330,13 @@ let supported_gfs2_srs test_case =
   let open Qt_filter in
   test_case |> conn |> sr (sr_with_vdi_create_destroy |> SR.has_type "gfs2")
 
+let supported_migration_srs test_case =
+  let open Qt_filter in
+  test_case
+  |> conn
+  |> vm_template Qt.VM.Template.other
+  |> migration_path SR.smapiv1_mig
+
 let tests () =
   (data_integrity_tests copy_vdi "VDI.copy" "vhd" |> supported_srs)
   @ (large_data_integrity_tests copy_vdi "VDI.copy" "vhd" |> supported_srs)
@@ -305,3 +368,5 @@ let tests () =
        "VDI export/import to/from TAR file" "vhd"
     |> supported_gfs2_srs
     )
+  @ (migration_data_integrity_tests "vhd" |> supported_migration_srs)
+  @ (migration_data_integrity_tests "qcow2" |> supported_migration_srs)
