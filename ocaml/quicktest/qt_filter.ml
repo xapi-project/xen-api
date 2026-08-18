@@ -312,6 +312,12 @@ module SR = struct
 
   let smapiv3 = sr_filter (fun i -> not (is_smapiv1 i))
 
+  let smapiv1_mig =
+    all |> not_iso |> smapiv1 |> allowed_operations [`vdi_mirror; `vdi_snapshot]
+
+  let smapiv3_mig =
+    all |> not_iso |> smapiv3 |> allowed_operations [`vdi_mirror]
+
   let thin_pro =
     sr_filter (has_one_of_types ["gfs2"; "nfs"; "smb"; "ext"; "file"])
 

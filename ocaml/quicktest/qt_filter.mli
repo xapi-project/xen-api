@@ -79,6 +79,12 @@ module SR : sig
   val smapiv3 : srs -> srs
   (** Selects SMAPIv3 SRs *)
 
+  val smapiv1_mig : srs
+  (** Selects SMAPIv1 SRs that support migration *)
+
+  val smapiv3_mig : srs
+  (** Selects SMAPIv3 SRs that support migration *)
+
   val thin_pro : srs -> srs
   (** Selects thinly-provisioned SRs *)
 
