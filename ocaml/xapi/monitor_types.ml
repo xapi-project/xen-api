@@ -23,6 +23,7 @@ type pif = {
   ; pif_pci_bus_path: string
   ; pif_vendor_id: string
   ; pif_device_id: string
+  ; pif_lldp_neighbor: (string * string) list
 }
 
 let vif_device_of_string x =
