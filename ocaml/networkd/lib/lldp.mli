@@ -31,6 +31,15 @@ val get_enabled_interfaces : unit -> string list
 (** [get_enabled_interfaces ()] queries the LLDP agent and returns the
     interfaces on which LLDP is enabled (rx-and-tx). *)
 
+val parse_neighbors : string -> (string * Network_stats.lldp_neighbor) list
+(** [parse_neighbors output] parses the JSON produced by
+    [lldpcli -f json0 show neighbors]. Exposed for testing. *)
+
+val parse_enabled_interfaces : string -> string list
+(** [parse_enabled_interfaces output] parses the JSON produced by
+    [lldpcli -f json0 show interfaces], returning the rx-and-tx interfaces.
+    Exposed for testing. *)
+
 val is_blocked : string -> bool
 (** [is_blocked dev] returns true if the interface [dev] is blocked from
     receiving LLDP packets. *)
