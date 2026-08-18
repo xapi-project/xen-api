@@ -171,7 +171,10 @@ CAMLprim value stub_xenctrlext_domain_get_acpi_s_state(value xch_val,
     xc_interface *xch = xch_of_val(xch_val);
     int domain = Int_val(domid);
 
+    caml_release_runtime_system();
     rc = xc_get_hvm_param(xch, domain, HVM_PARAM_ACPI_S_STATE, &v);
+    caml_acquire_runtime_system();
+
     if (rc != 0)
         failwith_xc(xch);
 
@@ -337,7 +340,11 @@ CAMLprim value stub_xenctrlext_domain_update_channels(value xch_val,
 static int get_cpumap_len(xc_interface *xch, value cpumap_val)
 {
     int ml_len = Wosize_val(cpumap_val);
-    int xc_len = xc_get_max_cpus(xch);
+    int xc_len;
+
+    caml_release_runtime_system();
+    xc_len = xc_get_max_cpus(xch);
+    caml_acquire_runtime_system();
 
     return (ml_len < xc_len ? ml_len : xc_len);
 }
@@ -345,10 +352,14 @@ static int get_cpumap_len(xc_interface *xch, value cpumap_val)
 static void populate_cpumap(xc_interface *xch, xc_cpumap_t cpumap,
                             value cpumap_val)
 {
+    CAMLparam1(cpumap_val);
     int i, len = get_cpumap_len(xch, cpumap_val);
+
     for (i = 0; i < len; i++)
         if (Bool_val(Field(cpumap_val, i)))
             cpumap[i / 8] |= 1 << (i & 7);
+
+    CAMLreturn0;
 }
 
 CAMLprim value stub_xenctrlext_vcpu_setaffinity_hard(value xch_val,
@@ -362,14 +373,20 @@ CAMLprim value stub_xenctrlext_vcpu_setaffinity_hard(value xch_val,
     xc_interface *xch = xch_of_val(xch_val);
     xc_cpumap_t cpumap;
 
+    caml_release_runtime_system();
     cpumap = xc_cpumap_alloc(xch);
+    caml_acquire_runtime_system();
+
     if (cpumap == NULL)
         failwith_xc(xch);
 
     populate_cpumap(xch, cpumap, cpumap_val);
 
+    caml_release_runtime_system();
     rc = xc_vcpu_setaffinity(xch, domid, vcpu, cpumap, NULL,
                              XEN_VCPUAFFINITY_HARD);
+    caml_acquire_runtime_system();
+
     free(cpumap);
     if (rc < 0)
         failwith_xc(xch);
@@ -388,14 +405,20 @@ CAMLprim value stub_xenctrlext_vcpu_setaffinity_soft(value xch_val,
     xc_interface *xch = xch_of_val(xch_val);
     xc_cpumap_t cpumap;
 
+    caml_release_runtime_system();
     cpumap = xc_cpumap_alloc(xch);
+    caml_acquire_runtime_system();
+
     if (cpumap == NULL)
         failwith_xc(xch);
 
     populate_cpumap(xch, cpumap, cpumap_val);
 
+    caml_release_runtime_system();
     rc = xc_vcpu_setaffinity(xch, domid, vcpu, NULL, cpumap,
                              XEN_VCPUAFFINITY_SOFT);
+    caml_acquire_runtime_system();
+
     free(cpumap);
     if (rc < 0)
         failwith_xc(xch);
@@ -414,7 +437,10 @@ CAMLprim value stub_xenctrlext_numainfo(value xch_val)
     int rc;
     xc_interface *xch = xch_of_val(xch_val);
 
+    caml_release_runtime_system();
     rc = xc_numainfo(xch, &max_nodes, NULL, NULL);
+    caml_acquire_runtime_system();
+
     if (rc < 0)
         failwith_xc(xch);
 
@@ -426,7 +452,10 @@ CAMLprim value stub_xenctrlext_numainfo(value xch_val)
         caml_raise_out_of_memory();
     }
 
+    caml_release_runtime_system();
     rc = xc_numainfo(xch, &max_nodes, meminfo, distance);
+    caml_acquire_runtime_system();
+
     if (rc < 0) {
         free(meminfo);
         free(distance);
@@ -468,7 +497,10 @@ CAMLprim value stub_xenctrlext_cputopoinfo(value xch_val)
     int rc;
     xc_interface *xch = xch_of_val(xch_val);
 
+    caml_release_runtime_system();
     rc = xc_cputopoinfo(xch, &max_cpus, NULL);
+    caml_acquire_runtime_system();
+
     if (rc < 0)
         failwith_xc(xch);
 
@@ -476,7 +508,10 @@ CAMLprim value stub_xenctrlext_cputopoinfo(value xch_val)
     if (!cputopo)
         caml_raise_out_of_memory();
 
+    caml_release_runtime_system();
     rc = xc_cputopoinfo(xch, &max_cpus, cputopo);
+    caml_acquire_runtime_system();
+
     if (rc < 0) {
         free(cputopo);
         failwith_xc(xch);
