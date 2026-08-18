@@ -50,7 +50,7 @@ let get_pciids vendor device =
   )
 
 let set_pif_metrics ~__context ~self ~vendor ~device ~carrier ~speed ~duplex
-    ~pcibuspath pmr =
+    ~pcibuspath ~lldp_neighbor pmr =
   (* don't update & and reread pciids if db already contains same value *)
   if
     pmr.API.pIF_metrics_vendor_id <> vendor
@@ -70,6 +70,12 @@ let set_pif_metrics ~__context ~self ~vendor ~device ~carrier ~speed ~duplex
     Db.PIF_metrics.set_duplex ~__context ~self ~value:duplex ;
   if pmr.API.pIF_metrics_pci_bus_path <> pcibuspath then
     Db.PIF_metrics.set_pci_bus_path ~__context ~self ~value:pcibuspath ;
+  ( match lldp_neighbor with
+  | Some v when pmr.API.pIF_metrics_lldp_neighbor <> v ->
+      Db.PIF_metrics.set_lldp_neighbor ~__context ~self ~value:v
+  | _ ->
+      ()
+  ) ;
   Db.PIF_metrics.set_last_updated ~__context ~self ~value:(Date.now ())
 
 (* Note that the following function is actually called on the slave most of the
@@ -113,6 +119,14 @@ let update_pifs ~__context host pifs =
             let vendor = pif_stats.pif_vendor_id in
             let device = pif_stats.pif_device_id in
             let pcibuspath = pif_stats.pif_pci_bus_path in
+            (* LLDP is scoped to managed physical NICs; do not write it for
+               bond masters or non-managed PIFs. *)
+            let lldp_neighbor =
+              if pifrec.API.pIF_physical && pifrec.API.pIF_managed then
+                Some pif_stats.pif_lldp_neighbor
+              else
+                None
+            in
             (* 1. Update corresponding VIF carrier flags *)
             if !Xapi_globs.pass_through_pif_carrier then (
               try
@@ -195,7 +209,7 @@ let update_pifs ~__context host pifs =
             in
             let pmr = Db.PIF_metrics.get_record ~__context ~self:metrics in
             set_pif_metrics ~__context ~self:metrics ~vendor ~device ~carrier
-              ~speed ~duplex ~pcibuspath pmr
+              ~speed ~duplex ~pcibuspath ~lldp_neighbor pmr
           with Not_found -> ()
         )
         db_pifs
