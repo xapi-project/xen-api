@@ -13,6 +13,7 @@
  */
 
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <caml/alloc.h>
@@ -24,111 +25,87 @@
 
 #include "unixpwd.h"
 
-
-CAMLprim        value
-caml_unixpwd_getpwd(value caml_user)
+static value caml_unixpwd_get_(value caml_user, const char *fname, char*(*f)(const char*))
 {
     CAMLparam1(caml_user);
-    const char     *user;
-    char           *passwd;
+    char     *user;
+    char     *passwd;
+    int       saved_errno;
     CAMLlocal1(pw);
 
-    user = String_val(caml_user);
+    user = caml_stat_strdup(String_val(caml_user));
     caml_release_runtime_system();
-    passwd = unixpwd_getpwd(user);
+    errno = 0;
+    passwd = f(user);
+    saved_errno = errno;
     caml_acquire_runtime_system();
-    if (passwd == NULL && errno != 0)
-        caml_failwith(strerror(errno));
-    if (passwd == NULL)
-        caml_failwith("unspecified error in caml_unixpwd_getpwd()");
+    caml_stat_free(user); user = NULL;
+    errno = saved_errno;
+
+    if (passwd == NULL) {
+        char msg[128];
+
+        snprintf(msg, sizeof(msg), "unspecified error in %s()", fname);
+        caml_failwith(saved_errno ? strerror(saved_errno) : msg);
+    }
 
     pw = caml_copy_string(passwd);
     free(passwd);
     CAMLreturn(pw);
+}
+
+CAMLprim        value
+caml_unixpwd_getpwd(value caml_user)
+{
+    return caml_unixpwd_get_(caml_user, "unixpwd_getpwd", unixpwd_getpwd);
 }
 
 CAMLprim        value
 caml_unixpwd_getspw(value caml_user)
 {
-    CAMLparam1(caml_user);
-    const char     *user;
-    char           *passwd;
-    CAMLlocal1(pw);
-
-    user = String_val(caml_user);
-    caml_release_runtime_system();
-    passwd = unixpwd_getspw(user);
-    caml_acquire_runtime_system();
-    if (passwd == NULL && errno != 0)
-        caml_failwith(strerror(errno));
-    if (passwd == NULL)
-        caml_failwith("unspecified error in caml_unixpwd_getspw()");
-
-    pw = caml_copy_string(passwd);
-    free(passwd);
-    CAMLreturn(pw);
+    return caml_unixpwd_get_(caml_user, "unixpwd_getspw", unixpwd_getspw);
 }
-
-
 
 CAMLprim        value
 caml_unixpwd_get(value caml_user)
 {
-    CAMLparam1(caml_user);
-    const char     *user;
-    char           *passwd;
-    CAMLlocal1(pw);
+    return caml_unixpwd_get_(caml_user, "unixpwd_get", unixpwd_get);
+}
 
-    user = String_val(caml_user);
+static value caml_unixpwd_set_(value caml_user, value caml_password, const char *fname, int(*f)(const char*, char*))
+{
+    CAMLparam2(caml_user, caml_password);
+    char     *user;
+    char     *password;
+    int       rc;
+
+    user = caml_stat_strdup(String_val(caml_user));
+    password = caml_stat_strdup(String_val(caml_password));
     caml_release_runtime_system();
-    passwd = unixpwd_get(user);
+    rc = f(user, password);
     caml_acquire_runtime_system();
-    if (passwd == NULL && errno != 0)
-        caml_failwith(strerror(errno));
-    if (passwd == NULL)
-        caml_failwith("unspecified error in caml_unixpwd_get()");
+    caml_stat_free(user);
+    caml_stat_free(password);
 
-    pw = caml_copy_string(passwd);
-    free(passwd);
-    CAMLreturn(pw);
+    if (rc != 0) {
+        char msg[128];
+
+        snprintf(msg, sizeof(msg), "%s: %s", fname, strerror(rc));
+        caml_failwith(msg);
+    }
+    CAMLreturn(Val_unit);
 }
 
 CAMLprim        value
 caml_unixpwd_setpwd(value caml_user, value caml_password)
 {
-    CAMLparam2(caml_user, caml_password);
-    const char     *user;
-    char           *password;
-    int             rc;
-
-    user = String_val(caml_user);
-    password = caml_stat_strdup(String_val(caml_password));
-
-    caml_release_runtime_system();
-    rc = unixpwd_setpwd(user, password);
-    caml_acquire_runtime_system();
-
-    caml_stat_free(password);
-    if (rc != 0)
-        caml_failwith(strerror(rc));
-    CAMLreturn(Val_unit);
+    return caml_unixpwd_set_(caml_user, caml_password, "unixpwd_setpwd",
+                             unixpwd_setpwd);
 }
 
 CAMLprim        value
 caml_unixpwd_setspw(value caml_user, value caml_password)
 {
-    CAMLparam2(caml_user, caml_password);
-    const char     *user;
-    char           *password;
-    int             rc;
-
-    user = String_val(caml_user);
-    password = caml_stat_strdup(String_val(caml_password));
-    caml_release_runtime_system();
-    rc = unixpwd_setspw(user, password);
-    caml_acquire_runtime_system();
-    caml_stat_free(password);
-    if (rc != 0)
-        caml_failwith(strerror(rc));
-    CAMLreturn(Val_unit);
+    return caml_unixpwd_set_(caml_user, caml_password, "unixpwd_setspw",
+                             unixpwd_setspw);
 }
