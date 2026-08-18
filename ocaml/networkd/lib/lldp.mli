@@ -22,3 +22,16 @@ val stop : unit -> unit
 val set_tlv_management_address : unit -> unit
 (** [set_tlv_management_address ()] retrieves the management IP address(es) of
     the host and configure them in the LLDP management address TLV for advertising. *)
+
+val get_neighbors : unit -> (string * Network_stats.lldp_neighbor) list
+(** [get_neighbors ()] queries the LLDP agent and returns, per interface, the
+    received neighbour information (system name, port id, port description). *)
+
+val get_enabled_interfaces : unit -> string list
+(** [get_enabled_interfaces ()] queries the LLDP agent and returns the
+    interfaces on which LLDP is enabled (rx-and-tx). *)
+
+val state_of : string -> enabled:bool -> Network_stats.lldp_state
+(** [state_of dev ~enabled] is the effective LLDP state of physical NIC [dev]:
+    [Enabled] when lldpd reports it as rx-and-tx, otherwise [Blocked] when its
+    driver is in the blocklist, else [Disabled]. *)

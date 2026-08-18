@@ -50,6 +50,67 @@ module Lldp_types = struct
     | Multicast_address of I.lldp_multicast_address list
 end
 
+module Lldp_parse = struct
+  let ( let* ) = Option.bind
+
+  (* Follow [keys] through a json0 doc. Object keys are consumed one at a time;
+     arrays are transparently entered at their head without consuming a key
+     (json0 wraps every repeatable node in an array). An exhausted path returns
+     the current node as-is. *)
+  let rec json0_get json0 keys =
+    match keys with
+    | [] ->
+        Some json0
+    | k :: ks as keys -> (
+      match json0 with
+      | `Assoc l ->
+          let* json' = List.assoc_opt k l in
+          json0_get json' ks
+      | `List (json' :: _) ->
+          json0_get json' keys
+      | _ ->
+          None
+    )
+
+  let json0_get_str json0 keys =
+    match json0_get json0 keys with Some (`String s) -> Some s | _ -> None
+
+  let interfaces (output : string) : Yojson.Safe.t list =
+    match Yojson.Safe.from_string output with
+    | exception e ->
+        debug "%s: could not parse lldpcli JSON: %s" __FUNCTION__
+          (Printexc.to_string e) ;
+        []
+    | json0 -> (
+      match json0_get json0 ["lldp"; "interface"] with
+      | Some (`List l) ->
+          l
+      | _ ->
+          []
+    )
+
+  let parse_neighbors (output : string) :
+      (string * Network_stats.lldp_neighbor) list =
+    interfaces output
+    |> List.filter_map (fun iface ->
+        let* dev = json0_get_str iface ["name"] in
+        let system_name = json0_get_str iface ["chassis"; "name"; "value"] in
+        let port_id = json0_get_str iface ["port"; "id"; "value"] in
+        let port_description = json0_get_str iface ["port"; "descr"; "value"] in
+        Some (dev, Network_stats.{system_name; port_id; port_description})
+    )
+
+  let parse_enabled_interfaces (output : string) : string list =
+    interfaces output
+    |> List.filter_map (fun iface ->
+        match json0_get_str iface ["status"; "value"] with
+        | Some "RX and TX" ->
+            json0_get_str iface ["name"]
+        | _ ->
+            None
+    )
+end
+
 module type AGENT = sig
   type error = Lldp_types.error
 
@@ -70,6 +131,12 @@ module type AGENT = sig
 
   val disable : string -> (unit, error) result
   (** Stop LLDP (rx-and-tx) on [dev]. *)
+
+  val get_neighbors : unit -> (string * Network_stats.lldp_neighbor) list
+  (** Query the agent for the LLDP neighbour received on each interface. *)
+
+  val get_enabled_interfaces : unit -> string list
+  (** The interfaces on which the agent currently has LLDP enabled (rx-and-tx). *)
 end
 
 let management_ip_address =
@@ -103,6 +170,10 @@ module Lldpd : AGENT = struct
   type error = Lldp_types.error
 
   let cli = "/usr/sbin/lldpcli"
+
+  let show_neighbors_args = ["-f"; "json0"; "show"; "neighbors"]
+
+  let show_interfaces_args = ["-f"; "json0"; "show"; "interfaces"]
 
   let systemctl = "/usr/bin/systemctl"
 
@@ -170,6 +241,28 @@ module Lldpd : AGENT = struct
 
   let disable dev =
     call_cli ["configure"; "ports"; dev; "lldp"; "status"; "disabled"]
+
+  let get_neighbors () =
+    match
+      try Ok (Network_utils.call_script cli show_neighbors_args)
+      with e -> Error (Printexc.to_string e)
+    with
+    | Ok output ->
+        Lldp_parse.parse_neighbors output
+    | Error msg ->
+        debug "%s: could not query LLDP neighbours: %s" __FUNCTION__ msg ;
+        []
+
+  let get_enabled_interfaces () =
+    match
+      try Ok (Network_utils.call_script cli show_interfaces_args)
+      with e -> Error (Printexc.to_string e)
+    with
+    | Ok output ->
+        Lldp_parse.parse_enabled_interfaces output
+    | Error msg ->
+        debug "%s: could not query LLDP interfaces: %s" __FUNCTION__ msg ;
+        []
 
   let string_of_multicast_address = function
     | I.Nearest_bridge ->
@@ -430,3 +523,15 @@ let stop = Lldp_agent.stop
 
 let set_tlv_management_address () =
   management_ip_address ~force:true () |> Lldp_agent.set_tlv_management_address
+
+let get_neighbors = Lldpd.get_neighbors
+
+let get_enabled_interfaces = Lldpd.get_enabled_interfaces
+
+let state_of dev ~enabled : Network_stats.lldp_state =
+  if enabled then
+    Network_stats.Enabled
+  else if Blocklist.mem dev then
+    Network_stats.Blocked
+  else
+    Network_stats.Disabled
