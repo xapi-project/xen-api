@@ -528,6 +528,10 @@ let get_neighbors = Lldpd.get_neighbors
 
 let get_enabled_interfaces = Lldpd.get_enabled_interfaces
 
+let parse_neighbors = Lldp_parse.parse_neighbors
+
+let parse_enabled_interfaces = Lldp_parse.parse_enabled_interfaces
+
 let state_of dev ~enabled : Network_stats.lldp_state =
   if enabled then
     Network_stats.Enabled
