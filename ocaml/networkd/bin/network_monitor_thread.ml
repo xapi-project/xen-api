@@ -132,10 +132,65 @@ let get_link_stats dbg () =
   in
   Cache.free cache ; Socket.close s ; Socket.free s ; links
 
+let lldp_query_interval = Mtime.Span.(30 * s)
+
+(* Monotonic timer gating the lldpcli query cadence; starts expired so the first
+   monitor pass queries immediately. *)
+let lldp_query_timer = ref (Clock.Timer.start ~duration:Mtime.Span.zero)
+
+(* Cache of the per-interface LLDP info reported by lldpd. lldpd is queried on a
+   slower cadence than the rest of the stats (LLDPDUs arrive ~every 30s), to
+   avoid unnecessary lldpcli calls. Only enabled (rx-and-tx) interfaces are
+   cached; a neighbour reported on a disabled interface is ignored. *)
+let lldp_cache : (string, Network_monitor.lldp_rx) Hashtbl.t = Hashtbl.create 16
+
+let refresh_lldp_cache () =
+  if Clock.Timer.has_expired !lldp_query_timer then (
+    lldp_query_timer := Clock.Timer.start ~duration:lldp_query_interval ;
+    Hashtbl.reset lldp_cache ;
+    List.iter
+      (fun dev ->
+        Hashtbl.replace lldp_cache dev
+          Network_monitor.{state= Network_stats.Enabled; neighbor= None}
+      )
+      (Lldp.get_enabled_interfaces ()) ;
+    List.iter
+      (fun (dev, neighbor) ->
+        match Hashtbl.find_opt lldp_cache dev with
+        | None ->
+            (* not enabled: drop the neighbour *)
+            ()
+        | Some {neighbor= Some n; _} ->
+            debug "Find another neighbour on %s: %s; keeping the first: %s" dev
+              (Network_stats.string_of_lldp_neighbor neighbor)
+              (Network_stats.string_of_lldp_neighbor n)
+        | Some rx ->
+            Hashtbl.replace lldp_cache dev {rx with neighbor= Some neighbor}
+      )
+      (Lldp.get_neighbors ())
+  )
+
+(* The LLDP information reported for physical [dev]: enabled interfaces come from
+   the cache; others report their effective state (from the driver blocklist)
+   with no neighbour. *)
+let lldp_rx_of dev =
+  match Hashtbl.find_opt lldp_cache dev with
+  | Some rx ->
+      rx
+  | None ->
+      let state =
+        if Lldp.is_blocked dev then
+          Network_stats.Blocked
+        else
+          Network_stats.Disabled
+      in
+      Network_monitor.{state; neighbor= None}
+
 let rec monitor dbg () =
   let open Network_interface in
   let open Network_monitor in
   ( try
+      refresh_lldp_cache () ;
       let get_stats bonds devs =
         List.map
           (fun dev ->
@@ -176,6 +231,7 @@ let rec monitor dbg () =
                   ; nb_links
                   ; links_up
                   ; interfaces
+                  ; lldp_rx= Some (lldp_rx_of dev)
                   }
                 else
                   let carrier = List.exists (fun info -> info.up) bond_slaves in
@@ -219,6 +275,7 @@ let rec monitor dbg () =
                   ; nb_links
                   ; links_up
                   ; interfaces
+                  ; lldp_rx= None
                   }
               in
               check_for_changes ~dev ~stat ;
