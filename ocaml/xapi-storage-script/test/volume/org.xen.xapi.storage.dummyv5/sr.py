@@ -39,6 +39,7 @@ class Implementation(xapi.storage.api.v5.volume.SR_skeleton):
             "sharable": False,
             "uri": ["raw+file:///tmp/disk.raw"],
             "keys": {},
+            "tags": ["tag1"],
             }]
 
     def stat(self, dbg, sr):

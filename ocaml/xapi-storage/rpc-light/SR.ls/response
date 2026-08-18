@@ -14,6 +14,7 @@
                                                             <member><name>keys</name><value><struct></struct></value></member>
                                                             <member><name>volume_type</name><value>Data</value></member>
                                                             <member><name>cbt_enabled</name><value>false</value></member>
+                                                            <member><name>tags</name><value><array><data><value>tag1</value></data></array></value></member>
                                        </struct></value></data>
                                   </array></value></member>
     </struct></value></param></params>
