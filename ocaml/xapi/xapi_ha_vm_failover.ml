@@ -843,6 +843,7 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
     List.map fst live_hosts_and_snapshots
     (* and dead_hosts = List.map fst dead_hosts_and_snapshots *)
   in
+  let live_hosts_set = HostSet.of_list live_hosts in
   (* Any deterministic ordering is fine here: *)
   let vms_to_ensure_running =
     List.sort
@@ -855,13 +856,13 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
   (* If a VM is marked as resident on a live_host then it will already be accounted for in the host's current free memory. *)
   let vm_accounted_to_host vm =
     let vm_t = List.assoc vm vms_to_ensure_running in
-    if List.mem vm_t.API.vM_resident_on live_hosts then
+    if HostSet.mem vm_t.API.vM_resident_on live_hosts_set then
       Some vm_t.API.vM_resident_on
     else
       let scheduled =
         Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm
       in
-      if List.mem scheduled live_hosts then
+      if HostSet.mem scheduled live_hosts_set then
         Some scheduled
       else
         None
