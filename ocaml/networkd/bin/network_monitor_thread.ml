@@ -132,10 +132,52 @@ let get_link_stats dbg () =
   in
   Cache.free cache ; Socket.close s ; Socket.free s ; links
 
+(* Cache of the latest LLDP neighbour seen per interface. lldpd is queried on a
+   slower cadence than the rest of the stats (LLDPDUs arrive ~every 30s), to
+   avoid unnecessary lldpcli calls. *)
+let lldp_neighbors : (string, Network_monitor.lldp_neighbor) Hashtbl.t =
+  Hashtbl.create 16
+
+let lldp_last_query = ref neg_infinity
+
+let lldp_query_interval = 30.0
+
+(* Interfaces on which lldpd currently has LLDP enabled (rx-and-tx), refreshed on
+   the same cadence as the neighbour query. *)
+let lldp_enabled_interfaces = ref []
+
+let refresh_lldp_neighbors () =
+  let now = Unix.gettimeofday () in
+  if now -. !lldp_last_query >= lldp_query_interval then (
+    lldp_last_query := now ;
+    lldp_enabled_interfaces := Lldp.get_enabled_interfaces () ;
+    Hashtbl.reset lldp_neighbors ;
+    List.iter
+      (fun (dev, rx) ->
+        if Hashtbl.mem lldp_neighbors dev then
+          debug "Multiple LLDP neighbours on %s; keeping the first" dev
+        else
+          Hashtbl.replace lldp_neighbors dev rx
+      )
+      (Lldp.get_neighbors ())
+  )
+
+(* The effective LLDP state of physical [dev], read from lldpd's reported status
+   (rx-and-tx) and, for non-enabled NICs, the driver blocklist. *)
+let lldp_state_of dev =
+  Lldp.state_of dev ~enabled:(List.mem dev !lldp_enabled_interfaces)
+
+(* The LLDP information reported for physical [dev]: its effective state is
+   always populated; neighbour fields come from the last query, if any. *)
+let lldp_rx_of dev =
+  Network_monitor.
+    {state= lldp_state_of dev; neighbor= Hashtbl.find_opt lldp_neighbors dev}
+
 let rec monitor dbg () =
   let open Network_interface in
   let open Network_monitor in
   ( try
+      refresh_lldp_neighbors () ;
       let get_stats bonds devs =
         List.map
           (fun dev ->
@@ -176,6 +218,7 @@ let rec monitor dbg () =
                   ; nb_links
                   ; links_up
                   ; interfaces
+                  ; lldp_rx= Some (lldp_rx_of dev)
                   }
                 else
                   let carrier = List.exists (fun info -> info.up) bond_slaves in
@@ -219,6 +262,7 @@ let rec monitor dbg () =
                   ; nb_links
                   ; links_up
                   ; interfaces
+                  ; lldp_rx= None
                   }
               in
               check_for_changes ~dev ~stat ;
