@@ -850,12 +850,17 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
       (fun (_, a) (_, b) -> compare a.API.vM_uuid b.API.vM_uuid)
       vms_to_ensure_running
   in
+  let vms_map =
+    List.fold_left
+      (fun m (k, v) -> VMMap.add k v m)
+      VMMap.empty vms_to_ensure_running
+  in
   let agile_vms, not_agile_vms =
     Agility.partition_vm_ps_by_agile ~__context vms_to_ensure_running
   in
   (* If a VM is marked as resident on a live_host then it will already be accounted for in the host's current free memory. *)
   let vm_accounted_to_host vm =
-    let vm_t = List.assoc vm vms_to_ensure_running in
+    let vm_t = VMMap.find vm vms_map in
     if HostSet.mem vm_t.API.vM_resident_on live_hosts_set then
       Some vm_t.API.vM_resident_on
     else
@@ -869,7 +874,7 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
   in
   let string_of_vm vm =
     Printf.sprintf "%s (%s)" (Ref.short_string_of vm)
-      (List.assoc vm vms_to_ensure_running).API.vM_name_label
+      (VMMap.find vm vms_map).API.vM_name_label
   in
   let string_of_host host =
     let name = (HostMap.find host hosts_map).API.host_name_label in
