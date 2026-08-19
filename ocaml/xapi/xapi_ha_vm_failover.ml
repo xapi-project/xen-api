@@ -978,8 +978,11 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
     Binpack.account hosts_and_memory vms_and_memory non_agile_restart_plan
   in
   (* Now that we've considered the overhead of the non-agile (pinned) VMs, we can perform some binpacking of the agile VMs. *)
+  let vms_and_memory_map =
+    List.fold_left (fun m (k, v) -> VMMap.add k v m) VMMap.empty vms_and_memory
+  in
   let agile_vms_and_memory =
-    List.map (fun (vm, _) -> (vm, List.assoc vm vms_and_memory)) agile_vms
+    List.map (fun (vm, _) -> (vm, VMMap.find vm vms_and_memory_map)) agile_vms
   in
   (* Compute the current placement for all agile VMs. VMs which are powered off currently are placed nowhere *)
   let agile_vm_accounted_to_host =
