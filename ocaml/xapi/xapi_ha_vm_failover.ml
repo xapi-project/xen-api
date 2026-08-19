@@ -821,6 +821,11 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
       (fun (_, a) (_, b) -> compare a.API.host_uuid b.API.host_uuid)
       all_hosts_and_snapshots
   in
+  let hosts_map =
+    List.fold_left
+      (fun m (k, v) -> HostMap.add k v m)
+      HostMap.empty all_hosts_and_snapshots
+  in
   let is_alive (rf, r) =
     (* We exclude: (i) online disabled hosts; (ii) online proposed disabled hosts; and (iii) offline hosts *)
     true
@@ -866,7 +871,7 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
       (List.assoc vm vms_to_ensure_running).API.vM_name_label
   in
   let string_of_host host =
-    let name = (List.assoc host all_hosts_and_snapshots).API.host_name_label in
+    let name = (HostMap.find host hosts_map).API.host_name_label in
     Printf.sprintf "%s (%s)" (Ref.short_string_of host) name
   in
   let string_of_plan p =
