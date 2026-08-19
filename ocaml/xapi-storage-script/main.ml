@@ -367,6 +367,8 @@ let _is_a_snapshot_key = "is_a_snapshot"
 
 let _snapshot_of_key = "snapshot_of"
 
+let _vdi_tags_key = "tags"
+
 module Script = struct
   (** We cache (lowercase script name -> original script name) mapping for the
       scripts in the root directory of every registered plugin. *)
@@ -740,6 +742,19 @@ let vdi_of_volume x =
         v |> of_string
   in
   let find_string = find ~of_string:Fun.id in
+  let extract_prefixed_list prefix =
+    List.filter_map
+      (fun (k, _) ->
+        if String.starts_with ~prefix k then
+          Some
+            (String.sub k (String.length prefix)
+               (String.length k - String.length prefix)
+            )
+        else
+          None
+      )
+      x.Xapi_storage.Control.keys
+  in
   let open Storage_interface in
   {
     vdi= Vdi.of_string x.Xapi_storage.Control.key
@@ -777,6 +792,7 @@ let vdi_of_volume x =
         x.Xapi_storage.Control.keys
   ; sharable= x.Xapi_storage.Control.sharable
   ; persistent= true
+  ; tags= extract_prefixed_list _vdi_tags_key
   }
 
 let choose_datapath ?(persistent = true) response =
@@ -1463,6 +1479,14 @@ module VDIImpl (M : META) = struct
     set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key ~key:_vdi_type_key
       ~value:vdi_info.ty
     >>>= fun () ->
+    let rec f = function
+      | key :: x ->
+          let* _ = set ~dbg ~sr ~vdi ~key:(_vdi_tags_key ^ key) ~value:key in
+          f x
+      | [] ->
+          return ()
+    in
+    f vdi_info.tags >>>= fun () ->
     let response =
       {
         (vdi_of_volume response) with
@@ -1757,6 +1781,22 @@ module VDIImpl (M : META) = struct
     let* () = unset ~dbg ~sr ~vdi ~key:(_sm_config_prefix_key ^ key) in
     return ()
 
+  let vdi_add_tags_impl dbg sr vdi key =
+    wrap
+    @@
+    let* sr = Attached_SRs.find sr in
+    let vdi = Storage_interface.Vdi.string_of vdi in
+    let* () = set ~dbg ~sr ~vdi ~key:(_vdi_tags_key ^ key) ~value:key in
+    return ()
+
+  let vdi_remove_tags_impl dbg sr vdi key =
+    wrap
+    @@
+    let* sr = Attached_SRs.find sr in
+    let vdi = Storage_interface.Vdi.string_of vdi in
+    let* () = unset ~dbg ~sr ~vdi ~key:(_vdi_tags_key ^ key) in
+    return ()
+
   let similar_content_impl _dbg _sr _vdi = wrap @@ return []
 end
 
@@ -1965,6 +2005,8 @@ let bind ~volume_script_dir =
   S.VDI.set_content_id VDI.vdi_set_content_id_impl ;
   S.VDI.add_to_sm_config VDI.vdi_add_to_sm_config_impl ;
   S.VDI.remove_from_sm_config VDI.vdi_remove_from_sm_config_impl ;
+  S.VDI.add_tags VDI.vdi_add_tags_impl ;
+  S.VDI.remove_tags VDI.vdi_remove_tags_impl ;
   S.VDI.similar_content VDI.similar_content_impl ;
   S.VDI.revert VDI.revert_impl ;
 
@@ -2173,6 +2215,7 @@ let self_test_plugin ~root_dir plugin =
         ; persistent= false
         ; sm_config= []
         ; sharable= false
+        ; tags= []
         }
       in
       Test.VDI.create rpc dbg sr vdi_info >>= fun vdi_info ->
