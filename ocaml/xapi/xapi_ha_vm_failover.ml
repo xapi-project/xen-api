@@ -889,10 +889,11 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
          p
       )
   in
-  debug "Protected VMs: [ %s ]"
-    (String.concat "; "
-       (List.map (fun (vm, _) -> string_of_vm vm) vms_to_ensure_running)
-    ) ;
+  if not (Debug.is_disabled "xapi_ha_vm_failover" Syslog.Debug) then
+    debug "Protected VMs: [ %s ]"
+      (String.concat "; "
+         (List.map (fun (vm, _) -> string_of_vm vm) vms_to_ensure_running)
+      ) ;
   (* Current free memory on all hosts (does not include any for *offline* protected VMs ie those for which (vm_accounted_to_host vm)
      	   returns None) Also apply the supplied counterfactual-reasoning changes (if any) *)
   let hosts_and_memory =
