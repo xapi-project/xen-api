@@ -215,6 +215,18 @@ module HostKey = struct
   let compare = Ref.compare
 end
 
+module HostMap = Map.Make (HostKey)
+module HostSet = Set.Make (HostKey)
+
+module VMRefOrd = struct
+  type t = [`VM] Ref.t
+
+  let compare = Ref.compare
+end
+
+module VMRefSet = Set.Make (VMRefOrd)
+module VMMap = Map.Make (VMRefOrd)
+
 (* For a VM anti-affinity group, the state of a host which determines
    evacuation planning for anti-affinity VMs in that group:
    1. vm_cnt: the number of running VMs in that group resident on the host
@@ -1273,14 +1285,6 @@ let restart_failed : (API.ref_VM, unit) Hashtbl.t = Hashtbl.create 10
 
 (* We also limit the rate we attempt to retry starting the VM. *)
 let last_start_attempt : (API.ref_VM, float) Hashtbl.t = Hashtbl.create 10
-
-module VMRefOrd = struct
-  type t = [`VM] Ref.t
-
-  let compare = Ref.compare
-end
-
-module VMMap = Map.Make (VMRefOrd)
 
 (* When a host is up, it will be added in the HA live set. But it may be still
    in disabled state so that starting best-effort VMs on it would fail.
