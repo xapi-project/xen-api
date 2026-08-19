@@ -1024,13 +1024,17 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
   let agile_restart_plan = h.Binpack.get_specific_plan config agile_vm_failed in
   debug "Restart plan for agile offline VMs: [ %s ]"
     (string_of_plan agile_restart_plan) ;
-  let vms_restarted = List.map fst agile_restart_plan in
+  let vms_restarted =
+    List.fold_left
+      (fun s (vm, _) -> VMRefSet.add vm s)
+      VMRefSet.empty agile_restart_plan
+  in
   (* List the protected VMs which are not already running and weren't in the restart plan *)
   let vms_not_restarted =
     List.map fst
       (List.filter
          (fun (vm, _) ->
-           vm_accounted_to_host vm = None && not (List.mem vm vms_restarted)
+           vm_accounted_to_host vm = None && not (VMRefSet.mem vm vms_restarted)
          )
          vms_to_ensure_running
       )
