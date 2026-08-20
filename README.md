@@ -77,6 +77,46 @@ To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/d
 
 The binaries should now be in `./_build/install/default/bin`!
 
+Working With Several Branches
+-----------------------------
+
+When working on this repository as a regular contributor, one generally
+has to work with several branches: the master branch and
+lifecycle-management (LCM) branches. The following two recommendations
+make such workflows easier:
+
+- Create one Opam switch per branch you work on. This is because
+  different branches of this repository may have different dependencies.
+  In particular, this means that different branches may have to get
+  their dependencies from different branches of the xs-opam repository.
+  As repository definitions are global to Opam rather than local to a
+  given switch, if a branch of this repository needs to get its
+  dependencies from a branch other than master in xs-opam, then that
+  other branch will have to be added with a different repository name
+  (see example below).
+
+- Use `git worktree` to make sure that different branches are checked
+  out at different locations on your file system. This is because
+  pinning makes it so that Opam expects certain dependencies to be
+  available at certain paths. When not using work trees, the same path
+  can refer to different versions of a same file as the checked out
+  branch changes.
+
+For instance, assuming the `26.1-lcm` branch, which takes its
+dependencies from the 6.99-lcm branch of the xs-opam repository, has
+been checked out in a Git work tree somewhere on your file system, here
+is how to proceed to create an Opam switch that will work for this
+branch:
+
+```
+export OCAML_VERSION_FULL="4.14.2"
+opam switch create xen-api-26.1-lcm ocaml-base-compiler.$OCAML_VERSION_FULL
+eval $(opam env --switch=xen-api-26.1-lcm --set-switch)
+opam repo add xs-opam-6.99-lcm "https://github.com/xapi-project/xs-opam.git#6.99-lcm"
+opam repo remove default
+opam install xs-toolstack
+```
+
 Working From a Fork
 -------------------
 If you are working from within a clone of a fork of this repository, you will
