@@ -380,7 +380,25 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
   in
   let vpmu = get_platform_key ~key:"vpmu" ~default:false (fun _ -> Ok ()) in
 
-  info "VM = %s; Creating %s%s%s%s%s" (Uuidx.to_string uuid)
+  let is_arm =
+    match (domain_config : arch_domainconfig) with
+    | ARM _ ->
+        true
+    | X86 _ ->
+        false
+  in
+  let require_arm wants : (_, _) result =
+    if wants && not is_arm then
+      Error "Arm required for"
+    else
+      Ok ()
+  in
+  let trap_unmapped_accesses =
+    get_platform_key ~key:"trap-unmapped-accesses" ~default:is_arm
+      require_arm
+  in
+
+  info "VM = %s; Creating %s%s%s%s%s%s" (Uuidx.to_string uuid)
     ( if hvm then
         "HVM"
       else
@@ -405,6 +423,11 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
         " VPMU"
       else
         ""
+    )
+    ( if trap_unmapped_accesses then
+        " TRAP_UNMAPPED_ACCESSES"
+      else
+        ""
     ) ;
 
   let config =
@@ -418,6 +441,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
         ; (iommu, CDF_IOMMU)
         ; (nested_virt, CDF_NESTED_VIRT)
         ; (vpmu, CDF_VPMU)
+        ; (trap_unmapped_accesses, CDF_TRAP_UNMAPPED_ACCESSES)
         ]
         |> List.filter_map (fun (cond, flag) ->
             if cond then
