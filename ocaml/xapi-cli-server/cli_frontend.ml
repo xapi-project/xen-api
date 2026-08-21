@@ -4131,7 +4131,7 @@ let make_list l =
   in
   doline (indent ^ List.hd l) [] (List.tl l)
 
-let rio_help printer minimal cmd =
+let cmd_help printer minimal cmd =
   let docmd cmd =
     match Hashtbl.find_opt cmdtable cmd with
     | Some cmd_spec ->
@@ -4270,5 +4270,3 @@ Common command list
         printer (Cli_printer.PList [h]) ;
         printer (Cli_printer.PList (make_list cmds))
       )
-
-let cmd_help printer minimal cmd = rio_help printer minimal cmd
