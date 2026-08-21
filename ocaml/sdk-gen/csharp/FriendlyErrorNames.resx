@@ -418,122 +418,32 @@ Action: {0}</value>
   <data name="SR_BACKEND_FAILURE_40" xml:space="preserve">
     <value>The specified  storage repository scan failed</value>
   </data>
-  <data name="SR_BACKEND_FAILURE_400" xml:space="preserve">
-    <value>The target server name or IP address is missing</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_401" xml:space="preserve">
-    <value>The Storage System ID is missing</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_402" xml:space="preserve">
-    <value>The Storage Pool ID is missing</value>
-  </data>
   <data name="SR_BACKEND_FAILURE_41" xml:space="preserve">
     <value>The storage repository log operation failed</value>
   </data>
-  <data name="SR_BACKEND_FAILURE_410" xml:space="preserve">
-    <value>The gssi operation to the CSLG server failed</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_411" xml:space="preserve">
-    <value>The SR loading operation failed</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_412" xml:space="preserve">
-    <value>An invalid storage protocol was specified</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_414" xml:space="preserve">
-    <value>Failed to probe SR</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_416" xml:space="preserve">
-    <value>Snapshot/Clone failed</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_417" xml:space="preserve">
-    <value>Storage assignment failed</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_418" xml:space="preserve">
-    <value>Storage un-assignment failed</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_419" xml:space="preserve">
-    <value>Storage allocation failed</value>
-  </data>
   <data name="SR_BACKEND_FAILURE_42" xml:space="preserve">
     <value>The specified storage repository already exists</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_420" xml:space="preserve">
-    <value>Storage deallocation failed</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_421" xml:space="preserve">
-    <value>HBA Query failed</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_422" xml:space="preserve">
-    <value>IQN/iSCSI initialization failed</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_423" xml:space="preserve">
-    <value>SCSI device scan failed</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_424" xml:space="preserve">
-    <value>Failed to connect to target: please check the hostname or IP address</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_425" xml:space="preserve">
-    <value>The Storage Node ID is missing</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_426" xml:space="preserve">
-    <value>The VDI failed to be introduced to the database</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_427" xml:space="preserve">
-    <value>The CSLG software doesn't seem to be installed</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_428" xml:space="preserve">
-    <value>Failed to create multiple sub-pools from parent pool</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_429" xml:space="preserve">
-    <value>Current XML definition is newer version</value>
   </data>
   <data name="SR_BACKEND_FAILURE_43" xml:space="preserve">
     <value>The specified VDI already exists</value>
   </data>
   <data name="SR_BACKEND_FAILURE_431" xml:space="preserve">
-    <value>Error in storage adapter communication</value>
+    <value>Storage multipath failure</value>
   </data>
   <data name="SR_BACKEND_FAILURE_432" xml:space="preserve">
-    <value>The adapter id is missing</value>
+    <value>Device path not found</value>
   </data>
   <data name="SR_BACKEND_FAILURE_433" xml:space="preserve">
-    <value>The user name is missing</value>
+    <value>Timed out waiting for storage device to appear</value>
   </data>
   <data name="SR_BACKEND_FAILURE_434" xml:space="preserve">
-    <value>The password is missing</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_435" xml:space="preserve">
-    <value>An invalid storage system ID was specified</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_436" xml:space="preserve">
-    <value>Failed to collect storage system information</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_437" xml:space="preserve">
-    <value>Failed to collect storage pool information</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_438" xml:space="preserve">
-    <value>Failed to delete storage pool</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_439" xml:space="preserve">
-    <value>Failed to collect storage volume information</value>
+    <value>No SCSI ID provided for multipath</value>
   </data>
   <data name="SR_BACKEND_FAILURE_44" xml:space="preserve">
     <value>The specified storage repository has insufficient space</value>
   </data>
-  <data name="SR_BACKEND_FAILURE_440" xml:space="preserve">
-    <value>Failed to list storage volume</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_441" xml:space="preserve">
-    <value>Failed to resize storage volume</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_442" xml:space="preserve">
-    <value>Failed to list storage target ports</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_443" xml:space="preserve">
-    <value>Failed to list storage pool</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_444" xml:space="preserve">
-    <value>The tapdisk failed</value>
+  <data name="SR_BACKEND_FAILURE_445" xml:space="preserve">
+    <value>The tapdisk is already running</value>
   </data>
   <data name="SR_BACKEND_FAILURE_446" xml:space="preserve">
     <value>Extended characters are not supported in SMB paths, user names, and passwords.</value>
