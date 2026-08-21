@@ -33,7 +33,7 @@ var APIVersionMap = map[string]APIVersion{
 	"APIVersionUnknown": APIVersionUnknown,
 }
 
-func GetAPIVersion(major int, minor int) APIVersion {
+func GetAPIVersion(major int64, minor int64) APIVersion {
 	versionName := fmt.Sprintf("APIVersion%d_%d", major, minor)
 	apiVersion, ok := APIVersionMap[versionName]
 	if !ok {
