@@ -1688,7 +1688,7 @@ let certificate_sync ~__context =
   Certificates.sync_all_hosts ~__context (Db.Host.get_all ~__context) ;
   ()
 
-let install_trusted_certificate ~__context ~self:_ ~ca ~cert ~purpose =
+let install_trusted_certificate' ~__context ~self:_ ~ca ~cert ~purpose =
   let open Certificates in
   let certificate =
     let open Api_errors in
@@ -1712,12 +1712,18 @@ let install_trusted_certificate ~__context ~self:_ ~ca ~cert ~purpose =
     | false, true ->
         raise Api_errors.(Server_error (certificate_lacks_purpose, []))
   in
-  let (_ : API.ref_Certificate), uuid =
+  let (ref : API.ref_Certificate), uuid =
     Db_util.add_cert ~__context ~type':cert_type ~purpose certificate
   in
   let name = Certificates.name_of_uuid uuid in
   Certificates.host_install kind ~name ~cert ;
   Cert_distrib.copy_certs_to_all ~__context ;
+  ref
+
+let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose =
+  let (_ : API.ref_Certificate) =
+    install_trusted_certificate' ~__context ~self ~ca ~cert ~purpose
+  in
   ()
 
 let uninstall_trusted_certificate ~__context ~self:_ ~certificate =
@@ -1742,15 +1748,29 @@ let uninstall_trusted_certificate ~__context ~self:_ ~certificate =
   Cert_distrib.copy_certs_to_all ~__context ;
   ()
 
-let install_trusted_certificate_ignore_dup ~__context ~self ~ca ~cert ~purpose =
-  try install_trusted_certificate ~__context ~self ~ca ~cert ~purpose
+let install_trusted_certificate_ignore_dup' ~__context ~self ~ca ~cert ~purpose
+    =
+  try
+    Ok (Some (install_trusted_certificate' ~__context ~self ~ca ~cert ~purpose))
   with
   | Api_errors.(Server_error (code, [fp]))
-  when code = Api_errors.trusted_certificate_already_exists
-  ->
-    warn "%s: a trusted certificate (fingerprint=%s) exists already."
-      __FUNCTION__ fp ;
-    ()
+    when code = Api_errors.trusted_certificate_already_exists ->
+      warn "%s: a trusted certificate (fingerprint=%s) exists already."
+        __FUNCTION__ fp ;
+      Ok None
+  | e ->
+      error "%s: failed to install certificate: %s" __FUNCTION__
+        (Printexc.to_string e) ;
+      Error e
+
+let install_trusted_certificate_ignore_dup ~__context ~self ~ca ~cert ~purpose =
+  match
+    install_trusted_certificate_ignore_dup' ~__context ~self ~ca ~cert ~purpose
+  with
+  | Ok _ ->
+      ()
+  | Error e ->
+      raise e
 
 let purpose_of_string_list = List.map Record_util.certificate_purpose_of_string
 
@@ -1787,6 +1807,48 @@ let exchange_trusted_certificates ~__context ~rpc ~session_id ~remote ~local =
       )
     )
     [`ca; `pinned]
+
+let sync_trusted_certificates_from ~__context ~self ~remote_pool ~remote_session
+    ~remote_certificate ~ca =
+  let rpc =
+    Helpers.make_external_host_verified_rpc ~__context remote_pool
+      remote_certificate
+  in
+  let session_id = remote_session in
+  let cert_type =
+    if ca then
+      "ca"
+    else
+      "pinned"
+  in
+  let expr =
+    Printf.sprintf {|field "type"="%s" and field "name"=""|} cert_type
+  in
+  let export =
+    Client.Certificate.get_all_records_where ~rpc ~session_id ~expr
+    |> List.map fst
+  in
+  Client.Pool.exchange_trusted_certificates_on_join ~rpc ~session_id
+    ~self:(get_pool ~rpc ~session_id)
+    ~ca ~import:[] ~export
+  |> Listext.List.try_map_collect (fun (cert, purpose) ->
+      let purpose = purpose_of_string_list purpose in
+      install_trusted_certificate_ignore_dup' ~__context
+        ~self:(Helpers.get_pool ~__context)
+        ~ca ~cert ~purpose
+  )
+  |> function
+  | Ok refs ->
+      List.filter_map Fun.id refs
+  | Error (refs, e) ->
+      List.filter_map Fun.id refs
+      |> List.iter (fun ref ->
+          try uninstall_trusted_certificate ~__context ~self ~certificate:ref
+          with e ->
+            error "Can't revert the installed certificate %s: %s"
+              (Ref.string_of ref) (Printexc.to_string e)
+      ) ;
+      raise e
 
 let exchange_crls_on_join ~__context ~self:_ ~import ~export =
   List.iter (fun (name, crl) -> crl_install ~__context ~name ~cert:crl) import ;
@@ -1833,6 +1895,12 @@ let exchange_crls ~__context ~rpc ~session_id =
   List.iter
     (fun (name, crl) -> crl_install ~__context ~name ~cert:crl)
     remote_crls
+
+let ignore_error ~msg ~warn f =
+  try f ()
+  with e ->
+    debug "%s: %s" msg (Printexc.to_string e) ;
+    D.warn "%s" warn
 
 let join_common ~__context ~master_address ~master_username ~master_password
     ~force =
@@ -2024,23 +2092,43 @@ let join_common ~__context ~master_address ~master_username ~master_password
           error "Unable to configure SSH service on local host: %s"
             (ExnHelper.string_of_exn e)
       ) ;
+      (* Sync ldaps status before update_non_vm_metadata so that the corrected
+         value gets pushed to the coordinator as part of that sync, preventing
+         it from being overwritten when the host restarts as a slave. *)
+      ignore_error ~msg:"Failed to sync ldaps status with pool coordinator"
+        ~warn:
+          "Error whilst syncing ldaps status with pool coordinator. The \
+           pool-join operation will continue as only the pool coordinator is \
+           used for ldap query. Use pool-external-auth-set-ldaps --force to \
+           fix up" (fun () ->
+          let coordinator_ldaps =
+            Client.Host.get_external_auth_configuration ~rpc ~session_id
+              ~self:remote_coordinator
+            |> fun config -> Helpers.ldaps_enabled_in_config ~config
+          in
+          let local_ldaps =
+            Db.Host.get_external_auth_configuration ~__context ~self:me
+            |> fun config -> Helpers.ldaps_enabled_in_config ~config
+          in
+          if coordinator_ldaps <> local_ldaps then
+            Xapi_host.external_auth_set_ldaps ~__context ~host:me
+              ~ldaps:coordinator_ldaps ~force:true
+      ) ;
       (* this is where we try and sync up as much state as we can
          with the master. This is "best effort" rather than
          critical; if we fail part way through this then we carry
          on with the join *)
-      try
-        update_non_vm_metadata ~__context ~rpc ~session_id ;
-        ignore
-          (Importexport.remote_metadata_export_import ~__context ~rpc
-             ~session_id ~remote_address:master_address ~restore:true `All
-          )
-      with e ->
-        debug "Error whilst importing db objects into master; aborted: %s"
-          (Printexc.to_string e) ;
-        warn
+      ignore_error ~msg:"Error whilst importing db objects into master; aborted"
+        ~warn:
           "Error whilst importing db objects to master. The pool-join \
            operation will continue, but some of the slave's VMs may not be \
-           available on the master."
+           available on the master." (fun () ->
+          update_non_vm_metadata ~__context ~rpc ~session_id ;
+          ignore
+            (Importexport.remote_metadata_export_import ~__context ~rpc
+               ~session_id ~remote_address:master_address ~restore:true `All
+            )
+      )
     )
     (fun () -> Client.Session.logout ~rpc ~session_id) ;
 
@@ -3336,6 +3424,46 @@ let disable_external_auth ~__context ~pool:_ ~config =
            successfully"
       )
   )
+
+(* Enable or disable LDAPS for external authentication on all hosts in the pool *)
+let external_auth_set_ldaps ~__context ~pool:_ ~ldaps ~force =
+  let host = Helpers.get_master ~__context in
+  let current_ldaps =
+    Db.Host.get_external_auth_configuration ~__context ~self:host
+    |> fun config -> Helpers.ldaps_enabled_in_config ~config
+  in
+
+  let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
+  let set_ldap_on host =
+    try
+      call_fn_on_host ~__context
+        (Client.Host.external_auth_set_ldaps ~ldaps ~force)
+        host ;
+      Ok host
+    with e ->
+      debug "%s failed to set ldaps for host %s: %s" __FUNCTION__
+        (Ref.string_of host)
+        (ExnHelper.string_of_exn e) ;
+      Error (host, e)
+  in
+  with_lock Xapi_globs.serialize_pool_enable_disable_extauth @@ fun () ->
+  let revert host =
+    try
+      call_fn_on_host ~__context
+        (Client.Host.external_auth_set_ldaps ~ldaps:current_ldaps ~force:true)
+        host
+    with e ->
+      warn "Failed to revert ldaps on host %s: %s" (Ref.string_of host)
+        (ExnHelper.string_of_exn e)
+  in
+  (* Set ldaps to host and host will perform the necessary checks *)
+  match Listext.List.try_map_collect set_ldap_on hosts with
+  | Ok _ ->
+      debug "%s succeed to set pool ldaps to %b" __FUNCTION__ ldaps
+  | Error (_, (_, e)) when current_ldaps = ldaps ->
+      raise e
+  | Error (hs, (_, e)) ->
+      List.iter revert hs ; raise e
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_pool ~__context =

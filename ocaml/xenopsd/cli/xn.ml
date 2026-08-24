@@ -367,6 +367,7 @@ let parse_vif vm_id (x, idx) =
   ; ipv6_configuration= Unspecified6
   ; pvs_proxy= None
   ; vlan= None
+  ; trunks= []
   }
 
 let print_vm id =

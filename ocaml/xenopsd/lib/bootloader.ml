@@ -78,11 +78,12 @@ let command bootloader q pv_bootloader_args image vm_uuid domid =
   let image = [image] in
   match bootloader_of_string bootloader with
   | Some Pygrub ->
+      let uid = (Unix.getpwnam "qemu_base").pw_uid + domid in
       let args =
         [
           ["--output-format=simple"]
         ; q
-        ; [Printf.sprintf "--domid=%d" domid]
+        ; [Printf.sprintf "--runas=%d" uid]
         ; (* --vm is unnecessary for pygrub and not supported upstream *)
           pv_bootloader_args
         ; image

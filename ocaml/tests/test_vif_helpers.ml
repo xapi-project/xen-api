@@ -21,12 +21,12 @@ let create ~__context ~device ~network ~vM ?(mAC = "00:00:00:00:00:00")
     ?(locking_mode = `unlocked) ?(ipv4_allowed = []) ?(ipv6_allowed = [])
     ?(ipv4_configuration_mode = `None) ?(ipv4_addresses = [])
     ?(ipv4_gateway = "") ?(ipv6_configuration_mode = `None)
-    ?(ipv6_addresses = []) ?(ipv6_gateway = "") () =
+    ?(ipv6_addresses = []) ?(ipv6_gateway = "") ?(trunks = []) () =
   Xapi_vif_helpers.create ~__context ~device ~network ~vM ~mAC ~mTU
     ~other_config ~qos_algorithm_type ~qos_algorithm_params ~currently_attached
     ~locking_mode ~ipv4_allowed ~ipv6_allowed ~ipv4_configuration_mode
     ~ipv4_addresses ~ipv4_gateway ~ipv6_configuration_mode ~ipv6_addresses
-    ~ipv6_gateway
+    ~ipv6_gateway ~trunks
 
 let test_create_ok () =
   let __context = T.make_test_database () in

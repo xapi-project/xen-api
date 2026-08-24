@@ -766,6 +766,24 @@ module Mux = struct
       end)) in
       C.VDI.remove_from_sm_config (Debug_info.to_string di) sr vdi key
 
+    let add_tags () ~dbg ~sr ~vdi ~key =
+      with_dbg ~name:"VDI.add_tags" ~dbg @@ fun di ->
+      info "VDI.add_tags dbg:%s sr:%s vdi:%s key:%s" dbg (s_of_sr sr)
+        (s_of_vdi vdi) key ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.VDI.add_tags (Debug_info.to_string di) sr vdi key
+
+    let remove_tags () ~dbg ~sr ~vdi ~key =
+      with_dbg ~name:"VDI.remove_tags" ~dbg @@ fun di ->
+      info "VDI.remove_tags dbg:%s sr:%s vdi:%s key:%s" dbg (s_of_sr sr)
+        (s_of_vdi vdi) key ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.VDI.remove_tags (Debug_info.to_string di) sr vdi key
+
     let get_url () ~dbg ~sr ~vdi =
       with_dbg ~name:"VDI.get_url" ~dbg @@ fun di ->
       info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
@@ -899,35 +917,31 @@ module Mux = struct
         Storage_interface.unimplemented
           __FUNCTION__ (* see storage_smapi{v1,v3}_migrate.ml *)
 
-      let receive_start () ~dbg ~sr ~vdi_info ~id ~image_format ~similar =
+      let receive_start () ~dbg ~sr ~vdi_info ~id ~similar =
         with_dbg ~name:"DATA.MIRROR.receive_start" ~dbg @@ fun _di ->
-        info
-          "%s dbg: %s sr: %s vdi_info: %s mirror_id: %s image_format: %s \
-           similar: %s"
+        info "%s dbg: %s sr: %s vdi_info: %s mirror_id: %s similar: %s"
           __FUNCTION__ dbg (s_of_sr sr)
           (string_of_vdi_info vdi_info)
-          id image_format
+          id
           (String.concat ";" similar) ;
         (* This goes straight to storage_smapiv1_migrate for backwards compatability
            reasons, new code should not call receive_start any more *)
         Storage_smapiv1_migrate.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id
-          ~image_format ~similar
+          ~similar
 
-      let receive_start2 () ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm =
+      let receive_start2 () ~dbg ~sr ~vdi_info ~id ~similar ~vm =
         with_dbg ~name:"DATA.MIRROR.receive_start2" ~dbg @@ fun _di ->
-        info
-          "%s dbg: %s sr: %s vdi_info: %s mirror_id: %s image_format: %s \
-           similar: %s vm: %s"
+        info "%s dbg: %s sr: %s vdi_info: %s mirror_id: %s similar: %s vm: %s"
           __FUNCTION__ dbg (s_of_sr sr)
           (string_of_vdi_info vdi_info)
-          id image_format
+          id
           (String.concat ";" similar)
           (s_of_vm vm) ;
         info "%s dbg:%s" __FUNCTION__ dbg ;
         (* This goes straight to storage_smapiv1_migrate for backwards compatability
            reasons, new code should not call receive_start any more *)
         Storage_smapiv1_migrate.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id
-          ~image_format ~similar ~vm
+          ~similar ~vm
 
       (** see storage_smapiv{1,3}_migrate.receive_start3 *)
       let receive_start3 () ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_

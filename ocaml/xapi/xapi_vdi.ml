@@ -1066,6 +1066,12 @@ let resize ~__context ~vdi ~size =
       Db.VDI.set_virtual_size ~__context ~self:vdi ~value:new_size
   )
 
+(* Online resize follows exactly the same storage path as the offline resize;
+   the distinction lives in xapi's allowed-operations checks, which permit
+   resize_online on a VDI attached to a running VM (subject to the SM backend
+   advertising the VDI_RESIZE_ONLINE capability). *)
+let resize_online = resize
+
 let generate_config ~__context ~host:_ ~vdi =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi) ;
   Xapi_vdi_helpers.assert_managed ~__context ~vdi ;

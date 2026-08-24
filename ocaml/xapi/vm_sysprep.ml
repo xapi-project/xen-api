@@ -72,12 +72,27 @@ module SR = struct
 end
 
 (** This is called on xapi startup. Opportunity to set up or clean up.
-    We destroy all VDIs that are unused. *)
+    We destroy all VDIs that are unused. If the SR's backing directory doesn't
+    exist, it should be forgotten completely. *)
 let on_startup ~__context =
   let host = Helpers.get_localhost ~__context in
   let hostname = Db.Host.get_hostname ~__context ~self:host in
-  match SR.find_opt ~__context ~label:(SR.name hostname) with
-  | Some sr when !Xapi_globs.vm_sysprep_enabled -> (
+  let sr = SR.find_opt ~__context ~label:(SR.name hostname) in
+  match (Sys.file_exists SR.dir, sr) with
+  | false, Some sr ->
+      info "%s: %s doesn't exist; forgetting sysprep SR %s" __FUNCTION__ SR.dir
+        (Ref.string_of sr) ;
+      (* On a host reboot the PBDs are unplugged, and can't be plugged again
+         because the SR directory doesn't exist, so the cleanup always
+         succeeds. On a xapi restart (the host stays up) the PBDs may still be
+         attached, and unplugging here can race with the other PBD-plugging
+         tasks in the startup sequence; failing to clean up in that case is
+         acceptable. *)
+      call ~__context @@ fun rpc session_id ->
+      Db.SR.get_PBDs ~__context ~self:sr
+      |> List.iter (fun self -> Client.PBD.unplug ~rpc ~session_id ~self) ;
+      Client.SR.forget ~rpc ~session_id ~sr
+  | true, Some sr -> (
       Db.SR.get_VDIs ~__context ~self:sr
       |> List.iter @@ fun self ->
          match Db.VDI.get_record ~__context ~self with

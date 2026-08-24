@@ -196,12 +196,7 @@ let software_version () =
     ; (_date, Xapi_version.date)
     ]
 
-let pygrub_path = "/usr/bin/pygrub"
-
-let eliloader_path = "/usr/bin/eliloader"
-
-let supported_bootloaders =
-  [("pygrub", pygrub_path); ("eliloader", eliloader_path)]
+let supported_bootloaders = ["pygrub"; "eliloader"]
 
 (* Deprecated: *)
 let is_guest_installer_network = "is_guest_installer_network"
@@ -1061,7 +1056,9 @@ let winbind_set_machine_account_kerberos_encryption_type = ref false
 
 let winbind_scan_trusted_domains = ref false
 
-let winbind_keep_configuration = ref false
+let winbind_keep_configuration = ref true
+
+let serialize_auth_service = ref true
 
 let winbind_ldap_query_subject_timeout = ref Mtime.Span.(20 * s)
 
@@ -1200,6 +1197,14 @@ let event_next_delay, event_next_entry =
     ~delay_before:Mtime.Span.(200 * ms)
     ~delay_between:Mtime.Span.(50 * ms)
 
+(** Upper bound on the number of callers that [Xapi_caller] may auto-register.
+    When the limit is reached and a new caller must be registered, the
+    auto-registered caller with the least recent call is dropped first.
+    A value of 0 disables auto-registration entirely; a negative value means
+    unbounded. Manually created callers do not count towards this limit and are
+    never auto-evicted. *)
+let max_auto_registered_callers = ref 100
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1292,6 +1297,7 @@ let xapi_globs_spec =
   ; ("test-open", Int test_open) (* for consistency with xenopsd *)
   ; ("local_yum_repo_port", Int local_yum_repo_port)
   ; ("ha_best_effort_max_retries", Int ha_best_effort_max_retries)
+  ; ("max-auto-registered-callers", Int max_auto_registered_callers)
   ]
 
 let xapi_globs_spec_with_descriptions =
@@ -1435,6 +1441,16 @@ let failed_login_alert_freq = ref 3600
 let factory_ntp_servers = ref []
 
 let legacy_factory_ntp_servers = ref []
+
+(** When false (default), per-caller rate limiting is disabled at runtime:
+    [Xapi_caller.register] and [Xapi_rate_limit.register] are no-ops, the
+    RRD reporter is not started, and dispatch bypasses the caller table. *)
+let rate_limit_enabled = ref false
+
+(** File mapping API calls to their rate-limiting token cost, in key=value
+    format ("Class.method = cost"), read by [Xapi_caller.register] at start of
+    day. *)
+let call_costs_file = ref "/etc/xensource/call-costs.conf"
 
 let other_options =
   [
@@ -1673,6 +1689,13 @@ let other_options =
     , (fun () -> string_of_bool !winbind_keep_configuration)
     , "Whether to clear winbind configuration when join domain failed or leave \
        domain"
+    )
+  ; ( "serialize_auth_service"
+    , Arg.Bool (fun b -> serialize_auth_service := b)
+    , (fun () -> string_of_bool !serialize_auth_service)
+    , "Serialize AD external auth operations under a mutex (default: true). \
+       Set to false only if configure (enable/disable/set-ldaps) and \
+       authenticate calls are never concurrent to improve performance."
     )
   ; ( "hsts_max_age"
     , Arg.Set_int hsts_max_age
@@ -1963,6 +1986,11 @@ let other_options =
       (fun s -> s)
       (fun s -> s)
       factory_ntp_servers
+  ; ( "rate_limit"
+    , Arg.Set rate_limit_enabled
+    , (fun () -> string_of_bool !rate_limit_enabled)
+    , "Enable per-caller rate limiting (Caller / Rate_limit datamodel)."
+    )
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
@@ -2203,6 +2231,10 @@ module Resources = struct
     ; ( "iscsi_initiatorname"
       , iscsi_initiator_config_file
       , "Path to the initiatorname.iscsi file"
+      )
+    ; ( "call-costs-file"
+      , call_costs_file
+      , "File mapping API calls to their rate-limiting token cost"
       )
     ]
 

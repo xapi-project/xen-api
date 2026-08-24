@@ -37,6 +37,7 @@ let () =
      ; ("Test_pvs_proxy", Test_pvs_proxy.test)
      ; ("Test_pvs_server", Test_pvs_server.test)
      ; ("Test_vif_helpers", Test_vif_helpers.test)
+     ; ("Test_vif_trunks", Test_vif_trunks.test)
      ; ("Test_vm_memory_constraints", Test_vm_memory_constraints.test)
      ; ("Test_xapi_xenops", Test_xapi_xenops.test)
      ; ("Test_network_event_loop", Test_network_event_loop.test)
@@ -44,6 +45,7 @@ let () =
      ; ("Test_storage_migrate_state", Test_storage_migrate_state.test)
      ; ("Test_bios_strings", Test_bios_strings.test)
      ; ("Test_certificates", Test_certificates.test)
+     ; ("Test_caller_limit", Test_caller_limit.test)
      ]
     @ Test_guest_agent.tests
     @ Test_nm.tests

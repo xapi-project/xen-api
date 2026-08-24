@@ -49,6 +49,8 @@ let alternatives = ref "/usr/lib/xapi/alternatives"
 
 let usb_reset_script = ref "/opt/xensource/libexec/usb_reset.py"
 
+let ovs_vsctl = ref "/usr/bin/ovs-vsctl"
+
 open Unix
 
 let essentials =
@@ -71,6 +73,7 @@ let essentials =
     , setup_pvs_proxy_rules
     , "path to the setup-pvs-proxy-rules script"
     )
+  ; (X_OK, "ovs-vsctl", ovs_vsctl, "path to the ovs-vsctl binary")
   ]
   @ Resources.network_configuration
 
@@ -90,6 +93,11 @@ let nonessentials =
     , "igmp-query-injector-script"
     , igmp_query_injector_script
     , "path to the igmp query injector script"
+    )
+  ; ( X_OK
+    , "xenopsd-tls-helper"
+    , Migrate_connect.helper_path
+    , "path to the ktls-helper binary used when migration-tls=ktls"
     )
   ]
   @ Resources.hvm_guests

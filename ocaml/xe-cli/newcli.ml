@@ -377,6 +377,7 @@ let with_open_tcp server f =
       | addrinfo :: _ ->
           addrinfo.Unix.ai_addr
     in
+    debug "Connecting via TCP to [%s] port [%d]\n%!" server port ;
     let open Safe_resources in
     Unixfd.with_open_connection ~loc:__LOC__ addr @@ fun ufd ->
     Unixfd.with_channels ufd f
@@ -386,15 +387,20 @@ let with_open_channels f =
     try Ok (f chs) with e -> Backtrace.is_important e ; Error e
   in
   let result =
-    if is_localhost !xapiserver then
+    if is_localhost !xapiserver then (
       try
+        let unix_socket_path = Filename.concat "/var/lib/xcp" "xapi" in
+        debug "Connecting to Unix socket [%s]%!" unix_socket_path ;
         let open Safe_resources in
-        Unixfd.with_open_connection
-          (Unix.ADDR_UNIX (Filename.concat "/var/lib/xcp" "xapi"))
+        Unixfd.with_open_connection (Unix.ADDR_UNIX unix_socket_path)
           ~loc:__LOC__
-        @@ fun chs -> Unixfd.with_channels chs wrap
-      with _ -> with_open_tcp !xapiserver wrap
-    else
+        @@ fun chs ->
+        debug "\n%!" ;
+        Unixfd.with_channels chs wrap
+      with _ ->
+        debug " failed\n%!" ;
+        with_open_tcp !xapiserver wrap
+    ) else
       with_open_tcp !xapiserver wrap
   in
   match result with Ok r -> r | Error e -> raise e

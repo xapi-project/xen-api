@@ -513,6 +513,7 @@ module Lifecycle = struct
      - The rest of the changes are not idempotent, they cannot be applied twice
        in a row
      - Objects can only be removed when are prototyped or deprecated
+     - A removed object can be published again, i.e. reintroduced
   *)
   let automaton =
     {
@@ -528,7 +529,7 @@ module Lifecycle = struct
           )
         | (Published as into), _, _ -> (
             function
-            | Unreleased_s | Prototyped_s ->
+            | Unreleased_s | Prototyped_s | Removed_s ->
                 Published_s
             | from ->
                 raise_invalid_next ~from ~into

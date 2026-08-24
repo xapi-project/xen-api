@@ -650,6 +650,11 @@ module MIRROR : SMAPIv2_MIRROR = struct
             add_to_sm_config vdi_info "image-format" fmt
       in
       let leaf = SMAPI.VDI.create dbg sr vdi_info in
+
+      List.iter
+        (fun tag -> Local.VDI.add_tags dbg sr leaf.vdi tag)
+        vdi_info.tags ;
+
       D.info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf) ;
       on_fail := (fun () -> SMAPI.VDI.destroy dbg sr leaf.vdi) :: !on_fail ;
       (* dummy VDI is created so that the leaf VDI becomes a differencing disk,
@@ -757,21 +762,19 @@ module MIRROR : SMAPIv2_MIRROR = struct
         !on_fail ;
       raise e
 
-  let receive_start _ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar =
-    D.debug "%s dbg: %s sr: %s vdi: %s id: %s image_format: %s" __FUNCTION__ dbg
-      (s_of_sr sr)
+  let receive_start _ctx ~dbg ~sr ~vdi_info ~id ~similar =
+    D.debug "%s dbg: %s sr: %s vdi: %s id: %s" __FUNCTION__ dbg (s_of_sr sr)
       (string_of_vdi_info vdi_info)
-      id image_format ;
-    receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format ~similar
+      id ;
+    receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format:"" ~similar
       ~vm:(Vm.of_string "0") ~url:"" ~verify_dest:false
       (module Local)
 
-  let receive_start2 _ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm =
-    D.debug "%s dbg: %s sr: %s vdi: %s id: %s image_format: %s" __FUNCTION__ dbg
-      (s_of_sr sr)
+  let receive_start2 _ctx ~dbg ~sr ~vdi_info ~id ~similar ~vm =
+    D.debug "%s dbg: %s sr: %s vdi: %s id: %s" __FUNCTION__ dbg (s_of_sr sr)
       (string_of_vdi_info vdi_info)
-      id image_format ;
-    receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm
+      id ;
+    receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format:"" ~similar ~vm
       ~url:"" ~verify_dest:false
       (module Local)
 

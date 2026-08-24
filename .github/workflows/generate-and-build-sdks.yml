@@ -73,7 +73,7 @@ jobs:
       # isn't using UTC
       - name: Set Timezone to Tokyo for datetime tests
         run: |
-          sudo timedatectl set-timezone Asia/Tokyo
+          sudo ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
 
       - name: Run CI for SDKs
         uses: ./.github/workflows/sdk-ci
@@ -139,7 +139,7 @@ jobs:
       # isn't using UTC
       - name: Set Timezone to Tokyo for datetime tests
         run: |
-          sudo timedatectl set-timezone Asia/Tokyo
+          sudo ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
 
       - name: Build Java SDK
         shell: bash

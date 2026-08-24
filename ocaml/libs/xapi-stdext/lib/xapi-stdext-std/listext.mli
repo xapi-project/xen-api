@@ -50,6 +50,11 @@ module List : sig
       the [Ok] results, and the first [Error] result encountered, if it is
       encountered. *)
 
+  val try_map_any : ('a -> ('b, 'c) result) -> 'a list -> ('b, 'c list) result
+  (** [try_map_any f l] applies [f] to elements of [l] in turn. Returns the
+      first [Ok] result encountered or, if all elements produce errors, returns
+      all the [Error] results in a list. *)
+
   val rev_mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
   (** [rev_map f l] gives the same result as {!Stdlib.List.rev}[ (]
       {!Stdlib.List.mapi}[ f l)], but is tail-recursive and more efficient. *)

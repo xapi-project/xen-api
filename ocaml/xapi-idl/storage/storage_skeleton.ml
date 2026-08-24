@@ -168,6 +168,12 @@ module VDI = struct
   let remove_from_sm_config ctx ~dbg ~sr ~vdi ~key =
     Storage_interface.unimplemented __FUNCTION__
 
+  let add_tags ctx ~dbg ~sr ~vdi ~key =
+    Storage_interface.unimplemented __FUNCTION__
+
+  let remove_tags ctx ~dbg ~sr ~vdi ~key =
+    Storage_interface.unimplemented __FUNCTION__
+
   let enable_cbt ctx ~dbg ~sr ~vdi =
     Storage_interface.unimplemented __FUNCTION__
 
@@ -210,10 +216,10 @@ module DATA = struct
         ~verify_dest =
       Storage_interface.unimplemented __FUNCTION__
 
-    let receive_start ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar =
+    let receive_start ctx ~dbg ~sr ~vdi_info ~id ~similar =
       Storage_interface.unimplemented __FUNCTION__
 
-    let receive_start2 ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm =
+    let receive_start2 ctx ~dbg ~sr ~vdi_info ~id ~similar ~vm =
       Storage_interface.unimplemented __FUNCTION__
 
     let receive_start3 ctx ~dbg ~sr ~vdi_info ~mirror_id ~image_format ~similar

@@ -621,6 +621,60 @@ let test_revert =
   ; ("Revert: Cannot revert live", `Quick, test_cannot_revert_live)
   ]
 
+(* A VDI attached to a running VM (i.e. with an active RW VBD) can only be
+   resized via VDI.resize_online, and only when the SM backend advertises the
+   VDI_RESIZE_ONLINE capability. Offline VDI.resize remains disallowed while the
+   VDI is attached. *)
+let test_online_resize =
+  let features_with_online_resize =
+    ("VDI_RESIZE_ONLINE", 1L) :: Test_common.default_sm_features
+  in
+  let with_attached_rw_vbd __context vdi_ref =
+    make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW ()
+  in
+  (* Offline resize of an attached VDI is still refused. *)
+  let test_offline_resize_blocked_when_attached () =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+    run_assert_equal_with_vdi ~__context
+      ~vdi_fun:(with_attached_rw_vbd __context)
+      `resize
+      (Error (Api_errors.vdi_in_use, []))
+  in
+  (* Online resize is refused unless the SM backend supports it. *)
+  let test_resize_online_blocked_without_feature () =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+    run_assert_equal_with_vdi ~__context
+      ~vdi_fun:(with_attached_rw_vbd __context)
+      `resize_online
+      (Error (Api_errors.sr_operation_not_supported, []))
+  in
+  (* Online resize of an attached VDI is allowed when the SM backend advertises
+     VDI_RESIZE_ONLINE. *)
+  let test_resize_online_allowed_with_feature () =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+    run_assert_equal_with_vdi ~__context
+      ~sm_fun:(fun sm ->
+        Db.SM.set_features ~__context ~self:sm
+          ~value:features_with_online_resize
+      )
+      ~vdi_fun:(with_attached_rw_vbd __context)
+      `resize_online (Ok ())
+  in
+  [
+    ( "test_offline_resize_blocked_when_attached"
+    , `Quick
+    , test_offline_resize_blocked_when_attached
+    )
+  ; ( "test_resize_online_blocked_without_feature"
+    , `Quick
+    , test_resize_online_blocked_without_feature
+    )
+  ; ( "test_resize_online_allowed_with_feature"
+    , `Quick
+    , test_resize_online_allowed_with_feature
+    )
+  ]
+
 let test =
   [
     ("test_ca98944", `Quick, test_ca98944)
@@ -635,3 +689,4 @@ let test =
     ; ("test_update_allowed_operations", `Quick, test_update_allowed_operations)
     ]
   @ test_revert
+  @ test_online_resize

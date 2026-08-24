@@ -2,8 +2,8 @@
 title: Rate Limiting
 layout: default
 design_doc: true
-revision: 2
-status: draft
+revision: 3
+status: confirmed
 ---
 
 <!--toc:start-->
@@ -172,13 +172,21 @@ code by storing direct references to objects where possible.
 
 ### API functions
 We define the following API functions for the caller datamodel:
-- `Caller.create(name_label, name_description, user_agent, client_ip)`: Create a new caller.
-- `Caller.set_name_label(caller, name_label)`: Set name label on the caller
-- `Caller.destroy(caller)`: Destroy the caller
-- `Caller.add_group(caller, group)`: Add caller to group
-- `Caller.remove_group(caller, group)`: Remove caller from group
-- `Caller.query_usage(caller, time_period)`: Obtain usage statistics for an individual caller
-- `Caller.query_group_usage(group, time_period)`: Obtain usage statistics for a group of callers
+- `Caller.create`/`Caller.destroy`: Auto-generated constructor and destructor
+  for callers.
+- `Caller.add_group(self, group)`: Add a caller to a group.
+- `Caller.remove_group(self, group)`: Remove a caller from a group.
+- `Caller.query_token_usage(self)`: Return tokens used by this caller since Xapi
+  startup.
+- `Caller.query_call_count(self)`: Return number of calls made by this caller
+  since Xapi startup.
+- `Caller.query_group_token_usage(group)`: Return tokens used since Xapi startup
+  by the callers in the named group.
+- `Caller.query_group_call_count(group)`: Return number of calls made since Xapi
+  startup by the callers in the named group.
+- `Caller.query_all_usage()`: Return per-caller usage (rows of `[uuid;
+  name_label; tokens; calls]`) for every known caller, sorted by token use
+  descending.
 
 And the following functions for the rate limiter datamodel:
 - `Rate_limit.create(name_label, callers, burst_size, fill_rate)`: Create a

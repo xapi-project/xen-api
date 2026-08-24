@@ -975,6 +975,12 @@ functor
           (pool_uuid ~__context pool) ;
         Local.Pool.disable_external_auth ~__context ~pool
 
+      let external_auth_set_ldaps ~__context ~pool ~ldaps ~force =
+        info "Pool.external_auth_set_ldaps: pool = '%s'; ldaps = %b; force = %b"
+          (pool_uuid ~__context pool)
+          ldaps force ;
+        Local.Pool.external_auth_set_ldaps ~__context ~pool ~ldaps ~force
+
       let enable_redo_log ~__context ~sr =
         info "Pool.enable_redo_log: pool = '%s'; sr_uuid = '%s'"
           (current_pool_uuid ~__context)
@@ -1267,6 +1273,21 @@ functor
           (pool_uuid ~__context self)
           (certificate_uuid ~__context certificate) ;
         Local.Pool.uninstall_trusted_certificate ~__context ~self ~certificate
+
+      let sync_trusted_certificates_from ~__context ~self ~remote_pool
+          ~remote_session ~remote_certificate ~ca =
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs
+          ~doc:"Pool.sync_trusted_certificates_from"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () ->
+        info
+          "Pool.sync_trusted_certificates_from: pool=%S remote_pool=%S \
+           remote_certificate=%S ca=%b"
+          (pool_uuid ~__context self)
+          remote_pool remote_certificate ca ;
+        Local.Pool.sync_trusted_certificates_from ~__context ~self ~remote_pool
+          ~remote_session ~remote_certificate ~ca
 
       let exchange_trusted_certificates_on_join ~__context ~self ~ca ~import
           ~export =
@@ -3863,6 +3884,16 @@ functor
         in
         do_op_on ~local_fn ~__context ~host ~remote_fn
 
+      let external_auth_set_ldaps ~__context ~host ~ldaps ~force =
+        info "Host.external_auth_set_ldaps: host = '%s'; ldaps = %b; force = %b"
+          (host_uuid ~__context host)
+          ldaps force ;
+        let local_fn = Local.Host.external_auth_set_ldaps ~host ~ldaps ~force in
+        let remote_fn =
+          Client.Host.external_auth_set_ldaps ~host ~ldaps ~force
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
+
       let install_ca_certificate ~__context ~host ~name ~cert =
         info "Host.install_ca_certificate: host = '%s'; name = '%s'"
           (host_uuid ~__context host)
@@ -4697,6 +4728,28 @@ functor
         let remote_fn =
           Client.VIF.configure_ipv6 ~self ~mode ~address ~gateway
         in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
+
+      let add_trunks ~__context ~self ~value =
+        info "VIF.add_trunks: VIF = '%s'; vlan = '%s'"
+          (vif_uuid ~__context self) (Int64.to_string value) ;
+        let local_fn = Local.VIF.add_trunks ~self ~value in
+        let remote_fn = Client.VIF.add_trunks ~self ~value in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
+
+      let remove_trunks ~__context ~self ~value =
+        info "VIF.remove_trunks: VIF = '%s'; vlan = '%s'"
+          (vif_uuid ~__context self) (Int64.to_string value) ;
+        let local_fn = Local.VIF.remove_trunks ~self ~value in
+        let remote_fn = Client.VIF.remove_trunks ~self ~value in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
+
+      let set_trunks ~__context ~self ~value =
+        info "VIF.set_trunks: VIF = '%s'; vlans = '%s'"
+          (vif_uuid ~__context self)
+          (String.concat "," (List.map Int64.to_string value)) ;
+        let local_fn = Local.VIF.set_trunks ~self ~value in
+        let remote_fn = Client.VIF.set_trunks ~self ~value in
         forward_vif_op ~local_fn ~__context ~self ~remote_fn
     end
 
@@ -5691,6 +5744,17 @@ functor
         let sR = Db.VDI.get_SR ~__context ~self:vdi in
         with_sr_andor_vdi ~__context ~sr:(sR, `vdi_resize) ~vdi:(vdi, `resize)
           ~doc:"VDI.resize" (fun () ->
+            forward_vdi_op ~local_fn ~__context ~self:vdi ~remote_fn
+        )
+
+      let resize_online ~__context ~vdi ~size =
+        info "VDI.resize_online: VDI = '%s'; size = %Ld"
+          (vdi_uuid ~__context vdi) size ;
+        let local_fn = Local.VDI.resize_online ~vdi ~size in
+        let remote_fn = Client.VDI.resize_online ~vdi ~size in
+        let sR = Db.VDI.get_SR ~__context ~self:vdi in
+        with_sr_andor_vdi ~__context ~sr:(sR, `vdi_resize)
+          ~vdi:(vdi, `resize_online) ~doc:"VDI.resize_online" (fun () ->
             forward_vdi_op ~local_fn ~__context ~self:vdi ~remote_fn
         )
 
@@ -6951,6 +7015,9 @@ functor
         in
         Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
     end
+
+    module Caller = Xapi_caller
+    module Rate_limit = Xapi_rate_limit
   end
 
 (* for unit tests *)

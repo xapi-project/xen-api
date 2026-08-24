@@ -120,6 +120,7 @@ type atomic =
   | VIF_set_ipv4_configuration of Vif.id * Vif.ipv4_configuration
   | VIF_set_ipv6_configuration of Vif.id * Vif.ipv6_configuration
   | VIF_set_active of Vif.id * bool
+  | VIF_set_trunks of Vif.id * int64 list
   (* During migration the domid of a uuid is not stable. To hide this from hooks
      that depend on domids, this allows the caller to provide an additonal uuid
      that can maintain the initial domid *)
@@ -201,6 +202,8 @@ let rec name_of_atomic = function
       "VIF_set_ipv6_configuration"
   | VIF_set_active _ ->
       "VIF_set_active"
+  | VIF_set_trunks _ ->
+      "VIF_set_trunks"
   | VM_hook_script_stable _ ->
       "VM_hook_script_stable"
   | VM_hook_script _ ->
@@ -1644,6 +1647,16 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
       debug "VIF.set_active %s %b" (VIF_DB.string_of_id id) b ;
       B.VIF.set_active t (VIF_DB.vm_of id) (VIF_DB.read_exn id) b ;
       VIF_DB.signal id
+  | VIF_set_trunks (id, trunks) ->
+      debug "VIF.set_trunks %s %s" (VIF_DB.string_of_id id)
+        (String.concat "," (List.map Int64.to_string trunks)) ;
+      finally
+        (fun () ->
+          let vif = VIF_DB.read_exn id in
+          B.VIF.set_trunks t (VIF_DB.vm_of id) vif trunks ;
+          VIF_DB.write id {vif with Vif.trunks}
+        )
+        (fun () -> VIF_DB.signal id)
   | VM_hook_script_stable (id, script, reason, backend_vm_id) ->
       let extra_args = B.VM.get_hook_args backend_vm_id in
       Xenops_hooks.vm ~script ~reason ~id ~extra_args
@@ -2228,7 +2241,8 @@ and trigger_cleanup_after_failure_atom op t =
   | VIF_set_locking_mode (id, _)
   | VIF_set_pvs_proxy (id, _)
   | VIF_set_ipv4_configuration (id, _)
-  | VIF_set_ipv6_configuration (id, _) ->
+  | VIF_set_ipv6_configuration (id, _)
+  | VIF_set_trunks (id, _) ->
       immediate_operation dbg (fst id) (VIF_check_state id)
   | PCI_plug (id, _) | PCI_unplug id ->
       immediate_operation dbg (fst id) (PCI_check_state id)
@@ -2437,7 +2451,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
       info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit ;
       let url = make_url "/migrate/vm/" new_dest_id in
       let https = Uri.scheme url = Some "https" in
-      Open_uri.with_open_uri ~verify_cert url (fun vm_fd ->
+      Migrate_connect.with_open_uri ~verify_cert url (fun vm_fd ->
           let module Handshake = Xenops_migrate.Handshake in
           let do_request fd extra_cookies url =
             if not https then Sockopt.set_sock_keepalives fd ;
@@ -2518,7 +2532,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
           in
           let save ?vgpu_fd () =
             let url = make_url "/migrate/mem/" new_dest_id in
-            Open_uri.with_open_uri ~verify_cert url (fun mem_fd ->
+            Migrate_connect.with_open_uri ~verify_cert url (fun mem_fd ->
                 (* vm_fd: signaling channel, mem_fd: memory stream *)
                 do_request mem_fd [] url ;
                 Handshake.recv_success mem_fd ;
@@ -2557,7 +2571,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
                 make_url "/migrate/vgpu/"
                   (VGPU_DB.string_of_id (new_dest_id, dev_id))
               in
-              Open_uri.with_open_uri ~verify_cert url (fun vgpu_fd ->
+              Migrate_connect.with_open_uri ~verify_cert url (fun vgpu_fd ->
                   if not https then Sockopt.set_sock_keepalives vgpu_fd ;
                   do_request vgpu_fd [(cookie_vgpu_migration, "")] url ;
                   Handshake.recv_success vgpu_fd ;
@@ -3214,6 +3228,9 @@ module VIF = struct
   let set_ipv6_configuration _ dbg id ipv6_configuration =
     queue_operation dbg (DB.vm_of id)
       (Atomic (VIF_set_ipv6_configuration (id, ipv6_configuration)))
+
+  let set_trunks _ dbg id trunks =
+    queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_trunks (id, trunks)))
 
   let remove _ dbg id =
     Debug.with_thread_associated dbg (fun () -> DB.remove' id) ()
@@ -4086,6 +4103,7 @@ let _ =
   Server.VIF.set_ipv4_configuration (VIF.set_ipv4_configuration ()) ;
   Server.VIF.set_ipv6_configuration (VIF.set_ipv6_configuration ()) ;
   Server.VIF.set_pvs_proxy (VIF.set_pvs_proxy ()) ;
+  Server.VIF.set_trunks (VIF.set_trunks ()) ;
   Server.VGPU.add (VGPU.add ()) ;
   Server.VGPU.remove (VGPU.remove ()) ;
   Server.VGPU.stat (VGPU.stat ()) ;

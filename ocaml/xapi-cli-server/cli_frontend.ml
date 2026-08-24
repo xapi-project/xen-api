@@ -283,6 +283,17 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-external-auth-set-ldaps"
+    , {
+        reqd= ["ldaps"]
+      ; optn= ["uuid"; "force"]
+      ; help=
+          "Sets or unsets ldaps for external authentication in all the hosts \
+           in a pool"
+      ; implementation= No_fd Cli_operations.pool_external_auth_set_ldaps
+      ; flags= []
+      }
+    )
   ; ( "pool-initialize-wlb"
     , {
         reqd=
@@ -1030,6 +1041,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= ["config:"]
       ; help= "Disables external authentication in a host"
       ; implementation= No_fd Cli_operations.host_disable_external_auth
+      ; flags= [Hidden]
+      }
+    )
+  ; ( "host-external-auth-set-ldaps"
+    , {
+        reqd= ["host-uuid"; "ldaps"]
+      ; optn= ["force"]
+      ; help= "Sets or unsets ldaps for external authentication in a host"
+      ; implementation= No_fd Cli_operations.host_external_auth_set_ldaps
       ; flags= [Hidden]
       }
     )
@@ -3910,6 +3930,85 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= []
       ; help= "Return a PCI device's dom0 access status."
       ; implementation= No_fd Cli_operations.get_dom0_access_status
+      ; flags= []
+      }
+    )
+  ; ( "caller-create"
+    , {
+        reqd= []
+      ; optn= ["name-label"; "name-description"; "user-agent"; "client-ip"]
+      ; help=
+          "Create a caller record. Either user-agent or client-ip must be \
+           non-empty."
+      ; implementation= No_fd Cli_operations.Caller.create
+      ; flags= []
+      }
+    )
+  ; ( "caller-destroy"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Destroy the given caller."
+      ; implementation= No_fd Cli_operations.Caller.destroy
+      ; flags= []
+      }
+    )
+  ; ( "caller-query-usage"
+    , {
+        reqd= []
+      ; optn= ["uuid"; "group"]
+      ; help=
+          "Return cumulative token and call count statistics for a caller. \
+           Specify exactly one of uuid= or group=. Counters are taken from the \
+           in-memory table since XAPI startup."
+      ; implementation= No_fd Cli_operations.Caller.query_usage
+      ; flags= []
+      }
+    )
+  ; ( "caller-list-usage"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          "List every known caller (uuid, name-label, tokens, calls) ranked by \
+           token use, highest first."
+      ; implementation= No_fd Cli_operations.Caller.list_usage
+      ; flags= []
+      }
+    )
+  ; ( "rate-limit-create"
+    , {
+        reqd= ["burst-size"; "fill-rate"]
+      ; optn= ["name-label"; "name-description"; "caller-uuids"]
+      ; help= "Create a rate limiter."
+      ; implementation= No_fd Cli_operations.Rate_limit.create
+      ; flags= []
+      }
+    )
+  ; ( "rate-limit-destroy"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Destroy the given rate limiter."
+      ; implementation= No_fd Cli_operations.Rate_limit.destroy
+      ; flags= []
+      }
+    )
+  ; ( "rate-limit-add-caller"
+    , {
+        reqd= ["uuid"; "caller-uuid"]
+      ; optn= []
+      ; help= "Attach a caller to a rate limiter."
+      ; implementation= No_fd Cli_operations.Rate_limit.add_caller
+      ; flags= []
+      }
+    )
+  ; ( "rate-limit-remove-caller"
+    , {
+        reqd= ["uuid"; "caller-uuid"]
+      ; optn= []
+      ; help= "Detach a caller from a rate limiter."
+      ; implementation= No_fd Cli_operations.Rate_limit.remove_caller
       ; flags= []
       }
     )

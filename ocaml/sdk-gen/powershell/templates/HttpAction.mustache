@@ -71,7 +71,7 @@ namespace Citrix.XenServer.Commands
 {{/isPut}}
 
             RunApiCall(() => HTTP_actions.{{action_name}}({{#isPut}}ProgressDelegate{{/isPut}}{{#isGet}}DataCopiedDelegate{{/isGet}},
-                CancellingDelegate, TimeoutMs, XenHost, Proxy, Path, TaskRef,
+                CancellingDelegate, TimeoutMs, XenHost, Proxy, CertificateValidationCallback, Path, TaskRef,
                 session.opaque_ref{{#args}}, {{arg_name}}{{/args}}));
         }
 
