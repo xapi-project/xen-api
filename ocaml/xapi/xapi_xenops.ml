@@ -2530,9 +2530,11 @@ let update_vm_internal ~__context ~id ~self ~previous ~info ~localhost =
 
   Xenops_cache.update_vm id info ;
   if !should_update_allowed_operations then
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        XenAPI.VM.update_allowed_operations ~rpc ~session_id ~self
-    )
+    ignore
+      (Helpers.call_api_functions ~__context (fun rpc session_id ->
+           XenAPI.Async.VM.update_allowed_operations ~rpc ~session_id ~self
+       )
+      )
 
 let update_vm ~__context id =
   let@ __context =
