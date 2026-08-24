@@ -74,6 +74,7 @@ type domain_create_flag = Xenctrl.domain_create_flag =
   | CDF_IOMMU
   | CDF_NESTED_VIRT
   | CDF_VPMU
+  | CDF_TRAP_UNMAPPED_ACCESSES
 [@@deriving rpcty]
 
 type domain_create_iommu_opts = Xenctrl.domain_create_iommu_opts =
@@ -107,6 +108,7 @@ type domctl_create_config = Xenctrl.domctl_create_config = {
   ; max_maptrack_frames: int
   ; max_grant_version: int
   ; altp2m_opts: int32
+  ; altp2m_count: int32
   ; vmtrace_buf_kb: int32
   ; cpupool_id: int32
   ; arch: arch_domainconfig
@@ -378,7 +380,24 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
   in
   let vpmu = get_platform_key ~key:"vpmu" ~default:false (fun _ -> Ok ()) in
 
-  info "VM = %s; Creating %s%s%s%s%s" (Uuidx.to_string uuid)
+  let is_arm =
+    match (domain_config : arch_domainconfig) with
+    | ARM _ ->
+        true
+    | X86 _ ->
+        false
+  in
+  let require_arm wants : (_, _) result =
+    if wants && not is_arm then
+      Error "Arm required for"
+    else
+      Ok ()
+  in
+  let trap_unmapped_accesses =
+    get_platform_key ~key:"trap-unmapped-accesses" ~default:is_arm require_arm
+  in
+
+  info "VM = %s; Creating %s%s%s%s%s%s" (Uuidx.to_string uuid)
     ( if hvm then
         "HVM"
       else
@@ -403,6 +422,11 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
         " VPMU"
       else
         ""
+    )
+    ( if trap_unmapped_accesses then
+        " TRAP_UNMAPPED_ACCESSES"
+      else
+        ""
     ) ;
 
   let config =
@@ -416,6 +440,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
         ; (iommu, CDF_IOMMU)
         ; (nested_virt, CDF_NESTED_VIRT)
         ; (vpmu, CDF_VPMU)
+        ; (trap_unmapped_accesses, CDF_TRAP_UNMAPPED_ACCESSES)
         ]
         |> List.filter_map (fun (cond, flag) ->
             if cond then
@@ -517,6 +542,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
             1
         )
     ; altp2m_opts= 0l
+    ; altp2m_count= 0l
     ; vmtrace_buf_kb= 0l
     ; cpupool_id= 0l
     ; arch= domain_config

@@ -2235,7 +2235,7 @@ module TarHeaderReader = Tar.HeaderReader (Direct) (BufferOrFile)
 (** Takes an fd and a function, tries first to read the first tar block
     and checks for the existence of 'ova.xml'. If that fails then pipe
     the lot through an appropriate decompressor and try again *)
-let with_open_archive fd ?length f =
+let with_open_archive fd ?length ?(drain = false) f =
   (* Read the first header's worth into a buffer *)
   let buffer = Cstruct.create Tar.Header.length in
   let retry_with_compression = ref true in
@@ -2250,8 +2250,31 @@ let with_open_archive fd ?length f =
     (* successfully opened uncompressed stream *)
     retry_with_compression := false ;
     let xml = read_xml hdr fd in
-    Tar_helpers.skip fd (Tar.Header.compute_zero_padding_length hdr) ;
-    f xml fd
+    let zero_pad = Tar.Header.compute_zero_padding_length hdr in
+    Tar_helpers.skip fd zero_pad ;
+    let result = f xml fd in
+    ( match (length, drain) with
+    | Some len, true -> (
+        (* When [drain] is set, the bytes left after [f] returns (the tar
+           end-of-archive markers and the trailing record padding) are consumed
+           off the socket so the whole request body is read and the connection
+           can be closed cleanly; this must only be used when [f] does not
+           itself read from the archive after the initial ova.xml. Only the
+           uncompressed path needs this: on the compressed path the feeder
+           thread already reads the whole body off [fd], and the trailing
+           padding left in the decompressor pipe is discarded when the pipe is
+           closed. *)
+        let consumed =
+          Tar.Header.length + Int64.to_int hdr.Tar.Header.file_size + zero_pad
+        in
+        let remaining = Int64.to_int len - consumed in
+        if remaining > 0 then
+          try Tar_helpers.skip fd remaining with End_of_file -> ()
+      )
+    | _ ->
+        ()
+    ) ;
+    result
   with e ->
     if not !retry_with_compression then raise e ;
     let decompress =
@@ -2447,11 +2470,9 @@ let metadata_handler (req : Request.t) s _ =
               ]
           in
           Http_svr.headers s headers ;
-          with_open_archive s ?length:req.Request.content_length
-            (fun metadata s ->
+          with_open_archive s ?length:req.Request.content_length ~drain:true
+            (fun metadata _s ->
               debug "Got XML" ;
-              (* Skip trailing two zero blocks *)
-              Tar_helpers.skip s (Tar.Header.length * 2) ;
               let header = metadata |> Xmlrpc.of_string |> header_of_rpc in
               assert_compatible ~__context header.version ;
               if full_restore then

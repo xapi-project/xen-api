@@ -1,5 +1,6 @@
 (executables
  (names
+  bench_ha_vm_failover
   bench_tracing
   bench_uuid
   bench_throttle2

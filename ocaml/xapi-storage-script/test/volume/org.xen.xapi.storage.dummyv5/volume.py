@@ -30,6 +30,7 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
             "physical_utilisation": 0,
             "uri": ["raw+file:///tmp/disk.raw"],
             "keys": {},
+            "tags": ["tag1"],
         }
 
     def destroy(self, dbg, sr, key):
@@ -50,6 +51,7 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
                 "sharable": False,
                 "uri": ["raw+file:///tmp/disk.raw"],
                 "keys": {},
+                "tags": ["tag1"],
         }
 
     def set(self, dbg, sr, key, k, v):
