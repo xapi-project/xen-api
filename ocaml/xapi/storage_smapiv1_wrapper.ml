@@ -924,6 +924,20 @@ functor
         let dbg = Debug_info.to_string di in
         Impl.VDI.remove_from_sm_config context ~dbg ~sr ~vdi ~key
 
+      let add_tags context ~dbg ~sr ~vdi ~key =
+        with_dbg ~name:"VDI.add_tags" ~dbg @@ fun di ->
+        info "VDI.add_tags dbg:%s sr:%s vdi:%s key:%s" di.log (s_of_sr sr)
+          (s_of_vdi vdi) key ;
+        let dbg = Debug_info.to_string di in
+        Impl.VDI.add_tags context ~dbg ~sr ~vdi ~key
+
+      let remove_tags context ~dbg ~sr ~vdi ~key =
+        with_dbg ~name:"VDI.remove_tags" ~dbg @@ fun di ->
+        info "VDI.remove_tags dbg:%s sr:%s vdi:%s key:%s" di.log (s_of_sr sr)
+          (s_of_vdi vdi) key ;
+        let dbg = Debug_info.to_string di in
+        Impl.VDI.remove_tags context ~dbg ~sr ~vdi ~key
+
       let get_url context ~dbg ~sr ~vdi =
         with_dbg ~name:"VDI.get_url" ~dbg @@ fun di ->
         info "VDI.get_url dbg:%s sr:%s vdi:%s" di.log (s_of_sr sr) (s_of_vdi vdi) ;
@@ -1227,26 +1241,20 @@ functor
             ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
           Storage_interface.unimplemented __FUNCTION__
 
-        let receive_start context ~dbg ~sr ~vdi_info ~id ~image_format ~similar
-            =
-          info
-            "DATA.MIRROR.receive_start dbg:%s sr:%s id:%s image_format:%s \
-             similar:[%s]"
-            dbg (s_of_sr sr) id image_format
+        let receive_start context ~dbg ~sr ~vdi_info ~id ~similar =
+          info "DATA.MIRROR.receive_start dbg:%s sr:%s id:%s similar:[%s]" dbg
+            (s_of_sr sr) id
             (String.concat "," similar) ;
-          Impl.DATA.MIRROR.receive_start context ~dbg ~sr ~vdi_info ~id
-            ~image_format ~similar
+          Impl.DATA.MIRROR.receive_start context ~dbg ~sr ~vdi_info ~id ~similar
 
-        let receive_start2 context ~dbg ~sr ~vdi_info ~id ~image_format ~similar
-            ~vm =
+        let receive_start2 context ~dbg ~sr ~vdi_info ~id ~similar ~vm =
           info
-            "DATA.MIRROR.receive_start2 dbg:%s sr:%s id:%s image_format:%s \
-             similar:[%s] vm:%s"
-            dbg (s_of_sr sr) id image_format
+            "DATA.MIRROR.receive_start2 dbg:%s sr:%s id:%s similar:[%s] vm:%s"
+            dbg (s_of_sr sr) id
             (String.concat "," similar)
             (s_of_vm vm) ;
           Impl.DATA.MIRROR.receive_start2 context ~dbg ~sr ~vdi_info ~id
-            ~image_format ~similar ~vm
+            ~similar ~vm
 
         let receive_start3 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
             ~image_format:_ ~similar:_ ~vm:_ =

@@ -52,6 +52,9 @@ val get_network_internal :
 val assert_cluster_host_enabled :
   __context:Context.t -> self:[`Cluster_host] Ref.t -> expected:bool -> unit
 
+val assert_pool_ready_for_corosync_ha :
+  __context:Context.t -> cluster_stack:string -> unit
+
 val assert_operation_host_target_is_localhost :
   __context:Context.t -> host:[`host] Ref.t -> unit
 

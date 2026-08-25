@@ -29,7 +29,6 @@
 
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Management.Automation;
 
@@ -113,23 +112,44 @@ namespace Citrix.XenServer.Commands
 
         protected void RunApiCall(XenApiCall call)
         {
-            try
+            for (int i = 0; i < 1; i++)
             {
-                call.Invoke();
-            }
-            catch (Exception e)
-            {
-                // if you want to trap errors either set command-line switch "-BestEffort"
-                // or session-state variable "$BestEffort" to "$true"
+                try
+                {
+                    call.Invoke();
+                }
+                catch (Exception e)
+                {
+                    if (e is CertificateValidationException ex)
+                    {
+                        if (ShouldContinue(ex.Message, ex.Caption))
+                        {
+                            var certPath = CommonCmdletFunctions.GetCertificatesPath(this);
+                            var certificates = CommonCmdletFunctions.LoadCertificates(certPath);
+                            certificates[ex.Hostname] = ex.Fingerprint;
+                            CommonCmdletFunctions.SaveCertificates(certPath, certificates);
+                            i--;
+                            continue;
+                        }
 
-                bool bestEffort = (bool)GetVariableValue("BestEffort", false) || BestEffort;
-                if (!bestEffort)
-                    throw;
+                        ThrowTerminatingError(new ErrorRecord(ex, "", ErrorCategory.AuthenticationError, ex.Hostname)
+                        {
+                            ErrorDetails = new ErrorDetails($"Certificate fingerprint rejected. ({ex.Fingerprint} - {ex.Hostname}).")
+                        });
+                    }
 
-                // catch exception and write it to the terminal then return
-                // don't throw it because this will break piping a list into the cmd (won't run rest of list)
+                    // if you want to trap errors either set command-line switch "-BestEffort"
+                    // or session-state variable "$BestEffort" to "$true"
 
-                ThrowTerminatingError(new ErrorRecord(e, string.Empty, ErrorCategory.InvalidOperation, null));
+                    bool bestEffort = (bool)GetVariableValue("BestEffort", false) || BestEffort;
+                    if (!bestEffort)
+                        throw;
+
+                    // catch exception and write it to the terminal then return
+                    // don't throw it because this will break piping a list into the cmd (won't run rest of list)
+
+                    ThrowTerminatingError(new ErrorRecord(e, string.Empty, ErrorCategory.InvalidOperation, null));
+                }
             }
         }
 

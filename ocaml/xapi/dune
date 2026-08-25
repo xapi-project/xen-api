@@ -65,6 +65,8 @@
   exnHelper
   rbac_static
   xapi_role
+  xapi_caller
+  xapi_rate_limit
   xapi_extensions
   db)
  (modes best)
@@ -92,7 +94,11 @@
   forkexec
   unix
   xapi-idl
+  xapi-idl.rrd
+  xapi-rrd
+  rrdd-plugin
   xapi_aux
+  xapi-rate-limit
   xapi-stdext-std
   xapi-stdext-pervasives
   xapi-log.backtrace
@@ -129,6 +135,8 @@
    locking_helpers
    exnHelper
    xapi_role
+   xapi_caller
+   xapi_rate_limit
    xapi_extensions
    db))
  (libraries
@@ -166,6 +174,7 @@
   psq
   ptime
   ptime.clock.os
+  xapi-rate-limit
   rpclib.core
   rpclib.json
   rpclib.xml

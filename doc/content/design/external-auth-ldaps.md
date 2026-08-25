@@ -91,9 +91,11 @@ Given `ldaps` default to `false`, this feature is **NOT** enabled until explicit
 
 #### 3.1.2 Error code
 Following new error codes added to indicate ldaps enable related error
-- POOL_AUTH_ENABLE_FAILED_NO_CERTS,  no certs can be used for ldaps, refer to 4.1.2 for certs finding.
-- POOL_AUTH_ENABLE_FAILED_INVALID_CERTS, found certs, but none of the certs can be used to connect to DC
-**Note**: Current error code handing infrustrucure requires the error code prefix with POOL_AUTH_ENABLE_FAILED
+- `POOL_AUTH_ENABLE_FAILED_NO_TRUSTED_CERTS`: no trusted certs can be used for ldaps, refer to 4.1.2 for trusted certs finding.
+- `POOL_AUTH_ENABLE_FAILED_INVALID_TRUSTED_CERTS`: found trusted certs, but none of the trusted certs can be used to connect to DC.
+- `POOL_AUTH_ENABLE_FAILED_SETUP_TLS_CONNECTION`: failed to set up TLS connection to DC (e.g. GnuTLS handshake failure such as `tstream_tls_sync_setup: GNUTLS ERROR`). The error message contains the underlying details reported by winbind.
+
+**Note**: Current error code handling infrastructure requires the error code prefix with `POOL_AUTH_ENABLE_FAILED`.
 
 ### 3.2 Set/Get Pool LDAPS Status
 
@@ -135,10 +137,11 @@ xe pool-external-auth-set-ldaps uuid=<uuid> ldaps=<true|false>
 
 #### 3.2.1.2 Error code
 This API may raise following errors
-- AUTH_NO_CERTS, no certs found to enable ldaps, refer to 4.1.2 for certs finding
-- AUTH_INVALID_CERTS, found certs, but none of the certs can be used to connect to DC
-- AUTH_IS_DISABLED, AD is not enabled
-- AUTH_SET_LDAPS_FAILED,  Failed to set ldaps, the error message contains the details like ldap query on domain failed
+- `AUTH_NO_TRUSTED_CERTS`: no trusted certs found to enable ldaps, refer to 4.1.2 for trusted certs finding.
+- `AUTH_INVALID_TRUSTED_CERTS`: found trusted certs, but none of the trusted certs can be used to connect to DC.
+- `AUTH_SETUP_TLS_CONNECTION`: failed to set up TLS CONNECTION to DC (e.g. GnuTLS handshake failure such as `tstream_tls_sync_setup: GNUTLS ERROR`). The error message contains the underlying details reported by winbind.
+- `AUTH_IS_DISABLED`: AD is not enabled.
+- `AUTH_SET_LDAPS_FAILED`: Failed to set ldaps, the error message contains the details like ldap query on domain failed.
 
 #### 3.2.2 Get Pool LDAPS Status
 
@@ -268,10 +271,10 @@ alt precheck failed
 client-->>user: precheck failed
 end
 
-Note over client,coor: sync all ldaps certs
-client->>coor: pool.download_trusted_certificate
-coor-->>client:
-client->>join: pool.install_trusted_certificate
+Note over client,coor: sync trusted CA certs from coordinator to joining host
+client->>join: pool.sync_trusted_certificates_from
+join->>coor: pool.exchange_trusted_certificates_on_join
+coor-->>join:
 join-->>client:
 
 user->>client: join domain username/password
@@ -289,15 +292,11 @@ client-->>user: pool.join succeed
 
 **Detailed Steps:**
 
-1. Client find proper `ldaps certs` from pool coordinator as `certs_pool`
-   - a. find all certs `ldaps in purpose`
-   - b. if no LDAPS certs, find all `general` certs
-2. Client find all certs in joining host as `certs_joining_host`
-3. Client identify the certs needs to be synced to joining host as `certs_to_sync = certs_pool - certs_joining_host` (certs in `certs_pool`, but not in `certs_joining_host`), the certs fingerprint should be used to identify the certs
-4. Client download all `certs_to_sync`, `pool.download_trusted_certificate` from coordinator
-5. Client upload all certs to joining pool, `pool.install_trusted_certificate` to joining pool, with the same purpose
-6. Client trigger `pool.join` again with domain username and password
-7. After pool.join:
+1. Client calls `pool.sync_trusted_certificates_from` to joiner host. The call will
+   - a. download all trusted certificates from the pool, and
+   - b. install the trusted certificates into the joiner host.
+2. Client trigger `pool.join` again with domain username and password
+3. After pool.join:
    - If pool.join failed, Client call `pool.uninstall_trusted_certificate` on joining host to revert the certs
    - If pool.join succeed, do nothing as pool.join would sync the certs anyway
 

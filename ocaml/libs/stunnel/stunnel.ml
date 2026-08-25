@@ -173,6 +173,17 @@ let debug_conf_of_env () : string =
   |> String.lowercase_ascii
   |> fun x -> List.mem x ["yes"; "true"; "1"] |> debug_conf_of_bool
 
+module Openssl = struct
+  (* The OpenSSL-rendered cipher list and ECDHE curve the stunnel client
+     negotiates, re-exported from the single source of truth in Tls_policy so
+     callers that must match it (the ktls-helper, which replaces the
+     per-migration stunnel client) share one definition instead of keeping a
+     second copy that can drift. *)
+  let default_ciphers = Tls_policy.Openssl.default_ciphers
+
+  let default_curve = Tls_policy.Openssl.default_curve
+end
+
 let config_file ?(accept = None) config host port =
   ( match config with
   | None ->
@@ -224,9 +235,9 @@ let config_file ?(accept = None) config host port =
          )
        ; [Printf.sprintf "connect=%s:%d" host port]
        ; [
-           "sslVersion = TLSv1.2"
-         ; "ciphers = " ^ Constants.good_ciphersuites
-         ; "curve = secp384r1"
+           Printf.sprintf "sslVersion = %s" Tls_policy.Openssl.default_version
+         ; Printf.sprintf "ciphers = %s" Tls_policy.Openssl.default_ciphers
+         ; Printf.sprintf "curve = %s" Tls_policy.Openssl.default_curve
          ]
        ; ( match config with
          | None ->
@@ -536,6 +547,15 @@ module UnixSocketProxy = struct
     Printf.sprintf "/tmp/stunnel-proxy-%s-%d-%s.sock" remote_host remote_port
       uuid
 
+  let kill pid =
+    match pid with
+    | StdFork _ | FEFork _ -> (
+      try Unix.kill (getpid pid) Sys.sigkill
+      with Unix.Unix_error (Unix.ESRCH, _, _) -> ()
+    )
+    | Nopid ->
+        ()
+
   let diagnose handle =
     let ic = handle.proxy_log_ic in
     Stunnel_log_scanner.check_stunnel_logfile ~ic (fun s -> !stunnel_logger s)
@@ -572,7 +592,8 @@ module UnixSocketProxy = struct
     let ic = open_in logfile in
     let clean_up () =
       close_in ic ;
-      disconnect_with_pid ~wait:false ~force:true pid ;
+      kill pid ;
+      disconnect_with_pid pid ;
       Unixext.unlink_safe unix_socket_path ;
       Unixext.unlink_safe logfile
     in
@@ -614,7 +635,8 @@ module UnixSocketProxy = struct
     Ok handle
 
   let stop handle =
-    disconnect_with_pid ~wait:false ~force:true handle.proxy_pid ;
+    kill handle.proxy_pid ;
+    disconnect_with_pid handle.proxy_pid ;
     Unixext.unlink_safe handle.proxy_socket_path ;
     close_in handle.proxy_log_ic ;
     Unixext.unlink_safe handle.proxy_logfile ;

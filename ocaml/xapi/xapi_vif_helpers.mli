@@ -55,6 +55,7 @@ val create :
   -> ipv6_configuration_mode:[< `None | `Static]
   -> ipv6_addresses:string list
   -> ipv6_gateway:string
+  -> trunks:int64 list
   -> API.ref_VIF
 (** Create a VIF object in the database. *)
 

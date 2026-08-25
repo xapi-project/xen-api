@@ -37,7 +37,13 @@ let certificate_type =
 let certificate_purpose =
   Enum
     ( "certificate_purpose"
-    , [("licensing", "Trusted certificates that are for licensing purpose.")]
+    , [
+        ("licensing", "Trusted certificates that are for licensing purpose.")
+      ; ( "ldaps"
+        , "Trusted certificates that are for LDAPS connections to external \
+           authentication services."
+        )
+      ]
     )
 
 let t =

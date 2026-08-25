@@ -360,6 +360,10 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
     (* nothing to do here in this unix plugin *)
     ()
 
+  let set_ldaps ~__context:_ ~ldaps:_ ~force:_ =
+    (* ldaps not applicable for PAM auth *)
+    ()
+
   (* Implement the single value required for the module signature *)
   let methods =
     Auth_signature.
@@ -373,5 +377,6 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
       ; on_disable
       ; on_xapi_initialize
       ; on_xapi_exit
+      ; set_ldaps
       }
 end

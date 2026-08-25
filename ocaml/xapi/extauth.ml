@@ -203,6 +203,14 @@ let call_with_exception_handler fn =
       raise (Api_errors.Server_error (Api_errors.auth_unknown_type, [msg]))
   | Not_found | Auth_signature.Subject_cannot_be_resolved ->
       raise (Api_errors.Server_error (Api_errors.subject_cannot_be_resolved, []))
+  | Auth_signature.Auth_service_error (E_INVALID_TRUSTED_CERTS, msg) ->
+      raise
+        (Api_errors.Server_error (Api_errors.auth_invalid_trusted_certs, [msg]))
+  | Auth_signature.Auth_service_error (E_NO_TRUSTED_CERTS, msg) ->
+      raise (Api_errors.Server_error (Api_errors.auth_no_trusted_certs, [msg]))
+  | Auth_signature.Auth_service_error (E_FAILED_SETUP_TLS_CONNECTION, msg) ->
+      raise
+        (Api_errors.Server_error (Api_errors.auth_setup_tls_connection, [msg]))
   | Auth_signature.Auth_service_error (_, msg) ->
       raise (Api_errors.Server_error (Api_errors.auth_service_error, [msg]))
   | e ->

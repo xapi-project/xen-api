@@ -2,6 +2,8 @@
 #
 # attach-static-vdis    Attaches any statically-configured VDIs to dom0
 
+shopt -s nullglob
+
 STATE_DIR=/etc/xensource/static-vdis
 
 [ -d ${STATE_DIR} ] || exit 0
@@ -52,7 +54,7 @@ start() {
 	clear_stale_state
 	attach_all
 	RC=$?
-	echo 
+	echo
 	return $RC
 }
 

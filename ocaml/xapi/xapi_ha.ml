@@ -1908,6 +1908,8 @@ let enable __context heartbeat_srs configuration =
   let cluster_stack =
     Cluster_stack_constraints.choose_cluster_stack ~__context
   in
+  if cluster_stack = Constants.Ha_cluster_stack.(to_string Corosync) then
+    Xapi_clustering.assert_pool_ready_for_corosync_ha ~__context ~cluster_stack ;
   Db.Pool.set_ha_cluster_stack ~__context ~self:pool ~value:cluster_stack ;
   Localdb.put Constants.ha_cluster_stack cluster_stack ;
   (* Steps from 8.7 Enabling HA in Marathon spec:

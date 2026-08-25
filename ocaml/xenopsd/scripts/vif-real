@@ -107,6 +107,29 @@ handle_mtu()
     fi
 }
 
+handle_trunks()
+{
+    local trunks
+
+    if trunks=$(xenstore-read "${PRIVATE}/trunks" 2>/dev/null); then
+        case $NETWORK_MODE in
+            bridge)
+                logger -t scripts-vif "${dev}: trunks is not supported via bridge mode."
+                ;;
+            openvswitch)
+                logger -t scripts-vif "Setting ${dev} trunks ${trunks}"
+                if [ -z "${trunks}" ]; then
+                    ${vsctl} clear Port "${dev}" trunks || logger -t scripts-vif "Failed to ovs-vsctl clear Port ${dev} trunks. Error code $?"
+                else
+                    ${vsctl} set Port "${dev}" "trunks=${trunks}" || logger -t scripts-vif "Failed to ovs-vsctl set Port ${dev} trunks=${trunks}. Error code $?"
+                fi
+                ;;
+        esac
+    else
+        handle_error "Failed to read ${PRIVATE}/trunks"
+    fi
+}
+
 add_to_bridge()
 {
     local address=$(xenstore-read "${PRIVATE}/bridge-MAC")
@@ -234,6 +257,7 @@ online)
 
         handle_mtu
         add_to_bridge
+        handle_trunks
         handle_promiscuous
 
         # only for the benefit of xenrt test case, see CA-61528
@@ -250,6 +274,7 @@ add)
     if [ "${TYPE}" = "tap" ] ; then
         handle_mtu
         add_to_bridge
+        handle_trunks
     fi
     ;;
 
@@ -270,5 +295,6 @@ remove)
 move)
     if [ "${TYPE}" = "vif" ] ;then
         add_to_bridge
+        handle_trunks
     fi
 esac

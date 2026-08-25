@@ -164,6 +164,9 @@ val _data_destroy :
 
 val resize : __context:Context.t -> vdi:[`VDI] API.Ref.t -> size:int64 -> unit
 
+val resize_online :
+  __context:Context.t -> vdi:[`VDI] API.Ref.t -> size:int64 -> unit
+
 val generate_config :
   __context:Context.t -> host:'a -> vdi:[`VDI] API.Ref.t -> string
 

@@ -30,7 +30,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Management.Automation;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Xml;
 using XenAPI;
 
 namespace Citrix.XenServer
@@ -39,6 +43,7 @@ namespace Citrix.XenServer
     {
         private const string SessionsVariable = "global:Citrix.XenServer.Sessions";
         private const string DefaultSessionVariable = "global:XenServer_Default_Session";
+        private const string CertificatesPathVariable = "global:KnownServerCertificatesFilePath";
 
         internal static Dictionary<string, Session> GetAllSessions(PSCmdlet cmdlet)
         {
@@ -137,5 +142,125 @@ namespace Citrix.XenServer
                 }
             }
         }
+
+        internal static bool VerifyInAllStores(X509Certificate2 certificate2)
+        {
+            try
+            {
+                X509Chain chain = new X509Chain(true);
+                return chain.Build(certificate2) || certificate2.Verify();
+            }
+            catch (CryptographicException)
+            {
+                return false;
+            }
+        }
+
+        internal static string GetCertificatesPath(PSCmdlet cmdlet)
+        {
+            var certPathObject = cmdlet.SessionState.PSVariable.GetValue(CertificatesPathVariable);
+
+            return certPathObject is PSObject psObject
+                ? psObject.BaseObject as string
+                : certPathObject?.ToString() ?? string.Empty;
+        }
+
+        internal static Dictionary<string, string> LoadCertificates(string certPath)
+        {
+            var certificates = new Dictionary<string, string>();
+
+            if (File.Exists(certPath))
+            {
+                var doc = new XmlDocument();
+                doc.Load(certPath);
+
+                foreach (XmlNode node in doc.GetElementsByTagName("certificate"))
+                {
+                    var hostAtt = node.Attributes?["hostname"];
+                    var fngprtAtt = node.Attributes?["fingerprint"];
+
+                    if (hostAtt != null && fngprtAtt != null)
+                        certificates[hostAtt.Value] = fngprtAtt.Value;
+                }
+            }
+
+            return certificates;
+        }
+
+        internal static void SaveCertificates(string certPath, Dictionary<string, string> certificates)
+        {
+            string dirName = Path.GetDirectoryName(certPath);
+
+            if (!Directory.Exists(dirName))
+                Directory.CreateDirectory(dirName);
+
+            XmlDocument doc = new XmlDocument();
+            XmlDeclaration decl = doc.CreateXmlDeclaration("1.0", "utf-8", null);
+            doc.AppendChild(decl);
+            XmlNode node = doc.CreateElement("certificates");
+
+            foreach (KeyValuePair<string, string> cert in certificates)
+            {
+                XmlNode certNode = doc.CreateElement("certificate");
+                XmlAttribute hostname = doc.CreateAttribute("hostname");
+                XmlAttribute fingerprint = doc.CreateAttribute("fingerprint");
+                hostname.Value = cert.Key;
+                fingerprint.Value = cert.Value;
+                certNode.Attributes?.Append(hostname);
+                certNode.Attributes?.Append(fingerprint);
+                node.AppendChild(certNode);
+            }
+
+            doc.AppendChild(node);
+            doc.Save(certPath);
+        }
+    }
+
+    internal abstract class CertificateValidationException : Exception
+    {
+        protected const string CERT_TRUSTED = "The certificate on this server is trusted. It is recommended you re-issue this server's certificate.";
+        protected const string CERT_NOT_TRUSTED = "The certificate on this server is not trusted.";
+
+        protected CertificateValidationException(string fingerprint, bool trusted, string hostname)
+        {
+            Fingerprint = fingerprint;
+            Trusted = trusted;
+            Hostname = hostname;
+        }
+
+        protected bool Trusted { get; }
+        public string Fingerprint { get; }
+        public string Hostname { get; }
+        public abstract string Caption { get; }
+    }
+
+    internal class CertificateChangedException : CertificateValidationException
+    {
+        public CertificateChangedException(string fingerprint, bool trusted, string hostname)
+            : base(fingerprint, trusted, hostname)
+        {
+        }
+
+        public override string Caption => "Security Certificate Changed";
+
+        public override string Message =>
+            $"The certificate thumbprint of server {Hostname} has changed since the last time you connected.\n" +
+            $"The certificate thumbprint of the server is:\n{Fingerprint}\n" +
+            (Trusted ? CERT_TRUSTED : CERT_NOT_TRUSTED) +
+            "\nDo you wish to continue?";
+    }
+
+    internal class CertificateNotFoundException : CertificateValidationException
+    {
+        public CertificateNotFoundException(string fingerprint, bool trusted, string hostname)
+            : base(fingerprint, trusted, hostname)
+        {
+        }
+
+        public override string Caption => "New Security Certificate";
+
+        public override string Message => $"The certificate thumbprint of the server you have connected to is :\n{Fingerprint}\n" +
+                                          (Trusted ? CERT_TRUSTED : CERT_NOT_TRUSTED) +
+                                          "\nDo you wish to continue?";
     }
 }

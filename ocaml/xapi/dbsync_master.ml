@@ -55,6 +55,7 @@ let create_pool_record ~__context =
       ~ext_auth_cache_size:50L ~ext_auth_cache_expiry:300L ~recommendations:[]
       ~license_server:[] ~ha_reboot_vm_on_internal_shutdown:true
       ~limit_console_sessions:false ~vm_console_idle_timeout:0L
+      ~auto_update_vm_secureboot_certificates:false
 
 let set_master_ip ~__context =
   let ip =

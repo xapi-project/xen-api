@@ -80,6 +80,7 @@ let vdi_info_of_vdi_rec __context vdi_rec =
   ; persistent= vdi_rec.API.vDI_on_boot = `persist
   ; sharable= vdi_rec.API.vDI_sharable
   ; sm_config= vdi_rec.API.vDI_sm_config
+  ; tags= vdi_rec.API.vDI_tags
   }
 
 let redirect _sr =
@@ -1056,6 +1057,28 @@ module SMAPIv1 : Server_impl = struct
           Db.VDI.remove_from_sm_config ~__context ~self ~key
       )
 
+    let add_tags _context ~dbg ~sr ~vdi ~key =
+      with_dbg ~name:"VDI.add_to_tags" ~dbg @@ fun di ->
+      info "VDI.add_tags dbg:%s sr:%s vdi:%s key:[%s]" di.log (s_of_sr sr)
+        (s_of_vdi vdi) key ;
+      let dbg = Debug_info.to_string di in
+      Server_helpers.exec_with_new_task "VDI.add_tags"
+        ~subtask_of:(Ref.of_string dbg) (fun __context ->
+          let vdi, _ = find_vdi ~__context sr vdi in
+          Db.VDI.add_tags ~__context ~self:vdi ~value:key
+      )
+
+    let remove_tags _context ~dbg ~sr ~vdi ~key =
+      with_dbg ~name:"VDI.remove_tags" ~dbg @@ fun di ->
+      info "VDI.remove_tags dbg:%s sr:%s vdi:%s key:%s" di.log (s_of_sr sr)
+        (s_of_vdi vdi) key ;
+      let dbg = Debug_info.to_string di in
+      Server_helpers.exec_with_new_task "VDI.remove_tags"
+        ~subtask_of:(Ref.of_string dbg) (fun __context ->
+          let self = find_vdi ~__context sr vdi |> fst in
+          Db.VDI.remove_tags ~__context ~self ~value:key
+      )
+
     let get_url _context ~dbg ~sr ~vdi =
       with_dbg ~name:"VDI.get_url" ~dbg @@ fun di ->
       info "VDI.get_url dbg:%s sr:%s vdi:%s" di.log (s_of_sr sr) (s_of_vdi vdi) ;
@@ -1173,12 +1196,11 @@ module SMAPIv1 : Server_impl = struct
           ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
         assert false
 
-      let receive_start _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~image_format:_
-          ~similar:_ =
+      let receive_start _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ =
         assert false
 
-      let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~image_format:_
-          ~similar:_ ~vm:_ =
+      let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_
+          ~vm:_ =
         assert false
 
       let receive_start3 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_

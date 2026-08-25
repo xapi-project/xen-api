@@ -1,0 +1,4 @@
+(tests
+ (names test_token_bucket test_rate_limit test_linked_list test_lru test_caller_table test_caller_statistics)
+ (package xapi-rate-limit)
+ (libraries rate_limit_lib alcotest qcheck-core qcheck-alcotest mtime mtime.clock.os fmt xapi-log threads.posix))

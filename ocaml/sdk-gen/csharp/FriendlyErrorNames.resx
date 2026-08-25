@@ -324,6 +324,12 @@
   <data name="POOL_AUTH_ENABLE_FAILED_DUPLICATE_HOSTNAME" xml:space="preserve">
     <value>Failed to enable external authentication, a duplicate hostname was detected.</value>
   </data>
+  <data name="POOL_AUTH_ENABLE_FAILED_INVALID_TRUSTED_CERTS" xml:space="preserve">
+    <value>Failed to enable external authentication, none of the found certificates can be used to connect to domain controller.</value>
+  </data>
+  <data name="POOL_AUTH_ENABLE_FAILED_NO_TRUSTED_CERTS" xml:space="preserve">
+    <value>Failed to enable external authentication, no certificates are available for LDAPS communication.</value>
+  </data>
   <data name="POOL_AUTH_ENABLE_FAILED_PERMISSION_DENIED" xml:space="preserve">
     <value>Failed to enable external authentication, permission on the AD server was denied.</value>
   </data>
