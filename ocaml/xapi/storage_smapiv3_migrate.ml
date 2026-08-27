@@ -35,10 +35,10 @@ let mirror_poll_interval = 0.5
 let nbd_proxy_path_of_vm vm =
   Printf.sprintf "/var/run/nbdproxy/export/%s" (Vm.string_of vm)
 
-let export_nbd_proxy ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest =
+let export_nbd_proxy ~proxy_srv ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest
+    =
   D.debug "%s spawning exporting nbd proxy" __FUNCTION__ ;
   let path = nbd_proxy_path_of_vm mirror_vm in
-  let proxy_srv = Fecomms.open_unix_domain_sock_server path in
   try
     let uri =
       Printf.sprintf "/services/SM/nbdproxy/import/%s/%s/%s/%s"
@@ -125,12 +125,20 @@ let nbd_export_of_attach_info backend =
 
 let start_nbd_proxy_thread ~url ~mirror_vm ~dest_sr ~mirror_vdi ~mirror_datapath
     ~verify_dest =
-  Thread.create
-    (fun () ->
-      export_nbd_proxy ~remote_url:url ~mirror_vm ~sr:dest_sr
-        ~vdi:mirror_vdi.vdi ~dp:mirror_datapath ~verify_dest
-    )
-    ()
+  (* Listen before returning: the caller hands the socket path to qemu-dp as
+     soon as we do, and a bound socket queues connections in its backlog
+     without waiting for the thread to reach Unix.accept. *)
+  let proxy_srv =
+    Fecomms.open_unix_domain_sock_server (nbd_proxy_path_of_vm mirror_vm)
+  in
+  try
+    Thread.create
+      (fun () ->
+        export_nbd_proxy ~proxy_srv ~remote_url:url ~mirror_vm ~sr:dest_sr
+          ~vdi:mirror_vdi.vdi ~dp:mirror_datapath ~verify_dest
+      )
+      ()
+  with e -> Unix.close proxy_srv ; raise e
 
 let nbd_uri_of_export ~nbd_proxy_path export =
   Uri.make ~scheme:"nbd+unix" ~host:"" ~path:export
