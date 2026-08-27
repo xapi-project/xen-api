@@ -831,7 +831,10 @@ type vdi_mirror = {
         (** The 'locator' xenops uses to refer to the VDI on the current host *)
   ; size: Int64.t  (** Size of the VDI *)
   ; snapshot_of: [`VDI] API.Ref.t  (** API's snapshot_of reference *)
-  ; do_mirror: bool  (** Whether we should mirror or just copy the VDI *)
+  ; snapshot_parent: [`VDI] API.Ref.t option
+        (** The VDI this one directly follows in its disk's snapshot chain *)
+  ; is_active_leaf: bool
+        (** Whether this is the VM's active disk rather than a snapshot *)
   ; mirror_vm: Vm.t
         (** The domain slice to which SMAPI calls should be made when mirroring this vdi *)
   ; copy_vm: Vm.t
@@ -888,9 +891,45 @@ let eject_cds __context cd_vbds =
       List.iter (fun vbd -> XenAPI.VBD.eject ~rpc ~session_id ~vbd) cd_vbds
   )
 
+(* The VDI [vdi] follows in its disk's snapshot chain: the disk of the
+   nearest ancestor of [vm] that has one, so a branch the VM has reverted
+   away from starts a chain of its own. *)
+let lineage_parent_of ~__context ~vm ~vdi =
+  let active =
+    let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:vdi in
+    if Db.is_valid_ref __context snapshot_of then
+      snapshot_of
+    else
+      vdi
+  in
+  let disk_of snapshot_vm =
+    Db.VM.get_VBDs ~__context ~self:snapshot_vm
+    |> List.filter (fun vbd ->
+        Db.VBD.get_type ~__context ~self:vbd = `Disk
+        && not (Db.VBD.get_empty ~__context ~self:vbd)
+    )
+    |> List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd)
+    |> List.find_opt (fun vdi ->
+        Db.VDI.get_snapshot_of ~__context ~self:vdi = active
+    )
+  in
+  let rec ancestor child =
+    let parent = Db.VM.get_parent ~__context ~self:child in
+    if not (Db.is_valid_ref __context parent) then
+      None
+    else
+      match disk_of parent with
+      | Some _ as found ->
+          found
+      | None ->
+          ancestor parent
+  in
+  ancestor vm
+
 (* Gather together some important information when mirroring VDIs *)
-let get_vdi_mirror __context vm vdi do_mirror =
+let get_vdi_mirror __context vm vdi is_active_leaf =
   let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:vdi in
+  let snapshot_parent = lineage_parent_of ~__context ~vm ~vdi in
   let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
   let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
   let location =
@@ -926,7 +965,8 @@ let get_vdi_mirror __context vm vdi do_mirror =
   ; xenops_locator
   ; size
   ; snapshot_of
-  ; do_mirror
+  ; snapshot_parent
+  ; is_active_leaf
   ; copy_vm
   ; mirror_vm
   }
@@ -940,15 +980,15 @@ let vdi_filter __context allow_mirror vbd =
   then
     None
   else
-    let do_mirror =
+    let is_active_leaf =
       allow_mirror && Db.VBD.get_mode ~__context ~self:vbd = `RW
     in
     let vm = Db.VBD.get_VM ~__context ~self:vbd in
     let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-    Some (get_vdi_mirror __context vm vdi do_mirror)
+    Some (get_vdi_mirror __context vm vdi is_active_leaf)
 
 let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
-    total_size copy vconf continuation =
+    total_size copy done_map vconf continuation =
   TaskHelper.exn_if_cancelling ~__context ;
   let dest_sr_ref = List.assoc vconf.vdi vdi_map in
   let dest_sr_uuid =
@@ -1039,10 +1079,32 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
     else
       (not is_intra_pool) || dest_sr <> vconf.sr
   in
+  (* The destination copy of the VDI this one follows. A VDI at the root of
+     its chain has none; every other one is copied onto its parent to
+     reproduce the chain, so a parent that has not been copied yet is a bug in
+     the order the VDIs are copied in rather than something to work around. *)
+  let dest_base =
+    vconf.snapshot_parent
+    |> Option.map (fun parent ->
+        match
+          List.find_opt
+            (fun mr ->
+              mr.mr_local_vdi_reference = parent && mr.mr_remote_sr = dest_sr
+            )
+            done_map
+        with
+        | Some mr ->
+            mr.mr_remote_vdi
+        | None ->
+            Storage_migrate_helper.failwith_fmt
+              "VDI %s follows %s, which has not been copied to SR %s"
+              (Ref.string_of vconf.vdi) (Ref.string_of parent) dest_sr_uuid
+    )
+  in
   let with_new_dp cont =
     let dp =
       Printf.sprintf
-        ( if vconf.do_mirror then
+        ( if vconf.is_active_leaf then
             "mirror_%s"
           else
             "copy_%s"
@@ -1117,9 +1179,9 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
   in
   let mirror_to_remote new_dp =
     let task =
-      if not vconf.do_mirror then
-        SMAPI.DATA.copy dbg vconf.sr vconf.location vconf.copy_vm remote.sm_url
-          dest_sr is_intra_pool
+      if not vconf.is_active_leaf then
+        SMAPI.DATA.copy2 dbg vconf.sr vconf.location vconf.copy_vm remote.sm_url
+          dest_sr dest_base vconf.format is_intra_pool
       else
         (* Though we have no intention of "write", here we use the same mode as the
            associated VBD on a mirrored VDIs (i.e. always RW). This avoids problem
@@ -1150,7 +1212,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         Storage_migrate.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:new_dp
           ~image_format:vconf.format ~mirror_vm:vconf.mirror_vm
           ~copy_vm:vconf.copy_vm ~live_vm ~url:remote.sm_url ~dest:dest_sr
-          ~verify_dest:is_intra_pool ~dest_base:None
+          ~verify_dest:is_intra_pool ~dest_base
     in
     let mapfn x =
       let total = Int64.to_float total_size in
@@ -1169,7 +1231,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
       |> success_task dbg
     in
     let mirror_id, remote_vdi =
-      if not vconf.do_mirror then (
+      if not vconf.is_active_leaf then (
         let vdi = task_result |> vdi_of_task dbg in
         remote_vdis := vdi.vdi :: !remote_vdis ;
         (None, vdi.vdi)
@@ -1181,7 +1243,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
     so_far := Int64.add !so_far vconf.size ;
     debug "Local VDI %s %s to %s"
       (Storage_interface.Vdi.string_of vconf.location)
-      ( if vconf.do_mirror then
+      ( if vconf.is_active_leaf then
           "mirrored"
         else
           "copied"
@@ -1255,14 +1317,15 @@ let wait_for_fist __context fistpoint name =
     )
   )
 
-(* Helper function to apply a 'with_x' function to a list *)
+(* Helper function to apply a 'with_x' function to a list. Each element is
+   given the results accumulated from the elements before it. *)
 let rec with_many withfn many fn =
   let rec inner l acc =
     match l with
     | [] ->
         fn acc
     | x :: xs ->
-        withfn x (fun y -> inner xs (y :: acc))
+        withfn acc x (fun y -> inner xs (y :: acc))
   in
   inner many []
 
@@ -1508,16 +1571,23 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vdi_format_map ~vif_map
   in
   let vdi_map = vdi_map @ extra_vdi_map in
   let all_vdis =
+    let format_of vconf =
+      match get_vdi_type ~vdi_ref:vconf.vdi ~vdi_format_map with
+      | Some _ as format ->
+          format
+      | None ->
+          (* A snapshot has the image format of the disk it is a snapshot of *)
+          get_vdi_type ~vdi_ref:vconf.snapshot_of ~vdi_format_map
+    in
     List.map
-      (fun vm ->
-        match get_vdi_type ~vdi_ref:vm.vdi ~vdi_format_map with
+      (fun vconf ->
+        match format_of vconf with
         | None ->
-            vm
-        | Some vdi_ty ->
-            {vm with format= vdi_ty}
+            vconf
+        | Some format ->
+            {vconf with format}
       )
-      vms_vdis
-    @ extra_vdis
+      (vms_vdis @ extra_vdis)
   in
   (* This is a good time to check our VDIs, because the vdi_map should be
      complete at this point; it should include all the VDIs in the all_vdis list. *)
@@ -1540,24 +1610,73 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vdi_format_map ~vif_map
   let cd_vbds = find_cds_to_eject __context vdi_map vbds in
   eject_cds __context cd_vbds ;
   try
-    (* Sort VDIs by size in principle and then age secondly. This gives better
-       chances that similar but smaller VDIs would arrive comparatively
-       earlier, which can serve as base for incremental copying the larger
-       ones. *)
-    let compare_fun v1 v2 =
-      let r = Int64.compare v1.size v2.size in
-      if r = 0 then
-        let t1 =
-          Date.to_unix_time (Db.VDI.get_snapshot_time ~__context ~self:v1.vdi)
+    (* Transfer the VDIs one snapshot tree at a time, smallest tree first: a
+       small tree arrives early and its disks can then serve as a base for
+       incrementally copying the larger ones. Within a tree the order is a
+       depth-first walk, so a VDI always comes after the one it is copied
+       onto, and a branch finishes before its siblings start. *)
+    let all_vdis =
+      let module VdiRef = struct
+        type t = [`VDI] API.Ref.t
+
+        let compare = Ref.compare
+      end in
+      let module VdiMap = Map.Make (VdiRef) in
+      let module VdiSet = Set.Make (VdiRef) in
+      let present = VdiSet.of_list (List.map (fun v -> v.vdi) all_vdis) in
+      (* Siblings go oldest first, with the disk itself after its snapshots. *)
+      let eldest_first =
+        let key v =
+          ( not (Db.is_valid_ref __context v.snapshot_of)
+          , Date.to_unix_time (Db.VDI.get_snapshot_time ~__context ~self:v.vdi)
+          )
         in
-        let t2 =
-          Date.to_unix_time (Db.VDI.get_snapshot_time ~__context ~self:v2.vdi)
-        in
-        compare t1 t2
-      else
-        r
+        List.map (fun v -> (key v, v)) all_vdis
+        |> List.sort (fun (k1, _) (k2, _) -> compare k1 k2)
+        |> List.map snd
+      in
+      let children =
+        List.fold_left
+          (fun acc v ->
+            match v.snapshot_parent with
+            | Some parent when VdiSet.mem parent present ->
+                VdiMap.update parent
+                  (fun siblings -> Some (v :: Option.value ~default:[] siblings))
+                  acc
+            | _ ->
+                acc
+          )
+          VdiMap.empty eldest_first
+        |> VdiMap.map List.rev
+      in
+      let rec walk v =
+        v
+        :: (VdiMap.find_opt v.vdi children
+           |> Option.value ~default:[]
+           |> List.concat_map walk
+           )
+      in
+      (* A VDI roots a tree when it has to be copied from scratch: either it
+         has no parent, or its parent is not part of this migration. *)
+      let is_root v =
+        match v.snapshot_parent with
+        | None ->
+            true
+        | Some parent ->
+            not (VdiSet.mem parent present)
+      in
+      (* A tree costs as much as its largest VDI, which is its active disk. *)
+      let tree_size tree =
+        List.fold_left (fun acc v -> Int64.max acc v.size) 0L tree
+      in
+      List.filter is_root all_vdis
+      |> List.map (fun root ->
+          let tree = walk root in
+          (tree_size tree, tree)
+      )
+      |> List.stable_sort (fun (s1, _) (s2, _) -> Int64.compare s1 s2)
+      |> List.concat_map snd
     in
-    let all_vdis = all_vdis |> List.sort compare_fun in
     let total_size =
       List.fold_left (fun acc vconf -> Int64.add acc vconf.size) 0L all_vdis
     in
