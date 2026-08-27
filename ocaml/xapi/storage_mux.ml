@@ -871,6 +871,9 @@ module Mux = struct
     let copy () ~dbg =
       with_dbg ~name:"DATA.copy" ~dbg @@ fun dbg -> Storage_migrate.copy ~dbg
 
+    let copy2 () ~dbg =
+      with_dbg ~name:"DATA.copy2" ~dbg @@ fun dbg -> Storage_migrate.copy2 ~dbg
+
     let mirror () ~dbg ~sr ~vdi ~image_format ~vm ~dest =
       with_dbg ~name:"DATA.mirror" ~dbg @@ fun di ->
       info "%s dbg:%s sr: %s vdi: %s image_format: %s vm:%s  remote:%s"

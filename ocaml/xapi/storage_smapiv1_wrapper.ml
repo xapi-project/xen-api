@@ -1186,6 +1186,11 @@ functor
           (s_of_vdi vdi) url (s_of_sr dest) ;
         Impl.DATA.copy context ~dbg ~sr ~vdi ~vm ~url ~dest
 
+      let copy2 context ~dbg ~sr ~vdi ~vm ~url ~dest =
+        info "DATA.copy2 dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg (s_of_sr sr)
+          (s_of_vdi vdi) url (s_of_sr dest) ;
+        Impl.DATA.copy2 context ~dbg ~sr ~vdi ~vm ~url ~dest
+
       let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~image_format:_ ~vm:_ ~dest:_ =
         Storage_interface.unimplemented __FUNCTION__
 

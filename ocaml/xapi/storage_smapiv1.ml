@@ -1179,6 +1179,10 @@ module SMAPIv1 : Server_impl = struct
     let copy _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~url:_ ~dest:_ ~verify_dest:_ =
       assert false
 
+    let copy2 _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~url:_ ~dest:_ ~dest_base:_
+        ~image_format:_ ~verify_dest:_ =
+      assert false
+
     let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~image_format:_ ~vm:_ ~dest:_ =
       assert false
 

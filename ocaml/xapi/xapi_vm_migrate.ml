@@ -1150,7 +1150,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         Storage_migrate.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:new_dp
           ~image_format:vconf.format ~mirror_vm:vconf.mirror_vm
           ~copy_vm:vconf.copy_vm ~live_vm ~url:remote.sm_url ~dest:dest_sr
-          ~verify_dest:is_intra_pool
+          ~verify_dest:is_intra_pool ~dest_base:None
     in
     let mapfn x =
       let total = Int64.to_float total_size in

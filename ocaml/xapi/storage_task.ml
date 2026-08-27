@@ -39,3 +39,8 @@ let signal id =
     Updates.add (Dynamic.Task id) updates
   with Storage_error (Does_not_exist _) ->
     debug "TASK.signal %s (object deleted)" id
+
+let progress_callback start len t y =
+  let new_progress = start +. (y *. len) in
+  Storage_task.set_state t (Task.Pending new_progress) ;
+  signal (Storage_task.id_of_handle t)

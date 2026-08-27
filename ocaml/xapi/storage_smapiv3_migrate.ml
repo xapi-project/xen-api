@@ -76,7 +76,7 @@ let export_nbd_proxy ~proxy_srv ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest
     Unix.close proxy_srv ;
     raise e
 
-let wait_for_mirror ~dbg ~sr ~vdi ~vm ?mirror_id ~error_msg mirror_key =
+let wait_for_mirror ~dbg ~task ~sr ~vdi ~vm ?mirror_id ~error_msg mirror_key =
   let on_failure () =
     match mirror_id with
     | Some mid ->
@@ -86,32 +86,110 @@ let wait_for_mirror ~dbg ~sr ~vdi ~vm ?mirror_id ~error_msg mirror_key =
     | None ->
         ()
   in
+  (* [task] is [None] when the caller holds no handle: the mirror then
+     reports no progress and cannot be cancelled. *)
+  let report p =
+    D.debug "%s mirror progress: %.2f" __FUNCTION__ p ;
+    Option.iter (fun t -> progress_callback 0.05 0.9 t p) task
+  in
   let rec poll key =
+    Option.iter Storage_task.check_cancelling task ;
     let {failed; complete; progress} : Mirror.status =
       Local.DATA.stat dbg sr vdi vm key
     in
+    Option.iter report progress ;
     if complete then
-      Option.iter
-        (fun p -> D.debug "%s mirror completed, progress: %.2f" __FUNCTION__ p)
-        progress
+      D.debug "%s mirror completed" __FUNCTION__
     else if failed then (
       on_failure () ;
       raise
         (Storage_interface.Storage_error (Migration_mirror_failure error_msg))
     ) else (
-      Option.iter
-        (fun p -> D.debug "%s mirror progress: %.2f" __FUNCTION__ p)
-        progress ;
       Unix.sleepf mirror_poll_interval ;
       poll key
     )
   in
   match mirror_key with
   | Storage_interface.Mirror.CopyV1 _ ->
-      ()
+      (* Both callers start a mirror, so a copy key means the poll below is
+         skipped and the caller wrongly sees a finished transfer. *)
+      raise
+        (Storage_interface.Storage_error
+           (Internal_error "wait_for_mirror was given a copy key")
+        )
   | Storage_interface.Mirror.MirrorV1 _ ->
       D.debug "%s waiting for mirror to complete" __FUNCTION__ ;
       poll mirror_key
+
+let detach_snapshot_vdi ~dbg ~dp ~sr ~snapshot_vdi ~copy_vm =
+  D.debug "%s detaching snapshot VDI %s" __FUNCTION__ (s_of_vdi snapshot_vdi) ;
+  Fun.protect
+    ~finally:(fun () -> Local.VDI.detach dbg dp sr snapshot_vdi copy_vm)
+    (fun () -> Local.VDI.deactivate dbg dp sr snapshot_vdi copy_vm)
+
+let create_destination_snapshot ~dbg ~dest_sr ~dest_url ~verify_dest
+    ~dest_vdi_info ~src_content_id =
+  let (module Remote) =
+    Storage_migrate_helper.get_remote_backend dest_url verify_dest
+  in
+  D.debug "%s creating snapshot of destination VDI %s" __FUNCTION__
+    (s_of_vdi dest_vdi_info.vdi) ;
+  let dest_snapshot =
+    Remote.VDI.snapshot dbg dest_sr {dest_vdi_info with sm_config= []}
+  in
+  D.debug "%s propagating src content_id %s onto dest snapshot %s" __FUNCTION__
+    src_content_id
+    (s_of_vdi dest_snapshot.vdi) ;
+  Remote.VDI.set_content_id dbg dest_sr dest_snapshot.vdi src_content_id ;
+  {dest_snapshot with content_id= src_content_id}
+
+let mirror_snapshot_into_existing_dest ~dbg ~task ~sr ~snapshot_vdi_uuid
+    ~dest_sr ~dest_url ~verify_dest ~copy_vm ~image_format ~dest_vdi_info
+    ~nbd_uri =
+  SXM.info "%s mirroring snapshot %s into VDI %s" __FUNCTION__ snapshot_vdi_uuid
+    (s_of_vdi dest_vdi_info.vdi) ;
+
+  let snapshot_vdi = Vdi.of_string snapshot_vdi_uuid in
+  let dp = Uuidx.(to_string (make ())) in
+
+  (* Capture content_id before attach: update_snapshot_info_dest asserts src
+     and dest content_ids match. *)
+  let src_content_id =
+    try (Local.VDI.stat dbg sr snapshot_vdi).content_id
+    with e ->
+      D.warn "%s failed to stat src snapshot %s for content_id: %s" __FUNCTION__
+        snapshot_vdi_uuid (Printexc.to_string e) ;
+      ""
+  in
+  D.debug "%s captured src snapshot %s content_id=%s" __FUNCTION__
+    snapshot_vdi_uuid src_content_id ;
+
+  ignore (Local.VDI.attach3 dbg dp sr snapshot_vdi copy_vm false) ;
+  Fun.protect
+    ~finally:(fun () ->
+      D.log_and_ignore_exn (fun () ->
+          detach_snapshot_vdi ~dbg ~dp ~sr ~snapshot_vdi ~copy_vm
+      )
+    )
+    (fun () ->
+      Local.VDI.activate_readonly dbg dp sr snapshot_vdi copy_vm ;
+      D.debug "%s starting QEMU mirror from snapshot %s" __FUNCTION__
+        snapshot_vdi_uuid ;
+      let mirror_key =
+        Local.DATA.mirror dbg sr snapshot_vdi image_format copy_vm nbd_uri
+      in
+      wait_for_mirror ~dbg ~task ~sr ~vdi:snapshot_vdi ~vm:copy_vm
+        ~error_msg:(Printf.sprintf "Snapshot %s mirror failed" snapshot_vdi_uuid)
+        mirror_key
+    ) ;
+
+  let dest_snapshot =
+    create_destination_snapshot ~dbg ~dest_sr ~dest_url ~verify_dest
+      ~dest_vdi_info ~src_content_id
+  in
+  D.debug "%s destination snapshot created: %s" __FUNCTION__
+    (s_of_vdi dest_snapshot.vdi) ;
+  dest_snapshot
 
 let nbd_export_of_attach_info backend =
   match Storage_interface.nbd_export_of_attach_info backend with
@@ -145,6 +223,114 @@ let nbd_uri_of_export ~nbd_proxy_path export =
     ~query:[("socket", [nbd_proxy_path])]
     ()
   |> Uri.to_string
+
+(** The VDI a mirror writes into: a clone of [dest_base], or a blank VDI. *)
+let create_destination_vdi (module Remote : SMAPIv2) ~dbg ~dest_sr ~vdi_info
+    ~dest_base =
+  match dest_base with
+  | None ->
+      D.debug "%s creating a blank destination VDI" __FUNCTION__ ;
+      Remote.VDI.create dbg dest_sr vdi_info
+  | Some base ->
+      let clone =
+        Remote.VDI.clone dbg dest_sr (Remote.VDI.stat dbg dest_sr base)
+      in
+      D.debug "%s cloned VDI %s from base %s" __FUNCTION__ (s_of_vdi clone.vdi)
+        (s_of_vdi base) ;
+      (* A clone inherits the base's identity, not [vdi_info]'s. *)
+      Remote.VDI.set_name_label dbg dest_sr clone.vdi vdi_info.name_label ;
+      Remote.VDI.set_name_description dbg dest_sr clone.vdi
+        vdi_info.name_description ;
+      List.iter
+        (fun (key, value) ->
+          Remote.VDI.add_to_sm_config dbg dest_sr clone.vdi key value
+        )
+        vdi_info.sm_config ;
+      let virtual_size =
+        if clone.virtual_size >= vdi_info.virtual_size then
+          clone.virtual_size
+        else
+          Remote.VDI.resize dbg dest_sr clone.vdi vdi_info.virtual_size
+      in
+      {
+        clone with
+        virtual_size
+      ; name_label= vdi_info.name_label
+      ; name_description= vdi_info.name_description
+      ; sm_config= vdi_info.sm_config
+      }
+
+module Copy = struct
+  let prepare_destination_vdi ~dbg ~dest_sr ~url ~verify_dest ~vm ~local_vdi
+      ~dest_base =
+    let (module Remote) = get_remote_backend url verify_dest in
+    let head =
+      create_destination_vdi
+        (module Remote)
+        ~dbg ~dest_sr
+        ~vdi_info:{local_vdi with sm_config= []}
+        ~dest_base
+    in
+    let dp = Uuidx.(to_string (make ())) in
+    let cleanup () =
+      D.debug "%s cleaning up destination VDI %s" __FUNCTION__
+        (s_of_vdi head.vdi) ;
+      D.log_and_ignore_exn (fun () ->
+          Remote.VDI.deactivate dbg dp dest_sr head.vdi vm
+      ) ;
+      D.log_and_ignore_exn (fun () ->
+          Remote.VDI.detach dbg dp dest_sr head.vdi vm
+      ) ;
+      D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg dest_sr head.vdi)
+    in
+    (* [cleanup] is not armed until we return, so undo the clone here. *)
+    let nbd_uri =
+      try
+        let backend = Remote.VDI.attach3 dbg dp dest_sr head.vdi vm true in
+        (* Mirror target: a readonly datapath makes qemu-dp reject it. *)
+        Remote.VDI.activate3 dbg dp dest_sr head.vdi vm ;
+        nbd_uri_of_export ~nbd_proxy_path:(nbd_proxy_path_of_vm vm)
+          (nbd_export_of_attach_info backend)
+      with e ->
+        D.error "%s failed to prepare destination VDI %s: %s" __FUNCTION__
+          (s_of_vdi head.vdi) (Printexc.to_string e) ;
+        cleanup () ;
+        raise e
+    in
+    (head, dp, nbd_uri, cleanup)
+
+  let copy_into_sr ~task ~dbg ~sr ~vdi ~vm ~url ~dest ~dest_base ~image_format
+      ~verify_dest =
+    SXM.info "%s sr:%s vdi:%s url:%s dest:%s dest_base:%s verify_dest:%B"
+      __FUNCTION__ (s_of_sr sr) (s_of_vdi vdi) url (s_of_sr dest)
+      (Option.fold ~none:"none" ~some:s_of_vdi dest_base)
+      verify_dest ;
+    try
+      let local_vdi = Local.VDI.stat dbg sr vdi in
+      let head, dp, nbd_uri, cleanup =
+        prepare_destination_vdi ~dbg ~dest_sr:dest ~url ~verify_dest ~vm
+          ~local_vdi ~dest_base
+      in
+      Fun.protect ~finally:cleanup (fun () ->
+          let _ : Thread.t =
+            start_nbd_proxy_thread ~url ~mirror_vm:vm ~dest_sr:dest
+              ~mirror_vdi:head ~mirror_datapath:dp ~verify_dest
+          in
+          let dest_snapshot =
+            mirror_snapshot_into_existing_dest ~dbg ~task:(Some task) ~sr
+              ~snapshot_vdi_uuid:(s_of_vdi vdi) ~dest_sr:dest ~dest_url:url
+              ~verify_dest ~copy_vm:vm ~image_format ~dest_vdi_info:head
+              ~nbd_uri
+          in
+          Some (Vdi_info dest_snapshot)
+      )
+    with
+    | Storage_error (Backend_error (code, params))
+    | Api_errors.Server_error (code, params) ->
+        raise (Storage_error (Backend_error (code, params)))
+    | e ->
+        raise (Storage_error (Internal_error (Printexc.to_string e)))
+end
 
 let assert_migratable ~__context ~vm_uuid ~active_vdis ~snapshot_vdis =
   let uuid self = Db.VDI.get_uuid ~__context ~self in
@@ -277,7 +463,9 @@ module MIRROR : SMAPIv2_MIRROR = struct
           State.add mirror_id (State.Send_op alm) ;
           D.debug "%s Updated mirror_id %s in the active local mirror"
             __FUNCTION__ mirror_id ;
-          wait_for_mirror ~dbg ~sr ~vdi ~vm:live_vm ~mirror_id
+          (* [send_start] is given a task id rather than a handle, so the
+             leaf mirror is not cancellable from here. *)
+          wait_for_mirror ~dbg ~task:None ~sr ~vdi ~vm:live_vm ~mirror_id
             ~error_msg:"Leaf VDI mirror failed during syncing" mk
         with
         | Storage_interface.Storage_error _ as e ->
@@ -298,13 +486,14 @@ module MIRROR : SMAPIv2_MIRROR = struct
     Storage_interface.unimplemented __FUNCTION__
 
   let receive_start3 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~image_format ~similar:_
-      ~vm ~url ~verify_dest =
+      ~vm ~url ~verify_dest ~dest_base =
     D.debug
       "%s dbg: %s sr: %s vdi: %s id: %s image_format: %s vm: %s url: %s \
-       verify_dest: %B"
+       verify_dest: %B dest_base: %s"
       __FUNCTION__ dbg (s_of_sr sr)
       (string_of_vdi_info vdi_info)
-      mirror_id image_format (s_of_vm vm) url verify_dest ;
+      mirror_id image_format (s_of_vm vm) url verify_dest
+      (Option.fold ~none:"none" ~some:s_of_vdi dest_base) ;
     let (module Remote) = get_remote_backend url verify_dest in
     let on_fail : (unit -> unit) list ref = ref [] in
     try
@@ -313,7 +502,11 @@ module MIRROR : SMAPIv2_MIRROR = struct
         {vdi_info with sm_config= [("base_mirror", mirror_id)]}
       in
       let leaf_dp = Remote.DP.create dbg Uuidx.(to_string (make ())) in
-      let leaf = Remote.VDI.create dbg sr vdi_info in
+      let leaf =
+        create_destination_vdi
+          (module Remote)
+          ~dbg ~dest_sr:sr ~vdi_info ~dest_base
+      in
       D.info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf) ;
       on_fail := (fun () -> Remote.VDI.destroy dbg sr leaf.vdi) :: !on_fail ;
       let backend = Remote.VDI.attach3 dbg leaf_dp sr leaf.vdi vm true in

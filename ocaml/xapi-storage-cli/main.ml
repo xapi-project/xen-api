@@ -331,7 +331,7 @@ let mirror_start common_opts sr vdi dp url dest verify_dest dest_img_format =
         Storage_migrate.start ~dbg ~sr ~vdi ~image_format ~dp ~mirror_vm
           ~copy_vm ~live_vm ~url
           ~dest:(Storage_interface.Sr.of_string dest)
-          ~verify_dest
+          ~verify_dest ~dest_base:None
       in
       Printf.printf "Task id: %s\n" task
     )
