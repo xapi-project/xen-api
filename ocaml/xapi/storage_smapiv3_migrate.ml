@@ -30,11 +30,14 @@ let s_of_vdi = Storage_interface.Vdi.string_of
 
 let s_of_vm = Storage_interface.Vm.string_of
 
+let mirror_poll_interval = 0.5
+
+let nbd_proxy_path_of_vm vm =
+  Printf.sprintf "/var/run/nbdproxy/export/%s" (Vm.string_of vm)
+
 let export_nbd_proxy ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest =
   D.debug "%s spawning exporting nbd proxy" __FUNCTION__ ;
-  let path =
-    Printf.sprintf "/var/run/nbdproxy/export/%s" (Vm.string_of mirror_vm)
-  in
+  let path = nbd_proxy_path_of_vm mirror_vm in
   let proxy_srv = Fecomms.open_unix_domain_sock_server path in
   try
     let uri =
@@ -73,42 +76,67 @@ let export_nbd_proxy ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest =
     Unix.close proxy_srv ;
     raise e
 
-let mirror_wait ~dbg ~sr ~vdi ~vm ~mirror_id mirror_key =
-  let rec mirror_wait_rec key =
+let wait_for_mirror ~dbg ~sr ~vdi ~vm ?mirror_id ~error_msg mirror_key =
+  let on_failure () =
+    match mirror_id with
+    | Some mid ->
+        State.find_active_local_mirror mid
+        |> Option.iter (fun (s : State.Send_state.t) -> s.failed <- true) ;
+        Updates.add (Dynamic.Mirror mid) updates
+    | None ->
+        ()
+  in
+  let rec poll key =
     let {failed; complete; progress} : Mirror.status =
       Local.DATA.stat dbg sr vdi vm key
     in
-    if complete then (
-      Option.fold ~none:()
-        ~some:(fun p -> D.info "%s progress is %f" __FUNCTION__ p)
-        progress ;
-      D.info "%s qemu mirror %s completed" mirror_id __FUNCTION__
-    ) else if failed then (
+    if complete then
       Option.iter
-        (fun (snd_state : State.Send_state.t) -> snd_state.failed <- true)
-        (State.find_active_local_mirror mirror_id) ;
-      D.info "%s qemu mirror %s failed" mirror_id __FUNCTION__ ;
-      State.find_active_local_mirror mirror_id
-      |> Option.iter (fun (s : State.Send_state.t) -> s.failed <- true) ;
-      Updates.add (Dynamic.Mirror mirror_id) updates ;
+        (fun p -> D.debug "%s mirror completed, progress: %.2f" __FUNCTION__ p)
+        progress
+    else if failed then (
+      on_failure () ;
       raise
-        (Storage_interface.Storage_error
-           (Migration_mirror_failure "Mirror failed during syncing")
-        )
+        (Storage_interface.Storage_error (Migration_mirror_failure error_msg))
     ) else (
-      Option.fold ~none:()
-        ~some:(fun p -> D.info "%s progress is %f" __FUNCTION__ p)
+      Option.iter
+        (fun p -> D.debug "%s mirror progress: %.2f" __FUNCTION__ p)
         progress ;
-      mirror_wait_rec key
+      Unix.sleepf mirror_poll_interval ;
+      poll key
     )
   in
-
   match mirror_key with
   | Storage_interface.Mirror.CopyV1 _ ->
       ()
   | Storage_interface.Mirror.MirrorV1 _ ->
-      D.debug "%s waiting for mirroring to be done" __FUNCTION__ ;
-      mirror_wait_rec mirror_key
+      D.debug "%s waiting for mirror to complete" __FUNCTION__ ;
+      poll mirror_key
+
+let nbd_export_of_attach_info backend =
+  match Storage_interface.nbd_export_of_attach_info backend with
+  | Some export ->
+      export
+  | None ->
+      raise
+        (Storage_error
+           (Migration_preparation_failure "No NBD export found in attach info")
+        )
+
+let start_nbd_proxy_thread ~url ~mirror_vm ~dest_sr ~mirror_vdi ~mirror_datapath
+    ~verify_dest =
+  Thread.create
+    (fun () ->
+      export_nbd_proxy ~remote_url:url ~mirror_vm ~sr:dest_sr
+        ~vdi:mirror_vdi.vdi ~dp:mirror_datapath ~verify_dest
+    )
+    ()
+
+let nbd_uri_of_export ~nbd_proxy_path export =
+  Uri.make ~scheme:"nbd+unix" ~host:"" ~path:export
+    ~query:[("socket", [nbd_proxy_path])]
+    ()
+  |> Uri.to_string
 
 module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
@@ -127,9 +155,6 @@ module MIRROR : SMAPIv2_MIRROR = struct
        activating the VDI again on dom 0 when it is already activated on the live_vm.
        This means that if the VM shutsdown while SXM is in progress the
        mirroring for SMAPIv3 will fail.*)
-    let nbd_proxy_path =
-      Printf.sprintf "/var/run/nbdproxy/export/%s" (Vm.string_of mirror_vm)
-    in
     match remote_mirror with
     | Mirror.Vhd_mirror _ ->
         raise
@@ -139,56 +164,52 @@ module MIRROR : SMAPIv2_MIRROR = struct
              )
           )
     | Mirror.SMAPIv3_mirror {nbd_export; mirror_datapath; mirror_vdi} -> (
-      try
-        let nbd_uri =
-          Uri.make ~scheme:"nbd+unix" ~host:"" ~path:nbd_export
-            ~query:[("socket", [nbd_proxy_path])]
-            ()
-          |> Uri.to_string
-        in
-        let _ : Thread.t =
-          Thread.create
-            (fun () ->
-              export_nbd_proxy ~remote_url:url ~mirror_vm ~sr:dest_sr
-                ~vdi:mirror_vdi.vdi ~dp:mirror_datapath ~verify_dest
-            )
-            ()
-        in
+        let nbd_proxy_path = nbd_proxy_path_of_vm mirror_vm in
+        let nbd_uri = nbd_uri_of_export ~nbd_proxy_path nbd_export in
+        try
+          let _ : Thread.t =
+            start_nbd_proxy_thread ~url ~mirror_vm ~dest_sr ~mirror_vdi
+              ~mirror_datapath ~verify_dest
+          in
+          D.info "%s nbd_proxy_path: %s nbd_url %s" __FUNCTION__ nbd_proxy_path
+            nbd_uri ;
+          let mk = Local.DATA.mirror dbg sr vdi image_format live_vm nbd_uri in
 
-        D.info "%s nbd_proxy_path: %s nbd_url %s" __FUNCTION__ nbd_proxy_path
-          nbd_uri ;
-        let mk = Local.DATA.mirror dbg sr vdi image_format live_vm nbd_uri in
-
-        D.debug "%s Updating active local mirrors: id=%s" __FUNCTION__ mirror_id ;
-        let alm =
-          State.Send_state.
-            {
-              url
-            ; dest_sr
-            ; remote_info=
-                Some
-                  {dp= mirror_datapath; vdi= mirror_vdi.vdi; url; verify_dest}
-            ; local_dp= dp
-            ; tapdev= None
-            ; failed= false
-            ; watchdog= None
-            ; vdi
-            ; live_vm
-            ; mirror_key= Some mk
-            }
-        in
-        State.add mirror_id (State.Send_op alm) ;
-        D.debug "%s Updated mirror_id %s in the active local mirror"
-          __FUNCTION__ mirror_id ;
-        mirror_wait ~dbg ~sr ~vdi ~vm:live_vm ~mirror_id mk
-      with e ->
-        D.error "%s caught exception during mirror: %s" __FUNCTION__
-          (Printexc.to_string e) ;
-        raise
-          (Storage_interface.Storage_error
-             (Migration_mirror_failure (Printexc.to_string e))
-          )
-    )
+          D.debug "%s Updating active local mirrors: id=%s" __FUNCTION__
+            mirror_id ;
+          let alm =
+            State.Send_state.
+              {
+                url
+              ; dest_sr
+              ; remote_info=
+                  Some
+                    {dp= mirror_datapath; vdi= mirror_vdi.vdi; url; verify_dest}
+              ; local_dp= dp
+              ; tapdev= None
+              ; failed= false
+              ; watchdog= None
+              ; vdi
+              ; live_vm
+              ; mirror_key= Some mk
+              }
+          in
+          State.add mirror_id (State.Send_op alm) ;
+          D.debug "%s Updated mirror_id %s in the active local mirror"
+            __FUNCTION__ mirror_id ;
+          wait_for_mirror ~dbg ~sr ~vdi ~vm:live_vm ~mirror_id
+            ~error_msg:"Leaf VDI mirror failed during syncing" mk
+        with
+        | Storage_interface.Storage_error _ as e ->
+            raise e
+        | e ->
+            D.error "%s caught exception during mirror: %s" __FUNCTION__
+              (Printexc.to_string e) ;
+            raise
+              (Storage_interface.Storage_error
+                 (Migration_mirror_failure (Printexc.to_string e))
+              )
+      )
 
   let receive_start _ctx ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ =
     Storage_interface.unimplemented __FUNCTION__
@@ -204,11 +225,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
       __FUNCTION__ dbg (s_of_sr sr)
       (string_of_vdi_info vdi_info)
       mirror_id image_format (s_of_vm vm) url verify_dest ;
-    let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-      let rpc =
-        Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2"
-          (Storage_utils.connection_args_of_uri ~verify_dest url)
-    end)) in
+    let (module Remote) = get_remote_backend url verify_dest in
     let on_fail : (unit -> unit) list ref = ref [] in
     try
       (* We drop cbt_metadata VDIs that do not have any actual data *)
@@ -220,16 +237,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
       D.info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf) ;
       on_fail := (fun () -> Remote.VDI.destroy dbg sr leaf.vdi) :: !on_fail ;
       let backend = Remote.VDI.attach3 dbg leaf_dp sr leaf.vdi vm true in
-      let nbd_export =
-        match nbd_export_of_attach_info backend with
-        | None ->
-            raise
-              (Storage_error
-                 (Migration_preparation_failure "Cannot parse nbd uri")
-              )
-        | Some export ->
-            export
-      in
+      let nbd_export = nbd_export_of_attach_info backend in
       D.debug "%s activating dp %s sr: %s vdi: %s vm: %s" __FUNCTION__ leaf_dp
         (s_of_sr sr) (s_of_vdi leaf.vdi) (s_of_vm vm) ;
       Remote.VDI.activate3 dbg leaf_dp sr leaf.vdi vm ;
@@ -238,7 +246,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
       in
       let remote_mirror = Mirror.SMAPIv3_mirror qcow2_res in
       D.debug
-        "%s updating receiving state lcoally to id: %s vm: %s vdi_info: %s"
+        "%s updating receiving state locally to id: %s vm: %s vdi_info: %s"
         __FUNCTION__ mirror_id (s_of_vm vm)
         (string_of_vdi_info vdi_info) ;
       State.add mirror_id
