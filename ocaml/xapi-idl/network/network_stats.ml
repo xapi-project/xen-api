@@ -34,6 +34,35 @@ let checksum_bytes = 32
 
 let length_bytes = 8
 
+type lldp_state = Enabled | Disabled | Blocked
+[@@default Disabled] [@@deriving rpcty]
+
+let string_of_lldp_state = function
+  | Enabled ->
+      "enabled"
+  | Disabled ->
+      "disabled"
+  | Blocked ->
+      "blocked"
+
+type lldp_neighbor = {
+    system_name: string option
+  ; port_id: string option
+  ; port_description: string option
+}
+[@@deriving rpcty]
+
+let string_of_lldp_neighbor {system_name; port_id; port_description} =
+  let wrap = Option.value ~default:"<unknown>" in
+  let system_name = wrap system_name in
+  let port_id = wrap port_id in
+  let port_description = wrap port_description in
+  Printf.sprintf "system_name=%s, port_id=%s, port_description=%s" system_name
+    port_id port_description
+
+type lldp_rx = {state: lldp_state; neighbor: lldp_neighbor option}
+[@@deriving rpcty]
+
 type iface_stats = {
     carrier: bool
   ; speed: int
@@ -44,6 +73,7 @@ type iface_stats = {
   ; nb_links: int
   ; links_up: int
   ; interfaces: iface list
+  ; lldp_rx: lldp_rx option
 }
 [@@deriving rpcty]
 
@@ -58,6 +88,7 @@ let default_stats =
   ; nb_links= 0
   ; links_up= 0
   ; interfaces= []
+  ; lldp_rx= None
   }
 
 type stats_t = (iface * iface_stats) list [@@deriving rpcty]

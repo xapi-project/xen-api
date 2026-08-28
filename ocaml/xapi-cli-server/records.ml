@@ -741,6 +741,18 @@ let pif_record rpc session_id pif =
             Record_util.pif_lldp_mode_to_string (x ()).API.pIF_lldp_mode
           )
           ()
+      ; make_field ~name:"lldp-neighbor"
+          ~get:(fun () ->
+            Option.fold ~none:nid
+              ~some:(fun m -> get_from_map m.API.pIF_metrics_lldp_neighbor)
+              (xm ())
+          )
+          ~get_map:(fun () ->
+            Option.fold ~none:[]
+              ~some:(fun m -> m.API.pIF_metrics_lldp_neighbor)
+              (xm ())
+          )
+          ()
       ]
   }
 
