@@ -243,7 +243,7 @@ module Lldpd : AGENT = struct
     call_cli ["configure"; "ports"; dev; "lldp"; "status"; "disabled"]
 
   let get_neighbors () =
-    match Network_utils.call_script cli show_neighbors_args with
+    match Network_utils.call_script ~log:false cli show_neighbors_args with
     | output ->
         Lldp_parse.parse_neighbors output
     | exception e ->
@@ -252,7 +252,7 @@ module Lldpd : AGENT = struct
         []
 
   let get_enabled_interfaces () =
-    match Network_utils.call_script cli show_interfaces_args with
+    match Network_utils.call_script ~log:false cli show_interfaces_args with
     | output ->
         Lldp_parse.parse_enabled_interfaces output
     | exception e ->
