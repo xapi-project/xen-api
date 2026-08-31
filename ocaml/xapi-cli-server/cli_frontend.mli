@@ -20,7 +20,7 @@ exception ParamNotFound of string
 
 type commandline
 
-val get_params : commandline -> (string * string) list
+val get_params : commandline -> string Cli_args.t
 
 val get_cmdname : commandline -> string
 
