@@ -15,7 +15,7 @@
 (** Named views onto the map-valued parameters of an [xe] command line (the
     [name:key=value] syntax), and the set-valued parameters -- which are maps
     whose values are ignored, so read the result with {!Cli_args.keys} rather
-    than {!Cli_args.to_pairs}.
+    than {!Cli_args.map_contents}.
 
     Each entry is [fun params -> Cli_args.view "name" params]: a lens onto the
     [name:*] entries of [params], presenting their keys with the [name:] prefix

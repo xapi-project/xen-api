@@ -225,6 +225,8 @@ let uninteresting_cmd_postfixes = ["help"; "-get"; "-list"]
 
 let exec_command req cmd s session args =
   let params = get_params cmd in
+  (* Parameters consumed by the CLI framework itself, not by the command. *)
+  List.iter (fun k -> Cli_args.mark_used k params) Cli_args.reserved ;
   let minimal =
     Cli_args.get_opt "minimal" params
     |> Option.fold ~none:false ~some:bool_of_string
@@ -281,21 +283,7 @@ let exec_command req cmd s session args =
     let must_censor param_name =
       List.exists (fun filter -> filter param_name) param_filters
     in
-    do_log "xe %s %s" cmd_name
-      (String.concat " "
-         (List.map
-            (fun (k, v) ->
-              let v' =
-                if must_censor k then
-                  "(omitted)"
-                else
-                  v
-              in
-              k ^ "=" ^ v'
-            )
-            (Cli_args.to_pairs params)
-         )
-      ) ;
+    do_log "xe %s %s" cmd_name (Cli_args.log_args ~censor:must_censor params) ;
     do_rpcs req s u p minimal cmd session args
 
 let get_line str i =
