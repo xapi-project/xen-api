@@ -4735,7 +4735,6 @@ let vm_migrate_sxm_params =
   ]
 
 let vm_migrate printer rpc session_id params =
-  let comp2 f g a b = f (g a b) in
   (* Hack to match host-uuid and host-name for backwards compatibility *)
   let params =
     List.map
@@ -4755,11 +4754,15 @@ let vm_migrate printer rpc session_id params =
     match List.assoc_opt key params with Some v -> [(key, v)] | None -> []
   in
   let options =
-    Listext.map_assoc_with_key
-      (comp2 string_of_bool bool_of_string)
-      (Listext.restrict_with_default "false" ["force"; "live"; "copy"] params)
+    (* For each boolean option, take the value given on the command line or
+       default to "false", then validate it and canonicalise it to
+       "true"/"false". *)
+    let bool_option key =
+      let raw = Option.value ~default:"false" (List.assoc_opt key params) in
+      (key, string_of_bool (bool_of_string key raw))
+    in
+    compress @ List.map bool_option ["force"; "live"; "copy"]
   in
-  let options = List.concat [compress; options] in
   (* We assume the user wants to do Storage XenMotion if they supply any of the
      SXM-specific parameters, and then we use the new codepath. *)
   let use_sxm_migration =
