@@ -24,7 +24,16 @@ val from_pairs : (string * string) list -> string t
 (** Build the structure from the parsed command-line [(key, value)] pairs. *)
 
 val to_pairs : 'a t -> (string * 'a) list
-(** The [(key, value)] pairs, in command-line order. *)
+(** The [(key, value)] pairs, in command-line order. On a view (see {!view}),
+    only the entries under the view's prefix, with that prefix stripped. *)
+
+val view : string -> 'a t -> 'a t
+(** [view prefix t] is [t] restricted to the entries whose key is [prefix]
+    followed by a separator and at least one more character (the
+    [prefix:key=value] map/set syntax, and the legacy [prefix-key=value] form).
+    Every accessor then sees those keys with the [prefix] and separator removed,
+    e.g. [get "auto-scan" (view "other-config" t)] reads [other-config:auto-scan].
+    The underlying entries are shared with [t]. *)
 
 val reserved : string list
 (** Parameter names reserved by the CLI framework; these cannot be used as
