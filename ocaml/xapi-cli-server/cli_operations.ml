@@ -133,18 +133,12 @@ let waiter printer rpc session_id params task =
 (* Return the list of k=v pairs for maps.
    Works for key which is not follow by a ':',
    also match old syntax 'device-config-key' for backwards compatability *)
-let read_map_params name params =
-  (* [name:key=value] pairs (also the legacy [name-key=value] form), with the
-     [name:] / [name-] prefix stripped. The contents of a map-valued parameter
-     are plain data, not tracked CLI arguments. *)
-  let len = String.length name + 1 in
-  Cli_args.to_pairs params
-  |> List.filter (fun (p, _) ->
-      Astring.String.is_prefix ~affix:name p && String.length p > len
-  )
-  |> List.map (fun (p, v) -> (String.sub p len (String.length p - len), v))
+(* The [(key, value)] contents of a map-valued parameter [name:key=value], as a
+   plain list. For reading individual keys, use [Cli_args.view name params]
+   directly with the [Cli_args] accessors. *)
+let read_map_params name params = Cli_args.to_pairs (Cli_args.view name params)
 
-let read_set_params name params = List.map fst (read_map_params name params)
+let read_set_params name params = Cli_args.keys (Cli_args.view name params)
 
 let get_chunks fd =
   let buffer = Buffer.create 10240 in
@@ -536,20 +530,20 @@ type params = string Cli_args.t
 (* open the database on the specified VDI and use the resulting session_id. *)
 (* If the parameter is not present, use the original session_id. *)
 let with_specified_database rpc session_id params f =
-  let database_params = read_map_params "database" params in
-  let use_db_vdi = List.mem_assoc "vdi-uuid" database_params in
-  let use_db_file = List.mem_assoc "filename" database_params in
+  let database_params = Cli_args.view "database" params in
+  let use_db_vdi = Cli_args.exists "vdi-uuid" database_params in
+  let use_db_file = Cli_args.exists "filename" database_params in
   if use_db_vdi && use_db_file then
     failwith "xapi can query a DB vdi or a DB file, but not both." ;
   let session_id =
     if use_db_vdi then
-      let database_vdi_uuid = List.assoc "vdi-uuid" database_params in
+      let database_vdi_uuid = Cli_args.get "vdi-uuid" database_params in
       let database_vdi =
         Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:database_vdi_uuid
       in
       Client.VDI.open_database ~rpc ~session_id ~self:database_vdi
     else if use_db_file then
-      let database_file = List.assoc "filename" database_params in
+      let database_file = Cli_args.get "filename" database_params in
       Client.Session.create_from_db_file ~rpc ~session_id
         ~filename:database_file
     else
@@ -6273,10 +6267,10 @@ let vm_vif_list printer rpc session_id params =
 (* always list multiple vms *)
 
 let with_database_vdi rpc session_id params f =
-  let database_params = read_map_params "database" params in
+  let database_params = Cli_args.view "database" params in
   let database_uuid =
-    if List.mem_assoc "vdi-uuid" database_params then
-      List.assoc "vdi-uuid" database_params
+    if Cli_args.exists "vdi-uuid" database_params then
+      Cli_args.get "vdi-uuid" database_params
     else
       failwith
         "A parameter of the form 'database:vdi-uuid=<uuid>' must be specified \
