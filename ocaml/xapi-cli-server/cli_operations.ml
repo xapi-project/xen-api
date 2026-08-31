@@ -464,6 +464,13 @@ let params_except extra params =
    user supplied for [key] (subsequent List.assoc lookups return [value]). *)
 let override_param key value params = (key, value) :: params
 
+(* [assoc_default_ci key params] looks up [key] in [params] ignoring the case of
+   the keys, defaulting to "". *)
+let assoc_default_ci key params =
+  let key = String.lowercase_ascii key in
+  let params = List.map (fun (k, v) -> (String.lowercase_ascii k, v)) params in
+  Listext.assoc_default key params ""
+
 (* This goes through the list of parameters, extracting any of the form map-name-key=value   *)
 (* where map-name is the name of a map in the class. These will be used to set the key-value *)
 (* pair in the map. Returns a list of params that didn't fit this form *)
@@ -6648,23 +6655,16 @@ module Network_sriov = struct
 end
 
 let pif_reconfigure_ip _printer rpc session_id params =
-  let read_optional_case_insensitive key =
-    let lower_case_params =
-      List.map (fun (k, v) -> (String.lowercase_ascii k, v)) params
-    in
-    let lower_case_key = String.lowercase_ascii key in
-    Listext.assoc_default lower_case_key lower_case_params ""
-  in
   let pif =
     Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "uuid" params)
   in
   let mode =
     Record_util.ip_configuration_mode_of_string (List.assoc "mode" params)
   in
-  let iP = read_optional_case_insensitive "IP" in
+  let iP = assoc_default_ci "IP" params in
   let netmask = Listext.assoc_default "netmask" params "" in
   let gateway = Listext.assoc_default "gateway" params "" in
-  let dNS = read_optional_case_insensitive "DNS" in
+  let dNS = assoc_default_ci "DNS" params in
   let () =
     Client.PIF.reconfigure_ip ~rpc ~session_id ~self:pif ~mode ~iP ~netmask
       ~gateway ~dNS
@@ -6672,22 +6672,15 @@ let pif_reconfigure_ip _printer rpc session_id params =
   ()
 
 let pif_reconfigure_ipv6 _printer rpc session_id params =
-  let read_optional_case_insensitive key =
-    let lower_case_params =
-      List.map (fun (k, v) -> (String.lowercase_ascii k, v)) params
-    in
-    let lower_case_key = String.lowercase_ascii key in
-    Listext.assoc_default lower_case_key lower_case_params ""
-  in
   let pif =
     Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "uuid" params)
   in
   let mode =
     Record_util.ipv6_configuration_mode_of_string (List.assoc "mode" params)
   in
-  let iPv6 = read_optional_case_insensitive "IPv6" in
+  let iPv6 = assoc_default_ci "IPv6" params in
   let gateway = Listext.assoc_default "gateway" params "" in
-  let dNS = read_optional_case_insensitive "DNS" in
+  let dNS = assoc_default_ci "DNS" params in
   let () =
     Client.PIF.reconfigure_ipv6 ~rpc ~session_id ~self:pif ~mode ~iPv6 ~gateway
       ~dNS
