@@ -460,6 +460,10 @@ let stdparams =
 let params_except extra params =
   List.filter (fun (k, _) -> not (List.mem k (extra @ stdparams))) params
 
+(* [override_param key value params] prepends [key=value], overriding whatever the
+   user supplied for [key] (subsequent List.assoc lookups return [value]). *)
+let override_param key value params = (key, value) :: params
+
 (* This goes through the list of parameters, extracting any of the form map-name-key=value   *)
 (* where map-name is the name of a map in the class. These will be used to set the key-value *)
 (* pair in the map. Returns a list of params that didn't fit this form *)
@@ -3256,13 +3260,13 @@ let select_vms ?(include_control_vms = false) ?(include_template_vms = false)
   (* Make sure we don't select a template or control domain by mistake *)
   let params =
     if not include_control_vms then
-      ("is-control-domain", "false") :: params
+      override_param "is-control-domain" "false" params
     else
       params
   in
   let params =
     if not include_template_vms then
-      ("is-a-template", "false") :: params
+      override_param "is-a-template" "false" params
     else
       params
   in
@@ -6277,7 +6281,7 @@ let vm_vif_list printer rpc session_id params =
   in
   ignore
     (do_vm_op printer rpc session_id op
-       (("multiple", "true") :: params)
+       (override_param "multiple" "true" params)
        ["params"]
     )
 
