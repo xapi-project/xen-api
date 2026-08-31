@@ -454,6 +454,12 @@ let stdparams =
   ; "trace"
   ]
 
+(* [params_except extra params] is [params] with the standard framework keys
+   and [extra] removed. Used by commands that treat every remaining key=value
+   pair as data (map/set contents, event filters, report query strings). *)
+let params_except extra params =
+  List.filter (fun (k, _) -> not (List.mem k (extra @ stdparams))) params
+
 (* This goes through the list of parameters, extracting any of the form map-name-key=value   *)
 (* where map-name is the name of a map in the class. These will be used to set the key-value *)
 (* pair in the map. Returns a list of params that didn't fit this form *)
@@ -565,11 +571,7 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
             all
         in
         (* Filter on everything on the cmd line except params=... *)
-        let filter_params =
-          List.filter
-            (fun (p, _) -> not (List.mem p ("params" :: stdparams)))
-            params
-        in
+        let filter_params = params_except ["params"] params in
         (* Filter out all params beginning with "database:" *)
         let filter_params =
           List.filter
@@ -646,9 +648,7 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
   in
   let p_set (_ : printer) rpc session_id params =
     let record = get_record rpc session_id (List.assoc "uuid" params) in
-    let set_params =
-      List.filter (fun (p, _) -> not (List.mem p ("uuid" :: stdparams))) params
-    in
+    let set_params = params_except ["uuid"] params in
     (* Hashtable set_map_table contains key as set_map function
        and associated value as list of (key, value) pairs to set a map field *)
     let set_map_table :
@@ -737,11 +737,7 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
     let record = get_record rpc session_id (List.assoc "uuid" params) in
     let param_name = List.assoc "param-name" params in
     let filter_params =
-      List.filter
-        (fun (p, _) ->
-          not (List.mem p ("uuid" :: "param-name" :: "param-key" :: stdparams))
-        )
-        params
+      params_except ["uuid"; "param-name"; "param-key"] params
     in
     match field_lookup record param_name with
     | {add_to_set= Some f; _} ->
@@ -3213,9 +3209,7 @@ let event_wait_gen rpc session_id classname record_matches =
 
 let event_wait _printer rpc session_id params =
   let classname = List.assoc "class" params in
-  let filter_params =
-    List.filter (fun (p, _) -> not (List.mem p ("class" :: stdparams))) params
-  in
+  let filter_params = params_except ["class"] params in
   (* Each filter_params is a key value pair:
      	   (key, value) if the user entered "key=value"
      	   (key, "/=" value) if the user entered "key=/=value"
@@ -5800,11 +5794,7 @@ let download_file_with_task fd rpc session_id filename uri query label task_name
 let pool_retrieve_wlb_report fd _printer rpc session_id params =
   let report = List.assoc "report" params in
   let filename = Listext.assoc_default "filename" params "" in
-  let other_params =
-    List.filter
-      (fun (k, _) -> not (List.mem k (["report"; "filename"] @ stdparams)))
-      params
-  in
+  let other_params = params_except ["report"; "filename"] params in
   download_file_with_task fd rpc session_id filename Constants.wlb_report_uri
     (Printf.sprintf "report=%s%s%s" (Http.urlencode report)
        ( if other_params = [] then
