@@ -460,9 +460,9 @@ let assoc_default_ci key params =
 (* where map-name is the name of a map in the class. These will be used to set the key-value *)
 (* pair in the map. Returns a list of params that didn't fit this form *)
 
-let choose_params params defaults =
-  if Cli_args.exists "params" params then
-    let ps = Cli_args.get "params" params in
+let choose_params ?(key = "params") params defaults =
+  if Cli_args.exists key params then
+    let ps = Cli_args.get key params in
     if ps = "all" then
       []
     else
@@ -470,8 +470,8 @@ let choose_params params defaults =
   else
     defaults
 
-let select_fields params records default_params =
-  let params = choose_params params default_params in
+let select_fields ?(key = "params") params records default_params =
+  let params = choose_params ~key params default_params in
   if params = [] then
     List.map (fun record -> record.fields) records
   else
@@ -5100,34 +5100,13 @@ let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
       )
       vbds
   in
-  (* Hack - convert 'vbd-params' to 'params' *)
-  let params' =
-    Cli_args.to_pairs params
-    |> List.map (fun (a, b) ->
-        if a = "vbd-params" then
-          ("params", b)
-        else
-          (a, b)
-    )
-    |> Cli_args.from_pairs
-  in
   let selectedvbd =
-    select_fields params' vbdrecords
+    select_fields ~key:"vbd-params" params vbdrecords
       ( if is_cd_list then
           ["uuid"; "vm-name-label"; "userdevice"; "empty"]
         else
           ["uuid"; "vm-name-label"; "userdevice"]
       )
-  in
-  let params' =
-    Cli_args.to_pairs params
-    |> List.map (fun (a, b) ->
-        if a = "vdi-params" then
-          ("params", b)
-        else
-          (a, b)
-    )
-    |> Cli_args.from_pairs
   in
   let rec doit vbds vdis n =
     match (vbds, vdis) with
@@ -5149,7 +5128,7 @@ let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
         | Some vdi ->
             let selectedvdi =
               List.hd
-                (select_fields params' [vdi]
+                (select_fields ~key:"vdi-params" params [vdi]
                    ["uuid"; "name-label"; "virtual-size"; "sr-name-label"]
                 )
             in
