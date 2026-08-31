@@ -94,9 +94,7 @@ let forward args s session =
   )
 
 (* Check that keys are all present in cmd *)
-let check_required_keys cmd keylist =
-  let (_ : (string * string) list) = get_params cmd in
-  List.map (get_reqd_param cmd) keylist
+let check_required_keys cmd keylist = List.map (get_reqd_param cmd) keylist
 
 let with_session ~local rpc u p session f =
   let session, logout =
@@ -228,11 +226,11 @@ let uninteresting_cmd_postfixes = ["help"; "-get"; "-list"]
 let exec_command req cmd s session args =
   let params = get_params cmd in
   let minimal =
-    List.assoc_opt "minimal" params
+    Cli_args.get_opt "minimal" params
     |> Option.fold ~none:false ~some:bool_of_string
   in
-  let u = try List.assoc "username" params with _ -> "" in
-  let p = try List.assoc "password" params with _ -> "" in
+  let u = try Cli_args.get "username" params with _ -> "" in
+  let p = try Cli_args.get "password" params with _ -> "" in
   (* Create a list of commands and their associated arguments which might be sensitive. *)
   let commands_and_params_to_hide =
     let starts affix = Astring.String.is_prefix ~affix in
@@ -295,7 +293,7 @@ let exec_command req cmd s session args =
               in
               k ^ "=" ^ v'
             )
-            params
+            (Cli_args.to_pairs params)
          )
       ) ;
     do_rpcs req s u p minimal cmd session args

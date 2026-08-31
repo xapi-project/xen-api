@@ -4065,25 +4065,17 @@ let convert_switch switch =
     error "Rethrowing Not_found as ParseError: Unknown switch: %s" switch ;
     Backtrace.reraise e (ParseError ("Unknown switch: " ^ switch))
 
-type token = Id of string | Eq
-
-type commandline = {
-    cmdname: string
-  ; argv0: string
-  ; params: (string * string) list
-}
+type commandline = {cmdname: string; argv0: string; params: string Cli_args.t}
 
 let get_params cmd = cmd.params
 
 let get_cmdname cmd = cmd.cmdname
 
 let get_reqd_param cmd p =
-  try List.assoc p cmd.params
+  try Cli_args.get p cmd.params
   with Not_found as e ->
     error "Rethrowing Not_found as ParamNotFound %s" p ;
     Backtrace.reraise e (ParamNotFound p)
-
-let string_of_token t = match t with Id s -> "Id(" ^ s ^ ")" | Eq -> "Eq"
 
 let starts_with s prefix =
   let s_len = String.length s in
@@ -4119,7 +4111,7 @@ let parse_commandline (argv0, arg_list) =
     (* Detect the case when the command-name is missing *)
     if String.contains cmdname '=' then
       raise (ParseError "command name is missing") ;
-    let params = parse_params_2 (List.tl arg_list) in
+    let params = Cli_args.from_pairs (parse_params_2 (List.tl arg_list)) in
     {cmdname; argv0; params}
   with e ->
     error "Rethrowing %s as ParseError \"\"" (Printexc.to_string e) ;
@@ -4196,17 +4188,11 @@ let cmd_help printer minimal cmd =
         printer (Cli_printer.PList ["Unknown command '" ^ cmd ^ "'"])
   in
   let cmds =
-    List.filter
-      (fun (x, _) ->
-        not
-          (List.mem x
-             ["server"; "username"; "password"; "port"; "minimal"; "all"]
-          )
-      )
-      cmd.params
+    let open Cli_args in
+    cmd.params |> filter_out is_reserved |> keys
   in
   if cmds <> [] then
-    List.iter docmd (List.map fst cmds)
+    List.iter docmd cmds
   else
     let cmds =
       Hashtbl.fold (fun name cmd list -> (name, cmd) :: list) cmdtable []
@@ -4217,6 +4203,13 @@ let cmd_help printer minimal cmd =
     (* Filter hidden commands from help *)
     let cmds =
       List.sort (fun (name1, _) (name2, _) -> compare name1 name2) cmds
+    in
+    let all_commands =
+      match Cli_args.get_opt "all" cmd.params with
+      | None ->
+          false
+      | Some s ->
+          s = "true"
     in
     let help =
       Printf.sprintf
@@ -4238,8 +4231,7 @@ To get help on a specific command:
 |}
         cmd.argv0 cmd.argv0
     in
-    if List.mem_assoc "all" cmd.params && List.assoc "all" cmd.params = "true"
-    then
+    if all_commands then
       let cmds = List.map fst cmds in
       let host_cmds, other =
         List.partition (fun n -> Astring.String.is_prefix ~affix:"host-" n) cmds

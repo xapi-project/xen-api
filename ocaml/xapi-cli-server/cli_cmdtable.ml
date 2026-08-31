@@ -19,7 +19,7 @@ type op =
      Cli_printer.print_fn
   -> (Rpc.call -> Rpc.response)
   -> API.ref_session
-  -> (string * string) list
+  -> string Cli_args.t
   -> unit
 
 type imp =
