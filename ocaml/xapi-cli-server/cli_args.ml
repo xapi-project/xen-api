@@ -59,7 +59,16 @@ let to_pairs t = List.map (fun (k, e) -> (k, e.value)) (visible t)
 
 let view prefix t = {t with scope= Some prefix}
 
-let reserved = ["server"; "username"; "password"; "port"; "minimal"; "all"]
+let reserved =
+  [
+    "server"
+  ; "username"
+  ; "password"
+  ; "port"
+  ; "minimal"
+  ; "all"
+  ; "report-ignored-params"
+  ]
 
 let is_reserved arg = List.mem arg reserved
 

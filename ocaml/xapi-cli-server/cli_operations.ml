@@ -433,6 +433,7 @@ let stdparams =
   ; "all"
   ; "message-priority"
   ; "trace"
+  ; "report-ignored-params"
   ]
 
 let map_contents = Cli_args.map_contents
