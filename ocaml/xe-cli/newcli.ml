@@ -86,6 +86,8 @@ let usage () =
     [ --minimal ]              Output only values in a comma-separated lists
     [ --traceparent <value> ]  Distributed tracing context
     [ --trace ]                Show task stacktrace on failure
+    [ report-ignored-params=off|warn ]
+                               Report parameters the command ignored (on stderr)
     [ <other arguments> ... ]  Command-specific options
 
 A full list of commands can be obtained by running

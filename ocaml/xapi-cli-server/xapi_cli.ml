@@ -96,6 +96,22 @@ let forward args s session =
 (* Check that keys are all present in cmd *)
 let check_required_keys cmd keylist = List.map (get_reqd_param cmd) keylist
 
+(* Whether this invocation asked for the ignored-parameter report:
+   report-ignored-params=warn, passed on the command line, via XE_EXTRA_ARGS, or
+   in ~/.xe. *)
+let want_ignored_params_report params =
+  Cli_args.get_opt "report-ignored-params" params = Some "warn"
+
+(* Print, on stderr, one line per command-line parameter that the command never
+   read -- only when the invocation asked for it. *)
+let report_ignored_params printer cmd =
+  let params = get_params cmd in
+  if want_ignored_params_report params then
+    Cli_args.unused params
+    |> List.iter (fun k ->
+        printer (Cli_printer.PStderr ("Ignored parameter: " ^ k))
+    )
+
 let with_session ~local rpc u p session f =
   let session, logout =
     match (local, session) with
@@ -183,33 +199,34 @@ let do_rpcs req s username password minimal cmd session args =
       )
     else
       let printer, flush = Cli_printer.make_printer s minimal in
-      let flush_and_marshall () =
-        flush () ;
-        marshal s (Command (Exit 0))
+      let run () =
+        match cspec.implementation with
+        | No_fd f ->
+            with_session ~local:false rpc username password session
+              (fun session -> f printer rpc session (get_params cmd)
+            )
+        | No_fd_local_session f ->
+            with_session ~local:true rpc username password session
+              (fun session -> f printer rpc session (get_params cmd)
+            )
+        | With_fd f ->
+            with_session ~local:false rpc username password session
+              (fun session -> f s printer rpc session (get_params cmd)
+            )
+        | With_fd_local_session f ->
+            with_session ~local:true rpc username password session
+              (fun session -> f s printer rpc session (get_params cmd)
+            )
       in
-      match cspec.implementation with
-      | No_fd f ->
-          with_session ~local:false rpc username password session
-            (fun session ->
-              f printer rpc session (get_params cmd) ;
-              flush_and_marshall ()
-          )
-      | No_fd_local_session f ->
-          with_session ~local:true rpc username password session (fun session ->
-              f printer rpc session (get_params cmd) ;
-              flush_and_marshall ()
-          )
-      | With_fd f ->
-          with_session ~local:false rpc username password session
-            (fun session ->
-              f s printer rpc session (get_params cmd) ;
-              flush_and_marshall ()
-          )
-      | With_fd_local_session f ->
-          with_session ~local:true rpc username password session (fun session ->
-              f s printer rpc session (get_params cmd) ;
-              flush_and_marshall ()
-          )
+      (* Report the parameters the command ignored whether it succeeds or fails,
+         but before the terminating Exit so the client is still listening. On
+         success the Exit is sent afterwards; on failure it is the error path's
+         job. *)
+      Xapi_stdext_pervasives.Pervasiveext.finally run (fun () ->
+          report_ignored_params printer cmd
+      ) ;
+      flush () ;
+      marshal s (Command (Exit 0))
   with Unix.Unix_error (a, b, c) as e ->
     warn "Uncaught exception: Unix_error '%s' '%s' '%s'" (Unix.error_message a)
       b c ;
@@ -225,8 +242,12 @@ let uninteresting_cmd_postfixes = ["help"; "-get"; "-list"]
 
 let exec_command req cmd s session args =
   let params = get_params cmd in
-  (* Parameters consumed by the CLI framework itself, not by the command. *)
-  List.iter (fun k -> Cli_args.mark_used k params) Cli_args.reserved ;
+  (* Parameters consumed by the CLI framework itself, not by the command:
+     Cli_args.reserved, plus the global flags that only some commands read but
+     that are never a mistake to pass. *)
+  List.iter
+    (fun k -> Cli_args.mark_used k params)
+    (Cli_args.reserved @ ["trace"; "progress"]) ;
   let minimal =
     Cli_args.get_opt "minimal" params
     |> Option.fold ~none:false ~some:bool_of_string

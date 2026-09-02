@@ -4223,6 +4223,8 @@ let cmd_help printer minimal cmd =
     [ --debug ]                Enable debug output
     [ --debug-on-fail ]        Enable debug output only on failure
     [ --traceparent <value> ]  Distributed tracing context
+    [ report-ignored-params=off|warn ]
+                               Report parameters the command ignored (on stderr)
     [ <other arguments> ... ]  Command-specific options
 
 To get help on a specific command:
