@@ -96,11 +96,17 @@ let forward args s session =
 (* Check that keys are all present in cmd *)
 let check_required_keys cmd keylist = List.map (get_reqd_param cmd) keylist
 
-(* Whether this invocation asked for the ignored-parameter report:
-   report-ignored-params=warn, passed on the command line, via XE_EXTRA_ARGS, or
-   in ~/.xe. *)
+(* Whether this invocation asked for the ignored-parameter report. The
+   command-line value (also settable via XE_EXTRA_ARGS or ~/.xe) wins; when it
+   is absent, fall back to the report-ignored-params key in xapi.conf. *)
 let want_ignored_params_report params =
-  Cli_args.get_opt "report-ignored-params" params = Some "warn"
+  match Cli_args.get_opt "report-ignored-params" params with
+  | Some "warn" ->
+      true
+  | Some _ ->
+      false
+  | None ->
+      !Constants.cli_report_ignored_parameters = Constants.Warn
 
 (* Print, on stderr, one line per command-line parameter that the command never
    read -- only when the invocation asked for it. *)

@@ -1605,6 +1605,22 @@ let other_options =
     , (fun () -> string_of_bool !Constants.use_event_next)
     , "Use deprecated Event.next instead of Event.from"
     )
+  ; ( "report-ignored-params"
+    , Arg.String
+        (fun s ->
+          Constants.cli_report_ignored_parameters :=
+            match s with "warn" -> Warn | _ -> Off
+        )
+    , (fun () ->
+        match !Constants.cli_report_ignored_parameters with
+        | Off ->
+            "off"
+        | Warn ->
+            "warn"
+      )
+    , "What xe does with command-line parameters a command did not read: 'off' \
+       (default) or 'warn' to print them on stderr."
+    )
   ; ( "nvidia_multi_vgpu_enabled_driver_versions"
     , Arg.String
         (fun x ->
