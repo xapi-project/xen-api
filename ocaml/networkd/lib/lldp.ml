@@ -145,9 +145,16 @@ let management_ip_address =
     match (force, Atomic.get cache) with
     | true, seen | false, ([] as seen) -> (
         let addrs =
-          let iface = Inventory.lookup Inventory._management_interface in
-          let open Network_utils in
-          Ip.get_ipv4 iface @ Ip.get_ipv6 iface |> List.map fst
+          Inventory.reread_inventory () ;
+          match Inventory.lookup Inventory._management_interface with
+          | "" ->
+              (* Management is disabled: there is no interface to read from.
+                 [Ip.get_ipv4 ""] would raise; an empty list maps to an empty
+                 advertising pattern, matching the disabled state. *)
+              []
+          | iface ->
+              let open Network_utils in
+              Ip.get_ipv4 iface @ Ip.get_ipv6 iface |> List.map fst
         in
         match Atomic.compare_and_set cache seen addrs with
         | true ->
