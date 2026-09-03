@@ -1,0 +1,6 @@
+(library
+ (name gpu)
+ (public_name xapi-gpu)
+ (preprocess (pps ppx_deriving.show ppx_deriving.ord))
+ (flags (:standard -w -39@8))
+ (modules partition_mode))

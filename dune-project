@@ -841,6 +841,9 @@
  (name xapi-rrd))
 
 (package
+ (name xapi-gpu))
+
+(package
  (name xapi-inventory))
 
 (package

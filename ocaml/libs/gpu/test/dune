@@ -1,0 +1,4 @@
+(test
+ (name test_partition_mode)
+ (package xapi-gpu)
+ (libraries gpu alcotest))
