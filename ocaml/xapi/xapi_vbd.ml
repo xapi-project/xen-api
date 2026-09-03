@@ -187,8 +187,16 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
       (Api_errors.Server_error
          (Api_errors.vbd_not_removable_media, ["in constructor"])
       ) ;
-  (* Prevent RW VBDs being created pointing to RO VDIs *)
-  if mode = `RW && Db.VDI.get_read_only ~__context ~self:vDI then
+  (* Prevent RW VBDs being created pointing to RO VDIs. A snapshot VM's VBD is
+     exempt: it is a record of how the disk was attached when the snapshot was
+     taken, which VM.revert reads back, and a snapshot is never started so the
+     VBD is never plugged. Some SMAPIv3 backends mark snapshot volumes
+     read-only, and without this exemption such a VM cannot be imported. *)
+  if
+    mode = `RW
+    && Db.VDI.get_read_only ~__context ~self:vDI
+    && not (Db.VM.get_is_a_snapshot ~__context ~self:vM)
+  then
     raise
       (Api_errors.Server_error (Api_errors.vdi_readonly, [Ref.string_of vDI])) ;
   (* CA-75697: Disallow VBD.create on a VM that's in the middle of a migration *)
