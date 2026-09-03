@@ -535,16 +535,6 @@ let make t connections default_schema =
   update_database t (fun _ -> db) ;
   spawn_db_flush_threads ()
 
-(** Return an association list of table name * record count *)
-let stats t =
-  TableSet.fold
-    (fun name _ tbl acc ->
-      let size = Table.fold (fun _ _ _ acc -> acc + 1) tbl 0 in
-      (name, size) :: acc
-    )
-    (Database.tableset (get_database t))
-    []
-
 module Compat = struct
   type field_in = string
 
