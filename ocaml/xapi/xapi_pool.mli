@@ -325,13 +325,12 @@ val set_igmp_snooping_enabled :
 (** Set on/off for IGMP Snooping *)
 
 val set_lldp_enabled :
-     __context:Context.t
-  -> self:API.ref_pool
-  -> value:bool
-  -> force:bool
-  -> (API.ref_PIF * string) list
-(** Enable or disable LLDP on every managed physical PIF in the pool, returning
-    a map of the PIFs that failed and the corresponding error message. *)
+  __context:Context.t -> self:API.ref_pool -> value:bool -> force:bool -> unit
+(** Enable or disable LLDP on every managed physical PIF in the pool, re-plugging
+    the affected PIFs. Every PIF is attempted; if any fail to re-plug, raises
+    [LLDP_PIF_REPLUG_FAILED] with the list of PIFs that failed. The LLDP
+    configuration itself is best-effort inside networkd, so a successful re-plug
+    does not guarantee LLDP was applied; only re-plug failures are reported. *)
 
 val has_extension :
   __context:Context.t -> self:API.ref_pool -> name:string -> bool

@@ -295,10 +295,13 @@ let get_server_error code params =
      datamodel.ml and those in the exception but this is unchecked and
      false in some cases, defined here. *)
   let required =
-    if code = Api_errors.vms_failed_to_cooperate then
-      List.map (fun _ -> "VM") params
-    else
-      error.Datamodel_types.err_params
+    match code with
+    | c when c = Api_errors.vms_failed_to_cooperate ->
+        List.map (fun _ -> "VM") params
+    | c when c = Api_errors.lldp_pif_replug_failed ->
+        List.map (fun _ -> "PIF") params
+    | _ ->
+        error.Datamodel_types.err_params
   in
   (* For the rest we attempt to pretty-print the list even when it's short/long *)
   let rec pp_params = function

@@ -3882,17 +3882,38 @@ let set_lldp_enabled ~__context ~self ~value ~force =
       |> List.map fst
     in
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        List.filter_map
-          (fun pif ->
-            try
-              Client.PIF.plug ~rpc ~session_id ~self:pif ;
-              None
-            with e -> Some (pif, ExnHelper.string_of_exn e)
-          )
-          pifs
+        (* Re-plug every affected PIF, collecting those whose re-plug fails so
+           that one bad PIF does not prevent the rest from being reconfigured.
+           If any failed, raise once with the list of failed PIFs.
+
+           Note the re-plug is the only failure we can report here: the LLDP
+           configuration itself is applied best-effort inside networkd (a
+           failure there is logged and swallowed so it cannot block PIF.plug),
+           so a successful re-plug does not guarantee LLDP was applied. What we
+           do guarantee is that the caller learns which PIFs failed to re-plug
+           and therefore certainly did not get the new LLDP setting. *)
+        let failed_pifs =
+          List.filter_map
+            (fun pif ->
+              try
+                Client.PIF.plug ~rpc ~session_id ~self:pif ;
+                None
+              with e ->
+                let pif_str = Ref.string_of pif in
+                let exnstr = ExnHelper.string_of_exn e in
+                error "%s: PIF.plug failed on %s: %s" __FUNCTION__ pif_str
+                  exnstr ;
+                Some pif_str
+            )
+            pifs
+        in
+        if failed_pifs <> [] then
+          raise
+            (Api_errors.Server_error
+               (Api_errors.lldp_pif_replug_failed, failed_pifs)
+            )
     )
-  ) else
-    []
+  )
 
 let has_extension ~__context ~self:_ ~name =
   let hosts = Db.Host.get_all ~__context in

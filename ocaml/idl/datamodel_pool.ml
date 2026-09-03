@@ -1206,11 +1206,6 @@ let set_lldp_enabled =
            value differs from pool.lldp_enabled."
         )
       ]
-    ~result:
-      ( Map (Ref _pif, String)
-      , "A map of the PIFs that failed to be reconfigured and the \
-         corresponding error message."
-      )
     ~allowed_roles:_R_POOL_OP ()
 
 let has_extension =

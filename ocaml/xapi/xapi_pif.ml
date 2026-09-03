@@ -995,7 +995,19 @@ let set_lldp_mode ~__context ~self ~value ~force =
     let to_plug = pif_to_plug_for_lldp ~__context ~self in
     if Db.PIF.get_currently_attached ~__context ~self:to_plug then
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.PIF.plug ~rpc ~session_id ~self:to_plug
+          (* The LLDP configuration itself is applied best-effort inside
+             networkd (a failure there is swallowed so it cannot block the
+             plug); only a genuine re-plug failure can be reported here. Raise
+             it as an error so the UI shows which PIF was not reconfigured. *)
+          try Client.Client.PIF.plug ~rpc ~session_id ~self:to_plug
+          with e ->
+            let pif_str = Ref.string_of to_plug in
+            error "%s: PIF.plug failed on %s: %s" __FUNCTION__ pif_str
+              (ExnHelper.string_of_exn e) ;
+            raise
+              (Api_errors.Server_error
+                 (Api_errors.lldp_pif_replug_failed, [pif_str])
+              )
       )
   )
 
