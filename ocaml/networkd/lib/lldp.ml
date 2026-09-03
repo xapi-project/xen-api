@@ -56,7 +56,7 @@ module Lldp_types = struct
 end
 
 module Lldp_parse = struct
-  let ( let* ) = Option.bind
+  let ( >>= ) = Option.bind
 
   (* Follow [keys] through a json0 doc. Object keys are consumed one at a time;
      arrays are transparently entered at their head without consuming a key
@@ -69,8 +69,7 @@ module Lldp_parse = struct
     | k :: ks as keys -> (
       match json0 with
       | `Assoc l ->
-          let* json' = List.assoc_opt k l in
-          json0_get json' ks
+          List.assoc_opt k l >>= Fun.flip json0_get ks
       | `List (json' :: _) ->
           json0_get json' keys
       | _ ->
@@ -79,6 +78,50 @@ module Lldp_parse = struct
 
   let json0_get_str json0 keys =
     match json0_get json0 keys with Some (`String s) -> Some s | _ -> None
+
+  let max_value_bytes = 256
+
+  (* control characters: C0 (<= U+001F), DEL and C1 (U+007F-009F). *)
+  let is_control u =
+    let c = Uchar.to_int u in
+    c <= 0x1f || (c >= 0x7f && c <= 0x9f)
+
+  (* U+FFFE and U+FFFF are valid UTF-8 but lie outside XML 1.0's Char
+     production, so xmlm can write them to the XML-backed database yet fails to
+     read them back. Drop them so a neighbour value cannot poison state.db. *)
+  let is_xml_illegal u =
+    let c = Uchar.to_int u in
+    c = 0xfffe || c = 0xffff
+
+  (* Sanitise a single LLDP tlv value.
+     - verify UTF-8 encoding: any malformed sequence discards the whole value;
+     - remove control characters and XML-illegal noncharacters;
+     - truncate to [max_value_bytes], stopping on a UTF-8 codepoint boundary so
+       the result stays valid UTF-8. *)
+  let sanitise s =
+    let buf = Buffer.create (min (String.length s) max_value_bytes) in
+    let exception Malformed in
+    let exception Full in
+    let add () _pos = function
+      | `Malformed _ ->
+          raise Malformed
+      | `Uchar u when is_control u || is_xml_illegal u ->
+          ()
+      | `Uchar u ->
+          let before = Buffer.length buf in
+          Buffer.add_utf_8_uchar buf u ;
+          if Buffer.length buf > max_value_bytes then (
+            (* This codepoint overflows the cap: drop it and stop, leaving a
+               whole-codepoint prefix. *)
+            Buffer.truncate buf before ;
+            raise Full
+          )
+    in
+    match Uutf.String.fold_utf_8 add () s with
+    | () | (exception Full) ->
+        Some (Buffer.contents buf)
+    | exception Malformed ->
+        None
 
   let interfaces (output : string) : Yojson.Safe.t list =
     match Yojson.Safe.from_string output with
@@ -98,10 +141,16 @@ module Lldp_parse = struct
       (string * Network_stats.lldp_neighbor) list =
     interfaces output
     |> List.filter_map (fun iface ->
-        let* dev = json0_get_str iface ["name"] in
-        let system_name = json0_get_str iface ["chassis"; "name"; "value"] in
-        let port_id = json0_get_str iface ["port"; "id"; "value"] in
-        let port_description = json0_get_str iface ["port"; "descr"; "value"] in
+        json0_get_str iface ["name"] >>= fun dev ->
+        let system_name =
+          json0_get_str iface ["chassis"; "name"; "value"] >>= sanitise
+        in
+        let port_id =
+          json0_get_str iface ["port"; "id"; "value"] >>= sanitise
+        in
+        let port_description =
+          json0_get_str iface ["port"; "descr"; "value"] >>= sanitise
+        in
         Some (dev, Network_stats.{system_name; port_id; port_description})
     )
 
