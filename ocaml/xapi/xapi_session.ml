@@ -296,10 +296,9 @@ let get_intersection ~__context subject_ids_in_db subject_identifier
   let reflexive_membership_closure =
     subject_identifier :: group_membership_closure
   in
-  let intersection =
-    Listext.List.intersect reflexive_membership_closure subject_ids_in_db
-  in
-  intersection
+  let module SSet = Set.Make (String) in
+  let db_set = SSet.of_list subject_ids_in_db in
+  List.filter (fun id -> SSet.mem id db_set) reflexive_membership_closure
 
 let get_subject_in_intersection ~__context subjects_in_db intersection =
   Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
@@ -313,31 +312,21 @@ let get_subject_in_intersection ~__context subjects_in_db intersection =
 
 let get_permissions ~__context ~subject_membership =
   Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
-  (* see also rbac.ml *)
-  let get_union_of_subsets ~get_subset_fn ~set =
-    Listext.List.setify
-      (List.fold_left (* efficiently compute unions of subsets in set *)
-         (fun accu elem -> List.rev_append (get_subset_fn elem) accu)
-         [] set
-      )
-  in
   let role_membership =
-    get_union_of_subsets (*automatically removes duplicated roles*)
-      ~get_subset_fn:(fun subj -> Db.Subject.get_roles ~__context ~self:subj)
-      ~set:subject_membership
+    List.concat_map
+      (fun subj -> Db.Subject.get_roles ~__context ~self:subj)
+      subject_membership
+    |> List.sort_uniq Ref.compare
   in
-  let permission_membership =
-    get_union_of_subsets (*automatically removes duplicated perms*)
-      ~get_subset_fn:(fun role ->
-        try
-          Xapi_role.get_name_label ~__context ~self:role
-          :: Xapi_role.get_permissions_name_label ~__context ~self:role
-        with _ -> []
-        (* if the role disappeared, ignore it *)
-      )
-      ~set:role_membership
-  in
-  permission_membership
+  List.concat_map
+    (fun role ->
+      try
+        Xapi_role.get_name_label ~__context ~self:role
+        :: Xapi_role.get_permissions_name_label ~__context ~self:role
+      with _ -> []
+    )
+    role_membership
+  |> List.sort_uniq String.compare
 
 (* CP-827: finds out if the subject was suspended (ie. disabled,expired,locked-out) *)
 let is_subject_suspended ~__context ~cache subject_identifier =

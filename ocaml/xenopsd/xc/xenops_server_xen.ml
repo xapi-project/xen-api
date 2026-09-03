@@ -140,6 +140,21 @@ module VmExtra = struct
   let domain_config_of_vm vm =
     let open Vm in
     let open Domain in
+    let emulation_flags =
+      match vm.ty with
+      | PV _ ->
+          []
+      | PVinPVH _ | PVH _ ->
+          emulation_flags_pvh
+      | HVM _ ->
+          if
+            Platform.is_true ~key:"hvm-pirq"
+              ~platformdata:vm.Xenops_interface.Vm.platformdata ~default:false
+          then
+            X86_EMU_USE_PIRQ :: emulation_flags_hvm
+          else
+            emulation_flags_hvm
+    in
     let misc_flags =
       if
         Platform.is_true ~key:"msr-relaxed"
@@ -149,13 +164,7 @@ module VmExtra = struct
       else
         []
     in
-    match vm.ty with
-    | PV _ ->
-        X86 {emulation_flags= []; misc_flags}
-    | PVinPVH _ | PVH _ ->
-        X86 {emulation_flags= emulation_flags_pvh; misc_flags}
-    | HVM _ ->
-        X86 {emulation_flags= emulation_flags_all; misc_flags}
+    X86 {emulation_flags; misc_flags}
 
   (* Known versions of the VM persistent metadata created by xenopsd *)
   let persistent_version_pre_lima = 0

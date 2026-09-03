@@ -63,6 +63,8 @@ let nested_virt = "nested-virt"
 
 let vcpu_unrestricted = "vcpu-unrestricted"
 
+let hvm_pirq = "hvm-pirq"
+
 let tpm_version = "tpm_version"
 
 (* The default value of device model should be set as
@@ -106,6 +108,7 @@ let filtered_flags =
   ; featureset
   ; nested_virt
   ; vcpu_unrestricted
+  ; hvm_pirq
   ]
 
 (* Other keys we might want to write to the platform map. *)

@@ -65,7 +65,6 @@ jobs:
           path: |
             _build/install/default/share/go/*
             !_build/install/default/share/go/dune
-            !_build/install/default/share/go/**/*_test.go
 
       # sdk-ci runs some Go unit tests.
       # This setting ensures that SDK date time

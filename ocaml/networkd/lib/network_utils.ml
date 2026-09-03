@@ -2029,6 +2029,8 @@ end
 module Modprobe = struct
   let getpath driver = Printf.sprintf "/etc/modprobe.d/%s.conf" driver
 
+  let whitespace_re = Re.Perl.compile_pat "[ \\t]+"
+
   let write_conf_file driver content =
     try
       Unixext.write_string_to_file (getpath driver) (String.concat "\n" content) ;
@@ -2127,6 +2129,7 @@ module Modprobe = struct
     >>= fun option ->
     let need_rebuild_initrd = ref false in
     let has_probe_conf = ref false in
+    let driver_options_re = Re.Perl.compile_pat ("options[ \\t]+" ^ driver) in
     let parse_single_line s =
       let parse_driver_options s =
         match Astring.String.cut ~sep:"=" s with
@@ -2146,11 +2149,8 @@ module Modprobe = struct
             s
       in
       let trimed_s = String.trim s in
-      if Re.execp (Re.Perl.compile_pat ("options[ \\t]+" ^ driver)) trimed_s
-      then
-        let driver_options =
-          Re.split (Re.Perl.compile_pat "[ \\t]+") trimed_s
-        in
+      if Re.execp driver_options_re trimed_s then
+        let driver_options = Re.split whitespace_re trimed_s in
         List.map parse_driver_options driver_options |> String.concat " "
       else
         trimed_s

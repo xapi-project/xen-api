@@ -57,6 +57,32 @@ let skip_xapi = ref false
 
 let skip_stress = ref false
 
+(** Whether a test suite depends on the SR, or runs identically regardless
+    of it. Used by [-with-tag]/[-without-tag] to select suites. A suite
+    that only ever exercises the pool's default SR (rather than the SR
+    passed via [-sr]) should not carry [Sr]: its result cannot change when
+    [-sr] is varied, even though it still touches storage. *)
+type tag = Sr
+
+let tag_to_str = function Sr -> "sr"
+
+let tag_of_str = function
+  | "sr" ->
+      Sr
+  | s ->
+      raise (Arg.Bad (Printf.sprintf "unknown tag %S" s))
+
+let with_tags = ref []
+
+let without_tags = ref []
+
+(** All tags, listed by -list-tags *)
+let all_tags = [Sr]
+
+let tag_to_description = function
+  | Sr ->
+      "Suite's result depends on the SR passed via -sr"
+
 (** Parse the legacy quicktest command line args. This is used instead of
     invoking Alcotest directly, for backwards-compatibility with clients who
     run the quicktest binary. *)
@@ -85,6 +111,28 @@ let parse () =
       , Arg.String (fun x -> run_only := Some x)
       , "Only run specified tests, skip all others. Several tests can be \
          specified, separated by commas"
+      )
+    ; ( "-with-tag"
+      , Arg.String (fun s -> with_tags := tag_of_str s :: !with_tags)
+      , "Only run test suites carrying this tag. May be repeated. Can be \
+         combined with -run-only. Recognised tags: sr"
+      )
+    ; ( "-without-tag"
+      , Arg.String (fun s -> without_tags := tag_of_str s :: !without_tags)
+      , "Exclude test suites carrying this tag. May be repeated. Can be \
+         combined with -run-only. Recognised tags: sr"
+      )
+    ; ( "-list-tags"
+      , Arg.Unit
+          (fun () ->
+            List.iter
+              (fun t ->
+                Printf.printf "%s: %s\n" (tag_to_str t) (tag_to_description t)
+              )
+              all_tags ;
+            exit 0
+          )
+      , "List all recognised tags"
       )
     ; ( "-list-tests"
       , Arg.Set list_tests

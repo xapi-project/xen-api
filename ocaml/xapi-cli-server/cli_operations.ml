@@ -1032,8 +1032,8 @@ let gen_cmds rpc session_id =
             "name-label"
           ; "name-description"
           ; "uuid"
-          ; "snapshot_of"
-          ; "snapshot_time"
+          ; "snapshot-of"
+          ; "snapshot-time"
           ; "is-vmss-snapshot"
           ]
           rpc session_id

@@ -131,7 +131,7 @@ module Json = struct
     | SecretString | String ->
         ("string", StringMap.empty)
     | Int ->
-        ("int", StringMap.empty)
+        ("int64", StringMap.empty)
     | Float ->
         ("float64", StringMap.empty)
     | Bool ->
@@ -721,7 +721,7 @@ module Convert = struct
     | SecretString | String ->
         Simple {func_suffix= "String"; value_ty= "string"}
     | Int ->
-        Int {func_suffix= "Int"; value_ty= "int"}
+        Int {func_suffix= "Int"; value_ty= "int64"}
     | Float ->
         Float {func_suffix= "Float"; value_ty= "float64"}
     | Bool ->
