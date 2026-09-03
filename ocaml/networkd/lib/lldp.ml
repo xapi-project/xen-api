@@ -21,13 +21,18 @@ let string_of_addresses addresses =
   addresses |> List.map Unix.string_of_inet_addr |> String.concat ","
 
 module Lldp_types = struct
-  type error = Command_failed of string * string | Internal of string
+  type error =
+    | Command_failed of string * string
+    | Internal of string
+    | Service_not_running
 
   let string_of_error = function
     | Command_failed (cmd, msg) ->
         Printf.sprintf "command %S failed: %s" cmd msg
     | Internal msg ->
         Printf.sprintf "Internal error: %s" msg
+    | Service_not_running ->
+        "Service not running"
 
   type chassis_id = Local of string
 
@@ -191,6 +196,18 @@ module Lldpd : AGENT = struct
 
   let conf_path = Filename.concat conf_dir "00-networkd-default.conf"
 
+  let result_ignore = Result.map ignore
+
+  let service_running =
+    Atomic.make (try Fe_systemctl.is_active ~service with _ -> false)
+
+  let mark_service_running v f =
+    f ()
+    |> Result.map (fun x ->
+        Atomic.set service_running v ;
+        x
+    )
+
   let default_conf =
     String.concat "\n"
       [
@@ -200,19 +217,23 @@ module Lldpd : AGENT = struct
       ; ""
       ]
 
-  let run cmd args =
+  let run cmd ?(log = true) args =
     let cmdline = String.concat " " (cmd :: args) in
-    try
-      ignore (Network_utils.call_script ~log:true cmd args) ;
-      Ok ()
+    try Ok (Network_utils.call_script ~log cmd args)
     with e ->
       let err_msg = Printexc.to_string e in
       error "%s: %S failed: %s" __FUNCTION__ cmdline err_msg ;
       Error (Command_failed (cmdline, err_msg))
 
-  let call_cli args = run cli args
+  let call_cli ?(log = true) args =
+    if Atomic.get service_running then
+      run cli ~log args
+    else
+      Error Service_not_running
 
-  let call_systemctl args = run systemctl args
+  let call_cli_ignore ?(log = true) args = call_cli ~log args |> result_ignore
+
+  let call_systemctl args = run systemctl args |> result_ignore
 
   let advertising_confs dev (config : I.lldp) : conf list =
     [
@@ -228,6 +249,7 @@ module Lldpd : AGENT = struct
 
   let start () =
     try
+      mark_service_running true @@ fun () ->
       Xapi_stdext_unix.Unixext.write_string_to_file conf_path default_conf ;
       if Fe_systemctl.is_active ~service then
         Ok ()
@@ -237,6 +259,7 @@ module Lldpd : AGENT = struct
 
   let stop () =
     try
+      mark_service_running false @@ fun () ->
       if Fe_systemctl.is_active ~service then
         call_systemctl ["stop"; service]
       else
@@ -244,27 +267,23 @@ module Lldpd : AGENT = struct
     with e -> Error (Internal (Printexc.to_string e))
 
   let enable dev =
-    call_cli ["configure"; "ports"; dev; "lldp"; "status"; "rx-and-tx"]
+    call_cli_ignore ["configure"; "ports"; dev; "lldp"; "status"; "rx-and-tx"]
 
   let disable dev =
-    call_cli ["configure"; "ports"; dev; "lldp"; "status"; "disabled"]
+    call_cli_ignore ["configure"; "ports"; dev; "lldp"; "status"; "disabled"]
 
   let get_neighbors () =
-    match Network_utils.call_script ~log:false cli show_neighbors_args with
-    | output ->
+    match call_cli ~log:false show_neighbors_args with
+    | Ok output ->
         Lldp_parse.parse_neighbors output
-    | exception e ->
-        debug "%s: could not query LLDP neighbours: %s" __FUNCTION__
-          (Printexc.to_string e) ;
+    | Error _ ->
         []
 
   let get_enabled_interfaces () =
-    match Network_utils.call_script ~log:false cli show_interfaces_args with
-    | output ->
+    match call_cli ~log:false show_interfaces_args with
+    | Ok output ->
         Lldp_parse.parse_enabled_interfaces output
-    | exception e ->
-        debug "%s: could not query LLDP interfaces: %s" __FUNCTION__
-          (Printexc.to_string e) ;
+    | Error _ ->
         []
 
   let string_of_multicast_address = function
@@ -278,7 +297,7 @@ module Lldpd : AGENT = struct
   let set_advertising_conf' conf =
     match conf with
     | Chassis_id (Local chassis_id) ->
-        call_cli ["configure"; "system"; "chassisid"; chassis_id]
+        call_cli_ignore ["configure"; "system"; "chassisid"; chassis_id]
     | Port_id (_dev, Default) ->
         (* MAC address *)
         Ok ()
@@ -286,9 +305,9 @@ module Lldpd : AGENT = struct
         (* Interface name *)
         Ok ()
     | System_name sys_name ->
-        call_cli ["configure"; "system"; "hostname"; sys_name]
+        call_cli_ignore ["configure"; "system"; "hostname"; sys_name]
     | System_description sys_desc ->
-        call_cli ["configure"; "system"; "description"; sys_desc]
+        call_cli_ignore ["configure"; "system"; "description"; sys_desc]
     | System_capability _ ->
         (* In default conf *)
         Ok ()
@@ -303,12 +322,12 @@ module Lldpd : AGENT = struct
             )
           |> string_of_multicast_address
         in
-        call_cli ["configure"; "lldp"; "agent-type"; addr_str]
+        call_cli_ignore ["configure"; "lldp"; "agent-type"; addr_str]
     | Management_address addrs ->
         let addrs_str =
           match addrs with [] -> {|""|} | _ :: _ -> string_of_addresses addrs
         in
-        call_cli
+        call_cli_ignore
           ["configure"; "system"; "ip"; "management"; "pattern"; addrs_str]
 
   module Cache = struct
