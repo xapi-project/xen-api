@@ -219,14 +219,29 @@ module Table = struct
       rows: StringRowMap.map_t
     ; deleted_len: int
     ; deleted: (Time.t * Time.t * string) list
+    ; count: int  (** number of live rows, maintained incrementally *)
   }
 
   type value = Row.t
 
-  let add g key value t = {t with rows= StringRowMap.add g key value t.rows}
+  let add g key value t =
+    let count =
+      if StringRowMap.mem key t.rows then
+        t.count
+      else
+        t.count + 1
+    in
+    {t with rows= StringRowMap.add g key value t.rows; count}
 
   let empty =
-    {rows= StringRowMap.empty; deleted_len= 1; deleted= [(0L, 0L, "")]}
+    {
+      rows= StringRowMap.empty
+    ; deleted_len= 1
+    ; deleted= [(0L, 0L, "")]
+    ; count= 0
+    }
+
+  let count t = t.count
 
   let fold f t acc = StringRowMap.fold f t.rows acc
 
@@ -255,13 +270,26 @@ module Table = struct
       rows= StringRowMap.remove g key t.rows
     ; deleted_len= new_len
     ; deleted= new_deleted
+    ; count= t.count - 1
     }
 
   let touch g key default t =
-    {t with rows= StringRowMap.touch g key default t.rows}
+    let count =
+      if StringRowMap.mem key t.rows then
+        t.count
+      else
+        t.count + 1
+    in
+    {t with rows= StringRowMap.touch g key default t.rows; count}
 
   let update g key default f t =
-    {t with rows= StringRowMap.update g key default f t.rows}
+    let count =
+      if StringRowMap.mem key t.rows then
+        t.count
+      else
+        t.count + 1
+    in
+    {t with rows= StringRowMap.update g key default f t.rows; count}
 
   let fold_over_recent since f t acc =
     StringRowMap.fold_over_recent since f t.rows acc

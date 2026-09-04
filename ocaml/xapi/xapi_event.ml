@@ -722,7 +722,7 @@ let from_inner __context session subs from from_t timer batching =
     Db_cache_types.TableSet.fold
       (fun tablename _ table acc ->
         ( String.lowercase_ascii tablename
-        , Db_cache_types.Table.fold (fun _ _ _ acc -> Int32.add 1l acc) table 0l
+        , Int32.of_int (Db_cache_types.Table.count table)
         )
         :: acc
       )

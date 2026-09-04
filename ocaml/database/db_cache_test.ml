@@ -83,6 +83,87 @@ let check_many_to_many () =
       ) ;
   ()
 
+(* Check that the incrementally-maintained Table.count matches the number of
+   rows obtained by folding, across inserts, updates, deletes and re-inserts.
+   This is the invariant relied upon by Event.from's valid_ref_counts. *)
+let check_row_count () =
+  let fold_count table = Table.fold (fun _ _ _ n -> n + 1) table 0 in
+  let assert_counts db label =
+    TableSet.iter
+      (fun tblname table ->
+        let counted = Table.count table in
+        let folded = fold_count table in
+        if counted <> folded then
+          failwith
+            (Printf.sprintf
+               "check_row_count (%s): table %s Table.count=%d but fold=%d" label
+               tblname counted folded
+            )
+      )
+      (Database.tableset db)
+  in
+  let mk_bar r =
+    Row.add 0L Db_names.ref (Schema.Value.string r)
+      (Row.add 0L "foos" (Schema.Value.Set []) Row.empty)
+  in
+  let db = create_test_db () in
+  assert_counts db "empty" ;
+  (* insert two rows *)
+  let db = add_row "bar" "bar:1" (mk_bar "bar:1") db in
+  let db = add_row "bar" "bar:2" (mk_bar "bar:2") db in
+  assert_counts db "after-insert" ;
+  ( match Table.count (TableSet.find "bar" (Database.tableset db)) with
+  | 2 ->
+      ()
+  | n ->
+      failwith (Printf.sprintf "check_row_count: expected 2 bars, got %d" n)
+  ) ;
+  (* update an existing row: count must not change *)
+  let db = set_field "bar" "bar:1" "foos" (Schema.Value.set ["foo:1"]) db in
+  assert_counts db "after-update" ;
+  (* delete a row *)
+  let db = remove_row "bar" "bar:2" db in
+  assert_counts db "after-delete" ;
+  ( match Table.count (TableSet.find "bar" (Database.tableset db)) with
+  | 1 ->
+      ()
+  | n ->
+      failwith (Printf.sprintf "check_row_count: expected 1 bar, got %d" n)
+  ) ;
+  (* re-insert a previously-deleted ref *)
+  let db = add_row "bar" "bar:2" (mk_bar "bar:2") db in
+  assert_counts db "after-reinsert" ;
+  ( match Table.count (TableSet.find "bar" (Database.tableset db)) with
+  | 2 ->
+      ()
+  | n ->
+      failwith (Printf.sprintf "check_row_count: expected 2 bars, got %d" n)
+  ) ;
+  let bar_table = TableSet.find "bar" (Database.tableset db) in
+  let before = Table.count bar_table in
+  ( match Table.remove 0L "bar:does-not-exist" bar_table with
+  | exception Not_found ->
+      ()
+  | after_table ->
+      let counted = Table.count after_table in
+      let folded = fold_count after_table in
+      if counted <> folded || counted <> before then
+        failwith
+          (Printf.sprintf
+             "check_row_count: spurious remove drifted count: before=%d \
+              count=%d fold=%d"
+             before counted folded
+          )
+  ) ;
+  ()
+
 let () =
   Alcotest.run "Database cache"
-    [("db_cache", [("many_to_many", `Quick, check_many_to_many)])]
+    [
+      ( "db_cache"
+      , [
+          ("many_to_many", `Quick, check_many_to_many)
+        ; ("row_count", `Quick, check_row_count)
+        ]
+      )
+    ]
