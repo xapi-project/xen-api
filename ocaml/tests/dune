@@ -49,6 +49,7 @@
     xapi-test-utils
     xapi-tracing
     xapi-types
+    xapi-gpu
     xapi_xenopsd
     xapi_cli_server
     xapi_database

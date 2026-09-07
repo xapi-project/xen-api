@@ -61,4 +61,7 @@ val apply_nolock :
     written in.
 
     [Helpers.with_global_lock] is a plain mutex and is not re-entrant, so any
-    site that can be reached from inside it must use this form. *)
+    site that can be reached from inside it must use this form. Three can:
+    [VGPU.atomic_set_resident_on], [Vgpuops.allocate_vgpu_to_gpu] (reached
+    from [allocate_vm_to_host], which runs both inside and outside the lock)
+    and [clear_reservations]. *)
