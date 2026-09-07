@@ -1070,27 +1070,28 @@ end = struct
      *)
     remove_conf_file ~ipv6 interface
 
-  let stop ?(ipv6 = false) interface =
-    try
-      ignore
-        (call_script dhclient
-           [
-             "-r"
-           ; "-pf"
-           ; pid_file_path ~ipv6 interface
-           ; "-lf"
-           ; lease_file_path ~ipv6 interface
-           ; interface
-           ]
-        ) ;
-      Unix.unlink (pid_file_path ~ipv6 interface)
-    with _ -> ()
-
   let is_running ?(ipv6 = false) interface =
     try
       Unix.access (pid_file_path ~ipv6 interface) [Unix.F_OK] ;
       true
     with Unix.Unix_error _ -> false
+
+  let stop ?(ipv6 = false) interface =
+    if is_running ~ipv6 interface then
+      try
+        ignore
+          (call_script dhclient
+             [
+               "-r"
+             ; "-pf"
+             ; pid_file_path ~ipv6 interface
+             ; "-lf"
+             ; lease_file_path ~ipv6 interface
+             ; interface
+             ]
+          ) ;
+        Unix.unlink (pid_file_path ~ipv6 interface)
+      with _ -> ()
 
   let ensure_running ?(ipv6 = false) interface options =
     if not (is_running ~ipv6 interface) then
