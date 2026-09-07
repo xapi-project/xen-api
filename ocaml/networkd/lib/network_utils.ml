@@ -1097,7 +1097,7 @@ end = struct
       let current_conf = read_conf_file ~ipv6 interface in
       let new_conf = generate_conf ~ipv6 interface options in
       if current_conf <> Some new_conf then (
-        ignore (stop ~ipv6 interface) ;
+        stop ~ipv6 interface ;
         ignore (start ~ipv6 interface options)
       )
 end

@@ -486,7 +486,7 @@ module Interface = struct
         match conf with
         | None4 ->
             if List.mem name (Sysfs.list ()) then (
-              if Dhclient.is_running name then ignore (Dhclient.stop name) ;
+              if Dhclient.is_running name then Dhclient.stop name ;
               Ip.flush_ip_addr name
             )
         | DHCP4 ->
@@ -506,8 +506,7 @@ module Interface = struct
             Dhclient.ensure_running name options
         | Static4 addrs ->
             if Dhclient.is_running name then (
-              ignore (Dhclient.stop name) ;
-              Ip.flush_ip_addr name
+              Dhclient.stop name ; Ip.flush_ip_addr name
             ) ;
             (* the function is meant to be idempotent and we want to avoid
                CA-239919 *)
@@ -574,14 +573,14 @@ module Interface = struct
           | None6 ->
               if List.mem name (Sysfs.list ()) then (
                 if Dhclient.is_running ~ipv6:true name then
-                  ignore (Dhclient.stop ~ipv6:true name) ;
+                  Dhclient.stop ~ipv6:true name ;
                 Sysctl.set_ipv6_autoconf name false ;
                 Ip.flush_ip_addr ~ipv6:true name
               )
           | Linklocal6 ->
               if List.mem name (Sysfs.list ()) then (
                 if Dhclient.is_running ~ipv6:true name then
-                  ignore (Dhclient.stop ~ipv6:true name) ;
+                  Dhclient.stop ~ipv6:true name ;
                 Sysctl.set_ipv6_autoconf name false ;
                 Ip.flush_ip_addr ~ipv6:true name ;
                 Ip.set_ipv6_link_local_addr name
@@ -598,7 +597,7 @@ module Interface = struct
                   !config.dns_interface
               in
               if Dhclient.is_running ~ipv6:true name then
-                ignore (Dhclient.stop ~ipv6:true name) ;
+                Dhclient.stop ~ipv6:true name ;
               Sysctl.set_ipv6_autoconf name false ;
               Ip.flush_ip_addr ~ipv6:true name ;
               Ip.set_ipv6_link_local_addr name ;
@@ -606,7 +605,7 @@ module Interface = struct
               ignore (Dhclient.ensure_running ~ipv6:true name options)
           | Autoconf6 ->
               if Dhclient.is_running ~ipv6:true name then
-                ignore (Dhclient.stop ~ipv6:true name) ;
+                Dhclient.stop ~ipv6:true name ;
               Ip.flush_ip_addr ~ipv6:true name ;
               Ip.set_ipv6_link_local_addr name ;
               Sysctl.set_ipv6_autoconf name true
@@ -614,7 +613,7 @@ module Interface = struct
                  cleared *)
           | Static6 addrs ->
               if Dhclient.is_running ~ipv6:true name then
-                ignore (Dhclient.stop ~ipv6:true name) ;
+                Dhclient.stop ~ipv6:true name ;
               Sysctl.set_ipv6_autoconf name false ;
               (* add the link_local and clean the old one only when needed *)
               let cur_addrs =
