@@ -4113,14 +4113,13 @@ let rec parse_params_2 xs =
   | [] ->
       []
 
-let parse_commandline arg_list =
+let parse_commandline (argv0, arg_list) =
   try
-    let argv0 = List.hd arg_list in
-    let cmdname = List.hd (List.tl arg_list) in
+    let cmdname = List.hd arg_list in
     (* Detect the case when the command-name is missing *)
     if String.contains cmdname '=' then
       raise (ParseError "command name is missing") ;
-    let params = parse_params_2 (List.tl (List.tl arg_list)) in
+    let params = parse_params_2 (List.tl arg_list) in
     {cmdname; argv0; params}
   with e ->
     error "Rethrowing %s as ParseError \"\"" (Printexc.to_string e) ;

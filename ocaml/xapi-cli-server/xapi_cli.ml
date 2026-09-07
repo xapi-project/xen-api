@@ -410,7 +410,7 @@ let handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   let session, args = parse_session_and_args str in
   try
     (* Unfortunately parse errors can happen preventing the '--trace' option from working *)
-    let cmd = parse_commandline ("xe" :: args) in
+    let cmd = parse_commandline ("xe", args) in
     match
       Backtrace.with_backtraces (fun () -> exec_command req cmd s session args)
     with
