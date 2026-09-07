@@ -914,20 +914,24 @@ module Dhclient : sig
   type interface = string
 
   val remove_conf_file : ?ipv6:bool -> interface -> unit
+  (** remove_conf_file: remove the configuration file (to mark DHCP configuration is stale). *)
 
   val is_running : ?ipv6:bool -> interface -> bool
+  (** is_running: return if the DHCP client is running. *)
 
   val stop : ?ipv6:bool -> interface -> unit
+  (** stop: stop the DHCP client managing [interface] if running. *)
 
   val ensure_running :
        ?ipv6:bool
     -> interface
     -> [> `dns of string | `gateway of string] list
     -> unit
+  (** ensure_running: ensure the DHCP client is up and running. *)
 end = struct
   type interface = string
 
-  let pid_file ?(ipv6 = false) interface =
+  let pid_file_path ?(ipv6 = false) interface =
     let ipv6' =
       if ipv6 then
         "6"
@@ -936,7 +940,7 @@ end = struct
     in
     Printf.sprintf "/var/run/dhclient%s-%s.pid" ipv6' interface
 
-  let lease_file ?(ipv6 = false) interface =
+  let lease_file_path ?(ipv6 = false) interface =
     let ipv6' =
       if ipv6 then
         "6"
@@ -946,7 +950,7 @@ end = struct
     Filename.concat "/var/lib/xcp"
       (Printf.sprintf "dhclient%s-%s.leases" ipv6' interface)
 
-  let conf_file ?(ipv6 = false) interface =
+  let conf_file_path ?(ipv6 = false) interface =
     let ipv6' =
       if ipv6 then
         "6"
@@ -956,6 +960,7 @@ end = struct
     Filename.concat "/var/lib/xcp"
       (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
 
+  (** generate_conf: return a new generated content for dhclient configuration file. *)
   let[@warning "-27"] generate_conf ?(ipv6 = false) interface options =
     let send = "host-name = gethostname()" in
     let minimal =
@@ -994,19 +999,20 @@ end = struct
       (String.concat ", " request)
 
   let read_conf_file ?(ipv6 = false) interface =
-    let file = conf_file ~ipv6 interface in
+    let file = conf_file_path ~ipv6 interface in
     try Some (Xapi_stdext_unix.Unixext.string_of_file file) with _ -> None
 
   let write_conf_file ?(ipv6 = false) interface options =
     let conf = generate_conf ~ipv6 interface options in
     Xapi_stdext_unix.Unixext.write_string_to_file
-      (conf_file ~ipv6 interface)
+      (conf_file_path ~ipv6 interface)
       conf
 
   let remove_conf_file ?(ipv6 = false) interface =
-    let file = conf_file ~ipv6 interface in
+    let file = conf_file_path ~ipv6 interface in
     try Unix.unlink file with _ -> ()
 
+  (** start: regenerate configuration file and start DHCP client. *)
   let start ?(ipv6 = false) interface options =
     (* If we have a gateway interface, pass it to dhclient-script via -e *)
     (* This prevents the default route being set erroneously on CentOS *)
@@ -1041,11 +1047,11 @@ end = struct
       @ [
           "-q"
         ; "-pf"
-        ; pid_file ~ipv6 interface
+        ; pid_file_path ~ipv6 interface
         ; "-lf"
-        ; lease_file ~ipv6 interface
+        ; lease_file_path ~ipv6 interface
         ; "-cf"
-        ; conf_file ~ipv6 interface
+        ; conf_file_path ~ipv6 interface
         ; interface
         ]
       )
@@ -1057,18 +1063,18 @@ end = struct
            [
              "-r"
            ; "-pf"
-           ; pid_file ~ipv6 interface
+           ; pid_file_path ~ipv6 interface
            ; "-lf"
-           ; lease_file ~ipv6 interface
+           ; lease_file_path ~ipv6 interface
            ; interface
            ]
         ) ;
-      Unix.unlink (pid_file ~ipv6 interface)
+      Unix.unlink (pid_file_path ~ipv6 interface)
     with _ -> ()
 
   let is_running ?(ipv6 = false) interface =
     try
-      Unix.access (pid_file ~ipv6 interface) [Unix.F_OK] ;
+      Unix.access (pid_file_path ~ipv6 interface) [Unix.F_OK] ;
       true
     with Unix.Unix_error _ -> false
 
