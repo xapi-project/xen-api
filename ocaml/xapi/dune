@@ -230,6 +230,7 @@
   xapi-idl.memory
   xapi-idl.gpumon
   xapi-idl.updates
+  xapi-gpu
   (re_export xapi_internal_minimal)
   xapi-inventory
   xapi-log

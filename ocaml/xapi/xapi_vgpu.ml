@@ -102,14 +102,16 @@ let create' ~__context ~vM ~gPU_group ~device ~other_config ~_type
       ) ;
   debug "Creating vGPU %s with metadata: [%s]" (Ref.string_of vgpu)
     (List.map fst compatibility_metadata |> String.concat ":") ;
+  let resident_on_partition, scheduled_to_be_resident_on_partition =
+    Xapi_gpu_partition.initial_refs
+  in
   Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
       let device_id = get_valid_device ~__context ~device ~vM ~vGPUs:existing in
       Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device:device_id
         ~currently_attached:false ~other_config ~_type ~resident_on:Ref.null
         ~scheduled_to_be_resident_on:Ref.null ~compatibility_metadata
-        ~extra_args:"" ~pCI:Ref.null ~resident_on_partition:Ref.null
-        ~scheduled_to_be_resident_on_partition:Ref.null
-        ~partition_layout_generation:0L
+        ~extra_args:"" ~pCI:Ref.null ~resident_on_partition
+        ~scheduled_to_be_resident_on_partition ~partition_layout_generation:0L
   ) ;
   debug "VGPU ref='%s' created (VM = '%s', type = '%s')" (Ref.string_of vgpu)
     (Ref.string_of vM) (Ref.string_of _type) ;
