@@ -803,7 +803,8 @@ module Interface = struct
     Debug.with_thread_associated dbg
       (fun () ->
         debug "Configuring LLDP for %s" name ;
-        Lldp.set_conf name params
+        Lldp.set_conf name params ;
+        update_config name {(get_config name) with lldp= params}
       )
       ()
 
@@ -912,21 +913,20 @@ module Interface = struct
         List.iter
           (function
             | ( name
-              , ( {
-                    ipv4_conf
-                  ; ipv4_gateway
-                  ; ipv6_conf
-                  ; ipv6_gateway
-                  ; ipv4_routes
-                  ; dns
-                  ; mtu
-                  ; ethtool_settings
-                  ; ethtool_offload
-                  ; lldp
-                  ; _
-                  } as c
-                ) ) ->
-                update_config name c ;
+              , {
+                  ipv4_conf
+                ; ipv4_gateway
+                ; ipv6_conf
+                ; ipv6_gateway
+                ; ipv4_routes
+                ; dns
+                ; mtu
+                ; ethtool_settings
+                ; ethtool_offload
+                ; lldp
+                ; persistent_i
+                } ) ->
+                exec (fun () -> set_persistent dbg name persistent_i) ;
                 exec (fun () ->
                     match dns with
                     | None ->
