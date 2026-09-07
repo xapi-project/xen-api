@@ -32,4 +32,4 @@ val populate_cmdtable : Cli_operations.rpc -> API.ref_session -> unit
 
 val cmd_help : (Cli_printer.printval -> unit) -> bool -> commandline -> unit
 
-val parse_commandline : string list -> commandline
+val parse_commandline : string * string list -> commandline
