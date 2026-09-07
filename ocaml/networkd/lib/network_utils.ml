@@ -932,7 +932,7 @@ module Dhclient : sig
 end = struct
   type interface = string
 
-  let pid_file_path ?(ipv6 = false) interface =
+  let pid_file_path ~ipv6 interface =
     let ipv6' =
       if ipv6 then
         "6"
@@ -941,7 +941,7 @@ end = struct
     in
     Printf.sprintf "/var/run/dhclient%s-%s.pid" ipv6' interface
 
-  let lease_file_path ?(ipv6 = false) interface =
+  let lease_file_path ~ipv6 interface =
     let ipv6' =
       if ipv6 then
         "6"
@@ -951,7 +951,7 @@ end = struct
     Filename.concat "/var/lib/xcp"
       (Printf.sprintf "dhclient%s-%s.leases" ipv6' interface)
 
-  let conf_file_path ?(ipv6 = false) interface =
+  let conf_file_path ~ipv6 interface =
     let ipv6' =
       if ipv6 then
         "6"
@@ -962,7 +962,7 @@ end = struct
       (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
 
   (** generate_conf: return a new generated content for dhclient configuration file. *)
-  let[@warning "-27"] generate_conf ?(ipv6 = false) interface options =
+  let[@warning "-27"] generate_conf ~ipv6 interface options =
     let send = "host-name = gethostname()" in
     let minimal =
       [
@@ -999,23 +999,23 @@ end = struct
       interface send
       (String.concat ", " request)
 
-  let read_conf_file ?(ipv6 = false) interface =
+  let read_conf_file ~ipv6 interface =
     let file = conf_file_path ~ipv6 interface in
     try Some (Xapi_stdext_unix.Unixext.string_of_file file) with _ -> None
 
-  let write_conf_file ?(ipv6 = false) interface options =
+  let write_conf_file ~ipv6 interface options =
     let conf = generate_conf ~ipv6 interface options in
     Xapi_stdext_unix.Unixext.write_string_to_file
       (conf_file_path ~ipv6 interface)
       conf
 
   (** remove_conf_file: unlink the dhclient configuration file from disk (no exception if file doesn't exists). *)
-  let remove_conf_file ?(ipv6 = false) interface =
+  let remove_conf_file ~ipv6 interface =
     let file = conf_file_path ~ipv6 interface in
     try Unix.unlink file with _ -> ()
 
   (** start: regenerate configuration file and start DHCP client. *)
-  let start ?(ipv6 = false) interface options =
+  let start ~ipv6 interface options =
     (* If we have a gateway interface, pass it to dhclient-script via -e *)
     (* This prevents the default route being set erroneously on CentOS *)
     (* Normally this wouldn't happen as we're not requesting routers, *)
