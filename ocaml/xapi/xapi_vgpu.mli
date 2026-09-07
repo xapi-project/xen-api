@@ -34,8 +34,18 @@ val atomic_set_resident_on :
  *  field. This should always run on the pool master. *)
 
 val copy :
-  __context:Context.t -> vm:[`VM] Ref.t -> [`VGPU] Ref.t -> [`VGPU] Ref.t
-(** Duplicate a VGPU. *)
+     __context:Context.t
+  -> ?preserve_compatibility_metadata:bool
+  -> vm:[`VM] Ref.t
+  -> [`VGPU] Ref.t
+  -> [`VGPU] Ref.t
+(** Duplicate a VGPU.
+
+    [preserve_compatibility_metadata] defaults to [true], which is right for a
+    snapshot or checkpoint: the copy stands for the same running vGPU on the
+    same card. A clone or copy must pass [false] — the new VM has never been
+    resident on any pGPU, so the metadata would describe hardware it has never
+    touched. *)
 
 (* Determine whether a VGPU requires passthrough of an entire PGPU, or
  * will be only require part of the PGPU. *)
