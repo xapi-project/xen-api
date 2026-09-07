@@ -1016,6 +1016,9 @@ end = struct
 
   (** start: regenerate configuration file and start DHCP client. *)
   let start ~ipv6 interface options =
+    (* create an up-to-date configuration file. *)
+    write_conf_file ~ipv6 interface options ;
+
     (* If we have a gateway interface, pass it to dhclient-script via -e *)
     (* This prevents the default route being set erroneously on CentOS *)
     (* Normally this wouldn't happen as we're not requesting routers, *)
@@ -1035,27 +1038,29 @@ end = struct
       else
         ["-e"; "PEERDNS=no"]
     in
-    write_conf_file ~ipv6 interface options ;
     let ipv6' =
       if ipv6 then
         ["-6"]
       else
         []
     in
-    call_script ~timeout:None dhclient
-      (ipv6'
-      @ gw_opt
-      @ dns_opt
-      @ [
-          "-q"
-        ; "-pf"
-        ; pid_file_path ~ipv6 interface
-        ; "-lf"
-        ; lease_file_path ~ipv6 interface
-        ; "-cf"
-        ; conf_file_path ~ipv6 interface
-        ; interface
-        ]
+    (* start dhclient *)
+    ignore
+      (call_script ~timeout:None dhclient
+         (ipv6'
+         @ gw_opt
+         @ dns_opt
+         @ [
+             "-q"
+           ; "-pf"
+           ; pid_file_path ~ipv6 interface
+           ; "-lf"
+           ; lease_file_path ~ipv6 interface
+           ; "-cf"
+           ; conf_file_path ~ipv6 interface
+           ; interface
+           ]
+         )
       )
 
   let set_stale ?(ipv6 = false) interface =
@@ -1090,7 +1095,7 @@ end = struct
   let ensure_running ?(ipv6 = false) interface options =
     if not (is_running ~ipv6 interface) then
       (* dhclient is not running, so we need to start it. *)
-      ignore (start ~ipv6 interface options)
+      start ~ipv6 interface options
     else
       (* dhclient is running - if the config has changed, update the config file
          and restart. *)
@@ -1098,7 +1103,7 @@ end = struct
       let new_conf = generate_conf ~ipv6 interface options in
       if current_conf <> Some new_conf then (
         stop ~ipv6 interface ;
-        ignore (start ~ipv6 interface options)
+        start ~ipv6 interface options
       )
 end
 
