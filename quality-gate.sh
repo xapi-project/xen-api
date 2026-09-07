@@ -25,7 +25,7 @@ verify-cert () {
 }
 
 mli-files () {
-  N=455
+  N=454
   X="ocaml/tests"
   X+="|ocaml/quicktest"
   X+="|ocaml/message-switch/core_test"
@@ -154,4 +154,3 @@ ocamlyacc
 unixgetenv
 hashtblfind
 unnecessary-length
-

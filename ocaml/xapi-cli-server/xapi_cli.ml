@@ -419,7 +419,7 @@ let handler (req : Http.Request.t) (s : Unix.file_descr) _ =
     | `Error (e, bt) ->
         exception_handler s e ;
         (* Command execution errors can use --trace *)
-        if Cli_operations.get_bool_param cmd.params "trace" then (
+        if Cli_operations.get_bool_param (get_params cmd) "trace" then (
           marshal s
             (Command
                (PrintStderr (Printf.sprintf "Raised %s\n" (Printexc.to_string e))
