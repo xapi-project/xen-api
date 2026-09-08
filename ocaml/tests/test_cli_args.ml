@@ -81,6 +81,23 @@ let test_view_accepts_legacy_dash_separator () =
     (get_opt "target" dc) ;
   check_unused "and marked on the root" ["z"] t
 
+let test_view_requires_a_separator () =
+  let t =
+    t_of
+      [
+        ("other-config:real", "1")
+      ; ("other-configuration", "2")
+      ; ("other-configx", "3")
+      ]
+  in
+  let oc = view "other-config" t in
+  Alcotest.check strings "only prefix + separator + key is in scope" ["real"]
+    (keys oc) ;
+  ignore (consume oc) ;
+  check_unused "keys sharing the prefix without a separator stay untouched"
+    ["other-configuration"; "other-configx"]
+    t
+
 let test_consume_marks_all_visible () =
   let t = t_of [("a", "1"); ("b", "2")] in
   ignore (consume t) ;
@@ -146,6 +163,7 @@ let tests =
         , `Quick
         , test_view_accepts_legacy_dash_separator
         )
+      ; ("view requires a separator", `Quick, test_view_requires_a_separator)
       ; ("consume marks all visible", `Quick, test_consume_marks_all_visible)
       ; ( "consume on view respects scope"
         , `Quick
