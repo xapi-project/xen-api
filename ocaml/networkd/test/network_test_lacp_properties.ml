@@ -59,23 +59,20 @@ module OVS_Cli_test = struct
     String.concat " " args
 end
 
-(* XXX TODO write this test *)
 let test_lacp_aggregation_key_vsctl arg () =
   let module Ovs = Ovs.Make (OVS_Cli_test) in
   let bond = "bond0"
   and ifaces = ["eth0"; "eth1"]
   and bridge = "xapi1"
   and props = [("mode", "lacp"); ("lacp-aggregation-key", arg)]
-  (* other-config:lacp-aggregation-key=42 *)
-  and answer = "other-config:lacp-aggregation-key=" ^ arg in
+  and answer = Printf.sprintf "other-config:lacp-aggregation-key=\"%s\"" arg in
   Ovs.create_bond bond ifaces bridge props |> ignore ;
-  List.iter print_endline !OVS_Cli_test.vsctl_output ;
-  print_endline answer ;
-  (* todo: pass -> replace with bool *)
-  Alcotest.(
-    check pass "lacp_aggregation_key is passed to ovs-vsctl command" true
-      (List.exists (fun s -> String.trim s == answer) !OVS_Cli_test.vsctl_output)
-  )
+  Alcotest.(check bool)
+    "lacp_aggregation_key is passed to ovs-vsctl command" true
+    (List.exists
+       (fun s -> String.equal (String.trim s) answer)
+       !OVS_Cli_test.vsctl_output
+    )
 
 (* Test case for bond_create with default lacp-{time,aggregation-key} settings.
    This should not call ovs-vsctl with unfinished key=value arguments. So we

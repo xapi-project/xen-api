@@ -223,7 +223,7 @@ let run state comms_sock fd_sock fd_sock_path =
         ([Unix.stdin; Unix.stdout; Unix.stderr] @ fds) ;
 
       (* Distance ourselves from our parent process: *)
-      if Unix.setsid () == -1 then failwith "Unix.setsid failed" ;
+      if Unix.setsid () = -1 then failwith "Unix.setsid failed" ;
 
       (* And exec *)
       try Unix.execve name (Array.of_list args) (Array.of_list state.env)
