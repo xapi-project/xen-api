@@ -19,10 +19,10 @@
 type 'a entry = {mutable key: string; value: 'a; mutable used: bool}
 
 (* [scope = Some prefix] restricts the visible entries to those whose key is
-   [prefix] followed by at least one more character (any separator, matching the
-   historical map-parameter parsing); their keys are seen with that prefix and
-   its separator removed. [entries] is shared with the structure the view was
-   taken from. *)
+   [prefix], then a [:] or [-] separator, then at least one more character (the
+   [prefix:key=value] map/set syntax and the legacy [prefix-key=value] form);
+   their keys are seen with that prefix and separator removed. [entries] is
+   shared with the structure the view was taken from. *)
 type 'a t = {entries: 'a entry list; scope: string option}
 
 (* [bare t e] is [e]'s key as seen through [t] (scope prefix stripped), or [None]
@@ -34,7 +34,11 @@ let bare t e =
   | Some prefix ->
       let plen = String.length prefix in
       let len = plen + 1 in
-      if String.length e.key > len && String.sub e.key 0 plen = prefix then
+      if
+        String.length e.key > len
+        && String.sub e.key 0 plen = prefix
+        && (e.key.[plen] = ':' || e.key.[plen] = '-')
+      then
         Some (String.sub e.key len (String.length e.key - len))
       else
         None
