@@ -496,9 +496,7 @@ module Interface = struct
 
         ( match conf with
         | None4 ->
-            if List.mem name (Sysfs.list ()) then (
-              Dhclient.stop name ; Ip.flush_ip_addr name
-            )
+            Dhclient.stop name ; Ip.flush_ip_addr name
         | DHCP4 ->
             if not (Dhclient.is_running name) then (* Remove any static IPs *)
               Ip.flush_ip_addr name ;
@@ -573,18 +571,14 @@ module Interface = struct
 
           ( match conf with
           | None6 ->
-              if List.mem name (Sysfs.list ()) then (
-                Dhclient.stop ~ipv6:true name ;
-                Sysctl.set_ipv6_autoconf name false ;
-                Ip.flush_ip_addr ~ipv6:true name
-              )
+              Dhclient.stop ~ipv6:true name ;
+              Sysctl.set_ipv6_autoconf name false ;
+              Ip.flush_ip_addr ~ipv6:true name
           | Linklocal6 ->
-              if List.mem name (Sysfs.list ()) then (
-                Dhclient.stop ~ipv6:true name ;
-                Sysctl.set_ipv6_autoconf name false ;
-                Ip.flush_ip_addr ~ipv6:true name ;
-                Ip.set_ipv6_link_local_addr name
-              )
+              Dhclient.stop ~ipv6:true name ;
+              Sysctl.set_ipv6_autoconf name false ;
+              Ip.flush_ip_addr ~ipv6:true name ;
+              Ip.set_ipv6_link_local_addr name
           | DHCP6 ->
               Dhclient.stop ~ipv6:true name ;
               Sysctl.set_ipv6_autoconf name false ;
