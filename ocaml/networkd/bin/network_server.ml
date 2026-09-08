@@ -482,8 +482,8 @@ module Interface = struct
       (fun () ->
         debug "Configuring IPv4 address for %s: %s" name
           (conf |> Rpcmarshal.marshal typ_of_ipv4 |> Jsonrpc.to_string) ;
-        update_config name {(get_config name) with ipv4_conf= conf} ;
-        match conf with
+
+        ( match conf with
         | None4 ->
             if List.mem name (Sysfs.list ()) then (
               Dhclient.stop name ; Ip.flush_ip_addr name
@@ -518,6 +518,9 @@ module Interface = struct
             in
             List.iter (Ip.del_ip_addr name) rm_addrs ;
             List.iter (Ip.set_ip_addr name) add_addrs
+        ) ;
+
+        update_config name {(get_config name) with ipv4_conf= conf}
       )
       ()
 
@@ -567,8 +570,8 @@ module Interface = struct
         else (
           debug "Configuring IPv6 address for %s: %s" name
             (conf |> Rpcmarshal.marshal typ_of_ipv6 |> Jsonrpc.to_string) ;
-          update_config name {(get_config name) with ipv6_conf= conf} ;
-          match conf with
+
+          ( match conf with
           | None6 ->
               if List.mem name (Sysfs.list ()) then (
                 Dhclient.stop ~ipv6:true name ;
@@ -629,6 +632,9 @@ module Interface = struct
               in
               List.iter (Ip.del_ip_addr name) rm_addrs ;
               List.iter (Ip.set_ip_addr name) add_addrs
+          ) ;
+
+          update_config name {(get_config name) with ipv6_conf= conf}
         )
       )
       ()
