@@ -21,13 +21,18 @@ let string_of_addresses addresses =
   addresses |> List.map Unix.string_of_inet_addr |> String.concat ","
 
 module Lldp_types = struct
-  type error = Command_failed of string * string | Internal of string
+  type error =
+    | Command_failed of string * string
+    | Internal of string
+    | Service_not_running
 
   let string_of_error = function
     | Command_failed (cmd, msg) ->
         Printf.sprintf "command %S failed: %s" cmd msg
     | Internal msg ->
         Printf.sprintf "Internal error: %s" msg
+    | Service_not_running ->
+        "Service not running"
 
   type chassis_id = Local of string
 
@@ -51,7 +56,7 @@ module Lldp_types = struct
 end
 
 module Lldp_parse = struct
-  let ( let* ) = Option.bind
+  let ( >>= ) = Option.bind
 
   (* Follow [keys] through a json0 doc. Object keys are consumed one at a time;
      arrays are transparently entered at their head without consuming a key
@@ -64,8 +69,7 @@ module Lldp_parse = struct
     | k :: ks as keys -> (
       match json0 with
       | `Assoc l ->
-          let* json' = List.assoc_opt k l in
-          json0_get json' ks
+          List.assoc_opt k l >>= Fun.flip json0_get ks
       | `List (json' :: _) ->
           json0_get json' keys
       | _ ->
@@ -74,6 +78,50 @@ module Lldp_parse = struct
 
   let json0_get_str json0 keys =
     match json0_get json0 keys with Some (`String s) -> Some s | _ -> None
+
+  let max_value_bytes = 256
+
+  (* control characters: C0 (<= U+001F), DEL and C1 (U+007F-009F). *)
+  let is_control u =
+    let c = Uchar.to_int u in
+    c <= 0x1f || (c >= 0x7f && c <= 0x9f)
+
+  (* U+FFFE and U+FFFF are valid UTF-8 but lie outside XML 1.0's Char
+     production, so xmlm can write them to the XML-backed database yet fails to
+     read them back. Drop them so a neighbour value cannot poison state.db. *)
+  let is_xml_illegal u =
+    let c = Uchar.to_int u in
+    c = 0xfffe || c = 0xffff
+
+  (* Sanitise a single LLDP tlv value.
+     - verify UTF-8 encoding: any malformed sequence discards the whole value;
+     - remove control characters and XML-illegal noncharacters;
+     - truncate to [max_value_bytes], stopping on a UTF-8 codepoint boundary so
+       the result stays valid UTF-8. *)
+  let sanitise s =
+    let buf = Buffer.create (min (String.length s) max_value_bytes) in
+    let exception Malformed in
+    let exception Full in
+    let add () _pos = function
+      | `Malformed _ ->
+          raise Malformed
+      | `Uchar u when is_control u || is_xml_illegal u ->
+          ()
+      | `Uchar u ->
+          let before = Buffer.length buf in
+          Buffer.add_utf_8_uchar buf u ;
+          if Buffer.length buf > max_value_bytes then (
+            (* This codepoint overflows the cap: drop it and stop, leaving a
+               whole-codepoint prefix. *)
+            Buffer.truncate buf before ;
+            raise Full
+          )
+    in
+    match Uutf.String.fold_utf_8 add () s with
+    | () | (exception Full) ->
+        Some (Buffer.contents buf)
+    | exception Malformed ->
+        None
 
   let interfaces (output : string) : Yojson.Safe.t list =
     match Yojson.Safe.from_string output with
@@ -93,10 +141,16 @@ module Lldp_parse = struct
       (string * Network_stats.lldp_neighbor) list =
     interfaces output
     |> List.filter_map (fun iface ->
-        let* dev = json0_get_str iface ["name"] in
-        let system_name = json0_get_str iface ["chassis"; "name"; "value"] in
-        let port_id = json0_get_str iface ["port"; "id"; "value"] in
-        let port_description = json0_get_str iface ["port"; "descr"; "value"] in
+        json0_get_str iface ["name"] >>= fun dev ->
+        let system_name =
+          json0_get_str iface ["chassis"; "name"; "value"] >>= sanitise
+        in
+        let port_id =
+          json0_get_str iface ["port"; "id"; "value"] >>= sanitise
+        in
+        let port_description =
+          json0_get_str iface ["port"; "descr"; "value"] >>= sanitise
+        in
         Some (dev, Network_stats.{system_name; port_id; port_description})
     )
 
@@ -145,9 +199,16 @@ let management_ip_address =
     match (force, Atomic.get cache) with
     | true, seen | false, ([] as seen) -> (
         let addrs =
-          let iface = Inventory.lookup Inventory._management_interface in
-          let open Network_utils in
-          Ip.get_ipv4 iface @ Ip.get_ipv6 iface |> List.map fst
+          Inventory.reread_inventory () ;
+          match Inventory.lookup Inventory._management_interface with
+          | "" ->
+              (* Management is disabled: there is no interface to read from.
+                 [Ip.get_ipv4 ""] would raise; an empty list maps to an empty
+                 advertising pattern, matching the disabled state. *)
+              []
+          | iface ->
+              let open Network_utils in
+              Ip.get_ipv4 iface @ Ip.get_ipv6 iface |> List.map fst
         in
         match Atomic.compare_and_set cache seen addrs with
         | true ->
@@ -184,6 +245,18 @@ module Lldpd : AGENT = struct
 
   let conf_path = Filename.concat conf_dir "00-networkd-default.conf"
 
+  let result_ignore = Result.map ignore
+
+  let service_running =
+    Atomic.make (try Fe_systemctl.is_active ~service with _ -> false)
+
+  let mark_service_running v f =
+    f ()
+    |> Result.map (fun x ->
+        Atomic.set service_running v ;
+        x
+    )
+
   let default_conf =
     String.concat "\n"
       [
@@ -193,19 +266,23 @@ module Lldpd : AGENT = struct
       ; ""
       ]
 
-  let run cmd args =
+  let run cmd ?(log = true) args =
     let cmdline = String.concat " " (cmd :: args) in
-    try
-      ignore (Network_utils.call_script ~log:true cmd args) ;
-      Ok ()
+    try Ok (Network_utils.call_script ~log cmd args)
     with e ->
       let err_msg = Printexc.to_string e in
       error "%s: %S failed: %s" __FUNCTION__ cmdline err_msg ;
       Error (Command_failed (cmdline, err_msg))
 
-  let call_cli args = run cli args
+  let call_cli ?(log = true) args =
+    if Atomic.get service_running then
+      run cli ~log args
+    else
+      Error Service_not_running
 
-  let call_systemctl args = run systemctl args
+  let call_cli_ignore ?(log = true) args = call_cli ~log args |> result_ignore
+
+  let call_systemctl args = run systemctl args |> result_ignore
 
   let advertising_confs dev (config : I.lldp) : conf list =
     [
@@ -221,6 +298,7 @@ module Lldpd : AGENT = struct
 
   let start () =
     try
+      mark_service_running true @@ fun () ->
       Xapi_stdext_unix.Unixext.write_string_to_file conf_path default_conf ;
       if Fe_systemctl.is_active ~service then
         Ok ()
@@ -230,6 +308,7 @@ module Lldpd : AGENT = struct
 
   let stop () =
     try
+      mark_service_running false @@ fun () ->
       if Fe_systemctl.is_active ~service then
         call_systemctl ["stop"; service]
       else
@@ -237,27 +316,23 @@ module Lldpd : AGENT = struct
     with e -> Error (Internal (Printexc.to_string e))
 
   let enable dev =
-    call_cli ["configure"; "ports"; dev; "lldp"; "status"; "rx-and-tx"]
+    call_cli_ignore ["configure"; "ports"; dev; "lldp"; "status"; "rx-and-tx"]
 
   let disable dev =
-    call_cli ["configure"; "ports"; dev; "lldp"; "status"; "disabled"]
+    call_cli_ignore ["configure"; "ports"; dev; "lldp"; "status"; "disabled"]
 
   let get_neighbors () =
-    match Network_utils.call_script ~log:false cli show_neighbors_args with
-    | output ->
+    match call_cli ~log:false show_neighbors_args with
+    | Ok output ->
         Lldp_parse.parse_neighbors output
-    | exception e ->
-        debug "%s: could not query LLDP neighbours: %s" __FUNCTION__
-          (Printexc.to_string e) ;
+    | Error _ ->
         []
 
   let get_enabled_interfaces () =
-    match Network_utils.call_script ~log:false cli show_interfaces_args with
-    | output ->
+    match call_cli ~log:false show_interfaces_args with
+    | Ok output ->
         Lldp_parse.parse_enabled_interfaces output
-    | exception e ->
-        debug "%s: could not query LLDP interfaces: %s" __FUNCTION__
-          (Printexc.to_string e) ;
+    | Error _ ->
         []
 
   let string_of_multicast_address = function
@@ -271,7 +346,7 @@ module Lldpd : AGENT = struct
   let set_advertising_conf' conf =
     match conf with
     | Chassis_id (Local chassis_id) ->
-        call_cli ["configure"; "system"; "chassisid"; chassis_id]
+        call_cli_ignore ["configure"; "system"; "chassisid"; chassis_id]
     | Port_id (_dev, Default) ->
         (* MAC address *)
         Ok ()
@@ -279,9 +354,9 @@ module Lldpd : AGENT = struct
         (* Interface name *)
         Ok ()
     | System_name sys_name ->
-        call_cli ["configure"; "system"; "hostname"; sys_name]
+        call_cli_ignore ["configure"; "system"; "hostname"; sys_name]
     | System_description sys_desc ->
-        call_cli ["configure"; "system"; "description"; sys_desc]
+        call_cli_ignore ["configure"; "system"; "description"; sys_desc]
     | System_capability _ ->
         (* In default conf *)
         Ok ()
@@ -296,12 +371,12 @@ module Lldpd : AGENT = struct
             )
           |> string_of_multicast_address
         in
-        call_cli ["configure"; "lldp"; "agent-type"; addr_str]
+        call_cli_ignore ["configure"; "lldp"; "agent-type"; addr_str]
     | Management_address addrs ->
         let addrs_str =
           match addrs with [] -> {|""|} | _ :: _ -> string_of_addresses addrs
         in
-        call_cli
+        call_cli_ignore
           ["configure"; "system"; "ip"; "management"; "pattern"; addrs_str]
 
   module Cache = struct

@@ -1580,6 +1580,9 @@ let _ =
       "The IGMP Snooping setting cannot be applied for some of the host, \
        network(s)."
     () ;
+  error Api_errors.lldp_pif_replug_failed ["PIFs"]
+    ~doc:"Failed to re-plug one or more PIFs while applying the LLDP setting."
+    () ;
   error Api_errors.update_apply_failed ["output"]
     ~doc:"The update failed to apply. Please see attached output." () ;
   error Api_errors.update_already_applied ["update"]

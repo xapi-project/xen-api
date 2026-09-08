@@ -106,7 +106,7 @@ Behavior:
 
 - if `force=false` and `value = pool.lldp_enabled`, do nothing;
 - otherwise, set `pool.lldp_enabled` to `value`, apply LLDP configuration to every physical PIF in the pool by calling `PIF.plug` to each host;
-- return a map of failed PIFs and error strings.
+- every affected PIF is attempted; if any fail to re-plug, raise `LLDP_PIF_REPLUG_FAILED` with the list of PIFs that failed (so the caller learns which PIFs did not get the new setting).
 
 ### `PIF.set_lldp_mode`
 
@@ -119,7 +119,8 @@ Parameters:
 Behavior:
 
 - if `force=false` and `value= PIF.lldp_mode`, do nothing;
-- otherwise set `PIF.lldp_mode` to `value`, apply LLDP configuration to the physical NIC represented by the PIF by calling `PIF.plug` to the host.
+- otherwise set `PIF.lldp_mode` to `value`, apply LLDP configuration to the physical NIC represented by the PIF by calling `PIF.plug` to the host;
+- if the re-plug fails, raise `LLDP_PIF_REPLUG_FAILED` for the PIF.
 
 
 ## The networkd database

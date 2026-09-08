@@ -141,7 +141,10 @@ val set_lldp_mode :
   -> value:[`disabled | `enabled | `inherited]
   -> force:bool
   -> unit
-(** Set the LLDP mode of a managed physical PIF and apply the change *)
+(** Set the LLDP mode of a managed physical PIF and apply the change by
+    re-plugging it. If the re-plug fails, raises [LLDP_PIF_REPLUG_FAILED] with
+    the PIF; the LLDP configuration itself is best-effort, so a successful
+    re-plug does not guarantee LLDP was applied. *)
 
 val set_default_properties : __context:Context.t -> self:API.ref_PIF -> unit
 (** Set the default properties of a PIF *)
