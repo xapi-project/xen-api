@@ -474,6 +474,17 @@ module Interface = struct
       )
       ()
 
+  let config_to_dhcp_options config =
+    let gateway =
+      Option.fold ~none:[]
+        ~some:(fun n -> [`gateway n])
+        config.gateway_interface
+    in
+    let dns =
+      Option.fold ~none:[] ~some:(fun n -> [`dns n]) config.dns_interface
+    in
+    gateway @ dns
+
   let get_ipv4_addr dbg name =
     Debug.with_thread_associated dbg (fun () -> Ip.get_ipv4 name) ()
 
@@ -489,20 +500,9 @@ module Interface = struct
               Dhclient.stop name ; Ip.flush_ip_addr name
             )
         | DHCP4 ->
-            let gateway =
-              Option.fold ~none:[]
-                ~some:(fun n -> [`gateway n])
-                !config.gateway_interface
-            in
-            let dns =
-              Option.fold ~none:[]
-                ~some:(fun n -> [`dns n])
-                !config.dns_interface
-            in
             if not (Dhclient.is_running name) then (* Remove any static IPs *)
               Ip.flush_ip_addr name ;
-            let options = gateway @ dns in
-            Dhclient.ensure_running name options
+            Dhclient.ensure_running name (config_to_dhcp_options !config)
         | Static4 addrs ->
             if Dhclient.is_running name then (
               Dhclient.stop name ; Ip.flush_ip_addr name
@@ -586,22 +586,12 @@ module Interface = struct
                 Ip.set_ipv6_link_local_addr name
               )
           | DHCP6 ->
-              let gateway =
-                Option.fold ~none:[]
-                  ~some:(fun n -> [`gateway n])
-                  !config.gateway_interface
-              in
-              let dns =
-                Option.fold ~none:[]
-                  ~some:(fun n -> [`dns n])
-                  !config.dns_interface
-              in
               Dhclient.stop ~ipv6:true name ;
               Sysctl.set_ipv6_autoconf name false ;
               Ip.flush_ip_addr ~ipv6:true name ;
               Ip.set_ipv6_link_local_addr name ;
-              let options = gateway @ dns in
-              Dhclient.ensure_running ~ipv6:true name options
+              Dhclient.ensure_running ~ipv6:true name
+                (config_to_dhcp_options !config)
           | Autoconf6 ->
               Dhclient.stop ~ipv6:true name ;
               Ip.flush_ip_addr ~ipv6:true name ;
