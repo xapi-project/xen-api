@@ -196,6 +196,9 @@ module DATA = struct
   let copy ctx ~dbg ~sr ~vdi ~vm ~url ~dest =
     Storage_interface.unimplemented __FUNCTION__
 
+  let copy2 ctx ~dbg ~sr ~vdi ~vm ~url ~dest =
+    Storage_interface.unimplemented __FUNCTION__
+
   let mirror ctx ~dbg ~sr ~vdi ~image_format ~vm ~dest =
     Storage_interface.unimplemented __FUNCTION__
 

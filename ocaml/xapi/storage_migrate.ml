@@ -113,13 +113,13 @@ module MigrateLocal = struct
         raise e
 
   let prepare ~dbg ~sr ~vdi ~image_format ~dest ~local_vdi ~mirror_id ~mirror_vm
-      ~url ~verify_dest =
+      ~url ~verify_dest ~dest_base =
     try
       let (module Migrate_Backend) = choose_backend dbg sr in
       let similars = similar_vdis ~dbg ~sr ~vdi in
       Migrate_Backend.receive_start3 () ~dbg ~sr:dest ~vdi_info:local_vdi
         ~image_format ~mirror_id ~similar:similars ~vm:mirror_vm ~url
-        ~verify_dest
+        ~verify_dest ~dest_base
     with e ->
       error "%s Caught error %s while preparing for SXM" __FUNCTION__
         (Printexc.to_string e) ;
@@ -127,7 +127,7 @@ module MigrateLocal = struct
         (Storage_error (Migration_preparation_failure (Printexc.to_string e)))
 
   let start ~task_id ~dbg ~sr ~vdi ~image_format ~dp ~mirror_vm ~copy_vm
-      ~live_vm ~url ~dest ~verify_dest =
+      ~live_vm ~url ~dest ~verify_dest ~dest_base =
     SXM.info
       "%s sr:%s vdi:%s image_format:%s dp:%s mirror_vm:%s copy_vm:%s url:%s \
        dest:%s verify_dest:%B"
@@ -170,7 +170,7 @@ module MigrateLocal = struct
     try
       let remote_mirror =
         prepare ~dbg ~sr ~vdi ~image_format ~dest ~local_vdi ~mirror_id
-          ~mirror_vm ~url ~verify_dest
+          ~mirror_vm ~url ~verify_dest ~dest_base
       in
       Migrate_Backend.send_start () ~dbg ~task_id ~dp ~sr ~vdi ~image_format
         ~mirror_vm ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror
@@ -426,14 +426,31 @@ let copy ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest =
         ~sr ~vdi ~vm ~url ~dest ~verify_dest
   )
 
+(** [copy] with a caller-chosen base: SMAPIv1 finds its own and ignores
+    [dest_base], SMAPIv3 reports no similar content and relies on it. *)
+let copy2 ~dbg ~sr ~vdi ~vm ~url ~dest ~dest_base ~image_format ~verify_dest =
+  with_task_and_thread ~dbg (fun task ->
+      match Storage_mux_reg.smapi_version_of_sr sr with
+      | SMAPIv1 ->
+          Storage_smapiv1_migrate.Copy.copy_into_sr ~task
+            ~dbg:dbg.Debug_info.log ~sr ~vdi ~vm ~url ~dest ~verify_dest
+      | SMAPIv3 ->
+          Storage_smapiv3_migrate.Copy.copy_into_sr ~task
+            ~dbg:dbg.Debug_info.log ~sr ~vdi ~vm ~url ~dest ~dest_base
+            ~image_format ~verify_dest
+      | SMAPIv2 ->
+          (* this should never happen *)
+          failwith "unsupported SMAPI version smapiv2"
+  )
+
 let start ~dbg ~sr ~vdi ~image_format ~dp ~mirror_vm ~copy_vm ~live_vm ~url
-    ~dest ~verify_dest =
+    ~dest ~verify_dest ~dest_base =
   with_dbg ~name:__FUNCTION__ ~dbg @@ fun dbg ->
   with_task_and_thread ~dbg (fun task ->
       MigrateLocal.start
         ~task_id:(Storage_task.id_of_handle task)
         ~dbg:dbg.Debug_info.log ~sr ~vdi ~image_format ~dp ~mirror_vm ~copy_vm
-        ~live_vm ~url ~dest ~verify_dest
+        ~live_vm ~url ~dest ~verify_dest ~dest_base
   )
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
