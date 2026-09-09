@@ -44,6 +44,12 @@ val get_published_info_class : Datamodel_types.obj -> string
     @param cls Class to retrieve publication information for.
     @return Information string with the first published version. *)
 
+val is_last : 'a -> 'a list -> bool
+(** [is_last item list] Checks if an item is the last one in a given list of items.
+    @param item The item to check.
+    @param list The list to check.
+    @return [true] if the item is the last one in the list, [false] otherwise. *)
+
 val is_method_static : Datamodel_types.message -> bool
 (** [is_method_static message] Checks if a method is static based on its parameters.
     @param message Message to check.

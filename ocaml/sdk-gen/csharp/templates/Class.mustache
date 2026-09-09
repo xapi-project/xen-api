@@ -1,0 +1,192 @@
+/*
+ * Copyright (c) Cloud Software Group, Inc.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   1) Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *
+ *   2) Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials
+ *      provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Globalization;
+using System.Linq;
+using Newtonsoft.Json;
+
+
+namespace XenAPI
+{
+    /// <summary>
+    /// {{class_doc}}
+    /// {{class_rel}}
+    /// </summary>
+    public partial class {{class}}{{#has_fields}} : XenObject<{{class}}>{{/has_fields}}
+    {
+{{#has_fields}}
+        #region Constructors
+
+        public {{class}}()
+        {
+        }
+
+        public {{class}}(
+{{#all_fields}}
+            {{{field_type}}} {{field}}{{^is_last}},{{/is_last}}
+{{/all_fields}}
+        )
+        {
+{{#all_fields}}
+            this.{{field}} = {{field}};
+{{/all_fields}}
+        }
+
+        /// <summary>
+        /// Creates a new {{class}} from a Hashtable.
+        /// Note that the fields not contained in the Hashtable
+        /// will be created with their default values.
+        /// </summary>
+        /// <param name="table"></param>
+        public {{class}}(Hashtable table)
+            : this()
+        {
+            UpdateFrom(table);
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Updates each field of this instance with the value of
+        /// the corresponding field of a given {{class}}.
+        /// </summary>
+        public override void UpdateFrom({{class}} record)
+        {
+{{#all_fields}}
+            {{field}} = record.{{field}};
+{{/all_fields}}
+        }
+
+        /// <summary>
+        /// Given a Hashtable with field-value pairs, it updates the fields of this {{class}}
+        /// with the values listed in the Hashtable. Note that only the fields contained
+        /// in the Hashtable will be updated and the rest will remain the same.
+        /// </summary>
+        /// <param name="table"></param>
+        public void UpdateFrom(Hashtable table)
+        {
+{{#all_fields}}
+            if (table.ContainsKey("{{field}}"))
+                {{field}} = {{{field_marshalling}}};
+{{/all_fields}}
+        }
+
+        public bool DeepEquals({{class}} other{{#has_current_ops}}, bool ignoreCurrentOperations{{/has_current_ops}})
+        {
+            if (ReferenceEquals(null, other))
+                return false;
+            if (ReferenceEquals(this, other))
+                return true;
+
+            return
+{{#has_current_ops}}
+                (ignoreCurrentOperations || Helper.AreEqual2(current_operations, other.current_operations)) &&
+{{/has_current_ops}}
+{{#fields_no_ops}}
+                Helper.AreEqual2({{field}}, other.{{field}}){{#is_last}};{{/is_last}}{{^is_last}} &&{{/is_last}}
+{{/fields_no_ops}}
+        }
+{{/has_fields}}
+{{#all_methods}}
+{{#overloads}}
+
+        /// <summary>
+        /// {{{method_doc}}}
+{{#method_rel}}
+        /// {{.}}
+{{/method_rel}}
+        /// </summary>
+{{#params}}
+        /// <param name="{{param_name}}">{{{param_doc}}}{{#param_rel}} {{.}}{{/param_rel}}</param>
+{{/params}}
+        /// <remarks>
+        /// Minimum allowed role: {{method_rbac}}
+        /// </remarks>
+{{#deprecated}}
+        [Deprecated("Deprecated since {{.}}")]
+{{/deprecated}}
+        public static {{{result}}} {{method}}({{#params}}{{{param_type}}} {{param_name}}{{^is_last}}, {{/is_last}}{{/params}})
+        {
+            {{#has_return}}return {{/has_return}}session.JsonRpcClient.{{client_method}}({{#params}}{{param_name_proxy}}{{^is_last}}, {{/is_last}}{{/params}});
+        }
+{{#async}}
+
+        /// <summary>
+        /// {{{method_doc}}}
+{{#method_rel}}
+        /// {{.}}
+{{/method_rel}}
+        /// </summary>
+{{#params}}
+        /// <param name="{{param_name}}">{{{param_doc}}}{{#param_rel}} {{.}}{{/param_rel}}</param>
+{{/params}}
+        /// <remarks>
+        /// Minimum allowed role: {{method_rbac}}
+        /// </remarks>
+{{#deprecated}}
+        [Deprecated("Deprecated since {{.}}")]
+{{/deprecated}}
+        public static XenRef<Task> async_{{method}}({{#params}}{{{param_type}}} {{param_name}}{{^is_last}}, {{/is_last}}{{/params}})
+        {
+            return session.JsonRpcClient.async_{{client_method}}({{#params}}{{param_name_proxy}}{{^is_last}}, {{/is_last}}{{/params}});
+        }
+{{/async}}
+{{/overloads}}
+{{/all_methods}}
+{{#all_fields}}
+
+        /// <summary>
+        /// {{{field_doc}}}
+{{#field_rel}}
+        /// {{.}}
+{{/field_rel}}
+        /// </summary>
+{{#json_attr}}
+        {{{.}}}
+{{/json_attr}}
+        public virtual {{{field_type}}} {{field}}
+        {
+            get => _{{field}};
+            set
+            {
+                if (!Helper.AreEqual(value, _{{field}}))
+                {
+                    _{{field}} = value;
+                    NotifyPropertyChanged("{{field}}");
+                }
+            }
+        }
+        private {{{field_type}}} _{{field}}{{{field_default}}};
+{{/all_fields}}
+    }
+}
