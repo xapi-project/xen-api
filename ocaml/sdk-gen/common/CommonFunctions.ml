@@ -55,6 +55,21 @@ let list_index_of x list =
   in
   try index_rec 0 list with Not_found -> -1
 
+let rec is_last x list =
+  match list with
+  | [] ->
+      false
+  | hd :: [] ->
+      if hd = x then
+        true
+      else
+        false
+  | hd :: tl ->
+      if hd = x then
+        false
+      else
+        is_last x tl
+
 let is_method_static message =
   match message.msg_params with
   | [] ->
@@ -181,11 +196,7 @@ let gen_param_groups message params =
   in
   let valid x =
     match x with
-    | [] when is_setter message ->
-        false
-    | [] when is_adder message ->
-        false
-    | [] when is_remover message ->
+    | [] when is_setter message || is_adder message || is_remover message ->
         false
     | _ ->
         true

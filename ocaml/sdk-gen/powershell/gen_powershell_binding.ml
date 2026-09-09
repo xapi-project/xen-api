@@ -72,21 +72,6 @@ let maps = ref TypeSet.empty
 let generated x =
   not (List.mem x.name ["blob"; "session"; "debug"; "event"; "vtpm"])
 
-let rec is_last x list =
-  match list with
-  | [] ->
-      false
-  | hd :: [] ->
-      if hd = x then
-        true
-      else
-        false
-  | hd :: tl ->
-      if hd = x then
-        false
-      else
-        is_last x tl
-
 let rec main () =
   let json =
     `O
