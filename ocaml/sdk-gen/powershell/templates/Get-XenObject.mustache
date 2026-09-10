@@ -1,0 +1,76 @@
+{{{licence}}}
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Management.Automation;
+using XenAPI;
+
+namespace Citrix.XenServer.Commands
+{
+    [Cmdlet(VerbsCommon.Get, "Xen{{{class}}}", DefaultParameterSetName = "Ref", SupportsShouldProcess = false)]
+    [OutputType(typeof({{{qualified_type}}}[]))]
+    public class GetXen{{{class}}}Command : XenServerCmdlet
+    {
+        #region Cmdlet Parameters
+{{{params}}}
+        #endregion
+
+        #region Cmdlet Methods
+
+        protected override void ProcessRecord()
+        {
+            GetSession();
+
+            var records = {{{qualified_type}}}.get_all_records(session);
+
+            foreach (var record in records)
+                record.Value.opaque_ref = record.Key;
+
+            var results = new List<{{{qualified_type}}}>();
+
+            if (Ref != null)
+            {
+                foreach (var record in records)
+                    if (Ref.opaque_ref == record.Key.opaque_ref)
+                    {
+                        results.Add(record.Value);
+                        break;
+                    }
+            }{{#has_name}}
+            else if (Name != null)
+            {
+                var options = WildcardOptions.IgnoreCase
+                              | WildcardOptions.Compiled
+                              | WildcardOptions.CultureInvariant;
+                var wildcard = new WildcardPattern(Name, options);
+
+                foreach (var record in records)
+                {
+                    if (wildcard.IsMatch(record.Value.name_label))
+                        results.Add(record.Value);
+                }
+            }{{/has_name}}{{#has_uuid}}
+            else if (Uuid != Guid.Empty)
+            {
+                foreach (var record in records)
+                    if (Uuid.ToString() == record.Value.uuid)
+                    {
+                        results.Add(record.Value);
+                        break;
+                    }
+            }{{/has_uuid}}
+            else
+            {
+                results.AddRange(records.Values);
+            }
+
+            WriteObject(results, true);
+
+            UpdateSessions();
+        }
+
+        #endregion
+    }
+}
+

@@ -1,0 +1,45 @@
+{{{licence}}}
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Management.Automation;
+using XenAPI;
+
+namespace Citrix.XenServer.Commands
+{
+    [Cmdlet(VerbsCommon.New, "Xen{{{class}}}", DefaultParameterSetName = "Hashtable", SupportsShouldProcess = true)]
+    [OutputType(typeof({{{qualified_type}}}))]{{#async_task}}
+    [OutputType(typeof(XenAPI.Task))]{{/async_task}}
+    [OutputType(typeof(void))]
+    public class NewXen{{{class}}}Command : XenServerCmdlet
+    {
+        #region Cmdlet Parameters
+
+        [Parameter]
+        public SwitchParameter PassThru { get; set; }
+
+        [Parameter(ParameterSetName = "Hashtable", Mandatory = true)]
+        public Hashtable HashTable { get; set; }
+
+        [Parameter(ParameterSetName = "Record", Mandatory = true)]
+        public {{{qualified_type}}} Record { get; set; }
+{{{fields_or_params}}}{{{async_param_override}}}
+        #endregion
+
+        #region Cmdlet Methods
+
+        protected override void ProcessRecord()
+        {
+            GetSession();{{{make}}}{{{shouldprocess}}}
+            RunApiCall(()=>
+            {{{open_brace}}}{{{api_call}}}
+            });
+
+            UpdateSessions();
+        }
+
+        #endregion
+   }
+}
+
