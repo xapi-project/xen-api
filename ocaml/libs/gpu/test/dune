@@ -2,3 +2,8 @@
  (name test_partition_mode)
  (package xapi-gpu)
  (libraries gpu alcotest))
+
+(test
+ (name test_gpu_partition_lifecycle)
+ (package xapi-gpu)
+ (libraries gpu alcotest))
