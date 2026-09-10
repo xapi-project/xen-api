@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -40,7 +40,7 @@ jobs:
           ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
           opam-repositories: |
             xs-opam: ${{ steps.dotenv.outputs.repository }}
-          dune-cache: true
+          cache: true
           opam-pin: false
 
       - name: Install ocamlformat

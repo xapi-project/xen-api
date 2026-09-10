@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -47,11 +47,11 @@ jobs:
         run: opam exec -- make compile_commands.json
 
       - name: Upload compile commands json
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           path: ${{ github.workspace }}/compile_commands.json
 
-      - uses: whisperity/codechecker-analysis-action@v1
+      - uses: whisperity/codechecker-analysis-action@c1fbda08799d91447c007e18db31e423ee37fccd
         id: codechecker
         with:
           ctu: true
@@ -59,7 +59,7 @@ jobs:
           analyze-output: "codechecker_results"
 
       - name: Upload CodeChecker report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: codechecker_results
           path: "${{ steps.codechecker.outputs.result-html-dir }}"
@@ -71,7 +71,7 @@ jobs:
         run: report-converter "codechecker_results" --type cppcheck --output codechecker.sarif --export sarif
 
       - name: Upload CodeChecker SARIF report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: codechecker_sarif
           path: codechecker.sarif

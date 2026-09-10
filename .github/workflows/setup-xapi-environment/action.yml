@@ -58,7 +58,7 @@ runs:
         ocaml-compiler: ${{ inputs.ocaml_version }}
         opam-repositories: |
           xs-opam: ${{ steps.dotenv.outputs.repository }}
-        dune-cache: true
+        cache: true
         opam-pin: false
         cache-prefix: v3-${{ steps.system-info.outputs.name }}-${{ steps.system-info.outputs.release }}
       env:
