@@ -598,8 +598,9 @@ module Ip = struct
     with _ -> ()
 
   let set_ipv6_link_local_addr dev =
-    let addr = get_ipv6_link_local_addr dev in
-    try ignore (call ["addr"; "add"; addr; "dev"; dev; "scope"; "link"])
+    try
+      let addr = get_ipv6_link_local_addr dev in
+      ignore (call ["addr"; "add"; addr; "dev"; dev; "scope"; "link"])
     with _ -> ()
 
   let flush_ip_addr ?(ipv6 = false) dev =
@@ -913,21 +914,26 @@ end
 module Dhclient : sig
   type interface = string
 
-  val remove_conf_file : ?ipv6:bool -> interface -> unit
+  val set_stale : ?ipv6:bool -> interface -> unit
+  (** set_stale: mark the DHCP configuration to be stale. Next call of `ensure_running`
+  will necessary trigger a restart. *)
 
   val is_running : ?ipv6:bool -> interface -> bool
+  (** is_running: return if the DHCP client is running. *)
 
   val stop : ?ipv6:bool -> interface -> unit
+  (** stop: stop the DHCP client managing [interface] if running. *)
 
   val ensure_running :
        ?ipv6:bool
     -> interface
     -> [> `dns of string | `gateway of string] list
     -> unit
+  (** ensure_running: ensure the DHCP client is up and running. *)
 end = struct
   type interface = string
 
-  let pid_file ?(ipv6 = false) interface =
+  let pid_file_path ~ipv6 interface =
     let ipv6' =
       if ipv6 then
         "6"
@@ -936,7 +942,7 @@ end = struct
     in
     Printf.sprintf "/var/run/dhclient%s-%s.pid" ipv6' interface
 
-  let lease_file ?(ipv6 = false) interface =
+  let lease_file_path ~ipv6 interface =
     let ipv6' =
       if ipv6 then
         "6"
@@ -946,7 +952,7 @@ end = struct
     Filename.concat "/var/lib/xcp"
       (Printf.sprintf "dhclient%s-%s.leases" ipv6' interface)
 
-  let conf_file ?(ipv6 = false) interface =
+  let conf_file_path ~ipv6 interface =
     let ipv6' =
       if ipv6 then
         "6"
@@ -956,7 +962,8 @@ end = struct
     Filename.concat "/var/lib/xcp"
       (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
 
-  let[@warning "-27"] generate_conf ?(ipv6 = false) interface options =
+  (** generate_conf: return a new generated content for dhclient configuration file. *)
+  let[@warning "-27"] generate_conf ~ipv6 interface options =
     let send = "host-name = gethostname()" in
     let minimal =
       [
@@ -993,21 +1000,26 @@ end = struct
       interface send
       (String.concat ", " request)
 
-  let read_conf_file ?(ipv6 = false) interface =
-    let file = conf_file ~ipv6 interface in
+  let read_conf_file ~ipv6 interface =
+    let file = conf_file_path ~ipv6 interface in
     try Some (Xapi_stdext_unix.Unixext.string_of_file file) with _ -> None
 
-  let write_conf_file ?(ipv6 = false) interface options =
+  let write_conf_file ~ipv6 interface options =
     let conf = generate_conf ~ipv6 interface options in
     Xapi_stdext_unix.Unixext.write_string_to_file
-      (conf_file ~ipv6 interface)
+      (conf_file_path ~ipv6 interface)
       conf
 
-  let remove_conf_file ?(ipv6 = false) interface =
-    let file = conf_file ~ipv6 interface in
+  (** remove_conf_file: unlink the dhclient configuration file from disk (no exception if file doesn't exists). *)
+  let remove_conf_file ~ipv6 interface =
+    let file = conf_file_path ~ipv6 interface in
     try Unix.unlink file with _ -> ()
 
-  let start ?(ipv6 = false) interface options =
+  (** start: regenerate configuration file and start DHCP client. *)
+  let start ~ipv6 interface options =
+    (* create an up-to-date configuration file. *)
+    write_conf_file ~ipv6 interface options ;
+
     (* If we have a gateway interface, pass it to dhclient-script via -e *)
     (* This prevents the default route being set erroneously on CentOS *)
     (* Normally this wouldn't happen as we're not requesting routers, *)
@@ -1027,63 +1039,73 @@ end = struct
       else
         ["-e"; "PEERDNS=no"]
     in
-    write_conf_file ~ipv6 interface options ;
     let ipv6' =
       if ipv6 then
         ["-6"]
       else
         []
     in
-    call_script ~timeout:None dhclient
-      (ipv6'
-      @ gw_opt
-      @ dns_opt
-      @ [
-          "-q"
-        ; "-pf"
-        ; pid_file ~ipv6 interface
-        ; "-lf"
-        ; lease_file ~ipv6 interface
-        ; "-cf"
-        ; conf_file ~ipv6 interface
-        ; interface
-        ]
-      )
-
-  let stop ?(ipv6 = false) interface =
-    try
-      ignore
-        (call_script dhclient
-           [
-             "-r"
+    (* start dhclient *)
+    ignore
+      (call_script ~timeout:None dhclient
+         (ipv6'
+         @ gw_opt
+         @ dns_opt
+         @ [
+             "-q"
            ; "-pf"
-           ; pid_file ~ipv6 interface
+           ; pid_file_path ~ipv6 interface
            ; "-lf"
-           ; lease_file ~ipv6 interface
+           ; lease_file_path ~ipv6 interface
+           ; "-cf"
+           ; conf_file_path ~ipv6 interface
            ; interface
            ]
-        ) ;
-      Unix.unlink (pid_file ~ipv6 interface)
-    with _ -> ()
+         )
+      )
+
+  let set_stale ?(ipv6 = false) interface =
+    (* set the configuration dirty by removing the configuration file.
+     * dhclient will still run nicely, but `ensure_running` will stop/start it
+     * as the configuration will not match the (removed) configuration file.
+     *)
+    remove_conf_file ~ipv6 interface
 
   let is_running ?(ipv6 = false) interface =
     try
-      Unix.access (pid_file ~ipv6 interface) [Unix.F_OK] ;
+      Unix.access (pid_file_path ~ipv6 interface) [Unix.F_OK] ;
       true
     with Unix.Unix_error _ -> false
+
+  let stop ?(ipv6 = false) interface =
+    if is_running ~ipv6 interface then
+      try
+        ignore
+          (call_script dhclient
+             [
+               "-r"
+             ; "-pf"
+             ; pid_file_path ~ipv6 interface
+             ; "-lf"
+             ; lease_file_path ~ipv6 interface
+             ; interface
+             ]
+          ) ;
+        Unix.unlink (pid_file_path ~ipv6 interface)
+      with _ -> ()
 
   let ensure_running ?(ipv6 = false) interface options =
     if not (is_running ~ipv6 interface) then
       (* dhclient is not running, so we need to start it. *)
-      ignore (start ~ipv6 interface options)
+      start ~ipv6 interface options
     else
       (* dhclient is running - if the config has changed, update the config file
          and restart. *)
       let current_conf = read_conf_file ~ipv6 interface in
       let new_conf = generate_conf ~ipv6 interface options in
       if current_conf <> Some new_conf then (
-        ignore (stop ~ipv6 interface) ;
-        ignore (start ~ipv6 interface options)
+        stop ~ipv6 interface ;
+        start ~ipv6 interface options
       )
 end
 
