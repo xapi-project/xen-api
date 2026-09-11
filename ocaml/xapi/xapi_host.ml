@@ -334,12 +334,28 @@ let compute_evacuation_plan_no_wlb ~__context ~host ?(ignore_ha = false) () =
       all_user_vms ;
     plans
   ) else
-    (* If HA is enabled we require that non-protected VMs are suspended. This gives us the property that
-       			   the result obtained by executing the evacuation plan and disabling the host looks the same (from the HA
-       			   planner's PoV) to the result obtained following a host failure and VM restart. *)
+    (* When HA reserves capacity for failover (ha_host_failures_to_tolerate > 0)
+       we exclude non-protected VMs from the evacuation: the HA planner only
+       accounts for protected VMs, so executing the evacuation plan and
+       disabling the host looks the same (from the HA planner's PoV) as a host
+       failure followed by VM restart. Placing non-protected VMs on the
+       remaining hosts would consume memory the planner does not reserve and
+       could break the failover plan, which is why VM.start / VM.migrate of
+       such VMs are blocked with HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN when a
+       plan is reserved.
+
+       When ha_host_failures_to_tolerate is 0, ha_plan_exists_for is 0: there is
+       no reserved plan to break (protected VMs are still restarted, but only on
+       a best-effort basis). That best-effort restart can already be degraded by
+       an ordinary VM.start, which is not blocked at ftt = 0, so we likewise let
+       evacuation migrate every user VM. *)
     let pool = Helpers.get_pool ~__context in
+    let ha_reserves_capacity =
+      Db.Pool.get_ha_enabled ~__context ~self:pool
+      && Db.Pool.get_ha_host_failures_to_tolerate ~__context ~self:pool > 0L
+    in
     let protected_vms, unprotected_vms =
-      if Db.Pool.get_ha_enabled ~__context ~self:pool && not ignore_ha then
+      if ha_reserves_capacity && not ignore_ha then
         List.partition
           (fun (_, record) ->
             Helpers.vm_should_always_run record.API.vM_ha_always_run
