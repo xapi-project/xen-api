@@ -2679,6 +2679,9 @@ functor
           coalesce_request (Some (`Copy (h, ofs, len))) (next ())
       | Cons (`Copy (h, ofs, len), next), Some (`Copy (h', ofs', len'))
         when coalesced_sectors ** Int64.of_int sector_size <= sync_limit ->
+          (* Only merge copies that read from the same open handle [h], i.e. the
+             same source file. Physical equality is deliberate here; a false
+             negative merely skips a coalescing opportunity. *)
           if ofs ++ len = ofs' && h == h' then
             coalesce_request ~coalesced_sectors:(coalesced_sectors ++ 1L)
               (Some (`Copy (h, ofs, len ++ len')))
