@@ -535,9 +535,12 @@ let all (lookup : string -> string option) (list : string -> string list)
       Db.VM_guest_metrics.set_services ~__context ~self:gm ~value:services ;
     if guest_metrics_cached.other <> other then (
       Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other ;
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.VM.update_allowed_operations ~rpc ~session_id ~self
-      )
+      ignore
+        (Helpers.call_api_functions ~__context (fun rpc session_id ->
+             Client.Client.Async.VM.update_allowed_operations ~rpc ~session_id
+               ~self
+         )
+        )
     ) ;
     if guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd then
       Db.VM_guest_metrics.set_can_use_hotplug_vbd ~__context ~self:gm
@@ -587,9 +590,12 @@ let all (lookup : string -> string option) (list : string -> string list)
       || guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
       || guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
     then
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.VM.update_allowed_operations ~rpc ~session_id ~self
-      )
+      ignore
+        (Helpers.call_api_functions ~__context (fun rpc session_id ->
+             Client.Client.Async.VM.update_allowed_operations ~rpc ~session_id
+               ~self
+         )
+        )
   )
 
 (* else debug "Ignored spurious guest agent update" *)
