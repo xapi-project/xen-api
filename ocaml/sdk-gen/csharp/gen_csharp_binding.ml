@@ -4,6 +4,7 @@
 
 open Printf
 open Datamodel
+open Datamodel_common
 open Datamodel_types
 open Datamodel_utils
 open Dm_api
@@ -59,6 +60,15 @@ let enum_of_wire =
   Astring.String.map (fun x -> match x with '-' -> '_' | _ -> x)
 
 let api_members = ref []
+
+let session_param msg =
+  {
+    param_type= Ref _session
+  ; param_name= "session"
+  ; param_doc= "The session"
+  ; param_default= None
+  ; param_release= msg.msg_release
+  }
 
 let rec main () =
   render_file
@@ -199,427 +209,160 @@ and gen_http_actions () =
 
 (* ------------------- category: classes *)
 and gen_class_file cls =
-  let m = exposed_class_name cls.name in
-  if not (List.mem m !api_members) then api_members := m :: !api_members ;
-  let out_chan =
-    open_out (Filename.concat destdir (exposed_class_name cls.name) ^ ".cs")
-  in
-  Fun.protect
-    (fun () -> gen_class out_chan cls)
-    ~finally:(fun () -> close_out out_chan)
+  let name = exposed_class_name cls.name in
+  if not (List.mem name !api_members) then api_members := name :: !api_members ;
+  render_file ("Class.mustache", name ^ ".cs") (gen_class cls) templdir destdir
 
-and gen_class out_chan cls =
-  let print format = fprintf out_chan format in
-  let exposed_class_name = exposed_class_name cls.name in
+and gen_class cls =
+  let classname = exposed_class_name cls.name in
   let messages =
     List.filter
       (fun msg -> String.compare msg.msg_name "get_all_records_where" <> 0)
       cls.messages
   in
-  let contents = cls.contents in
-  let publishedInfo = get_published_info_class cls in
-
-  print
-    "%s\n\n\
-     using System;\n\
-     using System.Collections;\n\
-     using System.Collections.Generic;\n\
-     using System.ComponentModel;\n\
-     using System.Globalization;\n\
-     using System.Linq;\n\
-     using Newtonsoft.Json;\n\n\n\
-     namespace XenAPI\n\
-     {\n\
-    \    /// <summary>\n\
-    \    /// %s%s\n\
-    \    /// </summary>\n\
-    \    public partial class %s : XenObject<%s>\n\
-    \    {"
-    Licence.bsd_two_clause
-    (escape_xml cls.description)
-    ( if publishedInfo = "" then
-        ""
-      else
-        "\n    /// " ^ publishedInfo
-    )
-    exposed_class_name exposed_class_name ;
-
-  print
-    "\n\
-    \        #region Constructors\n\n\
-    \        public %s()\n\
-    \        {\n\
-    \        }\n"
-    exposed_class_name ;
-
-  let print_internal_ctor = function
-    | [] ->
-        ()
-    | cnt ->
-        print "\n        public %s(%s)\n        {\n            %s\n        }\n"
-          exposed_class_name
-          (String.concat ",\n            "
-             (List.rev (get_constructor_params cnt))
+  let rec flatten_contents contents =
+    List.fold_left
+      (fun l -> function
+        | Field f ->
+            f :: l
+        | Namespace (_name, contents) ->
+            flatten_contents contents @ l
+        )
+      [] contents
+  in
+  let fields =
+    cls.contents
+    |> flatten_contents
+    |> List.filter (fun f -> not f.internal_only)
+    |> List.rev
+  in
+  let fields_no_ops =
+    fields |> List.filter (fun f -> full_name f <> "current_operations")
+  in
+  `O
+    [
+      ("class", `String classname)
+    ; ("class_doc", `String (escape_xml cls.description))
+    ; ("class_rel", `String (get_published_info_class cls))
+    ; ("has_fields", `Bool (List.length fields > 0))
+    ; ( "has_current_ops"
+      , `Bool (List.length fields <> List.length fields_no_ops)
+      )
+    ; ( "fields_no_ops"
+      , `A
+          (List.map
+             (fun f ->
+               `O
+                 [
+                   ("field", `String (full_name f))
+                 ; ("is_last", `Bool (is_last f fields_no_ops))
+                 ]
+             )
+             fields_no_ops
           )
-          (String.concat "\n            " (List.rev (get_constructor_body cnt)))
-  in
-  print_internal_ctor contents ;
-
-  print
-    "\n\
-    \        /// <summary>\n\
-    \        /// Creates a new %s from a Hashtable.\n\
-    \        /// Note that the fields not contained in the Hashtable\n\
-    \        /// will be created with their default values.\n\
-    \        /// </summary>\n\
-    \        /// <param name=\"table\"></param>\n\
-    \        public %s(Hashtable table)\n\
-    \            : this()\n\
-    \        {\n\
-    \            UpdateFrom(table);\n\
-    \        }\n"
-    exposed_class_name exposed_class_name ;
-
-  print "\n        #endregion\n\n" ;
-
-  print
-    "        /// <summary>\n\
-    \        /// Updates each field of this instance with the value of\n\
-    \        /// the corresponding field of a given %s.\n\
-    \        /// </summary>\n\
-    \        public override void UpdateFrom(%s record)\n\
-    \        {\n"
-    exposed_class_name exposed_class_name ;
-
-  List.iter (gen_updatefrom_line out_chan) contents ;
-
-  print "        }\n\n" ;
-
-  print
-    "        /// <summary>\n\
-    \        /// Given a Hashtable with field-value pairs, it updates the \
-     fields of this %s\n\
-    \        /// with the values listed in the Hashtable. Note that only the \
-     fields contained\n\
-    \        /// in the Hashtable will be updated and the rest will remain the \
-     same.\n\
-    \        /// </summary>\n\
-    \        /// <param name=\"table\"></param>\n\
-    \        public void UpdateFrom(Hashtable table)\n\
-    \        {\n"
-    exposed_class_name ;
-
-  List.iter (gen_hashtable_constructor_line out_chan) contents ;
-
-  print "        }\n\n" ;
-
-  let is_current_ops = function
-    | Field f ->
-        full_name f = "current_operations"
-    | _ ->
-        false
-  in
-  let current_ops, other_contents = List.partition is_current_ops contents in
-  let check_refs =
-    "if (ReferenceEquals(null, other))\n\
-    \                return false;\n\
-    \            if (ReferenceEquals(this, other))\n\
-    \                return true;"
-  in
-  ( match current_ops with
-  | [] ->
-      print
-        "        public bool DeepEquals(%s other)\n\
-        \        {\n\
-        \            %s\n\n\
-        \            return "
-        exposed_class_name check_refs
-  | _ ->
-      print
-        "        public bool DeepEquals(%s other, bool ignoreCurrentOperations)\n\
-        \        {\n\
-        \            %s\n\n\
-        \            if (!ignoreCurrentOperations && \
-         !Helper.AreEqual2(current_operations, other.current_operations))\n\
-        \                return false;\n\n\
-        \            return "
-        exposed_class_name check_refs
-  ) ;
-
-  ( match other_contents with
-  | [] ->
-      print "false"
-  | _ ->
-      print "%s"
-        (String.concat " &&\n                "
-           (List.map gen_equals_condition other_contents)
-        )
-  ) ;
-
-  print ";\n        }\n\n" ;
-
-  let gen_exposed_method_overloads cls message =
-    let generator x = gen_exposed_method cls message x in
-    gen_overloads generator message
-  in
-  let all_methods =
-    messages |> List.concat_map (gen_exposed_method_overloads cls)
-  in
-  List.iter (print "%s") all_methods ;
-  List.iter (gen_exposed_field out_chan cls) contents ;
-  print "    }\n}\n"
-
-and get_constructor_params content = get_constructor_params' content []
-
-and get_constructor_params' content elements =
-  match content with
-  | [] ->
-      elements
-  | Field fr :: others ->
-      get_constructor_params' others
-        (sprintf "%s %s" (exposed_type fr.ty) (full_name fr) :: elements)
-  | Namespace (_, c) :: others ->
-      get_constructor_params' (c @ others) elements
-
-and get_constructor_body content = get_constructor_body' content []
-
-and get_constructor_body' content elements =
-  match content with
-  | [] ->
-      elements
-  | Field fr :: others ->
-      get_constructor_body' others
-        (sprintf "this.%s = %s;" (full_name fr) (full_name fr) :: elements)
-  | Namespace (_, c) :: others ->
-      get_constructor_body' (c @ others) elements
-
-and gen_hashtable_constructor_line out_chan content =
-  let print format = fprintf out_chan format in
-
-  match content with
-  | Field fr ->
-      print
-        "            if (table.ContainsKey(\"%s\"))\n                %s = %s;\n"
-        (full_name fr) (full_name fr)
-        (convert_from_hashtable (full_name fr) fr.ty)
-  | Namespace (_, c) ->
-      List.iter (gen_hashtable_constructor_line out_chan) c
-
-and gen_equals_condition content =
-  match content with
-  | Field fr ->
-      sprintf "Helper.AreEqual2(_%s, other._%s)" (full_name fr) (full_name fr)
-  | Namespace (_, c) ->
-      String.concat " &&\n                " (List.map gen_equals_condition c)
-
-and gen_updatefrom_line out_chan content =
-  let print format = fprintf out_chan format in
-
-  match content with
-  | Field fr ->
-      print "            %s = %s;\n" (full_name fr) ("record." ^ full_name fr)
-  | Namespace (_, c) ->
-      List.iter (gen_updatefrom_line out_chan) c
-
-and gen_overloads generator message =
-  match message.msg_params with
-  | [] ->
-      [generator []]
-  | _ ->
-      let paramGroups = gen_param_groups message message.msg_params in
-      List.map generator paramGroups
-
-and gen_exposed_method cls msg curParams =
-  let classname = cls.name in
-  let minimum_allowed_role = get_minimum_allowed_role msg in
-  let proxyMsgName = proxy_msg_name classname msg in
-  let exposed_ret_type = exposed_type_opt msg.msg_result in
-  let paramSignature = exposed_params msg classname curParams in
-  let paramsDoc = get_params_doc msg classname curParams in
-  let jsonCallParams = exposed_call_params msg classname curParams in
-  let publishInfo = get_published_info_message msg cls in
-  let deprecatedInfo = get_deprecated_info_message msg in
-  let deprecatedAttribute = get_deprecated_attribute msg in
-  let deprecatedInfoString =
-    if deprecatedInfo = "" then
-      ""
-    else
-      "\n        /// " ^ deprecatedInfo
-  in
-  let deprecatedAttributeString =
-    if deprecatedAttribute = "" then
-      ""
-    else
-      "\n        " ^ deprecatedAttribute
-  in
-  let sync =
-    sprintf
-      "\n\
-      \        /// <summary>\n\
-      \        /// %s%s%s\n\
-      \        /// </summary>%s%s\n\
-      \        /// <remarks>\n\
-      \        /// Minimum allowed role: %s\n\
-      \        /// </remarks>\n\
-      \        public static %s %s(%s)\n\
-      \        {\n\
-      \            %s;\n\
-      \        }\n"
-      msg.msg_doc
-      ( if publishInfo = "" then
-          ""
-        else
-          "\n        /// " ^ publishInfo
       )
-      deprecatedInfoString paramsDoc deprecatedAttributeString
-      minimum_allowed_role exposed_ret_type msg.msg_name paramSignature
-      (json_return_opt
-         (sprintf "session.JsonRpcClient.%s(%s)" proxyMsgName jsonCallParams)
-         msg.msg_result
+    ; ( "all_fields"
+      , `A
+          (List.map
+             (fun f ->
+               `O
+                 [
+                   ("field", `String (full_name f))
+                 ; ("is_last", `Bool (is_last f fields))
+                 ; ("field_type", `String (exposed_type f.ty))
+                 ; ("field_doc", `String (escape_xml f.field_description))
+                 ; ("field_rel", `String (get_published_info_field f cls))
+                 ; ( "field_default"
+                   , `String (get_default_value_opt f.ty f.default_value true)
+                   )
+                 ; ( "field_marshalling"
+                   , `String (convert_from_hashtable (full_name f) f.ty)
+                   )
+                 ; ("json_attr", `String (json_serialization_attr f))
+                 ]
+             )
+             fields
+          )
       )
-  in
-  let async =
-    if msg.msg_async then
-      sprintf
-        "\n\
-        \        /// <summary>\n\
-        \        /// %s%s%s\n\
-        \        /// </summary>%s%s\n\
-        \        /// <remarks>\n\
-        \        /// Minimum allowed role: %s\n\
-        \        /// </remarks>\n\
-        \        public static XenRef<Task> async_%s(%s)\n\
-        \        {\n\
-        \          return session.JsonRpcClient.async_%s(%s);\n\
-        \        }\n"
-        msg.msg_doc
-        ( if publishInfo = "" then
-            ""
-          else
-            "\n        /// " ^ publishInfo
-        )
-        deprecatedInfoString paramsDoc deprecatedAttributeString
-        minimum_allowed_role msg.msg_name paramSignature proxyMsgName
-        jsonCallParams
-    else
-      ""
-  in
-  sync ^ async
-
-and get_params_doc msg classname params =
-  let sessionDoc =
-    "\n        /// <param name=\"session\">The session</param>"
-  in
-  let refDoc =
-    if is_method_static msg then
-      ""
-    else if msg.msg_name = "get_by_permission" then
-      sprintf
-        "\n\
-        \        /// <param name=\"_%s\">The opaque_ref of the given \
-         permission</param>"
-        (String.lowercase_ascii classname)
-    else if msg.msg_name = "revert" then
-      sprintf
-        "\n\
-        \        /// <param name=\"_%s\">The opaque_ref of the given \
-         snapshotted state</param>"
-        (String.lowercase_ascii classname)
-    else
-      sprintf
-        "\n\
-        \        /// <param name=\"_%s\">The opaque_ref of the given %s</param>"
-        (String.lowercase_ascii classname)
-        (String.lowercase_ascii classname)
-  in
-  String.concat ""
-    (sessionDoc :: refDoc :: List.map (fun x -> get_param_doc msg x) params)
-
-and get_param_doc msg x =
-  let publishInfo = get_published_info_param msg x in
-  sprintf "\n        /// <param name=\"_%s\">%s%s</param>"
-    (String.lowercase_ascii x.param_name)
-    (escape_xml x.param_doc)
-    ( if publishInfo = "" then
-        ""
-      else
-        " " ^ publishInfo
-    )
-
-and exposed_params message classname params =
-  let exposedParams = List.map exposed_param params in
-  let refParam = sprintf "string _%s" (String.lowercase_ascii classname) in
-  let exposedParams =
-    if is_method_static message then
-      exposedParams
-    else
-      refParam :: exposedParams
-  in
-  String.concat ", " ("Session session" :: exposedParams)
-
-and exposed_param p =
-  sprintf "%s _%s"
-    (internal_type p.param_type)
-    (String.lowercase_ascii p.param_name)
-
-and exposed_call_params message classname params =
-  let exposed_call_param p =
-    let pName = String.lowercase_ascii p.param_name in
-    sprintf "_%s" pName
-  in
-  let exposedParams = List.map exposed_call_param params in
-  let name = String.lowercase_ascii classname in
-  let refParam = sprintf "_%s" name in
-  let exposedParams =
-    if is_method_static message then
-      exposedParams
-    else
-      refParam :: exposedParams
-  in
-  String.concat ", " ("session.opaque_ref" :: exposedParams)
-
-and gen_exposed_field out_chan cls content =
-  match content with
-  | Field fr ->
-      let print format = fprintf out_chan format in
-      let full_name_fr = full_name fr in
-      let comp = sprintf "!Helper.AreEqual(value, _%s)" full_name_fr in
-      let publishInfo = get_published_info_field fr cls in
-
-      print
-        "\n\
-        \        /// <summary>\n\
-        \        /// %s%s\n\
-        \        /// </summary>%s\n\
-        \        public virtual %s %s\n\
-        \        {\n\
-        \            get { return _%s; }"
-        (escape_xml fr.field_description)
-        ( if publishInfo = "" then
-            ""
-          else
-            "\n        /// " ^ publishInfo
-        )
-        (json_serialization_attr fr)
-        (exposed_type fr.ty) full_name_fr full_name_fr ;
-
-      print
-        "\n\
-        \            set\n\
-        \            {\n\
-        \                if (%s)\n\
-        \                {\n\
-        \                    _%s = value;\n\
-        \                    NotifyPropertyChanged(\"%s\");\n\
-        \                }\n\
-        \            }\n\
-        \        }"
-        comp full_name_fr full_name_fr ;
-
-      print "\n        private %s _%s%s;\n" (exposed_type fr.ty) full_name_fr
-        (get_default_value_opt fr)
-  | Namespace (_, c) ->
-      List.iter (gen_exposed_field out_chan cls) c
+    ; ( "all_methods"
+      , `A
+          (List.map
+             (fun x ->
+               let deprecated = function
+                 | None ->
+                     ""
+                 | Some v ->
+                     get_release_branding v
+               in
+               let has_return = function
+                 | Some (_, _) ->
+                     true
+                 | None ->
+                     false
+               in
+               let is_self_param p msg =
+                 p.param_name = "self" || p.param_type = Ref msg.msg_obj_name
+               in
+               let self_params, _ =
+                 List.partition (fun p -> is_self_param p x) x.msg_params
+               in
+               let get_param params =
+                fun p ->
+                 let p_name, p_info =
+                   if is_self_param p x then
+                     (sprintf "_%s" (String.lowercase_ascii classname), "")
+                   else
+                     ( sprintf "_%s" (String.lowercase_ascii p.param_name)
+                     , get_published_info_param x p
+                     )
+                 in
+                 let param_name_proxy =
+                   if p.param_name = "session" then
+                     sprintf "_session.opaque_ref"
+                   else
+                     p_name
+                 in
+                 `O
+                   [
+                     ("param_name", `String p_name)
+                   ; ("param_name_proxy", `String param_name_proxy)
+                   ; ("param_doc", `String (escape_xml p.param_doc))
+                   ; ("param_rel", `String p_info)
+                   ; ("param_type", `String (internal_type p.param_type))
+                   ; ("is_last", `Bool (is_last p params))
+                   ]
+               in
+               let get_overload =
+                fun o ->
+                 let params = session_param x :: (self_params @ o) in
+                 `O
+                   [
+                     ("method", `String x.msg_name)
+                   ; ("async", `Bool x.msg_async)
+                   ; ( "deprecated"
+                     , `String
+                         (deprecated x.msg_release.internal_deprecated_since)
+                     )
+                   ; ("client_method", `String (proxy_msg_name classname x))
+                   ; ("method_doc", `String x.msg_doc)
+                   ; ("method_rel", `String (get_published_info_message x cls))
+                   ; ("method_rbac", `String (get_minimum_allowed_role x))
+                   ; ("has_return", `Bool (has_return x.msg_result))
+                   ; ("params", `A (List.map (get_param params) params))
+                   ; ("result", `String (exposed_type_opt x.msg_result))
+                   ]
+               in
+               `O
+                 [
+                   ( "overloads"
+                   , `A (List.map get_overload (gen_param_groups x x.msg_params))
+                   )
+                 ]
+             )
+             messages
+          )
+      )
+    ]
 
 and gen_proxy protocol =
   let all_methods = classes |> List.concat_map gen_proxy_class_methods in
@@ -629,6 +372,14 @@ and gen_proxy protocol =
       `O [("client_methods", `A (List.map json_method all_methods))]
   | _ ->
       raise Unknown_wire_protocol
+
+and gen_overloads generator message =
+  match message.msg_params with
+  | [] ->
+      [generator []]
+  | _ ->
+      let paramGroups = gen_param_groups message message.msg_params in
+      List.map generator paramGroups
 
 and gen_proxy_class_methods {name; messages; _} =
   let gen_message_overloads name message =
@@ -860,6 +611,8 @@ and exposed_type = function
       assert false
 
 and internal_type = function
+  | Ref name when name = "session" ->
+      "Session"
   | Ref _ ->
       (* THIS SHOULD BE: Printf.sprintf "XenRef<%s>" name *) "string"
   | Set (Ref name) ->
@@ -1119,43 +872,41 @@ and json_return_opt thing = function
 and json_serialization_attr fr =
   match fr.ty with
   | DateTime ->
-      sprintf "\n        [JsonConverter(typeof(XenDateTimeConverter))]"
+      "[JsonConverter(typeof(XenDateTimeConverter))]"
   | Enum (name, _) ->
-      sprintf "\n        [JsonConverter(typeof(%sConverter))]" name
+      sprintf "[JsonConverter(typeof(%sConverter))]" name
   | Ref name ->
-      sprintf "\n        [JsonConverter(typeof(XenRefConverter<%s>))]"
+      sprintf "[JsonConverter(typeof(XenRefConverter<%s>))]"
         (exposed_class_name name)
   | Set (Ref name) ->
-      sprintf "\n        [JsonConverter(typeof(XenRefListConverter<%s>))]"
+      sprintf "[JsonConverter(typeof(XenRefListConverter<%s>))]"
         (exposed_class_name name)
   | Map (Ref u, Record _) ->
-      sprintf "\n        [JsonConverter(typeof(XenRefObjectMapConverter<%s>))]"
+      sprintf "[JsonConverter(typeof(XenRefObjectMapConverter<%s>))]"
         (exposed_class_name u)
   | Map (Ref u, Ref v) ->
-      sprintf
-        "\n        [JsonConverter(typeof(XenRefXenRefMapConverter<%s, %s>))]"
+      sprintf "[JsonConverter(typeof(XenRefXenRefMapConverter<%s, %s>))]"
         (exposed_class_name u) (exposed_class_name v)
   | Map (Ref u, Int) ->
-      sprintf "\n        [JsonConverter(typeof(XenRefLongMapConverter<%s>))]"
+      sprintf "[JsonConverter(typeof(XenRefLongMapConverter<%s>))]"
         (exposed_class_name u)
   | Map (Ref u, String) ->
-      sprintf "\n        [JsonConverter(typeof(XenRefStringMapConverter<%s>))]"
+      sprintf "[JsonConverter(typeof(XenRefStringMapConverter<%s>))]"
         (exposed_class_name u)
   | Map (String, Ref v) ->
-      sprintf "\n        [JsonConverter(typeof(StringXenRefMapConverter<%s>))]"
+      sprintf "[JsonConverter(typeof(StringXenRefMapConverter<%s>))]"
         (exposed_class_name v)
   | Map (String, String) ->
-      sprintf "\n        [JsonConverter(typeof(StringStringMapConverter))]"
+      "[JsonConverter(typeof(StringStringMapConverter))]"
   | Map (Ref u, Set String) ->
-      sprintf
-        "\n        [JsonConverter(typeof(XenRefStringSetMapConverter<%s>))]"
+      sprintf "[JsonConverter(typeof(XenRefStringSetMapConverter<%s>))]"
         (exposed_class_name u)
   | Map (Ref _, _) | Map (_, Ref _) ->
       failwith (sprintf "Need converter for %s" fr.field_name)
   | _ ->
       ""
 
-and get_default_value_opt field =
+and get_default_value_opt ty value lang_default =
   let rec get_default_value = function
     | VString y ->
         ["\"" ^ y ^ "\""]
@@ -1190,11 +941,14 @@ and get_default_value_opt field =
         else
           [sprintf "\"%s\"" y]
   in
-  match field.default_value with
+  match value with
   | Some y ->
-      get_default_value_per_type field.ty (get_default_value y)
+      get_default_value_per_type ty (get_default_value y)
   | None ->
-      get_default_value_per_type field.ty []
+      if lang_default then
+        get_default_value_per_type ty []
+      else
+        ""
 
 and get_default_value_per_type ty thing =
   match ty with

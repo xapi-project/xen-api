@@ -65,7 +65,7 @@ The API reference lists explicitly the fields that are
 bound together in this way. It also contains a diagram that shows
 relationships between classes. In this diagram an edge signifies the
 existence of a pair of fields that are bound together, using standard
-crows-foot notation to signify the type of relationship (e.g.
+crows-foot notation to signify the type of relationship (for example,
 one-many, many-many).
 
 ## RPCs associated with fields
