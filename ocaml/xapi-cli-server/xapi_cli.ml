@@ -94,9 +94,29 @@ let forward args s session =
   )
 
 (* Check that keys are all present in cmd *)
-let check_required_keys cmd keylist =
-  let (_ : (string * string) list) = get_params cmd in
-  List.map (get_reqd_param cmd) keylist
+let check_required_keys cmd keylist = List.map (get_reqd_param cmd) keylist
+
+(* Whether this invocation asked for the ignored-parameter report. The
+   command-line value (also settable via XE_EXTRA_ARGS or ~/.xe) wins; when it
+   is absent, fall back to the report-ignored-params key in xapi.conf. *)
+let want_ignored_params_report params =
+  match Cli_args.get_opt "report-ignored-params" params with
+  | Some "warn" ->
+      true
+  | Some _ ->
+      false
+  | None ->
+      !Constants.cli_report_ignored_parameters = Constants.Warn
+
+(* Print, on stderr, one line per command-line parameter that the command never
+   read -- only when the invocation asked for it. *)
+let report_ignored_params printer cmd =
+  let params = get_params cmd in
+  if want_ignored_params_report params then
+    Cli_args.unused params
+    |> List.iter (fun k ->
+        printer (Cli_printer.PStderr ("Ignored parameter: " ^ k))
+    )
 
 let with_session ~local rpc u p session f =
   let session, logout =
@@ -185,33 +205,34 @@ let do_rpcs req s username password minimal cmd session args =
       )
     else
       let printer, flush = Cli_printer.make_printer s minimal in
-      let flush_and_marshall () =
-        flush () ;
-        marshal s (Command (Exit 0))
+      let run () =
+        match cspec.implementation with
+        | No_fd f ->
+            with_session ~local:false rpc username password session
+              (fun session -> f printer rpc session (get_params cmd)
+            )
+        | No_fd_local_session f ->
+            with_session ~local:true rpc username password session
+              (fun session -> f printer rpc session (get_params cmd)
+            )
+        | With_fd f ->
+            with_session ~local:false rpc username password session
+              (fun session -> f s printer rpc session (get_params cmd)
+            )
+        | With_fd_local_session f ->
+            with_session ~local:true rpc username password session
+              (fun session -> f s printer rpc session (get_params cmd)
+            )
       in
-      match cspec.implementation with
-      | No_fd f ->
-          with_session ~local:false rpc username password session
-            (fun session ->
-              f printer rpc session (get_params cmd) ;
-              flush_and_marshall ()
-          )
-      | No_fd_local_session f ->
-          with_session ~local:true rpc username password session (fun session ->
-              f printer rpc session (get_params cmd) ;
-              flush_and_marshall ()
-          )
-      | With_fd f ->
-          with_session ~local:false rpc username password session
-            (fun session ->
-              f s printer rpc session (get_params cmd) ;
-              flush_and_marshall ()
-          )
-      | With_fd_local_session f ->
-          with_session ~local:true rpc username password session (fun session ->
-              f s printer rpc session (get_params cmd) ;
-              flush_and_marshall ()
-          )
+      (* Report the parameters the command ignored whether it succeeds or fails,
+         but before the terminating Exit so the client is still listening. On
+         success the Exit is sent afterwards; on failure it is the error path's
+         job. *)
+      Xapi_stdext_pervasives.Pervasiveext.finally run (fun () ->
+          report_ignored_params printer cmd
+      ) ;
+      flush () ;
+      marshal s (Command (Exit 0))
   with Unix.Unix_error (a, b, c) as e ->
     warn "Uncaught exception: Unix_error '%s' '%s' '%s'" (Unix.error_message a)
       b c ;
@@ -227,12 +248,18 @@ let uninteresting_cmd_postfixes = ["help"; "-get"; "-list"]
 
 let exec_command req cmd s session args =
   let params = get_params cmd in
+  (* Parameters consumed by the CLI framework itself, not by the command:
+     Cli_args.reserved, plus the global flags that only some commands read but
+     that are never a mistake to pass. *)
+  List.iter
+    (fun k -> Cli_args.mark_used k params)
+    (Cli_args.reserved @ ["trace"; "progress"]) ;
   let minimal =
-    List.assoc_opt "minimal" params
+    Cli_args.get_opt "minimal" params
     |> Option.fold ~none:false ~some:bool_of_string
   in
-  let u = try List.assoc "username" params with _ -> "" in
-  let p = try List.assoc "password" params with _ -> "" in
+  let u = try Cli_args.get "username" params with _ -> "" in
+  let p = try Cli_args.get "password" params with _ -> "" in
   (* Create a list of commands and their associated arguments which might be sensitive. *)
   let commands_and_params_to_hide =
     let starts affix = Astring.String.is_prefix ~affix in
@@ -283,21 +310,7 @@ let exec_command req cmd s session args =
     let must_censor param_name =
       List.exists (fun filter -> filter param_name) param_filters
     in
-    do_log "xe %s %s" cmd_name
-      (String.concat " "
-         (List.map
-            (fun (k, v) ->
-              let v' =
-                if must_censor k then
-                  "(omitted)"
-                else
-                  v
-              in
-              k ^ "=" ^ v'
-            )
-            params
-         )
-      ) ;
+    do_log "xe %s %s" cmd_name (Cli_args.log_args ~censor:must_censor params) ;
     do_rpcs req s u p minimal cmd session args
 
 let get_line str i =
@@ -410,7 +423,7 @@ let handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   let session, args = parse_session_and_args str in
   try
     (* Unfortunately parse errors can happen preventing the '--trace' option from working *)
-    let cmd = parse_commandline ("xe" :: args) in
+    let cmd = parse_commandline ("xe", args) in
     match
       Backtrace.with_backtraces (fun () -> exec_command req cmd s session args)
     with
@@ -419,7 +432,7 @@ let handler (req : Http.Request.t) (s : Unix.file_descr) _ =
     | `Error (e, bt) ->
         exception_handler s e ;
         (* Command execution errors can use --trace *)
-        if Cli_operations.get_bool_param cmd.params "trace" then (
+        if Cli_operations.get_bool_param (get_params cmd) "trace" then (
           marshal s
             (Command
                (PrintStderr (Printf.sprintf "Raised %s\n" (Printexc.to_string e))
