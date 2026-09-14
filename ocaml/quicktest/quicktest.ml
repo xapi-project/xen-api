@@ -106,6 +106,7 @@ let () =
         ; Suite.make "Quicktest_date" (Quicktest_date.tests ())
         ; Suite.make "Quicktest_crypt_r" (Quicktest_crypt_r.tests ())
         ; Suite.make "Quicktest_rate_limit" (Quicktest_rate_limit.tests ())
+        ; Suite.make "Quicktest_lldp" (Quicktest_lldp.tests ())
         ]
         @ ( if not !using_unix_domain_socket then
               [Suite.make "http" Quicktest_http.tests]
