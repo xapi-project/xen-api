@@ -120,6 +120,10 @@ end
 module Table : sig
   include MAP with type value = Row.t
 
+  val count : t -> int
+  (** [count t] is the number of live rows in [t], maintained incrementally
+      by the insert/remove operations (O(1)). *)
+
   val fold_over_deleted :
     Time.t -> (string -> Stat.t -> 'b -> 'b) -> t -> 'b -> 'b
   (** [fold_over_deleted now f t initial] folds [f key stat acc] over the keys

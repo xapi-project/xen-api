@@ -149,7 +149,7 @@ module VmExtra = struct
       | HVM _ ->
           if
             Platform.is_true ~key:"hvm-pirq"
-              ~platformdata:vm.Xenops_interface.Vm.platformdata ~default:false
+              ~platformdata:vm.Xenops_interface.Vm.platformdata ~default:true
           then
             X86_EMU_USE_PIRQ :: emulation_flags_hvm
           else

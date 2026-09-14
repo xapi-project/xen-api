@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -33,7 +33,7 @@ jobs:
         run: opam exec -- make sdk
 
       - name: Store C SDK source
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: SDK_Source_C
           path: |
@@ -41,25 +41,25 @@ jobs:
             !_build/install/default/share/c/dune
 
       - name: Store C# SDK source
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: SDK_Source_CSharp
           path: _build/install/default/share/csharp/*
 
       - name: Store PowerShell SDK source
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: SDK_Source_PowerShell
           path: _build/install/default/share/powershell/*
 
       - name: Store Java SDK source
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: SDK_Source_Java
           path: _build/install/default/share/java/*
 
       - name: Store Go SDK source
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: SDK_Artifacts_Go
           path: |
@@ -102,7 +102,7 @@ jobs:
         run: make -C source
 
       - name: Store C SDK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: SDK_Artifacts_C
           path: |
@@ -150,7 +150,7 @@ jobs:
           INPUTS_XAPI_VERSION: ${{ inputs.xapi_version }}
 
       - name: Store Java SDK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: SDK_Artifacts_Java
           path: target/*
@@ -201,7 +201,7 @@ jobs:
           --verbosity=normal
 
       - name: Store C# SDK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: SDK_Binaries_CSharp
           path: source/src/bin/Release/XenServer.NET.${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned.nupkg
@@ -275,7 +275,7 @@ jobs:
           ForEach-Object -Process { Copy-Item -Verbose $_.FullName -Destination "output" }
 
       - name: Store PowerShell SDK (.NET ${{ matrix.dotnet }})
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: SDK_Binaries_XenServerPowerShell_NET${{ matrix.dotnet }}
           path: output/**/*
