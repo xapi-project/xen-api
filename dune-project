@@ -841,7 +841,10 @@
  (name xapi-rrd))
 
 (package
- (name xapi-gpu))
+ (name xapi-gpu)
+ (depends
+  ppx_deriving
+  (alcotest :with-test)))
 
 (package
  (name xapi-inventory))
