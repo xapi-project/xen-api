@@ -135,11 +135,6 @@ let tapdisk_of_attach_info (backend : Storage_interface.backend) =
         (Storage_interface.(rpc_of backend) backend |> Rpc.to_string) ;
       None
 
-let progress_callback start len t y =
-  let new_progress = start +. (y *. len) in
-  Storage_task.set_state t (Task.Pending new_progress) ;
-  signal (Storage_task.id_of_handle t)
-
 let perform_cleanup_actions =
   List.iter (fun f ->
       try f ()
@@ -779,7 +774,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
       (module Local)
 
   let receive_start3 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~image_format ~similar
-      ~vm ~url ~verify_dest =
+      ~vm ~url ~verify_dest ~dest_base:_ =
     D.debug
       "%s dbg: %s sr: %s vdi: %s id: %s image_format: %s vm: %s url: %s \
        verify_dest: %B"

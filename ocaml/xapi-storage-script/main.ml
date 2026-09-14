@@ -2060,6 +2060,7 @@ let bind ~volume_script_dir =
 
   let module DATA = DATAImpl (RuntimeMeta) in
   S.DATA.copy (u "DATA.copy") ;
+  S.DATA.copy2 (u "DATA.copy2") ;
   S.DATA.mirror DATA.mirror_impl ;
   S.DATA.stat DATA.stat_impl ;
   S.DATA.get_nbd_server DATA.get_nbd_server_impl ;

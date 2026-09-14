@@ -1080,6 +1080,11 @@ module StorageAPI (R : RPC) = struct
 
     let dest_p = Param.mk ~name:"dest" Sr.t
 
+    let dest_base_p =
+      Param.mk ~name:"dest_base"
+        ~description:["the destination VDI to base the copy on, if any"]
+        TypeCombinators.(option Vdi.t)
+
     let task_id_p = Param.mk ~name:"task_id" Task.id
 
     let verify_dest_p =
@@ -1087,6 +1092,8 @@ module StorageAPI (R : RPC) = struct
         ~description:["when true, verify remote server certificate"]
         Types.bool
 
+    (** @deprecated Superseded by copy2, which lets the caller choose the
+        base of the destination copy. *)
     let copy =
       let result_p = Param.mk ~name:"task_id" Task.id in
       declare "DATA.copy" []
@@ -1096,6 +1103,29 @@ module StorageAPI (R : RPC) = struct
         @-> vm_p
         @-> url_p
         @-> dest_p
+        @-> verify_dest_p
+        @-> returning result_p err
+        )
+
+    (** [copy] with the base of the destination copy given by the caller
+        rather than found by the backend.
+
+        [dest_base] must be the destination's copy of the VDI that [vdi]
+        directly follows on the source: a backend copies only the delta over
+        that parent, and derives the parent from the source chain itself
+        rather than from the caller, so it assumes no hidden VDI sits in
+        between. [None] copies the whole of [vdi]. *)
+    let copy2 =
+      let result_p = Param.mk ~name:"task_id" Task.id in
+      declare "DATA.copy2" []
+        (dbg_p
+        @-> sr_p
+        @-> vdi_p
+        @-> vm_p
+        @-> url_p
+        @-> dest_p
+        @-> dest_base_p
+        @-> image_format_p
         @-> verify_dest_p
         @-> returning result_p err
         )
@@ -1241,6 +1271,7 @@ module StorageAPI (R : RPC) = struct
           @-> vm_p
           @-> url_p
           @-> verify_dest_p
+          @-> dest_base_p
           @-> returning result err
           )
 
@@ -1408,6 +1439,7 @@ module type MIRROR = sig
     -> vm:vm
     -> url:string
     -> verify_dest:bool
+    -> dest_base:vdi option
     -> Mirror.mirror_receive_result
 
   val receive_finalize : context -> dbg:debug_info -> id:Mirror.id -> unit
@@ -1719,6 +1751,19 @@ module type Server_impl = sig
       -> verify_dest:bool
       -> Task.id
 
+    val copy2 :
+         context
+      -> dbg:debug_info
+      -> sr:sr
+      -> vdi:vdi
+      -> vm:vm
+      -> url:string
+      -> dest:sr
+      -> dest_base:vdi option
+      -> image_format:string
+      -> verify_dest:bool
+      -> Task.id
+
     val mirror :
          context
       -> dbg:debug_info
@@ -1924,6 +1969,11 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.copy (fun dbg sr vdi vm url dest verify_dest ->
         Impl.DATA.copy () ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest
     ) ;
+    S.DATA.copy2
+      (fun dbg sr vdi vm url dest dest_base image_format verify_dest ->
+        Impl.DATA.copy2 () ~dbg ~sr ~vdi ~vm ~url ~dest ~dest_base ~image_format
+          ~verify_dest
+    ) ;
     S.DATA.mirror (fun dbg sr vdi image_format vm dest ->
         Impl.DATA.mirror () ~dbg ~sr ~vdi ~image_format ~vm ~dest
     ) ;
@@ -1959,9 +2009,20 @@ module Server (Impl : Server_impl) () = struct
         Impl.DATA.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id ~similar ~vm
     ) ;
     S.DATA.MIRROR.receive_start3
-      (fun dbg sr vdi_info mirror_id image_format similar vm url verify_dest ->
+      (fun
+        dbg
+        sr
+        vdi_info
+        mirror_id
+        image_format
+        similar
+        vm
+        url
+        verify_dest
+        dest_base
+      ->
         Impl.DATA.MIRROR.receive_start3 () ~dbg ~sr ~vdi_info ~mirror_id
-          ~image_format ~similar ~vm ~url ~verify_dest
+          ~image_format ~similar ~vm ~url ~verify_dest ~dest_base
     ) ;
     S.DATA.MIRROR.receive_cancel (fun dbg id ->
         Impl.DATA.MIRROR.receive_cancel () ~dbg ~id
