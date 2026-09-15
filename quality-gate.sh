@@ -3,7 +3,7 @@
 set -e
 
 list-hd () {
-  N=241
+  N=240
   LIST_HD=$(git grep -r --count 'List.hd' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$LIST_HD" -eq "$N" ]; then
     echo "OK counted $LIST_HD List.hd usages"
@@ -25,7 +25,7 @@ verify-cert () {
 }
 
 mli-files () {
-  N=455
+  N=454
   X="ocaml/tests"
   X+="|ocaml/quicktest"
   X+="|ocaml/message-switch/core_test"
@@ -154,4 +154,3 @@ ocamlyacc
 unixgetenv
 hashtblfind
 unnecessary-length
-

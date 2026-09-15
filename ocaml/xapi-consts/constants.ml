@@ -317,6 +317,13 @@ let owner_key = "owner"
 (* xapi-cli-server doesn't link xapi-globs *)
 let use_event_next = ref false
 
+(* What xe does with command-line parameters that the command never read.
+   Set from xapi.conf (see xapi_globs), read by the CLI server; lives here
+   because xapi-cli-server doesn't link xapi-globs. *)
+type cli_report_ignored_parameters = Off | Warn
+
+let cli_report_ignored_parameters = ref Off
+
 (* the time taken to wait before restarting in a different mode for pool eject/join operations *)
 let fuse_time = ref 10.
 
