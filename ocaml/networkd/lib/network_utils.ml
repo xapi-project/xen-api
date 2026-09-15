@@ -1011,6 +1011,39 @@ end = struct
     let file = conf_file_path ~ipv6 interface in
     try Unix.unlink file with _ -> ()
 
+  let wait_for_ip ~ipv6 interface =
+    let timer = Clock.Timer.start ~duration:Mtime.Span.(1 * min) in
+    let ipver =
+      if ipv6 then
+        "IPv6"
+      else
+        "IPv4"
+    in
+    let link_local_addr =
+      (* get_ipv6_link_local_addr always adds prefix, so split_addr will be Some *)
+      Ip.get_ipv6_link_local_addr interface |> Ip.split_addr |> Option.get
+    in
+    let has_ip () =
+      let ips =
+        if ipv6 then
+          (* considers all addresses except link_local_addr *)
+          Ip.get_ipv6 interface |> List.filter (( <> ) link_local_addr)
+        else
+          Ip.get_ipv4 interface
+      in
+      ips <> []
+    in
+    let rec loop () =
+      if has_ip () then
+        debug "wait_for_ip: %s: %s configured" interface ipver
+      else if Clock.Timer.has_expired timer then
+        info "wait_for_ip: %s: no %s configured" interface ipver
+      else (
+        Unix.sleepf 0.5 ; loop ()
+      )
+    in
+    loop ()
+
   (** start: regenerate configuration file and start DHCP client. *)
   let start ~ipv6 interface options =
     (* create an up-to-date configuration file. *)
@@ -1043,12 +1076,13 @@ end = struct
     in
     (* start dhclient *)
     ignore
-      (call_script ~timeout:None dhclient
+      (call_script dhclient
          (ipv6'
          @ gw_opt
          @ dns_opt
          @ [
              "-q"
+           ; "-nw"
            ; "-pf"
            ; pid_file_path ~ipv6 interface
            ; "-lf"
@@ -1058,7 +1092,8 @@ end = struct
            ; interface
            ]
          )
-      )
+      ) ;
+    wait_for_ip ~ipv6 interface
 
   let set_stale ?(ipv6 = false) interface =
     (* set the configuration dirty by removing the configuration file.
