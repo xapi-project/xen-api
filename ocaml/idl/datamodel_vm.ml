@@ -2450,7 +2450,7 @@ module Other_config = struct
          VM."
       ~params:
         [
-          (Ref _vm, "self", "reference to object")
+          (Ref _vm, "self", "reference to the object")
         ; (String, "key", "Key to add")
         ; (String, "value", "Value to add")
         ]
@@ -2464,7 +2464,7 @@ module Other_config = struct
          then do nothing."
       ~params:
         [
-          (Ref _vm, "self", "reference to object")
+          (Ref _vm, "self", "reference to the object")
         ; (String, "key", "Key of entry to remove")
         ]
       ~map_keys_roles:protected_keys ~flags:[`Session] ()
@@ -2477,7 +2477,7 @@ module Other_config = struct
       ~doc:"Set the other_config field of the given VM."
       ~params:
         [
-          (Ref _vm, "self", "reference to object")
+          (Ref _vm, "self", "reference to the object")
         ; (Map (String, String), "value", "New value to set")
         ]
       ~flags:[`Session] ()
@@ -2496,7 +2496,7 @@ module Platform = struct
       ~doc:"Add the given key-value pair to the platform field of the given VM."
       ~params:
         [
-          (Ref _vm, "self", "reference to object")
+          (Ref _vm, "self", "reference to the object")
         ; (String, "key", "Key to add")
         ; (String, "value", "Value to add")
         ]
@@ -2510,7 +2510,7 @@ module Platform = struct
          nothing."
       ~params:
         [
-          (Ref _vm, "self", "reference to object")
+          (Ref _vm, "self", "reference to the object")
         ; (String, "key", "Key of entry to remove")
         ]
       ~map_keys_roles:protected_keys ~flags:[`Session] ()
@@ -2522,7 +2522,7 @@ module Platform = struct
     call ~name:"set_platform" ~doc:"Set the platform field of the given VM."
       ~params:
         [
-          (Ref _vm, "self", "reference to object")
+          (Ref _vm, "self", "reference to the object")
         ; (Map (String, String), "value", "New value to set")
         ]
       ~flags:[`Session] ()
