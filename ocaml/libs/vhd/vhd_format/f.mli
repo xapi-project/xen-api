@@ -437,7 +437,7 @@ module From_file : functor (F : S.FILE) -> sig
   (** replaces 'Empty' elements with explicit writes of zeroes *)
 
   val expand_copy :
-    ?get_buffer:(unit -> Cstruct.t t) -> fd stream -> fd stream t
+    ?get_buffer:(unit -> (Cstruct.t * int option) t) -> fd stream -> fd stream t
   (** replaces 'Copy' elements with explicit writes of data *)
 
   module Vhd_input : sig

@@ -250,7 +250,7 @@ let stream_nbd _common c s prezeroed ~export ?(progress = no_progress_bar) () =
   fold_left
     (fun (sector, work_done) x ->
       ( match x with
-        | `Sectors data -> (
+        | `Sectors (data, _) -> (
             Client.write server (Int64.mul sector 512L) [data] >>= function
             | Ok () ->
                 return Int64.(of_int (Cstruct.length data))
@@ -300,7 +300,7 @@ let stream_chunked _common c s prezeroed _ ?(progress = no_progress_bar) () =
   fold_left
     (fun (sector, work_done) x ->
       ( match x with
-        | `Sectors data ->
+        | `Sectors (data, _) ->
             let t = Chunked.make ~sector ~size:512L data in
             Chunked.marshal header t ;
             c.Channels.really_write header >>= fun () ->
@@ -356,7 +356,7 @@ let stream_raw _common c s prezeroed _ ?(progress = no_progress_bar) () =
               Unix.SEEK_SET
             >>= fun (_ : int64) ->
             c.Channels.copy_from fd (Int64.mul 512L sector_len)
-        | `Sectors data ->
+        | `Sectors (data, _) ->
             c.Channels.really_write data >>= fun () ->
             return Int64.(of_int (Cstruct.length data))
         | `Empty n ->
@@ -527,7 +527,7 @@ let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
   fold_left
     (fun state x ->
       ( match x with
-        | `Sectors data ->
+        | `Sectors (data, _) ->
             input state data
         | `Empty n ->
             empty state Int64.(mul n 512L)

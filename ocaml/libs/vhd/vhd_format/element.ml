@@ -13,7 +13,9 @@
  *)
 
 type 'a t =
-  [`Copy of 'a * int64 * int64 | `Sectors of Cstruct.t | `Empty of int64]
+  [ `Copy of 'a * int64 * int64
+  | `Sectors of Cstruct.t * int option
+  | `Empty of int64 ]
 
 let sector_size = 512
 
@@ -22,7 +24,7 @@ let to_string = function
       Printf.sprintf "1 sector copied starting at offset %Ld" offset
   | `Copy (_, offset, len) ->
       Printf.sprintf "%Ld sectors copied starting at offset %Ld" len offset
-  | `Sectors x ->
+  | `Sectors (x, _) ->
       let text = String.escaped (Cstruct.to_string (Cstruct.sub x 0 16)) in
       if Cstruct.length x = sector_size then
         Printf.sprintf "1 sector \"%s...\"" text
@@ -38,7 +40,7 @@ let to_string = function
 let len = function
   | `Copy (_, _, len) ->
       len
-  | `Sectors x ->
+  | `Sectors (x, _) ->
       Int64.of_int (Cstruct.length x / sector_size)
   | `Empty x ->
       x
