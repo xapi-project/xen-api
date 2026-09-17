@@ -2950,8 +2950,10 @@ module VM = struct
                     (Xenopsd_error
                        (Failed_to_suspend (vm.Vm.id, suspend_timeout))
                     )
-                else
-                  debug "VM = %s; domid = %d; Domain suspended" vm.Vm.id domid
+                else (
+                  debug "VM = %s; domid = %d; Domain suspended" vm.Vm.id domid ;
+                  Xenops_task.permit_cancellation task
+                )
             ) ;
             (* Record the final memory usage of the domain so we know how much
                to allocate for the resume *)
