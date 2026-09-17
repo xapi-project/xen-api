@@ -1967,8 +1967,17 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
         Xenops_task.prohibit_cancellation task ;
         TASK.signal task_id
       in
-      B.VM.save t progress_callback (VM_DB.read_exn id) flags data vgpu_data
-        set_task_not_cancellable
+      finally
+        (fun () ->
+          B.VM.save t progress_callback (VM_DB.read_exn id) flags data vgpu_data
+            set_task_not_cancellable
+        )
+        (fun () ->
+          (* We only needed the checkpoint to be uncancellable, so allow
+             cancellation again *)
+          Xenops_task.permit_cancellation t ;
+          TASK.signal (Xenops_task.id_of_handle t)
+        )
   | VM_restore (id, data, vgpu_data) ->
       debug "VM.restore %s" id ;
       if id |> VM_DB.exists |> not then

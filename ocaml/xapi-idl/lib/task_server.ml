@@ -321,6 +321,9 @@ functor
           task.cancellable <- false
       )
 
+    let permit_cancellation task =
+      with_lock task.tm (fun () -> task.cancellable <- true)
+
     let destroy_on_finish t =
       t.destroy_on_finish <- true ;
       let already_finished =
