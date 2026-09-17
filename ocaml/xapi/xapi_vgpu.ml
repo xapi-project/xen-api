@@ -107,7 +107,9 @@ let create' ~__context ~vM ~gPU_group ~device ~other_config ~_type
       Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device:device_id
         ~currently_attached:false ~other_config ~_type ~resident_on:Ref.null
         ~scheduled_to_be_resident_on:Ref.null ~compatibility_metadata
-        ~extra_args:"" ~pCI:Ref.null
+        ~extra_args:"" ~pCI:Ref.null ~resident_on_partition:Ref.null
+        ~scheduled_to_be_resident_on_partition:Ref.null
+        ~partition_layout_generation:0L
   ) ;
   debug "VGPU ref='%s' created (VM = '%s', type = '%s')" (Ref.string_of vgpu)
     (Ref.string_of vM) (Ref.string_of _type) ;

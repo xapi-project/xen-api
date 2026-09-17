@@ -448,10 +448,13 @@ let make_pgpu ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(other_config = []) ?(size = Constants.pgpu_default_size)
     ?(supported_VGPU_types = []) ?(enabled_VGPU_types = [])
     ?(supported_VGPU_max_capacities = []) ?(dom0_access = `enabled)
-    ?(is_system_display_device = false) () =
+    ?(is_system_display_device = false) ?(partition_mode = `unknown)
+    ?(partition_layout_generation = 0L) () =
   Db.PGPU.create ~__context ~ref ~uuid ~pCI ~gPU_group ~host ~other_config ~size
     ~supported_VGPU_max_capacities ~dom0_access ~is_system_display_device
-    ~compatibility_metadata:[] ;
+    ~compatibility_metadata:[] ~partition_mode ~supported_partition_profiles:[]
+    ~remaining_partition_profiles:[] ~partition_layout_generation
+    ~requires_reset:false ;
   Db.PGPU.set_supported_VGPU_types ~__context ~self:ref
     ~value:supported_VGPU_types ;
   Db.PGPU.set_enabled_VGPU_types ~__context ~self:ref ~value:enabled_VGPU_types ;
@@ -468,10 +471,20 @@ let make_vgpu ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(vM = Ref.null) ?(gPU_group = Ref.null) ?(device = "0")
     ?(currently_attached = false) ?(other_config = []) ?(_type = Ref.null)
     ?(resident_on = Ref.null) ?(scheduled_to_be_resident_on = Ref.null)
-    ?(compatibility_metadata = []) ?(extra_args = "") ?(pCI = Ref.null) () =
+    ?(compatibility_metadata = []) ?(extra_args = "") ?(pCI = Ref.null)
+    ?(resident_on_partition = Ref.null)
+    ?(scheduled_to_be_resident_on_partition = Ref.null)
+    ?(partition_layout_generation = 0L) () =
   Db.VGPU.create ~__context ~ref ~uuid ~vM ~gPU_group ~device
     ~currently_attached ~other_config ~_type ~resident_on
-    ~scheduled_to_be_resident_on ~compatibility_metadata ~extra_args ~pCI ;
+    ~scheduled_to_be_resident_on ~compatibility_metadata ~extra_args ~pCI
+    ~resident_on_partition ~scheduled_to_be_resident_on_partition
+    ~partition_layout_generation ;
+  ref
+
+let make_gpu_partition ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
+    ?(pGPU = Ref.null) ?(profile = "") ?(vendor_slot_id = 0L) () =
+  Db.GPU_partition.create ~__context ~ref ~uuid ~pGPU ~profile ~vendor_slot_id ;
   ref
 
 let make_vgpu_type ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())

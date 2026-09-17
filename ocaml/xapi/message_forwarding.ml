@@ -6371,6 +6371,8 @@ functor
 
     module VGPU_type = struct end
 
+    module GPU_partition = struct end
+
     module LVHD = struct end
 
     module PVS_site = struct

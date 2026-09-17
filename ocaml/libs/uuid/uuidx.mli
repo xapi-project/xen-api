@@ -40,6 +40,7 @@ type without_secret =
   | `generation
   | `Generic
   | `GPU_group
+  | `GPU_partition
   | `host
   | `Host_driver
   | `Driver_variant

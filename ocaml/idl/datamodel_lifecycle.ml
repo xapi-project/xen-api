@@ -11,6 +11,8 @@ let prototyped_of_class = function
       Some "24.19.1"
   | "Observer" ->
       Some "23.14.0"
+  | "GPU_partition" ->
+      Some "26.18.0-next"
   | "VTPM" ->
       Some "22.26.0"
   | _ ->
@@ -123,6 +125,36 @@ let prototyped_of_field = function
       Some "24.3.0"
   | "Cluster", "cluster_stack_version" ->
       Some "24.15.0"
+  | "GPU_partition", "scheduled_VGPUs" ->
+      Some "26.18.0-next"
+  | "GPU_partition", "resident_VGPUs" ->
+      Some "26.18.0-next"
+  | "GPU_partition", "vendor_slot_id" ->
+      Some "26.18.0-next"
+  | "GPU_partition", "profile" ->
+      Some "26.18.0-next"
+  | "GPU_partition", "PGPU" ->
+      Some "26.18.0-next"
+  | "GPU_partition", "uuid" ->
+      Some "26.18.0-next"
+  | "VGPU", "partition_layout_generation" ->
+      Some "26.18.0-next"
+  | "VGPU", "scheduled_to_be_resident_on_partition" ->
+      Some "26.18.0-next"
+  | "VGPU", "resident_on_partition" ->
+      Some "26.18.0-next"
+  | "PGPU", "requires_reset" ->
+      Some "26.18.0-next"
+  | "PGPU", "partition_layout_generation" ->
+      Some "26.18.0-next"
+  | "PGPU", "remaining_partition_profiles" ->
+      Some "26.18.0-next"
+  | "PGPU", "supported_partition_profiles" ->
+      Some "26.18.0-next"
+  | "PGPU", "partition_mode" ->
+      Some "26.18.0-next"
+  | "PGPU", "partitions" ->
+      Some "26.18.0-next"
   | "VTPM", "contents" ->
       Some "22.26.0"
   | "VTPM", "is_protected" ->

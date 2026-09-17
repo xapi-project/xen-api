@@ -79,7 +79,10 @@ let create ~__context ~pCI ~gPU_group ~host ~other_config ~supported_VGPU_types
   Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI ~gPU_group ~host ~other_config
     ~size ~supported_VGPU_max_capacities ~dom0_access ~is_system_display_device
     ~compatibility_metadata:
-      (maybe_fetch_compatibility_metadata ~__context ~pgpu_pci:pCI) ;
+      (maybe_fetch_compatibility_metadata ~__context ~pgpu_pci:pCI)
+    ~partition_mode:`unknown ~supported_partition_profiles:[]
+    ~remaining_partition_profiles:[] ~partition_layout_generation:0L
+    ~requires_reset:false ;
   Db.PGPU.set_supported_VGPU_types ~__context ~self:pgpu
     ~value:supported_VGPU_types ;
   Db.PGPU.set_enabled_VGPU_types ~__context ~self:pgpu
