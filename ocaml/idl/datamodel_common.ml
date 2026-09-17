@@ -10,7 +10,7 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 909
+let schema_minor_vsn = 910
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -276,6 +276,8 @@ let _gpu_group = "GPU_group"
 let _vgpu = "VGPU"
 
 let _vgpu_type = "VGPU_type"
+
+let _gpu_partition = "GPU_partition"
 
 let _pvs_site = "PVS_site"
 

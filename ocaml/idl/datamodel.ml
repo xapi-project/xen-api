@@ -9459,6 +9459,32 @@ end
 
 (** Physical GPUs (pGPU) *)
 
+(* Whether and how a card has been divided into hardware partitions. Modelled
+   on PGPU.dom0_access (below), which carries the current state and a pending
+   reboot change in a single field so that the two cannot contradict each
+   other. That field is deprecated; it is its shape that is being reused here,
+   not its API. *)
+let partition_mode =
+  Enum
+    ( "partition_mode"
+    , [
+        ("not_supported", "This GPU cannot be divided into partitions")
+      ; ( "disabled"
+        , "This GPU can be divided into partitions, but currently is not"
+        )
+      ; ( "enable_on_reboot"
+        , "Division into partitions has been requested and takes effect on the \
+           next host reboot"
+        )
+      ; ("enabled", "This GPU is divided into partitions")
+      ; ( "disable_on_reboot"
+        , "Return to an undivided GPU has been requested and takes effect on \
+           the next host reboot"
+        )
+      ; ("unknown", "The division of this GPU could not be read")
+      ]
+    )
+
 module PGPU = struct
   let add_enabled_VGPU_types =
     call ~name:"add_enabled_VGPU_types"
@@ -9697,6 +9723,33 @@ module PGPU = struct
             ~default_value:(Some (VMap [])) "compatibility_metadata"
             "PGPU metadata to determine whether a VGPU can migrate between two \
              PGPUs"
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_partition))
+            ~lifecycle:[] "partitions"
+            "The partitions this GPU is currently divided into"
+        ; field ~qualifier:DynamicRO ~ty:partition_mode ~lifecycle:[]
+            ~default_value:(Some (VEnum "unknown")) "partition_mode"
+            "Whether and how this GPU is divided into hardware partitions. \
+             'disabled' means the GPU could be divided but is not; \
+             'not_supported' means it cannot be divided at all"
+        ; field ~qualifier:DynamicRO ~ty:(Set String) ~lifecycle:[]
+            ~default_value:(Some (VSet [])) "supported_partition_profiles"
+            "The partition profiles this GPU could be divided into when no \
+             partition exists on it"
+        ; field ~qualifier:DynamicRO ~ty:(Set String) ~lifecycle:[]
+            ~default_value:(Some (VSet [])) "remaining_partition_profiles"
+            "The partition profiles that still fit in what is left of this \
+             GPU, given how it is currently divided. This is a function of the \
+             current division, not of the model of GPU"
+        ; field ~qualifier:DynamicRO ~ty:Int ~lifecycle:[]
+            ~default_value:(Some (VInt 0L)) "partition_layout_generation"
+            "A counter bumped every time the division of this GPU changes. A \
+             reader that recorded the value alongside a reference to a \
+             partition can compare the two to detect that its view of the GPU \
+             is stale"
+        ; field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[]
+            ~default_value:(Some (VBool false)) "requires_reset"
+            "This GPU has stopped serving work and needs to be reset before it \
+             can be used again"
         ]
       ()
 end
@@ -9962,6 +10015,20 @@ module VGPU = struct
             ~default_value:(Some (VRef null_ref)) "PCI"
             "Device passed trough to VM, either as full device or SR-IOV \
              virtual function"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _gpu_partition) ~lifecycle:[]
+            ~default_value:(Some (VRef null_ref)) "resident_on_partition"
+            "The GPU partition this VGPU is running on"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _gpu_partition) ~lifecycle:[]
+            ~default_value:(Some (VRef null_ref))
+            "scheduled_to_be_resident_on_partition"
+            "The GPU partition reserved for this VGPU, which becomes its \
+             resident_on_partition once the VM is running"
+        ; field ~qualifier:DynamicRO ~ty:Int ~lifecycle:[]
+            ~default_value:(Some (VInt 0L)) "partition_layout_generation"
+            "The partition_layout_generation of the PGPU as it stood when this \
+             VGPU was bound to a partition. A binding whose generation no \
+             longer matches the PGPU's names a piece of silicon that has since \
+             been replaced"
         ]
       ()
 end
@@ -10068,6 +10135,42 @@ module VGPU_type = struct
             ~ignore_foreign_key:true ~default_value:(Some (VSet []))
             ~internal_only:true "compatible_types_on_pgpu"
             "List of VGPU types which are compatible on one PGPU"
+        ]
+      ()
+end
+
+(** Partitions of a physical GPU *)
+
+module GPU_partition = struct
+  let t =
+    create_obj ~name:_gpu_partition
+      ~descr:"A hardware partition of a physical GPU (pGPU)" ~doccomments:[]
+      ~gen_constructor_destructor:false ~gen_events:true ~in_db:true
+      ~lifecycle:[] ~messages:[] ~messages_default_allowed_roles:_R_POOL_OP
+      ~persist:PersistEverything ~in_oss_since:None
+      ~contents:
+        [
+          uid _gpu_partition ~lifecycle:[]
+        ; field ~qualifier:StaticRO ~ty:(Ref _pgpu) ~lifecycle:[]
+            ~default_value:(Some (VRef null_ref)) "PGPU"
+            "The pGPU this is a partition of"
+        ; field ~qualifier:StaticRO ~ty:String ~lifecycle:[]
+            ~default_value:(Some (VString "")) "profile"
+            "The partition profile, as published by the device, that this \
+             partition was created with"
+        ; field ~qualifier:StaticRO ~ty:Int ~lifecycle:[]
+            ~default_value:(Some (VInt 0L)) "vendor_slot_id"
+            "The vendor's own index for this partition, which is what makes it \
+             possible to match a partition here against the same one in the \
+             vendor's tools. Dividing the pGPU again renumbers its partitions, \
+             so this is not a durable name for a partition: use its uuid \
+             instead"
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[]
+            "resident_VGPUs" "List of VGPUs running on this partition"
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[]
+            "scheduled_VGPUs"
+            "List of VGPUs that have reserved this partition but are not yet \
+             running on it"
         ]
       ()
 end
@@ -10643,6 +10746,7 @@ let all_system =
   ; GPU_group.t
   ; VGPU.t
   ; VGPU_type.t
+  ; GPU_partition.t
   ; PVS_site.t
   ; PVS_server.t
   ; PVS_proxy.t
@@ -10732,6 +10836,11 @@ let all_relations =
   ; ((_vgpu, "type"), (_vgpu_type, "VGPUs"))
   ; ((_vgpu, "VM"), (_vm, "VGPUs"))
   ; ((_vgpu, "resident_on"), (_pgpu, "resident_VGPUs"))
+  ; ((_gpu_partition, "PGPU"), (_pgpu, "partitions"))
+  ; ((_vgpu, "resident_on_partition"), (_gpu_partition, "resident_VGPUs"))
+  ; ( (_vgpu, "scheduled_to_be_resident_on_partition")
+    , (_gpu_partition, "scheduled_VGPUs")
+    )
   ; ((_pgpu, "supported_VGPU_types"), (_vgpu_type, "supported_on_PGPUs"))
   ; ((_pgpu, "enabled_VGPU_types"), (_vgpu_type, "enabled_on_PGPUs"))
   ; ( (_gpu_group, "supported_VGPU_types")
