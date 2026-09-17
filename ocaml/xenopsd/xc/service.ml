@@ -270,7 +270,7 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
   (* For process id, look up its process name, and some commandline arg
      containing domid if domid is not part of its process name, check that
      they are contained in /proc/<pid>/cmdline. *)
-  let is_cmdline_valid ~pid ~pid_source expected_args =
+  let is_cmdline_valid ?(quiet = false) ~pid ~pid_source expected_args =
     try
       let cmdline_str =
         Printf.sprintf "/proc/%d/cmdline" pid |> Unixext.string_of_file
@@ -289,13 +289,25 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
           let valid =
             List.for_all (fun arg -> List.mem arg cmdline) expected_args
           in
-          if not valid then
+          if (not valid) && not quiet then
             error "%s: pid read from %s not valid (pid = %d)" D.name pid_source
               pid ;
           valid
     with _ -> false
 
-  let pid ~xs domid =
+  (* Find the daemon when its recorded pid is no longer available. *)
+  let find_by_cmdline domid =
+    let expected = D.expected_cmdline_items ~domid in
+    try
+      Sys.readdir "/proc"
+      |> Array.to_list
+      |> List.filter_map int_of_string_opt
+      |> List.find_opt (fun pid ->
+          is_cmdline_valid ~quiet:true ~pid ~pid_source:"/proc" expected
+      )
+    with _ -> None
+
+  let recorded_pid ~xs domid =
     let ( let* ) = Option.bind in
     let* pid, pid_source =
       try
@@ -327,6 +339,13 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
       Some pid
     else
       None
+
+  let pid ~xs domid =
+    match recorded_pid ~xs domid with
+    | Some _ as found ->
+        found
+    | None ->
+        find_by_cmdline domid
 
   let is_running ~xs domid =
     match pid ~xs domid with
@@ -454,14 +473,18 @@ module Qemu = struct
 end
 
 module Vgpu = struct
+  let name = "vgpu"
+
   let domain_arg domid = Printf.sprintf "--domain=%d" domid
 
+  let pidxenstore_path domid = Printf.sprintf "/local/domain/%d/vgpu-pid" domid
+
   module D = DaemonMgmt (struct
-    let name = "vgpu"
+    let name = name
 
-    let pid_path domid = Printf.sprintf "/local/domain/%d/vgpu-pid" domid
-
-    let pid_location = Pid.Xenstore pid_path
+    (* This daemon takes no --pidfile option, so xenstore is the only place its
+       pid is recorded. *)
+    let pid_location = Pid.Xenstore pidxenstore_path
 
     let expected_cmdline_items ~domid = [!Xc_resources.vgpu; domain_arg domid]
   end)
