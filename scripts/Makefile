@@ -109,6 +109,7 @@ install:
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
 	$(IPROG) upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
 	$(IDATA) usb-policy.conf $(DESTDIR)$(ETCXENDIR)
+	$(IDATA) call-costs.conf $(DESTDIR)$(ETCXENDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
 	$(IPROG) xapi-rolling-upgrade-miami $(DESTDIR)$(LIBEXECDIR)/xapi-rolling-upgrade
 	$(IPROG) set-hostname $(DESTDIR)$(LIBEXECDIR)

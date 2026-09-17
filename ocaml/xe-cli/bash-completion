@@ -32,6 +32,26 @@ COMPLETION_SUGGESTIONS=0
 SHOW_DESCRIPTION=0
 REQD_OPTIONAL_PARAMS=0
 
+# Display helper for caller UUID completion. Prints the caller's
+# name-label when set, otherwise falls back to "<user-agent>@<client-ip>"
+# so auto-created records (which have no name-label) still show a
+# meaningful description. Empty fields render as '*' to match the
+# wildcard semantics of the underlying pattern.
+__xe_caller_display()
+{
+    local uuid="$1"
+    local nl
+    nl=$(xe caller-list params=name-label uuid="$uuid" --minimal 2>/dev/null)
+    if [ -n "$nl" ]; then
+        echo "$nl"
+    else
+        local ua ip
+        ua=$(xe caller-list params=user-agent uuid="$uuid" --minimal 2>/dev/null)
+        ip=$(xe caller-list params=client-ip uuid="$uuid" --minimal 2>/dev/null)
+        echo "${ua:-*}@${ip:-*}"
+    fi
+}
+
 _xe()
 {
     # CA-100561 Tab completion bug when grep_options is set different then default --color=auto
@@ -209,7 +229,8 @@ _xe()
                     sdn-controller-*|\
                     network-sriov-*|\
                     vm-group-*|\
-                    cluster-host-*)
+                    cluster-host-*|\
+                    rate-limit-*)
                         # Chop off at the second '-' and append 'list'
                         cmd="$(echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1-2)-list";;
                     *)
@@ -223,7 +244,12 @@ _xe()
                 IFS=$'\n,'
 
                 SHOW_DESCRIPTION=1
-                local name_label_cmd="$xe $cmd params=name-label,number,vm-name-label,device 2>/dev/null --minimal uuid="
+                local name_label_cmd
+                if [ "$cmd" = "caller-list" ]; then
+                    name_label_cmd="__xe_caller_display "
+                else
+                    name_label_cmd="$xe $cmd params=name-label,number,vm-name-label,device 2>/dev/null --minimal uuid="
+                fi
                 __xe_debug "name_label_cmd is '$name_label_cmd'"
                 set_completions_for_names "$cmd" 'uuid' "$value" "$name_label_cmd"
                 return 1
@@ -377,6 +403,18 @@ _xe()
                 local name_label_cmd="$xe pif-list params=device 2>/dev/null --minimal uuid="
                 __xe_debug "name_label_cmd is '$name_label_cmd'"
                 set_completions_for_names 'pif-list' 'uuid' "$val" "$name_label_cmd"
+                return 0
+                ;;
+
+            caller-uuids) # rate-limit-create
+                __xe_debug "triggering autocompletion for caller-uuids"
+                IFS=$'\n,'
+                val=$(final_comma_separated_param "$value")
+
+                SHOW_DESCRIPTION=1
+                local name_label_cmd="__xe_caller_display "
+                __xe_debug "name_label_cmd is '$name_label_cmd'"
+                set_completions_for_names 'caller-list' 'uuid' "$val" "$name_label_cmd"
                 return 0
                 ;;
 
