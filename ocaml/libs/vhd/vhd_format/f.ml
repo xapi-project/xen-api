@@ -2738,7 +2738,7 @@ functor
       expand_empty_elements twomib_empty (return s.elements) >>= fun elements ->
       return {elements; size}
 
-    let rec expand_copy_elements buffer s =
+    let rec expand_copy_elements get_buffer s =
       let open Int64 in
       s >>= function
       | End ->
@@ -2746,6 +2746,7 @@ functor
       | Cons (`Copy (h, sector_start, sector_len), next) ->
           let rec copy sector_start sector_len =
             let this = to_int (min sector_len (of_int twomib_sectors)) in
+            get_buffer () >>= fun buffer ->
             let data = Cstruct.sub buffer 0 (this * 512) in
             really_read h (sector_start ** 512L) data >>= fun () ->
             let sector_start = sector_start ++ of_int this in
@@ -2754,21 +2755,23 @@ functor
               if sector_len > 0L then
                 copy sector_start sector_len
               else
-                expand_copy_elements buffer (next ())
+                expand_copy_elements get_buffer (next ())
             in
             return (Cons (`Sectors data, next))
           in
           copy sector_start sector_len
       | Cons (x, next) ->
-          return (Cons (x, fun () -> expand_copy_elements buffer (next ())))
+          return (Cons (x, fun () -> expand_copy_elements get_buffer (next ())))
 
-    let expand_copy s =
+    let expand_copy
+        ?(get_buffer =
+          let buffer = Memory.alloc twomib_bytes in
+          fun () -> return buffer) s =
       let open Int64 in
       let size =
         {s.size with copy= 0L; metadata= s.size.metadata ++ s.size.copy}
       in
-      let buffer = Memory.alloc twomib_bytes in
-      expand_copy_elements buffer (return s.elements) >>= fun elements ->
+      expand_copy_elements get_buffer (return s.elements) >>= fun elements ->
       return {elements; size}
 
     module Vhd_input = struct
