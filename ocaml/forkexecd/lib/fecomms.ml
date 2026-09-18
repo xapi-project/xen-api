@@ -33,15 +33,22 @@ let open_unix_domain_sock_client ?tracing path =
     sock
   with e -> Unix.close sock ; raise e
 
+(* A control message is a small JSON document. Reject a longer one rather
+   than let a corrupt header allocate an arbitrary amount of memory. *)
+let max_body_len = 16 * 1024 * 1024
+
 let read_raw_rpc ?tracing sock =
   with_tracing ~tracing ~name:__FUNCTION__ @@ fun _ ->
   let buffer = Bytes.make 12 '\000' in
   Unixext.really_read sock buffer 0 12 ;
   let header = Bytes.unsafe_to_string buffer in
   match int_of_string_opt header with
-  | Some len ->
+  | Some len when len >= 0 && len <= max_body_len ->
       let body = Unixext.really_read_string sock len in
       Ok (Fe.ferpc_of_rpc (Jsonrpc.of_string body))
+  | Some _ ->
+      Unix.(shutdown sock SHUTDOWN_ALL) ;
+      Error "Header length out of range"
   | None ->
       Unix.(shutdown sock SHUTDOWN_ALL) ;
       Error ("Header is not an integer: " ^ header)
