@@ -249,9 +249,14 @@ module Destination = struct
                 Ok ()
             | `Invalid x ->
                 Error (Failure ("invalid read: " ^ x))
+            (* Anything but 2xx means the spans were not accepted. `is_error`
+               covers only 4xx and 5xx, so a collector answering 3xx used to
+               be counted as a success and the batch silently discarded. *)
             | `Ok response
-              when Cohttp.Code.(response.status |> code_of_status |> is_error)
-              ->
+              when not
+                     Cohttp.Code.(
+                       response.status |> code_of_status |> is_success
+                     ) ->
                 Error (Failure (Cohttp.Code.string_of_status response.status))
             | `Ok _ ->
                 Ok ()
