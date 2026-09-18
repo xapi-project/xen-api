@@ -37,6 +37,13 @@ let open_unix_domain_sock_client ?tracing path =
    than let a corrupt header allocate an arbitrary amount of memory. *)
 let max_body_len = 16 * 1024 * 1024
 
+let hex_of_string s =
+  let buf = Buffer.create (2 * String.length s) in
+  String.iter
+    (fun c -> Buffer.add_string buf (Printf.sprintf "%02x" (Char.code c)))
+    s ;
+  Buffer.contents buf
+
 let read_raw_rpc ?tracing sock =
   with_tracing ~tracing ~name:__FUNCTION__ @@ fun _ ->
   let buffer = Bytes.make 12 '\000' in
@@ -46,12 +53,19 @@ let read_raw_rpc ?tracing sock =
   | Some len when len >= 0 && len <= max_body_len ->
       let body = Unixext.really_read_string sock len in
       Ok (Fe.ferpc_of_rpc (Jsonrpc.of_string body))
-  | Some _ ->
+  | Some len ->
       Unix.(shutdown sock SHUTDOWN_ALL) ;
-      Error "Header length out of range"
+      Error
+        (Printf.sprintf
+           "Header length %d out of range (max %d), header %S hex %s" len
+           max_body_len header (hex_of_string header)
+        )
   | None ->
       Unix.(shutdown sock SHUTDOWN_ALL) ;
-      Error ("Header is not an integer: " ^ header)
+      Error
+        (Printf.sprintf "Header is not an integer: %S hex %s" header
+           (hex_of_string header)
+        )
 
 let write_raw_rpc ?tracing sock ferpc =
   with_tracing ~tracing ~name:__FUNCTION__ @@ fun tracing ->
