@@ -305,6 +305,15 @@ let requirements_of_mode = function
           ; is_valid_value= (fun str -> List.mem str ["true"; "false"])
           }
       ]
+  | `balanceslb ->
+      [
+        Map_check.
+          {
+            key= "multicast-members-active"
+          ; default_value= None
+          ; is_valid_value= (fun str -> List.mem str ["true"; "false"])
+          }
+      ]
   | _ ->
       []
 
