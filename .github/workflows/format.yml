@@ -34,8 +34,10 @@ jobs:
       - name: Update Ubuntu repositories
         run: sudo apt-get update
 
+      # Pinned: the floating v3 tag moved to opam 2.6, whose depext
+      # resolution silently drops libxxhash-dev.
       - name: Use ocaml
-        uses: ocaml/setup-ocaml@v3
+        uses: ocaml/setup-ocaml@v3.8.0
         with:
           ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
           opam-repositories: |

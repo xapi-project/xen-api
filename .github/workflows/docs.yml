@@ -35,8 +35,10 @@ jobs:
 
       # We set DUNE_CACHE_STORAGE_MODE, it is required for dune cache to work inside opam for now,
       # otherwise it gets EXDEV and considers it a cache miss
+      # Pinned: the floating v3 tag moved to opam 2.6, whose depext
+      # resolution silently drops libxxhash-dev.
       - name: Use ocaml
-        uses: ocaml/setup-ocaml@v3
+        uses: ocaml/setup-ocaml@v3.8.0
         with:
           ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
           opam-repositories: |
