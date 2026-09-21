@@ -144,14 +144,14 @@ namespace XenAPI
         public delegate void UpdateProgressDelegate(int percent);
         public delegate void DataCopiedDelegate(long bytes);
 
-        // Size of byte buffer used for GETs and PUTs
-        // (not the socket rx buffer)
+        /// <summary>
+        /// Size of byte buffer used for GETs and PUTs (not the socket rx buffer)
+        /// </summary>
         public const int BUFFER_SIZE = 32 * 1024;
         public const int MAX_REDIRECTS = 10;
-
         public const int DEFAULT_HTTPS_PORT = 443;
-        private const int NONCE_LENGTH = 16;
 
+        private const int NONCE_LENGTH = 16;
         private const int FILE_MOVE_MAX_RETRIES = 5;
         private const int FILE_MOVE_SLEEP_BETWEEN_RETRIES = 100;
 
@@ -297,7 +297,7 @@ namespace XenAPI
                     }
 
                     stream.Close();
-                    throw new BadServerResponseException(string.Format("Received error code {0} from the server", initialLine), code, initialLine, entityBody);
+                    throw new BadServerResponseException($"Received error code {initialLine} from the server", code, initialLine, entityBody);
             }
 
             return false;
@@ -352,36 +352,34 @@ namespace XenAPI
             }
         }
 
-        public static long CopyStream(Stream inStream, Stream outStream,
-            DataCopiedDelegate progressDelegate, FuncBool cancellingDelegate)
+        public static void CopyStream(Stream inStream, Stream outStream, DataCopiedDelegate progressDelegate, FuncBool cancellingDelegate)
         {
             long bytesWritten = 0;
             byte[] buffer = new byte[BUFFER_SIZE];
             DateTime lastUpdate = DateTime.Now;
 
-            while (cancellingDelegate == null || !cancellingDelegate())
+            while (true)
             {
-                int bytesRead = inStream.Read(buffer, 0, buffer.Length);
+                if (cancellingDelegate != null && cancellingDelegate())
+                    throw new CancelledException();
+
+                var bytesRead = inStream.Read(buffer, 0, buffer.Length);
                 if (bytesRead == 0)
                     break;
+
                 outStream.Write(buffer, 0, bytesRead);
                 bytesWritten += bytesRead;
 
                 if (progressDelegate != null &&
-                    DateTime.Now - lastUpdate > TimeSpan.FromMilliseconds(500))
+                    DateTime.Now - lastUpdate > TimeSpan.FromMilliseconds(1000))
                 {
                     progressDelegate(bytesWritten);
                     lastUpdate = DateTime.Now;
                 }
             }
 
-            if (cancellingDelegate != null && cancellingDelegate())
-                throw new CancelledException();
-
-            if (progressDelegate != null)
-                progressDelegate(bytesWritten);
-
-            return bytesWritten;
+            outStream.Flush();
+            progressDelegate?.Invoke(bytesWritten);
         }
 
         /// <summary>
@@ -443,10 +441,10 @@ namespace XenAPI
         private static NetworkStream ConnectSocket(Uri uri, bool nodelay, int timeoutMs)
         {
             AddressFamily addressFamily = uri.HostNameType == UriHostNameType.IPv6
-                                              ? AddressFamily.InterNetworkV6
-                                              : AddressFamily.InterNetwork;
-            Socket socket =
-                new Socket(addressFamily, SocketType.Stream, ProtocolType.Tcp);
+                ? AddressFamily.InterNetworkV6
+                : AddressFamily.InterNetwork;
+
+            Socket socket = new Socket(addressFamily, SocketType.Stream, ProtocolType.Tcp);
             socket.NoDelay = nodelay;
             socket.ReceiveTimeout = timeoutMs;
             socket.SendTimeout = timeoutMs;
@@ -464,7 +462,7 @@ namespace XenAPI
         /// <param name="callback"></param>
         /// <param name="nodelay"></param>
         /// <param name="timeoutMs">Timeout, in ms. 0 for no timeout.</param>
-        private static Stream ConnectStream(Uri uri, IWebProxy proxy, RemoteCertificateValidationCallback callback, bool nodelay, int timeoutMs)
+        public static Stream ConnectStream(Uri uri, IWebProxy proxy, RemoteCertificateValidationCallback callback, bool nodelay, int timeoutMs)
         {
             if (proxy is IMockWebProxy mockProxy)
                 return mockProxy.GetStream(uri);
@@ -522,16 +520,14 @@ namespace XenAPI
             if (proxy.Credentials == null)
                 throw new BadServerResponseException($"Received error code {initialResponse[0]} from the server");
 
-            NetworkCredential credentials = proxy.Credentials.GetCredential(uri, null);
-
-            string basicField = fields.Find(str => str.StartsWith("Proxy-Authenticate: Basic", StringComparison.InvariantCultureIgnoreCase));
-            var digestFields = fields.FindAll(str => str.StartsWith("Proxy-Authenticate: Digest", StringComparison.InvariantCultureIgnoreCase));
-
             if (CurrentProxyAuthenticationMethod == ProxyAuthenticationMethod.Basic)
             {
+                var basicField = fields.Find(str => str.StartsWith("Proxy-Authenticate: Basic", StringComparison.InvariantCultureIgnoreCase));
+
                 if (string.IsNullOrEmpty(basicField))
                     throw new ProxyServerAuthenticationException("Basic authentication scheme is not supported/enabled by the proxy server.");
 
+                var credentials = proxy.Credentials.GetCredential(uri, null);
                 var creds = Convert.ToBase64String(Encoding.UTF8.GetBytes(credentials.UserName + ":" + credentials.Password));
                 WriteLine(header, stream);
                 WriteLine($"Proxy-Authorization: Basic {creds}", stream);
@@ -539,11 +535,13 @@ namespace XenAPI
             }
             else if (CurrentProxyAuthenticationMethod == ProxyAuthenticationMethod.Digest)
             {
+                var digestFields = fields.FindAll(str => str.StartsWith("Proxy-Authenticate: Digest", StringComparison.InvariantCultureIgnoreCase));
                 var digestField = digestFields.FirstOrDefault(f => f.ToLowerInvariant().Contains("sha-256")) ?? digestFields.FirstOrDefault();
 
                 if (string.IsNullOrEmpty(digestField))
                     throw new ProxyServerAuthenticationException("Digest authentication scheme is not supported/enabled by the proxy server.");
 
+                var credentials = proxy.Credentials.GetCredential(uri, null);
                 string authenticationFieldReply = $"Proxy-Authorization: Digest username=\"{credentials.UserName}\", uri=\"{uri.Host}:{uri.Port}\"";
 
                 int len = "Proxy-Authorization: Digest".Length;
@@ -657,7 +655,8 @@ namespace XenAPI
             if (authenticatedResponse.Count == 0)
                 throw new BadServerResponseException("No response from the proxy server after authentication attempt.");
 
-            switch (GetResultCode(authenticatedResponse[0]))
+            var code = GetResultCode(authenticatedResponse[0]);
+            switch (code)
             {
                 case 200:
                     break;
@@ -834,7 +833,7 @@ namespace XenAPI
         /// Move a file, retrying a few times with a short sleep between retries.
         /// If it still fails after these retries, then throw the error.
         /// </summary>
-        public static void MoveFileWithRetry(string sourceFileName, string destFileName)
+        private static void MoveFileWithRetry(string sourceFileName, string destFileName)
         {
             int retriesRemaining = FILE_MOVE_MAX_RETRIES;
             do

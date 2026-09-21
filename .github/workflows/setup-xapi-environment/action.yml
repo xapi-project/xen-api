@@ -64,9 +64,13 @@ runs:
       env:
         DUNE_CACHE_STORAGE_MODE: copy
 
+    # opam 2.6 drops the target package's own depexts from a --deps-only
+    # solve; --depext-only recomputes and installs them.
     - name: Install dependencies
       shell: bash
-      run: opam install . --deps-only --with-test -v
+      run: |
+        opam install . --depext-only --with-test -v
+        opam install . --deps-only --with-test -v
 
     - name: Configure
       shell: bash
