@@ -307,6 +307,38 @@ module Lldpd : AGENT = struct
     ; Port_description (dev, Default)
     ]
 
+  (* lldpd signals readiness before it replays [conf_path], so [systemctl start]
+     returns before the deny-all default is in effect; a scope or port pushed in
+     that window would be overwritten by the replay. Wait until the deny-all
+     pattern (the last line of [default_conf]) has been applied. *)
+  let default_conf_applied () =
+    match
+      Network_utils.call_script ~log:false cli
+        ["-f"; "keyvalue"; "show"; "configuration"]
+    with
+    | output ->
+        let marker = "configuration.config.iface-pattern=" ^ deny_all_pattern in
+        String.split_on_char '\n' output
+        |> List.exists (fun line -> String.trim line = marker)
+    | exception _ ->
+        false
+
+  let wait_for_default_conf () =
+    let count = 5 in
+    let interval = 0.5 in
+    let rec loop n =
+      match (default_conf_applied (), n) with
+      | true, _ ->
+          ()
+      | false, n when n > 0 ->
+          Unix.sleepf interval ;
+          loop (n - 1)
+      | false, _ ->
+          warn "%s: lldpd did not apply its default config within the timeout"
+            __FUNCTION__
+    in
+    loop count
+
   let start () =
     try
       mark_service_running true @@ fun () ->
@@ -314,7 +346,7 @@ module Lldpd : AGENT = struct
       if Fe_systemctl.is_active ~service then
         Ok ()
       else
-        call_systemctl ["start"; service]
+        call_systemctl ["start"; service] |> Result.map wait_for_default_conf
     with e -> Error (Internal (Printexc.to_string e))
 
   let stop () =
