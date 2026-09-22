@@ -136,13 +136,13 @@ let cap t = locked t.lock @@ fun () -> Unsafe.cap' t
 
 let to_list t = locked t.lock @@ fun () -> Unsafe.to_list' t
 
-let lookup t = locked t.lock @@ fun () -> Unsafe.lookup' t
+let lookup t key = locked t.lock @@ fun () -> Unsafe.lookup' t key
 
-let remove t = locked t.lock @@ fun () -> Unsafe.remove' t
+let remove t key = locked t.lock @@ fun () -> Unsafe.remove' t key
 
-let add t = locked t.lock @@ fun () -> Unsafe.add' t
+let add t key value = locked t.lock @@ fun () -> Unsafe.add' t key value
 
-let drop_while t = locked t.lock @@ fun () -> Unsafe.drop_while' t
+let drop_while t ~evict = locked t.lock @@ fun () -> Unsafe.drop_while' t ~evict
 
 let trim t = locked t.lock @@ fun () -> Unsafe.trim' t
 
