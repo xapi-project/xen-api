@@ -35,6 +35,11 @@ let mirror_poll_interval = 0.5
 let nbd_proxy_path_of_vm vm =
   Printf.sprintf "/var/run/nbdproxy/export/%s" (Vm.string_of vm)
 
+type copy_slices = {src_vm: Vm.t; dest_vm: Vm.t}
+
+let copy_slices_of vm =
+  {src_vm= vm; dest_vm= Vm.of_string (Vm.string_of vm ^ "-dst")}
+
 let export_nbd_proxy ~proxy_srv ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest
     =
   D.debug "%s spawning exporting nbd proxy" __FUNCTION__ ;
@@ -201,8 +206,8 @@ let nbd_export_of_attach_info backend =
            (Migration_preparation_failure "No NBD export found in attach info")
         )
 
-let start_nbd_proxy_thread ~url ~mirror_vm ~dest_sr ~mirror_vdi ~mirror_datapath
-    ~verify_dest =
+let start_nbd_proxy_thread ~url ~mirror_vm ~dest_vm ~dest_sr ~mirror_vdi
+    ~mirror_datapath ~verify_dest =
   (* Listen before returning: the caller hands the socket path to qemu-dp as
      soon as we do, and a bound socket queues connections in its backlog
      without waiting for the thread to reach Unix.accept. *)
@@ -212,8 +217,8 @@ let start_nbd_proxy_thread ~url ~mirror_vm ~dest_sr ~mirror_vdi ~mirror_datapath
   try
     Thread.create
       (fun () ->
-        export_nbd_proxy ~proxy_srv ~remote_url:url ~mirror_vm ~sr:dest_sr
-          ~vdi:mirror_vdi.vdi ~dp:mirror_datapath ~verify_dest
+        export_nbd_proxy ~proxy_srv ~remote_url:url ~mirror_vm:dest_vm
+          ~sr:dest_sr ~vdi:mirror_vdi.vdi ~dp:mirror_datapath ~verify_dest
       )
       ()
   with e -> Unix.close proxy_srv ; raise e
@@ -261,8 +266,8 @@ let create_destination_vdi (module Remote : SMAPIv2) ~dbg ~dest_sr ~vdi_info
       }
 
 module Copy = struct
-  let prepare_destination_vdi ~dbg ~dest_sr ~url ~verify_dest ~vm ~local_vdi
-      ~dest_base =
+  let prepare_destination_vdi ~dbg ~dest_sr ~url ~verify_dest ~src_vm ~dest_vm
+      ~local_vdi ~dest_base =
     let (module Remote) = get_remote_backend url verify_dest in
     let head =
       create_destination_vdi
@@ -276,20 +281,21 @@ module Copy = struct
       D.debug "%s cleaning up destination VDI %s" __FUNCTION__
         (s_of_vdi head.vdi) ;
       D.log_and_ignore_exn (fun () ->
-          Remote.VDI.deactivate dbg dp dest_sr head.vdi vm
+          Remote.VDI.deactivate dbg dp dest_sr head.vdi dest_vm
       ) ;
       D.log_and_ignore_exn (fun () ->
-          Remote.VDI.detach dbg dp dest_sr head.vdi vm
+          Remote.VDI.detach dbg dp dest_sr head.vdi dest_vm
       ) ;
       D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg dest_sr head.vdi)
     in
     (* [cleanup] is not armed until we return, so undo the clone here. *)
     let nbd_uri =
       try
-        let backend = Remote.VDI.attach3 dbg dp dest_sr head.vdi vm true in
+        let backend = Remote.VDI.attach3 dbg dp dest_sr head.vdi dest_vm true in
         (* Mirror target: a readonly datapath makes qemu-dp reject it. *)
-        Remote.VDI.activate3 dbg dp dest_sr head.vdi vm ;
-        nbd_uri_of_export ~nbd_proxy_path:(nbd_proxy_path_of_vm vm)
+        Remote.VDI.activate3 dbg dp dest_sr head.vdi dest_vm ;
+        nbd_uri_of_export
+          ~nbd_proxy_path:(nbd_proxy_path_of_vm src_vm)
           (nbd_export_of_attach_info backend)
       with e ->
         D.error "%s failed to prepare destination VDI %s: %s" __FUNCTION__
@@ -307,19 +313,20 @@ module Copy = struct
       verify_dest ;
     try
       let local_vdi = Local.VDI.stat dbg sr vdi in
+      let {src_vm; dest_vm} = copy_slices_of vm in
       let head, dp, nbd_uri, cleanup =
-        prepare_destination_vdi ~dbg ~dest_sr:dest ~url ~verify_dest ~vm
-          ~local_vdi ~dest_base
+        prepare_destination_vdi ~dbg ~dest_sr:dest ~url ~verify_dest ~src_vm
+          ~dest_vm ~local_vdi ~dest_base
       in
       Fun.protect ~finally:cleanup (fun () ->
           let _ : Thread.t =
-            start_nbd_proxy_thread ~url ~mirror_vm:vm ~dest_sr:dest
+            start_nbd_proxy_thread ~url ~mirror_vm:src_vm ~dest_vm ~dest_sr:dest
               ~mirror_vdi:head ~mirror_datapath:dp ~verify_dest
           in
           let dest_snapshot =
             mirror_snapshot_into_existing_dest ~dbg ~task:(Some task) ~sr
               ~snapshot_vdi_uuid:(s_of_vdi vdi) ~dest_sr:dest ~dest_url:url
-              ~verify_dest ~copy_vm:vm ~image_format ~dest_vdi_info:head
+              ~verify_dest ~copy_vm:src_vm ~image_format ~dest_vdi_info:head
               ~nbd_uri
           in
           Some (Vdi_info dest_snapshot)
@@ -434,8 +441,8 @@ module MIRROR : SMAPIv2_MIRROR = struct
         let nbd_uri = nbd_uri_of_export ~nbd_proxy_path nbd_export in
         try
           let _ : Thread.t =
-            start_nbd_proxy_thread ~url ~mirror_vm ~dest_sr ~mirror_vdi
-              ~mirror_datapath ~verify_dest
+            start_nbd_proxy_thread ~url ~mirror_vm ~dest_vm:mirror_vm ~dest_sr
+              ~mirror_vdi ~mirror_datapath ~verify_dest
           in
           D.info "%s nbd_proxy_path: %s nbd_url %s" __FUNCTION__ nbd_proxy_path
             nbd_uri ;
