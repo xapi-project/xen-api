@@ -867,10 +867,11 @@ let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
     [host]
   else
     possible_hosts ~__context ~vm
-      ~choose_fn:
-        (assert_can_boot_here ~__context ~self:vm ~snapshot
-           ~do_cpuid_check:false ()
-        )
+      ~choose_fn:(fun ~host ->
+        assert (check_vm_can_move_between_host_versions ~__context ~vm ~dst:host) ;
+        assert_can_boot_here ~__context ~self:vm ~snapshot ~do_cpuid_check:false
+          ~host ()
+      )
       ()
 
 (** Performs an expensive and comprehensive check to determine whether the
