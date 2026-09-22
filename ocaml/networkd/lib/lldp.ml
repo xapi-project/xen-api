@@ -186,6 +186,9 @@ module type AGENT = sig
   val disable : string -> (unit, error) result
   (** Stop LLDP (rx-and-tx) on [dev]. *)
 
+  val set_scope : string list -> (unit, error) result
+  (** Restrict the agent to only manage (and tap) the given interfaces. *)
+
   val get_neighbors : unit -> (string * Network_stats.lldp_neighbor) list
   (** Query the agent for the LLDP neighbour received on each interface. *)
 
@@ -257,12 +260,20 @@ module Lldpd : AGENT = struct
         x
     )
 
+  (* lldpd manages (and taps) no interface by default; [set_conf] adds each
+     LLDP-enabled physical NIC to the pattern, so lldpd never opens an
+     ETH_P_ALL capture tap on VM vifs/taps, which would otherwise cost guest
+     network throughput. An empty pattern would mean "manage all", so the
+     empty set is expressed as this deny-all pattern instead. *)
+  let deny_all_pattern = "!*"
+
   let default_conf =
     String.concat "\n"
       [
         "configure lldp status disabled"
       ; "configure lldp capabilities-advertisements"
       ; "configure system capabilities enabled bridge"
+      ; "configure system interface pattern " ^ deny_all_pattern
       ; ""
       ]
 
@@ -296,6 +307,38 @@ module Lldpd : AGENT = struct
     ; Port_description (dev, Default)
     ]
 
+  (* lldpd signals readiness before it replays [conf_path], so [systemctl start]
+     returns before the deny-all default is in effect; a scope or port pushed in
+     that window would be overwritten by the replay. Wait until the deny-all
+     pattern (the last line of [default_conf]) has been applied. *)
+  let default_conf_applied () =
+    match
+      Network_utils.call_script ~log:false cli
+        ["-f"; "keyvalue"; "show"; "configuration"]
+    with
+    | output ->
+        let marker = "configuration.config.iface-pattern=" ^ deny_all_pattern in
+        String.split_on_char '\n' output
+        |> List.exists (fun line -> String.trim line = marker)
+    | exception _ ->
+        false
+
+  let wait_for_default_conf () =
+    let count = 5 in
+    let interval = 0.5 in
+    let rec loop n =
+      match (default_conf_applied (), n) with
+      | true, _ ->
+          ()
+      | false, n when n > 0 ->
+          Unix.sleepf interval ;
+          loop (n - 1)
+      | false, _ ->
+          warn "%s: lldpd did not apply its default config within the timeout"
+            __FUNCTION__
+    in
+    loop count
+
   let start () =
     try
       mark_service_running true @@ fun () ->
@@ -303,7 +346,7 @@ module Lldpd : AGENT = struct
       if Fe_systemctl.is_active ~service then
         Ok ()
       else
-        call_systemctl ["start"; service]
+        call_systemctl ["start"; service] |> Result.map wait_for_default_conf
     with e -> Error (Internal (Printexc.to_string e))
 
   let stop () =
@@ -320,6 +363,12 @@ module Lldpd : AGENT = struct
 
   let disable dev =
     call_cli_ignore ["configure"; "ports"; dev; "lldp"; "status"; "disabled"]
+
+  let set_scope devs =
+    let pattern =
+      match devs with [] -> deny_all_pattern | _ -> String.concat "," devs
+    in
+    call_cli_ignore ["configure"; "system"; "interface"; "pattern"; pattern]
 
   let get_neighbors () =
     match call_cli ~log:false show_neighbors_args with
@@ -532,6 +581,34 @@ end
 module Make (Agent : AGENT) = struct
   let ( let* ) = Result.bind
 
+  (** Tracks which interfaces are in scope: the agent should not touch any
+      interface outside, to avoid the throughput cost of tapping it. *)
+  module Scope = struct
+    module Iface_set = Set.Make (String)
+
+    let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
+    let ifaces = ref Iface_set.empty
+
+    let lock = Mutex.create ()
+
+    let push () = Agent.set_scope (Iface_set.elements !ifaces)
+
+    let add dev =
+      with_lock lock (fun () ->
+          ifaces := Iface_set.add dev !ifaces ;
+          push ()
+      )
+
+    let remove dev =
+      with_lock lock (fun () ->
+          ifaces := Iface_set.remove dev !ifaces ;
+          push ()
+      )
+
+    let clear () = with_lock lock (fun () -> ifaces := Iface_set.empty)
+  end
+
   let set_conf dev (config : I.lldp option) : unit =
     let result =
       match (Network_utils.Sysfs.is_physical dev, config) with
@@ -551,10 +628,14 @@ module Make (Agent : AGENT) = struct
           match (blocked, lldp.enabled) with
           | true, _ ->
               debug "%s: Driver of %s is in blocklist." __FUNCTION__ dev ;
-              Agent.disable dev
+              let* () = Agent.disable dev in
+              Scope.remove dev
           | false, true ->
               Network_utils.Ethtool.try_to_disable_firmware_lldp dev ;
               let* () = Agent.start () in
+              (* Add [dev] to the scope before enabling its port, so lldpd has
+                 created the interface. *)
+              let* () = Scope.add dev in
               let* () =
                 Agent.advertising_confs dev lldp
                 |> List.map Agent.set_advertising_conf
@@ -563,7 +644,8 @@ module Make (Agent : AGENT) = struct
               in
               Agent.enable dev
           | false, false ->
-              Agent.disable dev
+              let* () = Agent.disable dev in
+              Scope.remove dev
         )
     in
     let error e =
@@ -577,7 +659,8 @@ module Make (Agent : AGENT) = struct
     |> Result.iter_error (fun e ->
         warn "%s: Could not stop LLDP agent: %s" __FUNCTION__
           (Lldp_types.string_of_error e)
-    )
+    ) ;
+    Scope.clear ()
 
   let set_tlv_management_address addrs =
     Agent.set_advertising_conf (Management_address addrs)
