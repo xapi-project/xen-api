@@ -32,15 +32,15 @@ jobs:
         python-version: ["3.11"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0 # To check which files changed: origin/master..HEAD
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{matrix.python-version}}
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         name: Setup cache for running pre-commit fast
         with:
           path: ~/.cache/pre-commit
@@ -108,7 +108,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 

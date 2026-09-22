@@ -11,9 +11,9 @@ type {{name}}Ref string
 type RecordInterface interface{}
 
 type EventBatch struct {
-	Token          string         `json:"token,omitempty"`
-	ValidRefCounts map[string]int `json:"validRefCounts,omitempty"`
-	Events         []EventRecord  `json:"events,omitempty"`
+	Token          string           `json:"token,omitempty"`
+	ValidRefCounts map[string]int64 `json:"validRefCounts,omitempty"`
+	Events         []EventRecord    `json:"events,omitempty"`
 }
 
 {{/event}}

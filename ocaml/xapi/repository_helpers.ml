@@ -22,6 +22,12 @@ open Updateinfo
 module LivePatchSet = Set.Make (LivePatch)
 module RpmFullNameSet = Set.Make (String)
 
+module PkgSet = Set.Make (struct
+  type t = Pkg.t * string
+
+  let compare = Stdlib.compare
+end)
+
 let pool_update_ops_mutex = Mutex.create ()
 
 module Pkgs = (val Pkg_mgr.get_pkg_mgr)
@@ -550,9 +556,10 @@ let get_updates_from_updateinfo ~__context repositories =
     get_pkgs_from_yum_updateinfo_list Pkg_mgr.Updateinfo.Updates repositories
   in
   (* 'new_updates' are a list of RPM packages to be installed, rather than updated *)
+  let updates_set = PkgSet.of_list updates in
   let new_updates =
     get_pkgs_from_yum_updateinfo_list Pkg_mgr.Updateinfo.Available repositories
-    |> List.filter (fun x -> not (List.mem x updates))
+    |> List.filter (fun x -> not (PkgSet.mem x updates_set))
     |> List.filter (fun (pkg, _) -> not (is_obsoleted pkg.Pkg.name repositories))
   in
   new_updates @ updates
@@ -729,11 +736,12 @@ let get_updates_from_repoquery repositories =
   (* Use 'updates' to decrease the number of packages to apply 'is_obsoleted' *)
   let Pkg_mgr.{cmd; params} = Pkgs.repoquery_updates ~repositories in
   let updates = get_pkgs_from_repoquery cmd params in
+  let updates_set = PkgSet.of_list updates in
   (* 'new_updates' are a list of RPM packages to be installed, rather than updated *)
   let Pkg_mgr.{cmd; params} = Pkgs.repoquery_available ~repositories in
   let new_updates =
     get_pkgs_from_repoquery cmd params
-    |> List.filter (fun x -> not (List.mem x updates))
+    |> List.filter (fun x -> not (PkgSet.mem x updates_set))
     |> List.filter (fun (pkg, _) -> not (is_obsoleted pkg.Pkg.name repositories))
   in
   new_updates @ updates
@@ -747,6 +755,8 @@ module YumUpgradeOutput = struct
   let is_eol = function '\n' -> true | _ -> false
 
   let is_white = Astring.Char.Ascii.is_white
+
+  let replacing_pattern = Re.Str.regexp "^[ ]+replacing .+$"
 
   let rec line ~section ~section_acc ~acc =
     let rec line_after_txn_summary sections =
@@ -800,34 +810,33 @@ module YumUpgradeOutput = struct
               line_after_txn_summary acc
         )
         | l -> (
-            let pattern = Re.Str.regexp "^[ ]+replacing .+$" in
-            match
-              ( section
-              , Re.Str.string_match pattern l 0
-              , String.starts_with ~prefix:"Error: " l
-              )
-            with
-            | Some s, true, false ->
-                (* in a section, but starting with 'replacing', ignoring the line.
-                 * https://github.com/rpm-software-management/yum/blob/master/output.py#L1622
-                 * https://github.com/rpm-software-management/dnf5/blob/main/libdnf5-cli/output/transaction_table.cpp#L373
-                 *)
-                line ~section:(Some s) ~section_acc ~acc
-            | Some s, false, false ->
-                (* in a section, append to the section's list *)
-                line ~section:(Some s) ~section_acc:(l :: section_acc) ~acc
-            | None, false, true ->
-                (* error reported from yum upgrade *)
-                fail l
-            | None, false, false ->
-                (* not in any section, ignoring the line *)
-                line ~section:None ~section_acc:[] ~acc
-            | _ ->
-                fail
-                  (Printf.sprintf
-                     "Unexpected output from yum upgrade (dry run): %s" l
-                  )
-          )
+          match
+            ( section
+            , Re.Str.string_match replacing_pattern l 0
+            , String.starts_with ~prefix:"Error: " l
+            )
+          with
+          | Some s, true, false ->
+              (* in a section, but starting with 'replacing', ignoring the line.
+               * https://github.com/rpm-software-management/yum/blob/master/output.py#L1622
+               * https://github.com/rpm-software-management/dnf5/blob/main/libdnf5-cli/output/transaction_table.cpp#L373
+               *)
+              line ~section:(Some s) ~section_acc ~acc
+          | Some s, false, false ->
+              (* in a section, append to the section's list *)
+              line ~section:(Some s) ~section_acc:(l :: section_acc) ~acc
+          | None, false, true ->
+              (* error reported from yum upgrade *)
+              fail l
+          | None, false, false ->
+              (* not in any section, ignoring the line *)
+              line ~section:None ~section_acc:[] ~acc
+          | _ ->
+              fail
+                (Printf.sprintf
+                   "Unexpected output from yum upgrade (dry run): %s" l
+                )
+        )
       )
     | true ->
         return ([], None)

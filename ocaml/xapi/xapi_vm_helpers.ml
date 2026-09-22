@@ -1003,18 +1003,10 @@ let rank_hosts_by_best_vgpu ~__context vgpu visible_hosts =
 
 let host_to_vm_count_map ~__context group =
   let host_of_vm vm =
-    let vm_rec = Db.VM.get_record ~__context ~self:vm in
-    (* 1. When a VM starts migrating, it's 'scheduled_to_be_resident_on' will be set,
-          while its 'resident_on' is not cleared. In this case,
-          'scheduled_to_be_resident_on' should be treated as its running host.
-       2. For paused VM, its 'resident_on' has value, but it will not be considered
-          while computing the amount of VMs. *)
-    match
-      ( vm_rec.API.vM_scheduled_to_be_resident_on
-      , vm_rec.API.vM_resident_on
-      , vm_rec.API.vM_power_state
-      )
-    with
+    let scheduled = Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm in
+    let resident = Db.VM.get_resident_on ~__context ~self:vm in
+    let power_state = Db.VM.get_power_state ~__context ~self:vm in
+    match (scheduled, resident, power_state) with
     | sh, _, _ when sh <> Ref.null ->
         Some sh
     | _, h, `Running when h <> Ref.null ->

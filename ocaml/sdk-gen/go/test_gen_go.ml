@@ -682,7 +682,7 @@ let simple_type_convert : Mustache.Json.t =
 
 let int_convert : Mustache.Json.t =
   let array =
-    [`O [("func_name_suffix", `String "Int"); ("type", `String "int")]]
+    [`O [("func_name_suffix", `String "Int"); ("type", `String "int64")]]
   in
   `O [("serialize", `A array); ("deserialize", `A array)]
 
@@ -1506,7 +1506,7 @@ module StringOfTyWithEnumsTest = struct
     verify "option" verify_option (ty, enums)
 
   let verify_map (ty, enums) =
-    ty = "map[int]UpdateSync"
+    ty = "map[int64]UpdateSync"
     && enums = StringMap.singleton "UpdateSync" enum_lst
 
   let test_map () =

@@ -455,12 +455,9 @@ let check_operation_error ~__context ~ref =
     |> List.filter (Db.is_valid_ref __context)
   in
   let current_ops = vmr.Db_actions.vM_current_operations in
-  let metrics = Db.VM.get_metrics ~__context ~self:ref in
+  let metrics = vmr.Db_actions.vM_metrics in
   let is_nested_virt = nested_virt ~__context ref metrics in
-  let is_domain_zero =
-    Db.VM.get_by_uuid ~__context ~uuid:vmr.Db_actions.vM_uuid
-    |> Helpers.is_domain_zero ~__context
-  in
+  let is_domain_zero = Helpers.is_domain_zero ~__context ref in
   let vdis_reset_and_caching =
     List.filter_map
       (fun vdi ->

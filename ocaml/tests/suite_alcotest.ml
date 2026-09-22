@@ -72,4 +72,5 @@ let () =
     @ Test_extauth_plugin_ADwinbind.tests
     @ Test_rfb_client_msgtype_parser.tests
     @ Test_tracked_user_agents.tests
+    @ Test_cli_args.tests
     )

@@ -215,6 +215,18 @@ module HostKey = struct
   let compare = Ref.compare
 end
 
+module HostMap = Map.Make (HostKey)
+module HostSet = Set.Make (HostKey)
+
+module VMRefOrd = struct
+  type t = [`VM] Ref.t
+
+  let compare = Ref.compare
+end
+
+module VMRefSet = Set.Make (VMRefOrd)
+module VMMap = Map.Make (VMRefOrd)
+
 (* For a VM anti-affinity group, the state of a host which determines
    evacuation planning for anti-affinity VMs in that group:
    1. vm_cnt: the number of running VMs in that group resident on the host
@@ -809,6 +821,11 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
       (fun (_, a) (_, b) -> compare a.API.host_uuid b.API.host_uuid)
       all_hosts_and_snapshots
   in
+  let hosts_map =
+    List.fold_left
+      (fun m (k, v) -> HostMap.add k v m)
+      HostMap.empty all_hosts_and_snapshots
+  in
   let is_alive (rf, r) =
     (* We exclude: (i) online disabled hosts; (ii) online proposed disabled hosts; and (iii) offline hosts *)
     true
@@ -826,35 +843,41 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
     List.map fst live_hosts_and_snapshots
     (* and dead_hosts = List.map fst dead_hosts_and_snapshots *)
   in
+  let live_hosts_set = HostSet.of_list live_hosts in
   (* Any deterministic ordering is fine here: *)
   let vms_to_ensure_running =
     List.sort
       (fun (_, a) (_, b) -> compare a.API.vM_uuid b.API.vM_uuid)
       vms_to_ensure_running
   in
+  let vms_map =
+    List.fold_left
+      (fun m (k, v) -> VMMap.add k v m)
+      VMMap.empty vms_to_ensure_running
+  in
   let agile_vms, not_agile_vms =
     Agility.partition_vm_ps_by_agile ~__context vms_to_ensure_running
   in
   (* If a VM is marked as resident on a live_host then it will already be accounted for in the host's current free memory. *)
   let vm_accounted_to_host vm =
-    let vm_t = List.assoc vm vms_to_ensure_running in
-    if List.mem vm_t.API.vM_resident_on live_hosts then
+    let vm_t = VMMap.find vm vms_map in
+    if HostSet.mem vm_t.API.vM_resident_on live_hosts_set then
       Some vm_t.API.vM_resident_on
     else
       let scheduled =
         Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm
       in
-      if List.mem scheduled live_hosts then
+      if HostSet.mem scheduled live_hosts_set then
         Some scheduled
       else
         None
   in
   let string_of_vm vm =
     Printf.sprintf "%s (%s)" (Ref.short_string_of vm)
-      (List.assoc vm vms_to_ensure_running).API.vM_name_label
+      (VMMap.find vm vms_map).API.vM_name_label
   in
   let string_of_host host =
-    let name = (List.assoc host all_hosts_and_snapshots).API.host_name_label in
+    let name = (HostMap.find host hosts_map).API.host_name_label in
     Printf.sprintf "%s (%s)" (Ref.short_string_of host) name
   in
   let string_of_plan p =
@@ -866,10 +889,11 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
          p
       )
   in
-  debug "Protected VMs: [ %s ]"
-    (String.concat "; "
-       (List.map (fun (vm, _) -> string_of_vm vm) vms_to_ensure_running)
-    ) ;
+  if not (Debug.is_disabled "xapi_ha_vm_failover" Syslog.Debug) then
+    debug "Protected VMs: [ %s ]"
+      (String.concat "; "
+         (List.map (fun (vm, _) -> string_of_vm vm) vms_to_ensure_running)
+      ) ;
   (* Current free memory on all hosts (does not include any for *offline* protected VMs ie those for which (vm_accounted_to_host vm)
      	   returns None) Also apply the supplied counterfactual-reasoning changes (if any) *)
   let hosts_and_memory =
@@ -955,8 +979,11 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
     Binpack.account hosts_and_memory vms_and_memory non_agile_restart_plan
   in
   (* Now that we've considered the overhead of the non-agile (pinned) VMs, we can perform some binpacking of the agile VMs. *)
+  let vms_and_memory_map =
+    List.fold_left (fun m (k, v) -> VMMap.add k v m) VMMap.empty vms_and_memory
+  in
   let agile_vms_and_memory =
-    List.map (fun (vm, _) -> (vm, List.assoc vm vms_and_memory)) agile_vms
+    List.map (fun (vm, _) -> (vm, VMMap.find vm vms_and_memory_map)) agile_vms
   in
   (* Compute the current placement for all agile VMs. VMs which are powered off currently are placed nowhere *)
   let agile_vm_accounted_to_host =
@@ -998,13 +1025,17 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
   let agile_restart_plan = h.Binpack.get_specific_plan config agile_vm_failed in
   debug "Restart plan for agile offline VMs: [ %s ]"
     (string_of_plan agile_restart_plan) ;
-  let vms_restarted = List.map fst agile_restart_plan in
+  let vms_restarted =
+    List.fold_left
+      (fun s (vm, _) -> VMRefSet.add vm s)
+      VMRefSet.empty agile_restart_plan
+  in
   (* List the protected VMs which are not already running and weren't in the restart plan *)
   let vms_not_restarted =
     List.map fst
       (List.filter
          (fun (vm, _) ->
-           vm_accounted_to_host vm = None && not (List.mem vm vms_restarted)
+           vm_accounted_to_host vm = None && not (VMRefSet.mem vm vms_restarted)
          )
          vms_to_ensure_running
       )
@@ -1273,14 +1304,6 @@ let restart_failed : (API.ref_VM, unit) Hashtbl.t = Hashtbl.create 10
 
 (* We also limit the rate we attempt to retry starting the VM. *)
 let last_start_attempt : (API.ref_VM, float) Hashtbl.t = Hashtbl.create 10
-
-module VMRefOrd = struct
-  type t = [`VM] Ref.t
-
-  let compare = Ref.compare
-end
-
-module VMMap = Map.Make (VMRefOrd)
 
 (* When a host is up, it will be added in the HA live set. But it may be still
    in disabled state so that starting best-effort VMs on it would fail.

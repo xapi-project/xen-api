@@ -313,6 +313,18 @@ let compute_evacuation_plan_no_wlb ~__context ~host ?(ignore_ha = false) () =
       )
       target_hosts
   in
+  (* During upgrade/update, migrate to upgraded/updated hosts only. *)
+  let target_hosts =
+    if Helpers.rolling_upgrade_in_progress ~__context then
+      List.filter
+        (fun target ->
+          Helpers.Checks.RPU.host_has_highest_version_in_pool ~__context
+            ~host:(Helpers.LocalObject target)
+        )
+        target_hosts
+    else
+      target_hosts
+  in
   debug "evacuation target hosts are [%s]"
     (String.concat "; "
        (List.map (fun h -> Db.Host.get_hostname ~__context ~self:h) target_hosts)

@@ -627,11 +627,13 @@ module Stats_value = struct
     (* stats_blktap3 and stats won't both present at a time *)
     match (stats_blktap3, stats) with
     | None, Some stats ->
-        let stats_get = List.nth stats in
+        let stats = Array.of_list stats in
+        let last_stats = Option.map Array.of_list last_stats in
+        let stats_get n = stats.(n) in
         let stats_diff_get n =
           let stat = stats_get n in
           let last_stat =
-            match last_stats with None -> 0L | Some s -> List.nth s n
+            match last_stats with None -> 0L | Some s -> s.(n)
           in
           if stat >= last_stat then
             Int64.sub stat last_stat

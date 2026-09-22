@@ -254,9 +254,9 @@ let valid_operations ~__context ?op record _ref' : table =
   let relevant_functions =
     [
       (all_ops, check_sm_features)
-    ; ([`destroy; `forget], check_any_attached_pbds)
     ; ([`destroy], check_no_pbds)
     ; ([`destroy], check_any_managed_vdis)
+    ; ([`destroy; `forget], check_any_attached_pbds)
     ; (all_ops, check_parallel_ops)
     ; ([`plug], check_cluster_stack_compatible)
     ]

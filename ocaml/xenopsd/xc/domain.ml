@@ -81,7 +81,7 @@ type domain_create_iommu_opts = Xenctrl.domain_create_iommu_opts =
   | IOMMU_NO_SHAREPT
 [@@deriving rpcty]
 
-let emulation_flags_all =
+let emulation_flags_hvm =
   [
     X86_EMU_LAPIC
   ; X86_EMU_HPET
@@ -92,7 +92,6 @@ let emulation_flags_all =
   ; X86_EMU_VGA
   ; X86_EMU_IOMMU
   ; X86_EMU_PIT
-  ; X86_EMU_USE_PIRQ
   ]
 
 let emulation_flags_pvh = [X86_EMU_LAPIC]

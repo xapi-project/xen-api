@@ -14,6 +14,30 @@
 
 (** The main entry point of the quicktest executable *)
 
+module Suite = struct
+  type t = {
+      name: string
+    ; tags: Quicktest_args.tag list
+    ; tests: (unit -> unit) Qt_filter.test_case list
+  }
+
+  let make ?(tags = []) name tests = {name; tags; tests}
+end
+
+let matches_tags (s : Suite.t) =
+  List.for_all (fun t -> List.mem t s.tags) !Quicktest_args.with_tags
+  && List.for_all
+       (fun t -> not (List.mem t s.tags))
+       !Quicktest_args.without_tags
+
+let filter_by_tags =
+  List.filter_map (fun (s : Suite.t) ->
+      if matches_tags s then
+        Some (s.name, s.tests)
+      else
+        None
+  )
+
 let qchecks =
   [("unixext", Unixext_test.tests); ("Timer", Test_timer.tests)]
   |> List.map @@ fun (name, test) ->
@@ -41,75 +65,79 @@ let wrap f =
 let () =
   Quicktest_args.parse () ;
   wrap (fun () ->
-      let suite =
+      let suites =
+        let open Quicktest_args in
         [
-          ( "Quicktest_vm_calibrate_cleanup0"
-          , Quicktest_vm_calibrate.tests_cleanup ()
-          )
-        ; ("Quicktest_vm_calibrate", Quicktest_vm_calibrate.tests ())
-        ; ( "Quicktest_vm_calibrate_cleanup1"
-          , Quicktest_vm_calibrate.tests_cleanup ()
-          )
-        ; ( "Quicktest_vm_calibrate_cleanup00"
-          , Quicktest_vm_calibrate.tests_cleanup ()
-          )
-        ; ("Quicktest_vm_memory", Quicktest_vm_memory.tests ())
-        ; ( "Quicktest_vm_calibrate_cleanup2"
-          , Quicktest_vm_calibrate.tests_cleanup ()
-          )
-        ; ("Quicktest_example", Quicktest_example.tests ())
-        ; ("Quicktest_message", Quicktest_message.tests ())
-        ; ("xenstore", Quicktest_xenstore.tests ())
-        ; ("cbt", Quicktest_cbt.tests ())
-        ; ("event", Quicktest_event.tests ())
-        ; ("import_raw_vdi", Quicktest_import_raw_vdi.tests ())
-        ; ("copy", Quicktest_vdi_copy.tests ())
-        ; ("SR tests", Quicktest_sr.tests ())
-        ; ("Quicktest_vdi", Quicktest_vdi.tests ())
-        ; ("Quicktest_async_calls", Quicktest_async_calls.tests ())
-        ; ("Quicktest_vm_import_export", Quicktest_vm_import_export.tests ())
-        ; ("Quicktest_vm_lifecycle", Quicktest_vm_lifecycle.tests ())
-        ; ("Quicktest_vm_snapshot", Quicktest_vm_snapshot.tests ())
-        ; ("Quicktest_vm_migration", Quicktest_vm_migration.tests ())
-        ; ( "Quicktest_vdi_ops_data_integrity"
-          , Quicktest_vdi_ops_data_integrity.tests ()
-          )
-        ; ("Quicktest_max_vdi_size", Quicktest_max_vdi_size.tests ())
-        ; ("Quicktest_static_vdis", Quicktest_static_vdis.tests ())
-        ; ("Quicktest_date", Quicktest_date.tests ())
-        ; ("Quicktest_crypt_r", Quicktest_crypt_r.tests ())
-        ; ("Quicktest_rate_limit", Quicktest_rate_limit.tests ())
+          Suite.make "Quicktest_vm_calibrate_cleanup0"
+            (Quicktest_vm_calibrate.tests_cleanup ())
+        ; Suite.make "Quicktest_vm_calibrate" (Quicktest_vm_calibrate.tests ())
+        ; Suite.make "Quicktest_vm_calibrate_cleanup1"
+            (Quicktest_vm_calibrate.tests_cleanup ())
+        ; Suite.make "Quicktest_vm_calibrate_cleanup00"
+            (Quicktest_vm_calibrate.tests_cleanup ())
+        ; Suite.make "Quicktest_vm_memory" (Quicktest_vm_memory.tests ())
+        ; Suite.make "Quicktest_vm_calibrate_cleanup2"
+            (Quicktest_vm_calibrate.tests_cleanup ())
+        ; Suite.make "Quicktest_example" (Quicktest_example.tests ())
+        ; Suite.make "Quicktest_message" (Quicktest_message.tests ())
+        ; Suite.make "xenstore" (Quicktest_xenstore.tests ())
+        ; Suite.make "cbt" ~tags:[Sr] (Quicktest_cbt.tests ())
+        ; Suite.make "event" (Quicktest_event.tests ())
+        ; Suite.make "import_raw_vdi" (Quicktest_import_raw_vdi.tests ())
+        ; Suite.make "copy" ~tags:[Sr] (Quicktest_vdi_copy.tests ())
+        ; Suite.make "SR tests" ~tags:[Sr] (Quicktest_sr.tests ())
+        ; Suite.make "Quicktest_vdi" ~tags:[Sr] (Quicktest_vdi.tests ())
+        ; Suite.make "Quicktest_async_calls" ~tags:[Sr]
+            (Quicktest_async_calls.tests ())
+        ; Suite.make "Quicktest_vm_import_export" ~tags:[Sr]
+            (Quicktest_vm_import_export.tests ())
+        ; Suite.make "Quicktest_vm_lifecycle" ~tags:[Sr]
+            (Quicktest_vm_lifecycle.tests ())
+        ; Suite.make "Quicktest_vm_snapshot" ~tags:[Sr]
+            (Quicktest_vm_snapshot.tests ())
+        ; Suite.make "Quicktest_vm_migration" ~tags:[Sr]
+            (Quicktest_vm_migration.tests ())
+        ; Suite.make "Quicktest_vdi_ops_data_integrity" ~tags:[Sr]
+            (Quicktest_vdi_ops_data_integrity.tests ())
+        ; Suite.make "Quicktest_max_vdi_size" ~tags:[Sr]
+            (Quicktest_max_vdi_size.tests ())
+        ; Suite.make "Quicktest_static_vdis" ~tags:[Sr]
+            (Quicktest_static_vdis.tests ())
+        ; Suite.make "Quicktest_date" (Quicktest_date.tests ())
+        ; Suite.make "Quicktest_crypt_r" (Quicktest_crypt_r.tests ())
+        ; Suite.make "Quicktest_rate_limit" (Quicktest_rate_limit.tests ())
         ]
-        @ ( if not !Quicktest_args.using_unix_domain_socket then
-              [("http", Quicktest_http.tests)]
+        @ ( if not !using_unix_domain_socket then
+              [Suite.make "http" Quicktest_http.tests]
             else
               []
           )
         @
-        if not !Quicktest_args.skip_stress then
-          qchecks
+        if not !skip_stress then
+          List.map (fun (name, tests) -> Suite.make name tests) qchecks
         else
           []
       in
+      let suites = suites |> filter_by_tags in
       (* Only list tests if asked, without running them *)
       if !Quicktest_args.list_tests then
         Printf.printf "%s\n"
-          (Astring.String.concat ~sep:"," (List.map fst suite))
+          (Astring.String.concat ~sep:"," (List.map fst suites))
       else
         (* If -run-only parameter supplied, run specific suites from the list *)
-        let suite =
+        let suites =
           match !Quicktest_args.run_only with
           | Some tests ->
               List.filter_map
                 (fun test_name ->
                   Option.map
                     (fun v -> (test_name, v))
-                    (List.assoc_opt test_name suite)
+                    (List.assoc_opt test_name suites)
                 )
                 (Astring.String.cuts ~sep:"," tests)
           | None ->
-              suite
+              suites
         in
         let argv = Quicktest_args.get_alcotest_args () in
-        Alcotest.run ~and_exit:false ~argv "Quicktests" suite
+        Alcotest.run ~and_exit:false ~argv "Quicktests" suites
   )
