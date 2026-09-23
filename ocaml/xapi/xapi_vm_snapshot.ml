@@ -331,19 +331,7 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
     let ( --- ) = VBDSet.diff in
     snap_VBDs_disk --- snap_VBDs_reverted
   in
-  if
-    VBDSet.cardinal vm_vbds_to_be_destroyed <> 0
-    || VDISet.cardinal vm_disks_to_be_destroyed <> 0
-  then
-    debug "%s: Cleaning up the old VBDs and VDIs to have more free space"
-      __FUNCTION__ ;
-  VBDSet.iter
-    (safe_destroy_vbd ~__context ~rpc ~session_id)
-    vm_vbds_to_be_destroyed ;
-  VDISet.iter
-    (safe_destroy_vdi ~__context ~rpc ~session_id)
-    vm_disks_to_be_destroyed ;
-  TaskHelper.set_progress ~__context 0.2 ;
+
   if VBDSet.cardinal snap_VBDs_to_be_cloned <> 0 then
     debug "%s: Cloning the snapshotted disks" __FUNCTION__ ;
 
@@ -384,7 +372,7 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
     Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone
       ~__context snap_VBDs_CD driver_params
   in
-  TaskHelper.set_progress ~__context 0.5 ;
+  TaskHelper.set_progress ~__context 0.3 ;
   if cloned_disks <> [] then
     debug "%s: Updating the snapshot_of fields for relevant VDIs" __FUNCTION__ ;
 
@@ -407,6 +395,25 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
         all_snaps_in_tree
     )
     cloned_disks ;
+
+  (* It's not safe to destroy VDIs before their snapshots had their snapshot_of
+     field re-pointed to the new clones. Otherwise this leaves snapshot_of
+     references dangling and causes them to be reset during SR.scan, leading
+     to corruption of these snapshots (they now have snapshot_of=Ref.null) *)
+  if
+    VBDSet.cardinal vm_vbds_to_be_destroyed <> 0
+    || VDISet.cardinal vm_disks_to_be_destroyed <> 0
+  then
+    debug "%s: Cleaning up the old VBDs and VDIs to have more free space"
+      __FUNCTION__ ;
+  VBDSet.iter
+    (safe_destroy_vbd ~__context ~rpc ~session_id)
+    vm_vbds_to_be_destroyed ;
+  VDISet.iter
+    (safe_destroy_vdi ~__context ~rpc ~session_id)
+    vm_disks_to_be_destroyed ;
+  TaskHelper.set_progress ~__context 0.5 ;
+
   debug "Cloning the suspend VDI if needed" ;
   let cloned_suspend_VDI =
     if snap_suspend_VDI = Ref.null then
