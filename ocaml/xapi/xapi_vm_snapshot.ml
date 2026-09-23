@@ -384,15 +384,18 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
          3) Update each of these snapshots so that their snapshot_of points
             to the new cloned disk. *)
       let open Xapi_database.Db_filter_types in
-      let all_snaps_in_tree =
-        Db.VDI.get_refs_where ~__context
-          ~expr:(Eq (Field "snapshot_of", Literal (Ref.string_of snapshot_of)))
-      in
-      List.iter
-        (fun snapshot ->
-          Db.VDI.set_snapshot_of ~__context ~self:snapshot ~value:cloned_disk
-        )
-        all_snaps_in_tree
+      (* Past corruption could have led snapshot VDIs to have snapshot_of=Ref.null
+         Don't change all such fields en masse since it'd corrupt non-snapshots *)
+      if snapshot_of <> Ref.null then
+        let all_snaps_in_tree =
+          Db.VDI.get_refs_where ~__context
+            ~expr:(Eq (Field "snapshot_of", Literal (Ref.string_of snapshot_of)))
+        in
+        List.iter
+          (fun snapshot ->
+            Db.VDI.set_snapshot_of ~__context ~self:snapshot ~value:cloned_disk
+          )
+          all_snaps_in_tree
     )
     cloned_disks ;
 
