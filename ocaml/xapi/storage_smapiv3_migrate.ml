@@ -35,15 +35,22 @@ let mirror_poll_interval = 0.5
 let nbd_proxy_path_of_vm vm =
   Printf.sprintf "/var/run/nbdproxy/export/%s" (Vm.string_of vm)
 
+type nbd_proxy = {path: string; srv: Unix.file_descr; released: bool Atomic.t}
+
+let stop_nbd_proxy {path; srv; released} =
+  if Atomic.compare_and_set released false true then (
+    Unix.shutdown srv Unix.SHUTDOWN_ALL ;
+    Unix.close srv ;
+    Unixext.unlink_safe path
+  )
+
 type copy_slices = {src_vm: Vm.t; dest_vm: Vm.t}
 
 let copy_slices_of vm =
   {src_vm= vm; dest_vm= Vm.of_string (Vm.string_of vm ^ "-dst")}
 
-let export_nbd_proxy ~proxy_srv ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest
-    =
+let export_nbd_proxy ~proxy ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest =
   D.debug "%s spawning exporting nbd proxy" __FUNCTION__ ;
-  let path = nbd_proxy_path_of_vm mirror_vm in
   try
     let uri =
       Printf.sprintf "/services/SM/nbdproxy/import/%s/%s/%s/%s"
@@ -51,8 +58,8 @@ let export_nbd_proxy ~proxy_srv ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest
     in
 
     let dest_url = Http.Url.set_path (Http.Url.of_string remote_url) uri in
-    D.debug "%s now waiting for connection at %s" __FUNCTION__ path ;
-    let nbd_client, _addr = Unix.accept proxy_srv in
+    D.debug "%s now waiting for connection at %s" __FUNCTION__ proxy.path ;
+    let nbd_client, _addr = Unix.accept proxy.srv in
     D.debug "%s connection accepted" __FUNCTION__ ;
     let request =
       Http.Request.make
@@ -74,11 +81,11 @@ let export_nbd_proxy ~proxy_srv ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest
            Unixext.proxy (Unix.dup s) (Unix.dup nbd_client)
        )
       ) ;
-    Unix.close proxy_srv
+    stop_nbd_proxy proxy
   with e ->
     D.debug "%s did not get connection due to %s, closing" __FUNCTION__
       (Printexc.to_string e) ;
-    Unix.close proxy_srv ;
+    stop_nbd_proxy proxy ;
     raise e
 
 let wait_for_mirror ~dbg ~task ~sr ~vdi ~vm ?mirror_id ~error_msg mirror_key =
@@ -211,17 +218,33 @@ let start_nbd_proxy_thread ~url ~mirror_vm ~dest_vm ~dest_sr ~mirror_vdi
   (* Listen before returning: the caller hands the socket path to qemu-dp as
      soon as we do, and a bound socket queues connections in its backlog
      without waiting for the thread to reach Unix.accept. *)
-  let proxy_srv =
-    Fecomms.open_unix_domain_sock_server (nbd_proxy_path_of_vm mirror_vm)
+  let path = nbd_proxy_path_of_vm mirror_vm in
+  let proxy =
+    {
+      path
+    ; srv= Fecomms.open_unix_domain_sock_server path
+    ; released= Atomic.make false
+    }
   in
   try
-    Thread.create
-      (fun () ->
-        export_nbd_proxy ~proxy_srv ~remote_url:url ~mirror_vm:dest_vm
-          ~sr:dest_sr ~vdi:mirror_vdi.vdi ~dp:mirror_datapath ~verify_dest
-      )
-      ()
-  with e -> Unix.close proxy_srv ; raise e
+    let _ : Thread.t =
+      Thread.create
+        (fun () ->
+          export_nbd_proxy ~proxy ~remote_url:url ~mirror_vm:dest_vm ~sr:dest_sr
+            ~vdi:mirror_vdi.vdi ~dp:mirror_datapath ~verify_dest
+        )
+        ()
+    in
+    proxy
+  with e -> stop_nbd_proxy proxy ; raise e
+
+let with_nbd_proxy ~url ~mirror_vm ~dest_vm ~dest_sr ~mirror_vdi
+    ~mirror_datapath ~verify_dest f =
+  let proxy =
+    start_nbd_proxy_thread ~url ~mirror_vm ~dest_vm ~dest_sr ~mirror_vdi
+      ~mirror_datapath ~verify_dest
+  in
+  try f () with e -> stop_nbd_proxy proxy ; raise e
 
 let nbd_uri_of_export ~nbd_proxy_path export =
   Uri.make ~scheme:"nbd+unix" ~host:"" ~path:export
@@ -319,10 +342,9 @@ module Copy = struct
           ~dest_vm ~local_vdi ~dest_base
       in
       Fun.protect ~finally:cleanup (fun () ->
-          let _ : Thread.t =
-            start_nbd_proxy_thread ~url ~mirror_vm:src_vm ~dest_vm ~dest_sr:dest
-              ~mirror_vdi:head ~mirror_datapath:dp ~verify_dest
-          in
+          with_nbd_proxy ~url ~mirror_vm:src_vm ~dest_vm ~dest_sr:dest
+            ~mirror_vdi:head ~mirror_datapath:dp ~verify_dest
+          @@ fun () ->
           let dest_snapshot =
             mirror_snapshot_into_existing_dest ~dbg ~task:(Some task) ~sr
               ~snapshot_vdi_uuid:(s_of_vdi vdi) ~dest_sr:dest ~dest_url:url
@@ -440,10 +462,9 @@ module MIRROR : SMAPIv2_MIRROR = struct
         let nbd_proxy_path = nbd_proxy_path_of_vm mirror_vm in
         let nbd_uri = nbd_uri_of_export ~nbd_proxy_path nbd_export in
         try
-          let _ : Thread.t =
-            start_nbd_proxy_thread ~url ~mirror_vm ~dest_vm:mirror_vm ~dest_sr
-              ~mirror_vdi ~mirror_datapath ~verify_dest
-          in
+          with_nbd_proxy ~url ~mirror_vm ~dest_vm:mirror_vm ~dest_sr ~mirror_vdi
+            ~mirror_datapath ~verify_dest
+          @@ fun () ->
           D.info "%s nbd_proxy_path: %s nbd_url %s" __FUNCTION__ nbd_proxy_path
             nbd_uri ;
           let mk = Local.DATA.mirror dbg sr vdi image_format live_vm nbd_uri in
