@@ -146,10 +146,11 @@ module VmExtra = struct
           []
       | PVinPVH _ | PVH _ ->
           emulation_flags_pvh
-      | HVM _ ->
+      | HVM hvm_info ->
           if
             Platform.is_true ~key:"hvm-pirq"
-              ~platformdata:vm.Xenops_interface.Vm.platformdata ~default:true
+              ~platformdata:vm.Xenops_interface.Vm.platformdata
+              ~default:(hvm_info.video = Vgpu)
           then
             X86_EMU_USE_PIRQ :: emulation_flags_hvm
           else
