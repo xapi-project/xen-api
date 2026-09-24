@@ -3021,18 +3021,32 @@ let alert_if_kernel_broken =
              (14, Api_messages.kernel_is_broken_warning "SOFT_LOCKUP")
            ]
          in
+         (* Fetch the messages for all the alert kinds in one query, rather
+            than reading the whole message store once per kind *)
+         let alert_messages =
+           let expr =
+             all_alerts
+             |> List.map (fun (_, (name, _)) ->
+                 Printf.sprintf {|field "name"="%s"|} name
+             )
+             |> String.concat " or "
+           in
+           Helpers.call_api_functions ~__context (fun rpc session_id ->
+               Client.Client.Message.get_all_records_where ~rpc ~session_id
+                 ~expr
+           )
+         in
          all_alerts
          |> List.filter (fun (_, alert_message) ->
              let alert_already_issued_for_this_boot =
-               Helpers.call_api_functions ~__context (fun rpc session_id ->
-                   Client.Client.Message.get_all_records ~rpc ~session_id
-                   |> List.exists (fun (_, record) ->
-                       record.API.message_name = fst alert_message
-                       && API.Date.is_later
-                            ~than:(API.Date.of_unix_time boot_time)
-                            record.API.message_timestamp
-                   )
-               )
+               List.exists
+                 (fun (_, record) ->
+                   record.API.message_name = fst alert_message
+                   && API.Date.is_later
+                        ~than:(API.Date.of_unix_time boot_time)
+                        record.API.message_timestamp
+                 )
+                 alert_messages
              in
              alert_already_issued_for_this_boot
          )
@@ -3077,12 +3091,13 @@ let alert_if_tls_verification_was_emergency_disabled ~__context =
     && tls_verification_enabled_pool_wide <> tls_verification_enabled_locally
   then
     let alert_exists =
+      let expr =
+        Printf.sprintf {|field "name"="%s"|}
+          (fst Api_messages.tls_verification_emergency_disabled)
+      in
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.Message.get_all_records ~rpc ~session_id
-          |> List.exists (fun (_, record) ->
-              record.API.message_name
-              = fst Api_messages.tls_verification_emergency_disabled
-          )
+          Client.Client.Message.get_all_records_where ~rpc ~session_id ~expr
+          <> []
       )
     in
 
