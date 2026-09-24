@@ -764,6 +764,11 @@ let vm_call_plugin_interval = ref 10.
 (** The maximum number of SR scans allowed concurrently *)
 let max_active_sr_scans = ref 32
 
+(** Number of threads processing xenopsd events. Events for one VM are always
+    processed in order by a single thread; this bounds how many VMs can be
+    updated concurrently. *)
+let xenopsd_event_workers = ref 16
+
 let nowatchdog = ref false
 
 let log_getter = ref false
@@ -1274,6 +1279,7 @@ let xapi_globs_spec =
   ; ("vm_call_plugin_interval", Float vm_call_plugin_interval)
   ; ("xapi_clusterd_port", Int xapi_clusterd_port)
   ; ("max_active_sr_scans", Int max_active_sr_scans)
+  ; ("xenopsd_event_workers", Int xenopsd_event_workers)
   ; ("winbind_debug_level", Int winbind_debug_level)
   ; ("winbind_cache_time", Int winbind_cache_time)
   ; ("winbind_machine_pwd_timeout", Float winbind_machine_pwd_timeout)
