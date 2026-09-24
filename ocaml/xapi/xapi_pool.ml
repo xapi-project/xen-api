@@ -4522,7 +4522,10 @@ let put_bundle_handler (req : Request.t) s _ =
   )
 
 module Ssh = struct
-  let operate ~__context ~action ~error =
+  let operate ~__context ~self ~action ~error =
+    if not (Db.is_valid_ref __context self) then
+      raise
+        Api_errors.(Server_error (handle_invalid, ["pool"; Ref.string_of self])) ;
     let hosts = Db.Host.get_all ~__context in
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         let failed_hosts =
@@ -4542,30 +4545,30 @@ module Ssh = struct
             raise (Api_errors.Server_error (error, failed_hosts))
     )
 
-  let enable ~__context ~self:_ =
-    operate ~__context ~action:Client.Host.enable_ssh
+  let enable ~__context ~self =
+    operate ~__context ~self ~action:Client.Host.enable_ssh
       ~error:Api_errors.enable_ssh_partially_failed
 
-  let disable ~__context ~self:_ =
-    operate ~__context ~action:Client.Host.disable_ssh
+  let disable ~__context ~self =
+    operate ~__context ~self ~action:Client.Host.disable_ssh
       ~error:Api_errors.disable_ssh_partially_failed
 
-  let set_enabled_timeout ~__context ~self:_ ~value =
-    operate ~__context
+  let set_enabled_timeout ~__context ~self ~value =
+    operate ~__context ~self
       ~action:(fun ~rpc ~session_id ~self ->
         Client.Host.set_ssh_enabled_timeout ~rpc ~session_id ~self ~value
       )
       ~error:Api_errors.set_ssh_timeout_partially_failed
 
-  let set_console_timeout ~__context ~self:_ ~value =
-    operate ~__context
+  let set_console_timeout ~__context ~self ~value =
+    operate ~__context ~self
       ~action:(fun ~rpc ~session_id ~self ->
         Client.Host.set_console_idle_timeout ~rpc ~session_id ~self ~value
       )
       ~error:Api_errors.set_console_timeout_partially_failed
 
-  let set_ssh_auto_mode ~__context ~self:_ ~value =
-    operate ~__context
+  let set_ssh_auto_mode ~__context ~self ~value =
+    operate ~__context ~self
       ~action:(fun ~rpc ~session_id ~self ->
         Client.Host.set_ssh_auto_mode ~rpc ~session_id ~self ~value
       )
