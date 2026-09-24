@@ -2947,6 +2947,15 @@ module VIF = struct
           ; param_release= dundee_release
           ; param_default= Some (VString "")
           }
+        ; {
+            param_type= Set String
+          ; param_name= "dns"
+          ; param_doc=
+              "The list of IPv6 DNS servers (for static mode only; leave empty \
+               to keep the current DNS servers)"
+          ; param_release= numbered_release "26.21.1-next"
+          ; param_default= Some (VSet [])
+          }
         ]
       ~allowed_roles:_R_VM_OP ()
 
@@ -3105,6 +3114,8 @@ module VIF = struct
               "ipv6_gateway"
               "IPv6 gateway (the empty string means that no gateway is set)"
               ~default_value:(Some (VString ""))
+          ; field ~ty:(Set String) ~lifecycle:[] ~qualifier:DynamicRO "ipv6_dns"
+              "IPv6 DNS servers" ~default_value:(Some (VSet []))
           ; field ~ty:(Ref _pci) ~published:rel_kolkata ~internal_only:true
               ~qualifier:DynamicRO "reserved_pci"
               "pci of network SR-IOV VF which is reserved for this vif"

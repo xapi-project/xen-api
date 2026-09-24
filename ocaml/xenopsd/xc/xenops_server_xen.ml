@@ -4904,7 +4904,7 @@ module VIF = struct
       match vif.ipv6_configuration with
       | Unspecified6 ->
           [("enabled6", "0")]
-      | Static6 (address6 :: _, gateway6) ->
+      | Static6 (address6 :: _, gateway6, dns6) ->
           let enabled6 = ("enabled6", "1") in
           let address6 = ("address6", address6) in
           let gateway6 =
@@ -4914,8 +4914,11 @@ module VIF = struct
             | None ->
                 []
           in
-          enabled6 :: address6 :: gateway6
-      | Static6 ([], _) ->
+          let dns6 =
+            List.mapi (fun i value -> (Printf.sprintf "dns6/%d" i, value)) dns6
+          in
+          enabled6 :: address6 :: List.concat [gateway6; dns6]
+      | Static6 ([], _, _) ->
           internal_error
             "Static IPv6 configuration selected, but no address specified."
       | Autoconf6 ->
@@ -5346,9 +5349,9 @@ module VIF = struct
         match ipv6_configuration with
         | Unspecified6 ->
             set_ip_unspecified_or_autoconf xs xenstore_path "6" "0"
-        | Static6 (address :: _, gateway) ->
-            set_ip_static xs xenstore_path "6" address gateway [] (* TODO *)
-        | Static6 ([], _) ->
+        | Static6 (address :: _, gateway, dns) ->
+            set_ip_static xs xenstore_path "6" address gateway dns
+        | Static6 ([], _, _) ->
             internal_error
               "Static IPv6 configuration selected, but no address specified."
         | Autoconf6 ->

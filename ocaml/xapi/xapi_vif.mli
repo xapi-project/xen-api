@@ -129,6 +129,7 @@ val configure_ipv6 :
   -> mode:[`None | `Static | `Autoconf]
   -> address:string
   -> gateway:string
+  -> dns:string list
   -> unit
 (** Change the IP configuration of a VIF *)
 

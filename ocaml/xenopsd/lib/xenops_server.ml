@@ -1627,15 +1627,14 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
         match ipv6_configuration with
         | Vif.Unspecified6 ->
             "None"
-        | Vif.Static6 (address6, gateway6) -> (
-          match gateway6 with
-          | None ->
-              Printf.sprintf "Static: address6:%s" (String.concat "; " address6)
-          | Some value ->
-              Printf.sprintf "Static: address6:%s gateway6:%s"
-                (String.concat "; " address6)
-                value
-        )
+        | Vif.Static6 (address6, gateway6, dns6) ->
+            let address_str = String.concat "; " address6 in
+            let gateway_str =
+              match gateway6 with None -> "(none)" | Some value -> value
+            in
+            let dns_str = String.concat "; " dns6 in
+            Printf.sprintf "Static: address6:%s gateway6:%s dns6:[%s]"
+              address_str gateway_str dns_str
         | Vif.Autoconf6 ->
             "Autoconf"
       in

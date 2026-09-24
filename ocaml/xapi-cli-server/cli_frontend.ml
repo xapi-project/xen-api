@@ -2752,7 +2752,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "vif-configure-ipv6"
     , {
         reqd= ["uuid"; "mode"]
-      ; optn= ["address"; "gateway"]
+      ; optn= ["address"; "gateway"; "dns"]
       ; help= "Configure IPv6 settings on a VIF."
       ; implementation= No_fd Cli_operations.vif_configure_ipv6
       ; flags= []

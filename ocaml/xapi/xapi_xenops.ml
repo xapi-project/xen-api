@@ -866,7 +866,7 @@ module MD = struct
             else
               Some vif.API.vIF_ipv6_gateway
           in
-          Vif.Static6 (vif.API.vIF_ipv6_addresses, gateway)
+          Vif.Static6 (vif.API.vIF_ipv6_addresses, gateway, vif.API.vIF_ipv6_dns)
       | `Autoconf ->
           Vif.Autoconf6
     in
