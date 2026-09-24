@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # This tool reads a disk image in any format and converts it to qcow2,
-# writing the result directly to stdout.
+# writing the result directly to the provided output file.
 #
 # Copyright (C) 2024 Igalia, S.L.
 #
@@ -150,7 +150,7 @@ class Interval:
         return self.intervals.__iter__()
 
 
-def write_qcow2_content(input_file, cluster_size, refcount_bits,
+def write_qcow2_content(input_file, output_file, cluster_size, refcount_bits,
                         data_file_name, data_file_raw, diff_file_name,
                         virtual_size, nonzero_clusters,
                         diff_virtual_size, diff_nonzero_clusters):
@@ -362,7 +362,7 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits,
 
     write_features(cluster, hdr_length, data_file_name)
 
-    sys.stdout.buffer.write(cluster)
+    output_file.buffer.write(cluster)
 
     ### Write refcount table
     cur_offset = refcount_block_offset
@@ -374,7 +374,7 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits,
         for idx in range(to_write):
             struct.pack_into(">Q", cluster, idx * 8, cur_offset)
             cur_offset += cluster_size
-        sys.stdout.buffer.write(cluster)
+        output_file.buffer.write(cluster)
 
     ### Write refcount blocks
     remaining_refcount_block_entries = total_allocated_clusters # One entry for each allocated cluster
@@ -399,7 +399,7 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits,
                 cluster[idx // 4] |= 1 << ((idx % 4) * 2)
             elif refcount_bits == 1:
                 cluster[idx // 8] |= 1 << (idx % 8)
-        sys.stdout.buffer.write(cluster)
+        output_file.buffer.write(cluster)
 
     ### Write L1 table
     cur_offset = l2_table_offset
@@ -410,7 +410,7 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits,
             if bitmap_is_set(l1_bitmap, l1_idx):
                 struct.pack_into(">Q", cluster, idx * 8, cur_offset | QCOW_OFLAG_COPIED)
                 cur_offset += cluster_size
-        sys.stdout.buffer.write(cluster)
+        output_file.buffer.write(cluster)
 
     ### Write L2 tables
     cur_offset = data_clusters_offset
@@ -427,16 +427,22 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits,
                         cur_offset += cluster_size
                     else:
                         struct.pack_into(">Q", cluster, idx * 8, (l2_idx * cluster_size) | QCOW_OFLAG_COPIED)
-            sys.stdout.buffer.write(cluster)
+            output_file.buffer.write(cluster)
 
     ### Write data clusters
+    prev_percent = 0
     if data_file_name is None:
-        for idx in bitmap_iterator(l2_bitmap, total_data_clusters):
+        for count, idx in enumerate(bitmap_iterator(l2_bitmap, total_data_clusters)):
             cluster = os.pread(fd, cluster_size, cluster_size * idx)
             # If the last cluster is smaller than cluster_size pad it with zeroes
             if len(cluster) < cluster_size:
                 cluster += bytes(cluster_size - len(cluster))
-            sys.stdout.buffer.write(cluster)
+            output_file.buffer.write(cluster)
+            # Write progress percentages out
+            percent = (count * 100) // allocated_data_clusters
+            if percent > prev_percent and percent < 100:
+                print(f'{percent:03}', end='', flush=True)
+                prev_percent = percent
 
     if not data_file_raw:
         os.close(fd)
@@ -446,7 +452,7 @@ def main():
     # Command-line arguments
     parser = argparse.ArgumentParser(
         description="This program converts a QEMU disk image to qcow2 "
-        "and writes it to the standard output"
+        "and writes it to the provided output file"
     )
     parser.add_argument("input_file", help="name of the input file")
     parser.add_argument(
@@ -457,6 +463,13 @@ def main():
                 "If specified, will only export clusters that are different "
                 "between the files"),
         default=None,
+    )
+    parser.add_argument(
+        "--output",
+        dest="output",
+        help="File descriptor of the output file",
+        type=int,
+        required=True
     )
     parser.add_argument(
         "-c",
@@ -532,6 +545,7 @@ def main():
     diff_virtual_size = None
     diff_nonzero_clusters = None
 
+    output_file = os.fdopen(args.output, mode='w')
     def parse_json_files(info_fd, map_fd):
         map_f = os.fdopen(map_fd)
         info_f = os.fdopen(info_fd)
@@ -566,7 +580,7 @@ def main():
     if args.data_file and args.cluster_size == 512:
         sys.exit("[Error] External data files require a larger cluster size")
 
-    if sys.stdout.isatty():
+    if output_file.isatty():
         sys.exit("[Error] Refusing to write to a tty. Try redirecting stdout.")
 
     if args.data_file:
@@ -576,6 +590,7 @@ def main():
 
     write_qcow2_content(
         args.input_file,
+        output_file,
         args.cluster_size,
         args.refcount_bits,
         data_file_name,
