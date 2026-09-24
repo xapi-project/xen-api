@@ -275,44 +275,52 @@ let config_file ?(accept = None) config host port =
 
 let ignore_exn f x = try f x with _ -> ()
 
+(* How long to wait for a disconnected stunnel child *)
+let disconnect_wait_timeout = Mtime.Span.(30 * s)
+
+(* How long to wait for a child to be reaped once it has been SIGKILLed. *)
+let disconnect_kill_timeout = Mtime.Span.(5 * s)
+
+(* [reap_within nohang duration] polls [nohang] until the child is reaped or
+   [duration] elapses. Returns exit status if exited, 0 otherwise *)
+let reap_within nohang duration =
+  let timer = Clock.Timer.start ~duration in
+  let rec poll delay =
+    match nohang () with
+    | 0, _ when not (Clock.Timer.has_expired timer) ->
+        Unix.sleepf delay ;
+        poll (Float.min (delay *. 2.) 0.1)
+    | res ->
+        res
+  in
+  poll 0.001
+
 let disconnect_with_pid ?(wait = true) ?(force = false) pid =
-  let do_disc waiter pid =
-    let res =
-      try waiter ()
+  let do_disc nohang pid =
+    let nohang () =
+      try nohang ()
       with Unix.Unix_error (Unix.ECHILD, _, _) -> (pid, Unix.WEXITED 0)
     in
+    let res =
+      if wait then
+        reap_within nohang disconnect_wait_timeout
+      else
+        nohang ()
+    in
     match res with
-    | 0, _ when force -> (
-      try Unix.kill pid Sys.sigkill
-      with Unix.Unix_error (Unix.ESRCH, _, _) -> ()
-    )
+    | 0, _ when force || wait ->
+        ignore_exn (Unix.kill pid) Sys.sigkill ;
+        ignore (reap_within nohang disconnect_kill_timeout)
     | _ ->
         ()
   in
   match pid with
   | FEFork fpid ->
-      let pid_int = Forkhelpers.getpid fpid in
       do_disc
-        (fun () ->
-          ( if wait then
-              Forkhelpers.waitpid
-            else
-              Forkhelpers.waitpid_nohang
-          )
-            fpid
-        )
-        pid_int
+        (fun () -> Forkhelpers.waitpid_nohang fpid)
+        (Forkhelpers.getpid fpid)
   | StdFork pid ->
-      do_disc
-        (fun () ->
-          ( if wait then
-              Unix.waitpid []
-            else
-              Unix.waitpid [Unix.WNOHANG]
-          )
-            pid
-        )
-        pid
+      do_disc (fun () -> Unix.waitpid [Unix.WNOHANG] pid) pid
   | Nopid ->
       ()
 
