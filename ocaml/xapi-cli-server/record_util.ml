@@ -550,7 +550,9 @@ let mac_from_int_array macs =
     macs.(3) macs.(4) macs.(5)
 
 (* generate a random mac that is locally administered *)
-let random_mac_local () = mac_from_int_array (Array.make 6 (Random.int 0x100))
+let random_mac_local () =
+  let rng = Random.State.make_self_init () in
+  mac_from_int_array (Array.init 6 (fun _ -> Random.State.int rng 0x100))
 
 (* Intentional shadowing - inconsistent underscore/dash *)
 let vm_placement_policy_to_string = function
