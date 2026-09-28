@@ -56,7 +56,8 @@ let handle_comms_sock comms_sock state =
       debug "Ignoring unknown command %s" (Fe.ferpc_to_string status) ;
       state
   | Error err ->
-      warn "Unable to decode command: %s" err ;
+      let name = match state.cmdargs with [] -> "" | name :: _ -> name in
+      warn "(%s) unable to decode command: %s" name err ;
       state
 
 let handle_comms_no_fd_sock2 comms_sock fd_sock state =
@@ -306,7 +307,10 @@ let run state comms_sock fd_sock fd_sock_path =
             match Fecomms.read_raw_rpc comms_sock with
             | Ok Fe.Dontwaitpid ->
                 Unix.close comms_sock ; exit 0
-            | _ ->
+            | Error err ->
+                warn "%d (%s) unable to decode command: %s" result name err ;
+                wait_for_dontwaitpid ()
+            | Ok _ ->
                 wait_for_dontwaitpid ()
           in
           wait_for_dontwaitpid ()

@@ -91,7 +91,7 @@ let _ =
           debug "Ignoring invalid message (%s)" (Fe.ferpc_to_string msg) ;
           Unix.close sock
       | Error msg ->
-          debug "Ignoring invalid message (%s)" msg ;
+          warn "Ignoring invalid message (%s)" msg ;
           Unix.close sock
     with e -> debug "Caught exception at top level: %s" (Printexc.to_string e)
   done
