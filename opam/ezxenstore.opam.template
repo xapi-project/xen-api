@@ -24,5 +24,5 @@ An easy-to-use xenstore library with a simplified interface geared
 towards use within a daemon that maintains a single connection to
 xenstored."""
 url {
-  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+  src: "https://github.com/xapi-project/xen-api/archive/26.1-lcm.tar.gz"
 }

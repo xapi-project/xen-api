@@ -21,5 +21,5 @@ These libraries are provided for backwards compatibility only.
 No new code should use these libraries."""
 url {
   src:
-    "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+    "https://github.com/xapi-project/xen-api/archive/26.1-lcm.tar.gz"
 }
