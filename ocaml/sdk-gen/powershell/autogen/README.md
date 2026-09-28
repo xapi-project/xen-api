@@ -34,7 +34,7 @@ To network with other developers using XenServer visit
 
 ## Prerequisites
 
-This library requires .NET 8.0 and PowerShell 7.4 or greater.
+This library requires .NET 10.0 and PowerShell 7.6 or greater.
 
 ## Dependencies
 
