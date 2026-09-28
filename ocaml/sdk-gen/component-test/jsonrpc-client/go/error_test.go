@@ -66,10 +66,10 @@ func TestRpcError(t *testing.T) {
 		return
 	}
 
-	errorString := "call " + testMethod + "() on " + ServerURL + "/jsonrpc status code: 200. Could not decode response body: json: cannot unmarshal string into Go struct field ResponseError.error.code of type int"
-	var rpcError = errors.New(errorString)
-	if err.Error() != rpcError.Error() {
-		t.Log("The expected error is not the same with the returned one!")
+	// json error text varies across Go versions; assert only on the client's stable prefix.
+	expectedPrefix := "call " + testMethod + "() on " + ServerURL + "/jsonrpc status code: 200. Could not decode response body:"
+	if !strings.Contains(err.Error(), expectedPrefix) {
+		t.Logf("The expected error is not the same with the returned one! got: %v", err)
 		t.Fail()
 		return
 	}
