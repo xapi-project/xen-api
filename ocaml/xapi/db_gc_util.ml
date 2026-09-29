@@ -68,11 +68,10 @@ let gc_connector ~__context get_all valid_ref1 valid_ref2 delete_record =
 
 (* If the SR record is missing, delete the VDI record *)
 let gc_VDIs ~__context =
-  let all_srs = Db.SR.get_all ~__context in
   List.iter
     (fun vdi ->
       let sr = Db.VDI.get_SR ~__context ~self:vdi in
-      if not (List.mem sr all_srs) then (
+      if not (valid_ref __context sr) then (
         debug "GCed VDI %s" (Ref.string_of vdi) ;
         Db.VDI.destroy ~__context ~self:vdi
       )

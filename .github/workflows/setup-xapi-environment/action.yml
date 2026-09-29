@@ -58,15 +58,19 @@ runs:
         ocaml-compiler: ${{ inputs.ocaml_version }}
         opam-repositories: |
           xs-opam: ${{ steps.dotenv.outputs.repository }}
-        dune-cache: true
+        cache: true
         opam-pin: false
         cache-prefix: v3-${{ steps.system-info.outputs.name }}-${{ steps.system-info.outputs.release }}
       env:
         DUNE_CACHE_STORAGE_MODE: copy
 
+    # opam 2.6 drops the target package's own depexts from a --deps-only
+    # solve; --depext-only recomputes and installs them.
     - name: Install dependencies
       shell: bash
-      run: opam install . --deps-only --with-test -v
+      run: |
+        opam install . --depext-only --with-test -v
+        opam install . --deps-only --with-test -v
 
     - name: Configure
       shell: bash

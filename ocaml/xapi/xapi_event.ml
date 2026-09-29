@@ -588,21 +588,18 @@ let collect_events (subs, tables, last_generation) acc table =
   |> Table.fold_over_recent last_generation prepend_recent table_value
   |> Table.fold_over_deleted last_generation prepend_deleted table_value
 
+let all_event_tables =
+  Dm_api.objects_of_api Datamodel.all_api
+  |> List.filter (fun x -> x.Datamodel_types.gen_events)
+  |> List.map (fun x -> x.Datamodel_types.name)
+
 let from_inner __context session subs from from_t timer batching =
   let open Xapi_database in
   let open From in
-  (* The database tables involved in our subscription *)
   let tables =
-    let all =
-      let objs =
-        List.filter
-          (fun x -> x.Datamodel_types.gen_events)
-          (Dm_api.objects_of_api Datamodel.all_api)
-      in
-      let objs = List.map (fun x -> x.Datamodel_types.name) objs in
-      objs
-    in
-    List.filter (fun table -> Subscription.table_matches subs table) all
+    List.filter
+      (fun table -> Subscription.table_matches subs table)
+      all_event_tables
   in
   let last_msg_gen = ref from_t in
   let grab_range ~since t =
@@ -725,7 +722,7 @@ let from_inner __context session subs from from_t timer batching =
     Db_cache_types.TableSet.fold
       (fun tablename _ table acc ->
         ( String.lowercase_ascii tablename
-        , Db_cache_types.Table.fold (fun _ _ _ acc -> Int32.add 1l acc) table 0l
+        , Int32.of_int (Db_cache_types.Table.count table)
         )
         :: acc
       )

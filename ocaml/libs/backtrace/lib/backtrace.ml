@@ -130,7 +130,7 @@ let frame_of_slot slot =
         }
 
 let frame_eq a b =
-  a.process == b.process
+  String.equal a.process b.process
   && a.line = b.line
   && a.chars_start = b.chars_start
   && a.chars_end = b.chars_end

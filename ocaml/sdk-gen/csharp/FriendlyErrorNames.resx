@@ -30,17 +30,8 @@
   <data name="BOOTLOADER_FAILED" xml:space="preserve">
     <value>The bootloader for this VM returned an error -- did the VM installation succeed?  {1}</value>
   </data>
-  <data name="CANNOT_CONTACT_HOST" xml:space="preserve">
-    <value>Cannot forward messages because the server cannot be contacted.  The server may be switched off or there may be network connectivity problems.</value>
-  </data>
-  <data name="CANNOT_FIND_OEM_BACKUP_PARTITION" xml:space="preserve">
-    <value>The backup partition to stream the update to cannot be found</value>
-  </data>
   <data name="CANNOT_FIND_PATCH" xml:space="preserve">
     <value>The requested update could not be found.  This can occur when you designate a new coordinator.  Please upload it again</value>
-  </data>
-  <data name="CANNOT_FIND_STATE_PARTITION" xml:space="preserve">
-    <value>The restore could not be performed because the state partition could not be found</value>
   </data>
   <data name="CANNOT_PLUG_VIF" xml:space="preserve">
     <value>This VM cannot be started because its network interfaces could not be connected.  One of the NICs is in use elsewhere.</value>
@@ -99,29 +90,17 @@
   <data name="HA_CONSTRAINT_VIOLATION_SR_NOT_SHARED" xml:space="preserve">
     <value>This operation cannot be performed because the referenced SR is not properly shared. The SR must both be marked as shared and a currently attached PBD must exist for each server.</value>
   </data>
-  <data name="HA_HOST_IS_ARMED" xml:space="preserve">
-    <value>The operation could not be performed while the server is still armed; it must be disarmed first</value>
-  </data>
   <data name="HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN" xml:space="preserve">
     <value>This operation cannot be performed because HA would no longer be guaranteed for this pool.  To perform this operation anyway, you must disable or reconfigure HA.</value>
   </data>
   <data name="HOSTS_NOT_HOMOGENEOUS" xml:space="preserve">
     <value>The servers in this pool are not homogeneous. {0}</value>
   </data>
-  <data name="HOST_BROKEN" xml:space="preserve">
-    <value>This server failed in the middle of an automatic failover operation and needs to retry the failover action</value>
-  </data>
-  <data name="HOST_CANNOT_ATTACH_NETWORK" xml:space="preserve">
-    <value>Server cannot attach network (in the case of NIC bonding, this may be because attaching the network on this server would require other networks [that are currently active] to be taken down).</value>
-  </data>
   <data name="HOST_CANNOT_DESTROY_SELF" xml:space="preserve">
     <value>This server cannot destroy itself.</value>
   </data>
   <data name="HOST_CD_DRIVE_EMPTY" xml:space="preserve">
     <value>The VM could not start because the CD drive is empty.</value>
-  </data>
-  <data name="HOST_HAS_RESIDENT_VMS" xml:space="preserve">
-    <value>This server cannot be forgotten because there are some user VMs still running</value>
   </data>
   <data name="HOST_IN_EMERGENCY_MODE" xml:space="preserve">
     <value>This server is in emergency mode</value>
@@ -180,9 +159,6 @@
   <data name="JOINING_HOST_CONNECTION_FAILED" xml:space="preserve">
     <value>The connection to the joining server failed</value>
   </data>
-  <data name="JOINING_HOST_SERVICE_FAILED" xml:space="preserve">
-    <value>There was an error connecting to the server. the service contacted didn't reply properly.</value>
-  </data>
   <data name="LICENCE_RESTRICTION" xml:space="preserve">
     <value>This operation is not allowed with your current license</value>
   </data>
@@ -192,26 +168,11 @@
   <data name="LICENSE_CHECKOUT_ERROR" xml:space="preserve">
     <value>The license type you requested is not available.</value>
   </data>
-  <data name="LICENSE_DOES_NOT_SUPPORT_POOLING" xml:space="preserve">
-    <value>This server cannot join a pool because its license does not support pooling</value>
-  </data>
-  <data name="LICENSE_DOES_NOT_SUPPORT_XHA" xml:space="preserve">
-    <value>HA cannot be enabled because this server's license does not allow it</value>
-  </data>
-  <data name="LICENSE_EXPIRED" xml:space="preserve">
-    <value>Your license has expired</value>
-  </data>
   <data name="LICENSE_HOST_POOL_MISMATCH" xml:space="preserve">
     <value>Host and pool have incompatible licenses.</value>
   </data>
-  <data name="LICENSE_PROCESSING_ERROR" xml:space="preserve">
-    <value>There was an error processing your license.  Please contact your support representative</value>
-  </data>
   <data name="LIKEWISE_WINERROR_0251E" xml:space="preserve">
     <value>The server was unable to contact your domain server. Check your settings are correct and that a route to the server exists.</value>
-  </data>
-  <data name="MAC_DOES_NOT_EXIST" xml:space="preserve">
-    <value>The MAC address specified doesn't exist on this server.</value>
   </data>
   <data name="MAP_DUPLICATE_KEY" xml:space="preserve">
     <value>INTERNAL ERROR: Attempted to set '{0}'.'{1}':'{3}'='{2}', but the key '{3}' was already present in map '{1}'.</value>
@@ -239,12 +200,6 @@
   </data>
   <data name="NOT_IMPLEMENTED" xml:space="preserve">
     <value>The function {0} is not implemented</value>
-  </data>
-  <data name="NOT_SUPPORTED_DURING_UPGRADE" xml:space="preserve">
-    <value>This operation is not supported during an upgrade</value>
-  </data>
-  <data name="OPENVSWITCH_NOT_ACTIVE" xml:space="preserve">
-    <value>This operation needs the OpenVSwitch networking backend to be enabled.</value>
   </data>
   <data name="OPERATION_BLOCKED" xml:space="preserve">
     <value>You attempted an operation that was explicitly blocked (see the blocked_operations field of the given object). The administrator provided the following message: {1}.</value>
@@ -282,9 +237,6 @@
   <data name="PATCH_PRECHECK_FAILED_WRONG_SERVER_VERSION" xml:space="preserve">
     <value>The current version number ({1}) is incompatible with the update version number regular expression ({2}).</value>
   </data>
-  <data name="PBD_EXISTS" xml:space="preserve">
-    <value>A PBD already exists connecting the SR to the server</value>
-  </data>
   <data name="PGPU_INSUFFICIENT_CAPACITY_FOR_VGPU" xml:space="preserve">
     <value>There is insufficient capacity on this GPU to run the virtual GPU.</value>
   </data>
@@ -300,17 +252,11 @@
   <data name="PIF_HAS_NO_NETWORK_CONFIGURATION" xml:space="preserve">
     <value>PIF has no network configuration</value>
   </data>
-  <data name="PIF_IS_MANAGEMENT_INTERFACE" xml:space="preserve">
-    <value>PIF is the management interface.</value>
-  </data>
   <data name="PIF_IS_PHYSICAL" xml:space="preserve">
     <value>You tried to destroy the PIF {0}, but it represents an aspect of the physical server configuration, and so cannot be destroyed. </value>
   </data>
   <data name="PIF_VLAN_EXISTS" xml:space="preserve">
     <value>VLAN tag already in use</value>
-  </data>
-  <data name="POOL_AUTH_DISABLE_FAILED" xml:space="preserve">
-    <value>External authentication has been disabled with errors: Some AD machine accounts were not disabled successfully on the AD server. </value>
   </data>
   <data name="POOL_AUTH_DISABLE_FAILED_PERMISSION_DENIED" xml:space="preserve">
     <value>External authentication has been disabled with errors: Some AD machine accounts were not disabled on the AD server as permission was denied.</value>
@@ -352,9 +298,6 @@ Action: {0}</value>
   <data name="RESTORE_INCOMPATIBLE_VERSION" xml:space="preserve">
     <value>Cannot restore on this server because it was saved on an incompatible version</value>
   </data>
-  <data name="RESTORE_SCRIPT_FAILED" xml:space="preserve">
-    <value>The restore could not be performed because the restore script failed. Your backup file may be corrupt. See the logs for more information.</value>
-  </data>
   <data name="SERVER_CERTIFICATE_EXPIRED" xml:space="preserve">
     <value>The provided certificate expired on {0}.</value>
   </data>
@@ -372,12 +315,6 @@ Action: {0}</value>
   </data>
   <data name="SR_BACKEND_FAILURE" xml:space="preserve">
     <value>The SR failed to complete the operation</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_101" xml:space="preserve">
-    <value>The request is missing the server path parameter</value>
-  </data>
-  <data name="SR_BACKEND_FAILURE_103" xml:space="preserve">
-    <value>The server path argument is not valid</value>
   </data>
   <data name="SR_BACKEND_FAILURE_132" xml:space="preserve">
     <value>iSCSI service not running on the Netapp target.</value>
@@ -664,9 +601,6 @@ Action: {0}</value>
   <data name="SR_BACKEND_FAILURE_93" xml:space="preserve">
     <value>The pvs utility returns an error</value>
   </data>
-  <data name="SR_BACKEND_FAILURE_96" xml:space="preserve">
-    <value>The request is missing the target IQN parameter</value>
-  </data>
   <data name="SR_BACKEND_FAILURE_97" xml:space="preserve">
     <value>The request is missing the server configuration iSCSI IQN parameter</value>
   </data>
@@ -700,9 +634,6 @@ Action: {0}</value>
   <data name="UPDATE_APPLY_FAILED" xml:space="preserve">
     <value>The update failed to apply. View logs for more details.</value>
   </data>
-  <data name="USER_IS_NOT_LOCAL_SUPERUSER" xml:space="preserve">
-    <value>Only the local superuser can perform this operation</value>
-  </data>
   <data name="VALUE_NOT_SUPPORTED" xml:space="preserve">
     <value>You attempted to set value {1} for field {0} that is not supported. {2}</value>
   </data>
@@ -729,9 +660,6 @@ Action: {0}</value>
   </data>
   <data name="VDI_INCOMPATIBLE_TYPE" xml:space="preserve">
     <value>This operation cannot be performed because the specified virtual disk is of an incompatible type (e.g., an HA statefile cannot be attached to a VM)</value>
-  </data>
-  <data name="VDI_IN_USE" xml:space="preserve">
-    <value>This operation cannot be performed because a VDI is in use by some other operation.</value>
   </data>
   <data name="VDI_IS_NOT_ISO" xml:space="preserve">
     <value>This operation can only be performed on CD VDIs (iso files or CDROM drives).  VDI {0} is of type {1}.</value>
@@ -769,9 +697,6 @@ Action: {0}</value>
   <data name="VLAN_TAG_INVALID" xml:space="preserve">
     <value>You tried to create a VLAN, but the tag you gave ({0}) was invalid -- it must be between 0 and 4094.</value>
   </data>
-  <data name="VMPP_HAS_VM" xml:space="preserve">
-    <value>There is at least on VM assigned to this protection policy.</value>
-  </data>
   <data name="VM_BAD_POWER_STATE" xml:space="preserve">
     <value>You attempted an operation on a VM that needed it to be in state '{1}' but was in state '{2}'.</value>
   </data>
@@ -781,12 +706,6 @@ Action: {0}</value>
   <data name="VM_CHECKPOINT_SUSPEND_FAILED" xml:space="preserve">
     <value>An error occurred while saving the memory image of the specified virtual machine</value>
   </data>
-  <data name="VM_FAILED_SHUTDOWN_ACKNOWLEDGMENT" xml:space="preserve">
-    <value>VM didn't acknowledge the need to shut down.</value>
-  </data>
-  <data name="VM_HAS_PCI_ATTACHED" xml:space="preserve">
-    <value>This operation could not be performed because the VM has one or more PCI devices passed through.</value>
-  </data>
   <data name="VM_HOST_INCOMPATIBLE_VIRTUAL_HARDWARE_PLATFORM_VERSION" xml:space="preserve">
     <value>The VM's Virtual Hardware Platform version is incompatible with this host.</value>
   </data>
@@ -795,9 +714,6 @@ Action: {0}</value>
   </data>
   <data name="VM_IS_PART_OF_AN_APPLIANCE" xml:space="preserve">
     <value>The VM cannot be recovered on its own as it is part of a VM appliance.</value>
-  </data>
-  <data name="VM_IS_TEMPLATE" xml:space="preserve">
-    <value>The operation attempted is not valid for templates</value>
   </data>
   <data name="VM_MIGRATE_FAILED" xml:space="preserve">
     <value>VM migration failed: {3}</value>
@@ -814,9 +730,6 @@ Action: {0}</value>
   <data name="VM_REQUIRES_VGPU" xml:space="preserve">
     <value>The VM cannot start because the virtual GPU required by it cannot be allocated on any GPU in the GPU group needed by the VM.</value>
   </data>
-  <data name="VM_REVERT_FAILED" xml:space="preserve">
-    <value>An error occurred while reverting the specified virtual machine to the specified snapshot</value>
-  </data>
   <data name="VM_SHUTDOWN_TIMEOUT" xml:space="preserve">
     <value>The shutdown of this VM timed out</value>
   </data>
@@ -825,8 +738,5 @@ Action: {0}</value>
   </data>
   <data name="WLB_MALFORMED_RESPONSE" xml:space="preserve">
     <value>The WLB server said something that the server wasn't expecting or didn't understand.</value>
-  </data>
-  <data name="XMLRPC_GENERAL_ERROR" xml:space="preserve">
-    <value>An error occurred while performing the XMLRPC request.</value>
   </data>
 </root>
