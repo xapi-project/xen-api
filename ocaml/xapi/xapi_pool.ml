@@ -1345,6 +1345,7 @@ let create_or_get_network_on_master __context rpc session_id
         ~other_config:network.API.network_other_config
         ~bridge:network.API.network_bridge ~managed:network.API.network_managed
         ~tags:network.API.network_tags
+        ~pxe_dhcp:network.API.network_pxe_dhcp
     )
   in
   new_network_ref

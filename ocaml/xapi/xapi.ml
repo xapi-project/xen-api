@@ -740,6 +740,7 @@ let check_network_reset () =
                 in
                 Xapi_network.create ~__context ~name_label ~name_description:""
                   ~mTU:1500L ~other_config:[] ~bridge:"" ~managed:true ~tags:[]
+                  ~pxe_dhcp:Xapi_network.default_pxe_dhcp
             | Some network ->
                 network
           in

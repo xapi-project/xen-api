@@ -32,6 +32,10 @@
    Note: It is currently assumed that all PIFs that are associated with a certain Network are physically connected, but this is not checked or enforced anywhere. This means that if a system admin connects the cables in a wrong way, things may be broken. Moreover, if two PIFs are of different Networks, this does not mean that they are not on the same physical network. Ideally, Networks objects should be constructed and maintained automatically by xapi based the actual physical connections.
 *)
 
+val default_pxe_dhcp : (string * string) list
+(** The default value of Network.pxe_dhcp: every UEFI PXE boot protocol is
+    permitted until an administrator restricts it. *)
+
 val check_himn : __context:Context.t -> unit
 (** This function is called when xapi starts and management is disabled. It ensures
  *  that a HIMN API server is running if there is a HIMN bridge present. *)
@@ -85,6 +89,7 @@ val create :
   -> bridge:string
   -> managed:bool
   -> tags:string list
+  -> pxe_dhcp:(string * string) list
   -> [`network] Ref.t
 (** Attempt to create a bridge with a unique name *)
 

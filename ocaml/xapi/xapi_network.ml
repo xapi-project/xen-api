@@ -222,7 +222,7 @@ let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config
   Db.Network.create ~__context ~ref:r ~uuid:(Uuidx.to_string uuid)
     ~current_operations:[] ~allowed_operations:[] ~purpose ~name_label
     ~name_description ~mTU ~bridge ~managed ~other_config ~blobs:[] ~tags:[]
-    ~default_locking_mode:`unlocked ~assigned_ips:[] ;
+    ~default_locking_mode:`unlocked ~assigned_ips:[] ~pxe_dhcp:[] ;
   r
 
 let rec choose_bridge_name bridges =
@@ -234,7 +234,7 @@ let rec choose_bridge_name bridges =
     name
 
 let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
-    ~managed ~tags =
+    ~managed ~tags ~pxe_dhcp =
   with_lock mutex (fun () ->
       let networks = Db.Network.get_all ~__context in
       let bridges =
@@ -278,7 +278,7 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
       Db.Network.create ~__context ~ref:r ~uuid:(Uuidx.to_string uuid)
         ~current_operations:[] ~allowed_operations:[] ~name_label
         ~name_description ~mTU ~bridge ~managed ~other_config ~blobs:[] ~tags
-        ~purpose:[] ~default_locking_mode:`unlocked ~assigned_ips:[] ;
+        ~purpose:[] ~default_locking_mode:`unlocked ~assigned_ips:[] ~pxe_dhcp ;
       r
   )
 

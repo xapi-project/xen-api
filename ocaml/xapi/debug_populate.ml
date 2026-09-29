@@ -42,7 +42,7 @@ let rec make_networks __context i =
       Xapi_network.create ~__context
         ~name_label:("Network-" ^ string_of_int i)
         ~name_description:"dummy" ~mTU:1500L ~other_config:[] ~bridge:""
-        ~managed:true ~tags:[]
+        ~managed:true ~tags:[] ~pxe_dhcp:Xapi_network.default_pxe_dhcp
     in
     nws := nw_ref :: !nws ;
     make_networks __context (i - 1)

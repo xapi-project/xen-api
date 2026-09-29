@@ -2083,6 +2083,10 @@ module Network = struct
                 ]
               ~default_value:(Some (VSet [])) ~ty:(Set purpose) "purpose"
               "Set of purposes for which the server will use this network"
+          ; field ~qualifier:RW ~writer_roles:_R_POOL_OP ~lifecycle:[]
+              ~default_value:(Some (VMap []))
+              ~ty:(Map (String, String))
+              "pxe_dhcp" "UEFI VM PXE Boot DHCP Protocols."
           ]
         )
       ()

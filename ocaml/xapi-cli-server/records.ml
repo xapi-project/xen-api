@@ -1147,6 +1147,17 @@ let net_record rpc session_id net =
               ~value:(Record_util.network_purpose_of_string s)
           )
           ()
+      ; make_field ~name:"pxe-dhcp"
+          ~get:(fun () -> get_from_map (x ()).API.network_pxe_dhcp)
+          ~get_map:(fun () -> (x ()).API.network_pxe_dhcp)
+          ~add_to_map:(fun key value ->
+            Client.Network.add_to_pxe_dhcp ~rpc ~session_id ~self:net ~key
+              ~value
+          )
+          ~remove_from_map:(fun key ->
+            Client.Network.remove_from_pxe_dhcp ~rpc ~session_id ~self:net ~key
+          )
+          ()
       ]
   }
 

@@ -2913,6 +2913,7 @@ let net_create printer rpc session_id params =
   let net =
     Client.Network.create ~rpc ~session_id ~name_label:network
       ~name_description:descr ~mTU ~other_config:[] ~bridge ~managed ~tags:[]
+      ~pxe_dhcp:[]
   in
   let uuid = Client.Network.get_uuid ~rpc ~session_id ~self:net in
   printer (Cli_printer.PList [uuid])
