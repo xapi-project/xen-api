@@ -162,8 +162,13 @@ namespace Citrix.XenServer.Commands
                 }
             }
 
+            // ServicePointManager is obsolete from .NET 10 (SYSLIB0014). The callback set
+            // here is still honoured: JsonRpcClient reads it back and wires it explicitly
+            // into its HttpClientHandler.
+#pragma warning disable SYSLIB0014
             ServicePointManager.ServerCertificateValidationCallback = ValidateServerCertificate;
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+#pragma warning restore SYSLIB0014
 
             if (Url == null || Url.Length == 0)
             {

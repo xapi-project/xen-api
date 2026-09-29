@@ -211,7 +211,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ["8"]
+        dotnet: ["10"]
     needs: build-csharp-sdk
     runs-on: windows-2022
     permissions:
@@ -261,7 +261,7 @@ jobs:
         shell: pwsh
         run: |
           (Get-Content "source\XenServerPSModule.psd1") -replace "@SDK_VERSION@","$env:XAPI_VERSION_NUMBER" | Set-Content -Path "source\XenServerPSModule.psd1"
-          (Get-Content "source\XenServerPSModule.psd1") -replace "@PS_VERSION@","7.0" | Set-Content -Path "source\XenServerPSModule.psd1"
+          (Get-Content "source\XenServerPSModule.psd1") -replace "@PS_VERSION@","7.6" | Set-Content -Path "source\XenServerPSModule.psd1"
 
       - name: Move binaries to destination folder
         shell: pwsh
