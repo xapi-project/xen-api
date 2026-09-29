@@ -112,6 +112,11 @@ let t =
           "Rate limiter attached to this caller, if any. Populated via \
            Rate_limit.add_caller rather than set directly."
           ~default_value:(Some (VRef null_ref))
+      ; field ~qualifier:DynamicRO ~ty:Bool ~lifecycle "auto_registered"
+          "True if this caller was created automatically by the rate limiter \
+           rather than by an administrator. Auto-registered callers are \
+           subject to the max-auto-registered-callers cap."
+          ~default_value:(Some (VBool false))
       ]
     ~messages:
       [
