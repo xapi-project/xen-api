@@ -86,6 +86,7 @@ type create_info = {
   ; bios_strings: (string * string) list
   ; has_vendor_device: bool
   ; is_uefi: bool
+  ; pxe_dhcp: (string * string) list
   ; pci_passthrough: bool
 }
 

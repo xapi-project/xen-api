@@ -1347,6 +1347,35 @@ module MD = struct
       warn
         "The machine-address-size option used by VM %s is no longer implemented"
         vm.API.vM_uuid ;
+    (* UEFI PXE boot: a protocol is allowed only if every network the VM is
+       attached to opts in to it, so one network withholding it denies the
+       protocol outright. A VM with no networks gets nothing. Consumed by
+       Domain.make, which writes it to /local/domain/<domid>/dhcp/ for OVMF
+       to read. *)
+    let pxe_dhcp =
+      let settings =
+        Db.VM.get_VIFs ~__context ~self:vmref
+        |> List.map (fun vif ->
+               let network = Db.VIF.get_network ~__context ~self:vif in
+               Db.Network.get_pxe_dhcp ~__context ~self:network
+           )
+      in
+      let enabled key =
+        settings <> []
+        && List.for_all
+             (fun setting ->
+               match List.assoc_opt key setting with
+               | Some value ->
+                   String.lowercase_ascii value = "true"
+               | None ->
+                   false
+             )
+             settings
+      in
+      List.map
+        (fun key -> (key, string_of_bool (enabled key)))
+        Xenops_types.Vm.pxe_dhcp_keys
+    in
     {
       id= vm.API.vM_uuid
     ; name= vm.API.vM_name_label
@@ -1372,6 +1401,7 @@ module MD = struct
     ; pci_msitranslate
     ; pci_power_mgmt= false
     ; has_vendor_device= vm.API.vM_has_vendor_device
+    ; pxe_dhcp
     ; generation_id
     }
 end

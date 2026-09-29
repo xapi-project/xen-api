@@ -171,9 +171,14 @@ module Vm = struct
     ; pci_msitranslate: bool
     ; pci_power_mgmt: bool
     ; has_vendor_device: bool [@default false]
+    ; pxe_dhcp: (string * string) list [@default []]
     ; generation_id: string option
   }
   [@@deriving rpcty, sexp]
+
+  (* The keys [pxe_dhcp] may contain. Populated from Network.pxe_dhcp by xapi
+     and written to xenstore by xenopsd, so both ends agree on them here. *)
+  let pxe_dhcp_keys = ["allow-ipv4"; "allow-ipv6"]
 
   type console_protocol = Rfb | Vt100 [@@deriving rpcty, sexp]
 

@@ -124,6 +124,7 @@ type create_info = {
   ; bios_strings: (string * string) list
   ; has_vendor_device: bool
   ; is_uefi: bool
+  ; pxe_dhcp: (string * string) list
   ; pci_passthrough: bool
 }
 [@@deriving rpcty]
@@ -171,6 +172,10 @@ let filtered_xsdata =
   let is_allowed path dir = Astring.String.is_prefix ~affix:(dir ^ "/") path in
   let allowed (x, _) = List.exists (is_allowed x) allowed_xsdata_prefixes in
   List.filter allowed
+
+let filtered_pxe_dhcp =
+  (* set from Network.pxe_dhcp by xapi; see Xapi_xenops.MD.of_vm *)
+  List.filter (fun (key, _) -> List.mem key Xenops_interface.Vm.pxe_dhcp_keys)
 
 exception Suspend_image_failure
 
@@ -654,7 +659,11 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
     xs.Xs.writev dom_path (filtered_xsdata vm_info.xsdata) ;
     xs.Xs.writev (dom_path ^ "/platform") vm_info.platformdata ;
     xs.Xs.writev (dom_path ^ "/bios-strings") vm_info.bios_strings ;
-    if vm_info.is_uefi then xs.Xs.write (dom_path ^ "/hvmloader/bios") "ovmf" ;
+    if vm_info.is_uefi then (
+      xs.Xs.write (dom_path ^ "/hvmloader/bios") "ovmf" ;
+      (* Tell OVMF which protocols it may use to PXE boot *)
+      xs.Xs.writev (dom_path ^ "/dhcp") (filtered_pxe_dhcp vm_info.pxe_dhcp)
+    ) ;
     xs.Xs.write
       (dom_path ^ "/hvmloader/pci/xen-platform-pci-bar-uc")
       ( if !Xenopsd.xen_platform_pci_bar_uc then

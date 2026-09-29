@@ -671,6 +671,7 @@ let add' _copts x () =
             ; pci_msitranslate
             ; pci_power_mgmt
             ; has_vendor_device
+            ; pxe_dhcp= []
             ; generation_id= None
             }
           in

@@ -1744,6 +1744,7 @@ module VM = struct
     ; bios_strings= vm.bios_strings
     ; has_vendor_device= vm.has_vendor_device
     ; is_uefi
+    ; pxe_dhcp= vm.pxe_dhcp
     ; pci_passthrough
     }
 
