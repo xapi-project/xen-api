@@ -2084,7 +2084,15 @@ module Network = struct
               ~default_value:(Some (VSet [])) ~ty:(Set purpose) "purpose"
               "Set of purposes for which the server will use this network"
           ; field ~qualifier:RW ~writer_roles:_R_POOL_OP ~lifecycle:[]
-              ~default_value:(Some (VMap []))
+              ~default_value:
+                (Some
+                   (VMap
+                      [
+                        (VString "allow-ipv4", VString "true")
+                      ; (VString "allow-ipv6", VString "true")
+                      ]
+                   )
+                )
               ~ty:(Map (String, String))
               "pxe_dhcp" "UEFI VM PXE Boot DHCP Protocols."
           ]

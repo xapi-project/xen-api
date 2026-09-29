@@ -460,7 +460,7 @@ let find_or_create_network (bridge : string) (device : string)
           ~name_label:(Helpers.choose_network_name_for_pif device pos_opt)
           ~name_description:"" ~mTU:1500L ~purpose:[] ~bridge ~managed
           ~other_config:[] ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked
-          ~assigned_ips:[] ~pxe_dhcp:[]
+          ~assigned_ips:[] ~pxe_dhcp:Xapi_network.default_pxe_dhcp
       in
       net_ref
 

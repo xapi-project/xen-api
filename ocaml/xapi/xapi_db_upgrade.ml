@@ -997,6 +997,22 @@ let upgrade_secureboot_certificates_state =
       )
   }
 
+let upgrade_network_pxe_dhcp =
+  {
+    description= "Allow every PXE boot protocol on unconfigured networks"
+  ; version= (fun x -> x < (5, 911))
+  ; fn=
+      (fun ~__context ->
+        List.iter
+          (fun self ->
+            if Db.Network.get_pxe_dhcp ~__context ~self = [] then
+              Db.Network.set_pxe_dhcp ~__context ~self
+                ~value:Xapi_network.default_pxe_dhcp
+          )
+          (Db.Network.get_all ~__context)
+      )
+  }
+
 let rules =
   [
     upgrade_domain_type
@@ -1028,6 +1044,7 @@ let rules =
   ; upgrade_update_guidance
   ; upgrade_ca_fingerprints
   ; upgrade_secureboot_certificates_state
+  ; upgrade_network_pxe_dhcp
   ]
 
 (* Maybe upgrade most recent db *)

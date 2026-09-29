@@ -22,6 +22,11 @@ open Network
 
 let bridge_blacklist = ["xen"; "xapi"; "vif"; "tap"; "eth"]
 
+(* A network permits every UEFI PXE boot protocol until an administrator
+   restricts it; see Network.pxe_dhcp and Xapi_xenops.MD.of_vm *)
+let default_pxe_dhcp =
+  List.map (fun key -> (key, "true")) Xenops_types.Vm.pxe_dhcp_keys
+
 let internal_bridge_m = Mutex.create ()
 
 let assert_network_is_managed ~__context ~self =
@@ -222,7 +227,8 @@ let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config
   Db.Network.create ~__context ~ref:r ~uuid:(Uuidx.to_string uuid)
     ~current_operations:[] ~allowed_operations:[] ~purpose ~name_label
     ~name_description ~mTU ~bridge ~managed ~other_config ~blobs:[] ~tags:[]
-    ~default_locking_mode:`unlocked ~assigned_ips:[] ~pxe_dhcp:[] ;
+    ~default_locking_mode:`unlocked ~assigned_ips:[]
+    ~pxe_dhcp:default_pxe_dhcp ;
   r
 
 let rec choose_bridge_name bridges =
@@ -278,7 +284,8 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
       Db.Network.create ~__context ~ref:r ~uuid:(Uuidx.to_string uuid)
         ~current_operations:[] ~allowed_operations:[] ~name_label
         ~name_description ~mTU ~bridge ~managed ~other_config ~blobs:[] ~tags
-        ~purpose:[] ~default_locking_mode:`unlocked ~assigned_ips:[] ~pxe_dhcp ;
+        ~purpose:[] ~default_locking_mode:`unlocked ~assigned_ips:[]
+        ~pxe_dhcp:default_pxe_dhcp ;
       r
   )
 
