@@ -364,7 +364,7 @@ let _ =
   error Api_errors.cannot_forget_sriov_logical ["PIF"]
     ~doc:"This is a network SR-IOV logical PIF and cannot do forget on it" () ;
   error Api_errors.incompatible_pif_properties []
-    ~doc:"These PIFs cannot be bonded, because their properties are different."
+    ~doc:"These PIFs cannot be bonded because their properties are different."
     () ;
   error Api_errors.slave_requires_management_iface []
     ~doc:
@@ -542,7 +542,9 @@ let _ =
   error Api_errors.vm_non_suspendable ["vm"; "reason"]
     ~doc:"You attempted an operation on a VM which is not suspendable." () ;
   error Api_errors.vm_is_template ["vm"]
-    ~doc:"The operation attempted is not valid for a template VM" () ;
+    ~doc:"The operation attempted is not valid for templates" () ;
+  error Api_errors.vm_is_snapshot ["vm"; "operation"]
+    ~doc:"The operation attempted is not valid for snapshots" () ;
   error Api_errors.other_operation_in_progress
     ["class"; "object"; "operation_type"; "operation_ref"]
     ~doc:"Another operation involving the object is currently in progress" () ;
@@ -564,6 +566,8 @@ let _ =
   (* CA-83260 *)
   error Api_errors.disk_vbd_must_be_readwrite_for_hvm ["vbd"]
     ~doc:"All VBDs of type 'disk' must be read/write for HVM guests" () ;
+  error Api_errors.vbd_missing []
+    ~doc:"Could not find a VBD for the VDI that will be migrated" () ;
   error Api_errors.vm_no_empty_cd_vbd ["vm"]
     ~doc:"The VM has no empty CD drive (VBD)." () ;
   error Api_errors.vm_hvm_required ["vm"]
@@ -615,7 +619,7 @@ let _ =
     () ;
   error Api_errors.vm_revert_failed ["vm"; "snapshot"]
     ~doc:
-      "An error occured while reverting the specified virtual machine to the \
+      "An error occurred while reverting the specified virtual machine to the \
        specified snapshot"
     () ;
   error Api_errors.vm_checkpoint_suspend_failed ["vm"]
@@ -726,6 +730,15 @@ let _ =
       "This server cannot be forgotten because there are user VMs still \
        running."
     () ;
+
+  error Api_errors.hosts_failed_to_enable_caching ["hosts"]
+    ~doc:"These hosts failed to enable local storage caching" () ;
+
+  error Api_errors.hosts_failed_to_disable_caching ["hosts"]
+    ~doc:"These hosts failed to disable local storage caching" () ;
+
+  error Api_errors.host_cannot_see_SR ["host"; "SR"]
+    ~doc:"This host cannot see the SR" () ;
 
   error Api_errors.not_supported_during_upgrade []
     ~doc:"This operation is not supported during an upgrade." () ;
@@ -1121,17 +1134,17 @@ let _ =
     () ;
   error Api_errors.vm_has_pci_attached ["vm"]
     ~doc:
-      "This operation could not be performed, because the VM has one or more \
+      "This operation could not be performed because the VM has one or more \
        PCI devices passed through."
     () ;
   error Api_errors.vm_has_vgpu ["vm"]
     ~doc:
-      "This operation could not be performed, because the VM has one or more \
+      "This operation could not be performed because the VM has one or more \
        virtual GPUs."
     () ;
   error Api_errors.vm_has_sriov_vif ["vm"]
     ~doc:
-      "This operation could not be performed, because the VM has one or more \
+      "This operation could not be performed because the VM has one or more \
        SR-IOV VIFs."
     () ;
   error Api_errors.host_cannot_attach_network ["host"; "network"]
@@ -1165,9 +1178,14 @@ let _ =
     ~doc:"Cannot migrate a VDI to or from an SR that doesn't support migration."
     () ;
   error Api_errors.vm_failed_shutdown_ack ["vm"]
-    ~doc:"VM didn't acknowledge the need to shutdown." () ;
+    ~doc:"VM didn't acknowledge the need to shut down." () ;
   error Api_errors.vm_failed_suspend_ack ["vm"]
     ~doc:"VM didn't acknowledge the need to suspend." () ;
+  error Api_errors.vm_memory_target_wait_timeout ["task"]
+    ~doc:
+      "VM failed to reach its memory ballooning target before the timeout \
+       expired"
+    () ;
   error Api_errors.vm_shutdown_timeout ["vm"; "timeout"]
     ~doc:"VM failed to shutdown before the timeout expired" () ;
   error Api_errors.vm_suspend_timeout ["vm"; "timeout"]
@@ -1245,6 +1263,9 @@ let _ =
       "The operation could not proceed because necessary VDIs were already \
        locked at the storage level."
     () ;
+  error Api_errors.vdi_is_sharable ["vdi"]
+    ~doc:"The operation could not proceed because this VDI is sharable" () ;
+
   error Api_errors.vdi_readonly ["vdi"]
     ~doc:"The operation required write access but this VDI is read-only" () ;
   error Api_errors.vdi_has_rrds ["vdi"]
@@ -1285,6 +1306,11 @@ let _ =
       "This operation cannot be performed because the specified VDI could not \
        be found in the specified SR"
     () ;
+  error Api_errors.vdi_content_id_missing []
+    ~doc:
+      "This operation could not be performed because no VDI with the provided \
+       location or content_id has been found"
+    () ;
   error Api_errors.vdi_missing ["sr"; "vdi"]
     ~doc:
       "This operation cannot be performed because the specified VDI could not \
@@ -1293,7 +1319,8 @@ let _ =
   error Api_errors.vdi_incompatible_type ["vdi"; "type"]
     ~doc:
       "This operation cannot be performed because the specified VDI is of an \
-       incompatible type (eg: an HA statefile cannot be attached to a guest)"
+       incompatible type (for example, an HA statefile cannot be attached to a \
+       VM)"
     () ;
   error Api_errors.vdi_not_managed ["vdi"]
     ~doc:
@@ -1318,6 +1345,12 @@ let _ =
     ~doc:
       "The requested operation is not allowed because the specified VDI is \
        encrypted."
+    () ;
+  error Api_errors.suspend_vdi_replacement_is_not_identical
+    ["source"; "destination"]
+    ~doc:
+      "The replacement suspend vdi's checksum is different from the current \
+       suspend vdi"
     () ;
   error Api_errors.vdi_copy_failed [] ~doc:"The VDI copy action has failed" () ;
   error Api_errors.vdi_on_boot_mode_incompatible_with_operation []
@@ -1458,7 +1491,7 @@ let _ =
   error Api_errors.restore_script_failed ["log"]
     ~doc:
       "The restore could not be performed because the restore script failed. \
-       Is the file corrupt?"
+       Your backup file may be corrupt."
     () ;
 
   (* Event errors *)
@@ -1731,7 +1764,7 @@ let _ =
     () ;
   error Api_errors.incompatible_cluster_stack_active ["cluster_stack"]
     ~doc:
-      "This operation cannot be performed, because it is incompatible with the \
+      "This operation cannot be performed because it is incompatible with the \
        currently active HA cluster stack."
     () ;
 
@@ -1795,11 +1828,15 @@ let _ =
 
   error Api_errors.server_certificate_invalid []
     ~doc:"The provided certificate is not in a PEM-encoded X509 format." () ;
+  error Api_errors.ca_certificate_invalid []
+    ~doc:"The provided certificate is not in a PEM-encoded X509 format." () ;
   error Api_errors.server_certificate_key_mismatch []
     ~doc:
       "The provided key does not match the provided certificate's public key."
     () ;
   error Api_errors.server_certificate_not_valid_yet ["now"; "not_before"]
+    ~doc:"The provided certificate is not valid yet." () ;
+  error Api_errors.ca_certificate_not_valid_yet ["now"; "not_before"]
     ~doc:"The provided certificate is not valid yet." () ;
   error Api_errors.server_certificate_expired ["now"; "not_after"]
     ~doc:"The provided certificate has expired." () ;
@@ -1952,6 +1989,8 @@ let _ =
        lowest device number."
     () ;
 
+  error Api_errors.extension_protocol_failure ["failure"]
+    ~doc:"The extension call failed with an error that could not be parsed" () ;
   error Api_errors.usb_group_contains_vusb ["vusbs"]
     ~doc:"The USB group contains active VUSBs and cannot be deleted." () ;
   error Api_errors.usb_group_contains_pusb ["pusbs"]
@@ -2027,6 +2066,22 @@ let _ =
        with the Toolstack."
     () ;
 
+  error Api_errors.designate_new_master_in_progress []
+    ~doc:
+      "The operation could not be performed because a new master is currently \
+       being designated"
+    () ;
+  error Api_errors.pool_secret_rotation_pending []
+    ~doc:
+      "The operation could not be performed because no pool operations are \
+       allowed during a pending Pool Secret Rotation."
+    () ;
+  error Api_errors.tls_verification_enable_in_progress []
+    ~doc:
+      "The operation could not be performed because TLS verification \
+       enablement is in progress"
+    () ;
+
   (* repository and updates errors *)
   error Api_errors.configure_repositories_in_progress []
     ~doc:
@@ -2095,8 +2150,10 @@ let _ =
   error Api_errors.reposync_failed []
     ~doc:"Syncing with remote YUM repository failed." () ;
   error Api_errors.bundle_sync_failed []
-    ~doc:"Syncing with bundle repository failed." () ;
+    ~doc:"The uploaded bundle file is invalid." () ;
   error Api_errors.invalid_repomd_xml [] ~doc:"The repomd.xml is invalid." () ;
+  error Api_errors.createrepo_failed []
+    ~doc:"Creating a local pool repository failed" () ;
   error Api_errors.invalid_updateinfo_xml []
     ~doc:"The updateinfo.xml is invalid." () ;
   error Api_errors.get_host_updates_failed ["ref"]
@@ -2152,6 +2209,9 @@ let _ =
 
   error Api_errors.host_evacuation_is_required ["host"]
     ~doc:"Host evacuation is required before applying updates." () ;
+
+  error Api_errors.illegal_in_fips_mode []
+    ~doc:"It is illegal changing the firewall/https config in CC/FIPS mode" () ;
 
   error Api_errors.too_many_groups [] ~doc:"VM can only belong to one group." () ;
 

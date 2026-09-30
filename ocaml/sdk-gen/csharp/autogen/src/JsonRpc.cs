@@ -383,8 +383,13 @@ namespace XenAPI
                 };
 
                 Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool> callBack = null;
+                // ServicePointManager is obsolete from .NET 10 (SYSLIB0014). It is read here
+                // only so that callers who set the global callback keep working; the value is
+                // still honoured because it is wired explicitly into HttpClientHandler below.
+#pragma warning disable SYSLIB0014
                 if (ServicePointManager.ServerCertificateValidationCallback != null)
                     callBack = ServicePointManager.ServerCertificateValidationCallback.Invoke;
+#pragma warning restore SYSLIB0014
 
                 httpHandler.ServerCertificateCustomValidationCallback = ServerCertificateValidationCallback ?? callBack;
 

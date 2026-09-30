@@ -7,7 +7,9 @@
   bench_cached_reads
   bench_vdi_allowed_operations
   bench_backtrace
-  bench_pool_field)
+  bench_pool_field
+  bench_gc_vdis
+  bench_event_tables)
  (libraries
   dune-build-info
   tracing

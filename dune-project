@@ -259,6 +259,8 @@
   logs
   mtime
   rpclib
+  ppx_deriving_rpc
+  ppx_sexp_conv
   (xapi-stdext-pervasives (= :version))))
 
 (package
