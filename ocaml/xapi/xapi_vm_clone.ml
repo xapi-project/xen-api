@@ -503,7 +503,12 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
           in
           (* copy VGPUs *)
           let (_ : [`VGPU] Ref.t list) =
-            List.map (fun vgpu -> Xapi_vgpu.copy ~__context ~vm:ref vgpu) vgpus
+            List.map
+              (fun vgpu ->
+                Xapi_vgpu.copy ~__context
+                  ~preserve_compatibility_metadata:is_a_snapshot ~vm:ref vgpu
+              )
+              vgpus
           in
           (* copy vTPMs *)
           let (_ : [`VTPM] Ref.t list) =
