@@ -17,6 +17,24 @@ val get_release_branding : string -> string
     @param codename Release codename to lookup.
     @return Branding for the release codename, or the original codename if not found. *)
 
+val is_first : 'a -> 'a list -> bool
+(** [is_first x list] Checks if a given item is first in a given list.
+    @param x The item to check.
+    @param list The list to check.
+    @return [true] if the item is first, [false] otherwise. *)
+
+val is_last : 'a -> 'a list -> bool
+(** [is_first x list] Checks if a given item is last in a given list.
+    @param x The item to check.
+    @param list The list to check.
+    @return [true] if the message is last, [false] otherwise. *)
+
+val collate : 'a list -> 'a list list
+(** [collate l] produces a list of progressively growing prefixes of [l], for example [collate [1; 2; 3]] = [[1; 2; 3]; [1; 2]; [1]]
+    @param l The input list whose prefixes are to be collected.
+    @return A list containing each prefix of [l], ordered from longest to shortest.
+*)
+
 val is_setter : Datamodel_types.message -> bool
 (** [is_setter message] Checks if a message is a setter based on its name.
     @param message Message to check.
@@ -79,6 +97,12 @@ val gen_param_groups :
   -> Datamodel_types.param list list
 (** Generates parameter groups based on a message and its parameters.
     @param message - Message containing the parameters.
+    @param params - List of parameters.
+    @return List of parameter groups. *)
+
+val group_params_per_release :
+  Datamodel_types.param list -> Datamodel_types.param list list
+(** Generates parameter groups based on their release.
     @param params - List of parameters.
     @return List of parameter groups. *)
 

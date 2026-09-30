@@ -72,21 +72,6 @@ let maps = ref TypeSet.empty
 let generated x =
   not (List.mem x.name ["blob"; "session"; "debug"; "event"; "vtpm"])
 
-let rec is_last x list =
-  match list with
-  | [] ->
-      false
-  | hd :: [] ->
-      if hd = x then
-        true
-      else
-        false
-  | hd :: tl ->
-      if hd = x then
-        false
-      else
-        is_last x tl
-
 let rec main () =
   let json =
     `O
@@ -1137,26 +1122,62 @@ and print_dynamic_params classname enum commonVerb messagesWithParams =
         (print_dynamic_params classname enum commonVerb tl)
 
 and print_dynamic_param_members classname params commonVerb =
-  match params with
-  | [] ->
-      ""
-  | hd :: tl ->
-      if is_class hd classname then
-        print_dynamic_param_members classname tl commonVerb
-      else
-        let publicProperty =
-          if
-            commonVerb = "Invoke"
-            && List.mem (String.lowercase_ascii hd.param_name) ["name"; "uuid"]
-          then
-            ocaml_class_to_csharp_property hd.param_name ^ "Param"
-          else
-            ocaml_class_to_csharp_property hd.param_name
-        in
-        let theType = obj_internal_type hd.param_type in
-        sprintf "\n        [Parameter]\n        public %s %s { get; set; }\n%s "
-          theType publicProperty
-          (print_dynamic_param_members classname tl commonVerb)
+  let publicProperty p =
+    if
+      commonVerb = "Invoke"
+      && List.mem (String.lowercase_ascii p.param_name) ["name"; "uuid"]
+    then
+      ocaml_class_to_csharp_property p.param_name ^ "Param"
+    else
+      ocaml_class_to_csharp_property p.param_name
+  in
+  let filtered = List.filter (fun x -> not (is_class x classname)) params in
+  let json =
+    `O
+      [
+        ( "dynamic_params"
+        , `A
+            (List.map
+               (fun p ->
+                 `O
+                   [
+                     ("theType", `String (obj_internal_type p.param_type))
+                   ; ("publicProperty", `String (publicProperty p))
+                   ]
+               )
+               filtered
+            )
+        )
+      ]
+  in
+  let template =
+    if commonVerb = "Invoke" then
+      Mustache.of_string
+        {|{{#dynamic_params}}
+
+        [Parameter]
+        public {{{theType}}} {{publicProperty}}
+          {
+              get =>  _{{publicProperty}};
+              set
+              {
+                  _{{publicProperty}} = value;
+                  Is{{publicProperty}}Specified = true;
+              }
+          }
+
+          private {{{theType}}} _{{publicProperty}};
+          internal bool Is{{publicProperty}}Specified;
+          {{/dynamic_params}}|}
+    else
+      Mustache.of_string
+        {|{{#dynamic_params}}
+
+        [Parameter]
+        public {{{theType}}} {{publicProperty}} { get; set; }
+        {{/dynamic_params}}|}
+  in
+  Mustache.render template json
 
 and print_messages_as_enum commonVerb messages =
   let cut_message_name x = cut_msg_name (pascal_case x.msg_name) commonVerb in
@@ -1187,7 +1208,7 @@ and gen_message_as_param classname commonVerb messages =
         \        [Parameter]\n\
         \        public %s %s\n\
         \        {\n\
-        \            get { return %s; }\n\
+        \            get => %s;\n\
         \            set\n\
         \            {\n\
         \                %s = value;\n\
@@ -1520,6 +1541,18 @@ and gen_csharp_api_call message classname commonVerb switch =
         ""
   in
   if message.msg_async then
+    let context =
+      if commonVerb = "Invoke" then
+        sprintf "Xen%sAction%sDynamicParameters"
+          (ocaml_class_to_csharp_class classname)
+          (cut_msg_name (pascal_case message.msg_name) "Invoke")
+      else if commonVerb = "Get" then
+        sprintf "Xen%sProperty%sDynamicParameters"
+          (ocaml_class_to_csharp_class classname)
+          (cut_msg_name (pascal_case message.msg_name) "Get")
+      else
+        "XenServerCmdletDynamicParameters"
+    in
     sprintf
       "\n\
       \                var contxt = _context as %s;\n\n\
@@ -1529,17 +1562,7 @@ and gen_csharp_api_call message classname commonVerb switch =
       \                else\n\
       \                {%s%s\n\
       \                }\n"
-      ( if commonVerb = "Invoke" then
-          sprintf "Xen%sAction%sDynamicParameters"
-            (ocaml_class_to_csharp_class classname)
-            (cut_msg_name (pascal_case message.msg_name) "Invoke")
-        else if commonVerb = "Get" then
-          sprintf "Xen%sProperty%sDynamicParameters"
-            (ocaml_class_to_csharp_class classname)
-            (cut_msg_name (pascal_case message.msg_name) "Get")
-        else
-          "XenServerCmdletDynamicParameters"
-      )
+      context
       (gen_csharp_api_call_async message classname commonVerb)
       passThruTask
       (gen_csharp_api_call_sync message classname commonVerb)
@@ -1552,10 +1575,9 @@ and gen_csharp_api_call message classname commonVerb switch =
         then
           sprintf
             "\n\
-            \                var contxt = _context as \
-             Xen%sAction%sDynamicParameters;\n\
-            \                if (contxt == null)\n\
-            \                    return;"
+            \                if (!(_context is Xen%sAction%sDynamicParameters \
+             contxt))\n\
+            \                    return;\n"
             (ocaml_class_to_csharp_class classname)
             (cut_msg_name (pascal_case message.msg_name) "Invoke")
         else if
@@ -1563,10 +1585,9 @@ and gen_csharp_api_call message classname commonVerb switch =
         then
           sprintf
             "\n\
-            \                var contxt = _context as \
-             Xen%sProperty%sDynamicParameters;\n\
-            \                if (contxt == null)\n\
-            \                    return;"
+            \                if (!(_context is \
+             Xen%sProperty%sDynamicParameters contxt))\n\
+            \                    return;\n"
             (ocaml_class_to_csharp_class classname)
             (cut_msg_name (pascal_case message.msg_name) "Get")
         else
@@ -1583,11 +1604,170 @@ and print_pass_thru x =
     \                    }"
     x
 
+and params_json message classname commonVerb overloadGroups =
+  let result message =
+    match message.msg_result with
+    | None ->
+        ("", "", "")
+    | Some (Ref _, _) ->
+        ("string objRef = null;", "objRef = ", "string objRef = ")
+    | Some (Set (Ref x), _) ->
+        ( sprintf "List<XenRef<%s>> refs = null;" (exposed_class_name x)
+        , "refs = "
+        , "var refs = "
+        )
+    | Some (Map (x, y), _) ->
+        ( sprintf "Dictionary<%s,%s> dict = null;" (exposed_type x)
+            (exposed_type y)
+        , "dict = "
+        , "var dict = "
+        )
+    | Some (x, _) ->
+        ( sprintf "var obj = default(%s);" (exposed_type x)
+        , "obj = "
+        , "var obj = "
+        )
+  in
+  if message.msg_params <> [] then
+    let res_def, res_set, result = result message in
+    `O
+      [
+        ( "paramGroups"
+        , `A
+            (List.map
+               (fun x ->
+                 let curParams =
+                   gen_param_list classname x message commonVerb
+                 in
+                 let extract_param p =
+                   try
+                     let _ =
+                       Str.search_forward (Str.regexp {|contxt\.\([^)]*\)|}) p 0
+                     in
+                     sprintf "contxt.Is%sSpecified" (Str.matched_group 1 p)
+                   with Not_found -> ""
+                 in
+                 let contxtParams =
+                   curParams
+                   |> List.map extract_param
+                   |> List.filter (fun p -> String.length p > 0)
+                 in
+
+                 `O
+                   [
+                     ("class", `String (qualified_class_name classname))
+                   ; ("method", `String message.msg_name)
+                   ; ("res_set", `String res_set)
+                   ; ("result", `String result)
+                   ; ("is_first", `Bool (is_first x overloadGroups))
+                   ; ("hasContxtParams", `Bool (contxtParams <> []))
+                   ; ( "curParams"
+                     , `A
+                         (List.map
+                            (fun y ->
+                              `O
+                                [
+                                  ("param", `String y)
+                                ; ("is_last", `Bool (is_last y curParams))
+                                ]
+                            )
+                            curParams
+                         )
+                     )
+                   ; ( "contxtParams"
+                     , `A
+                         (List.map
+                            (fun y ->
+                              `O
+                                [
+                                  ("param", `String y)
+                                ; ("is_last", `Bool (is_last y contxtParams))
+                                ]
+                            )
+                            contxtParams
+                         )
+                     )
+                   ]
+               )
+               overloadGroups
+            )
+        )
+      ; ("res_def", `String res_def)
+      ]
+  else
+    let _, _, result = result message in
+    `O
+      [
+        ("class", `String (qualified_class_name classname))
+      ; ("method", `String message.msg_name)
+      ; ("result", `String result)
+      ]
+
 and gen_csharp_api_call_async message classname commonVerb =
-  sprintf "\n                    taskRef = %s.async_%s(%s);\n"
-    (qualified_class_name classname)
-    message.msg_name
-    (gen_call_params classname message commonVerb)
+  let groups =
+    if commonVerb == "Invoke" then
+      group_params_per_release message.msg_params
+    else
+      [message.msg_params]
+  in
+  let overloadGroups = List.rev (List.map List.concat (collate groups)) in
+  let template =
+    if message.msg_params <> [] then
+      if List.length overloadGroups > 1 then
+        Mustache.of_string
+          {|{{#paramGroups}}
+
+                    {{^is_first}}else {{/is_first}}{{#hasContxtParams}}if ({{#contxtParams}}{{{param}}}{{^is_last}} && {{/is_last}}{{/contxtParams}}){{/hasContxtParams}}
+                        taskRef = {{class}}.async_{{method}}(session{{#curParams}}, {{{param}}}{{/curParams}});
+          {{/paramGroups}}|}
+      else
+        Mustache.of_string
+          {|{{#paramGroups}}
+
+                    taskRef = {{class}}.async_{{method}}(session{{#curParams}}, {{{param}}}{{/curParams}});
+          {{/paramGroups}}|}
+    else
+      Mustache.of_string
+        {|
+                    taskRef = {{class}}.async_{{method}}(session);
+        |}
+  in
+  Mustache.render template
+    (params_json message classname commonVerb overloadGroups)
+
+and gen_csharp_api_call_sync message classname commonVerb =
+  let groups =
+    if commonVerb == "Invoke" then
+      group_params_per_release message.msg_params
+    else
+      [message.msg_params]
+  in
+  let overloadGroups = List.rev (List.map List.concat (collate groups)) in
+  let template =
+    if message.msg_params <> [] then
+      if List.length overloadGroups > 1 then
+        Mustache.of_string
+          {|
+          {{#res_def}}                    {{{.}}}{{/res_def}}
+          {{#paramGroups}}
+
+                    {{^is_first}}else {{/is_first}}{{#hasContxtParams}}if ({{#contxtParams}}{{{param}}}{{^is_last}} && {{/is_last}}{{/contxtParams}}){{/hasContxtParams}}
+                        {{{res_set}}}{{class}}.{{method}}(session{{#curParams}}, {{{param}}}{{/curParams}});
+          {{/paramGroups}}|}
+      else
+        Mustache.of_string
+          {|
+          {{#paramGroups}}
+
+                    {{{result}}}{{class}}.{{method}}(session{{#curParams}}, {{{param}}}{{/curParams}});
+          {{/paramGroups}}|}
+    else
+      Mustache.of_string
+        {|                    {{{result}}}{{class}}.{{method}}(session);
+        |}
+  in
+  Mustache.render template
+    (params_json message classname commonVerb overloadGroups)
 
 and gen_csharp_api_call_async_pipe =
   sprintf
@@ -1600,34 +1780,6 @@ and gen_csharp_api_call_async_pipe =
     \                            taskObj.opaque_ref = taskRef.opaque_ref;\n\
     \                        }\n\n\
     \                        WriteObject(taskObj, true);"
-
-and gen_csharp_api_call_sync message classname commonVerb =
-  match message.msg_result with
-  | None ->
-      sprintf "\n                    %s.%s(%s);\n"
-        (qualified_class_name classname)
-        message.msg_name
-        (gen_call_params classname message commonVerb)
-  | Some (Ref _, _) ->
-      sprintf "\n                    string objRef = %s.%s(%s);\n"
-        (qualified_class_name classname)
-        message.msg_name
-        (gen_call_params classname message commonVerb)
-  | Some (Set (Ref _), _) ->
-      sprintf "\n                    var refs = %s.%s(%s);\n"
-        (qualified_class_name classname)
-        message.msg_name
-        (gen_call_params classname message commonVerb)
-  | Some (Map (_, _), _) ->
-      sprintf "\n                    var dict = %s.%s(%s);\n"
-        (qualified_class_name classname)
-        message.msg_name
-        (gen_call_params classname message commonVerb)
-  | Some (x, _) ->
-      sprintf "\n                    %s obj = %s.%s(%s);\n" (exposed_type x)
-        (qualified_class_name classname)
-        message.msg_name
-        (gen_call_params classname message commonVerb)
 
 and gen_csharp_api_call_sync_pipe message classname =
   match message.msg_result with
@@ -1674,10 +1826,6 @@ and gen_csharp_api_call_sync_pipe message classname =
         \                        WriteObject(ht, true);"
   | Some (_, _) ->
       sprintf "\n                        WriteObject(obj, true);"
-
-and gen_call_params classname message commonVerb =
-  String.concat ", "
-    ("session" :: gen_param_list classname message.msg_params message commonVerb)
 
 and gen_param_list classname params message commonVerb =
   let cutMessageName =

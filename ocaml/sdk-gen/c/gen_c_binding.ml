@@ -57,21 +57,6 @@ let enum_maps = ref TypeSet.empty
 
 let all_headers = ref []
 
-let rec is_last x list =
-  match list with
-  | [] ->
-      false
-  | hd :: [] ->
-      if hd = x then
-        true
-      else
-        false
-  | hd :: tl ->
-      if hd = x then
-        false
-      else
-        is_last x tl
-
 let rec main () =
   let filtered_classes =
     List.filter

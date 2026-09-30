@@ -43,6 +43,31 @@ let escape_xml s =
   |> Astring.String.cuts ~sep:">" ~empty:true
   |> String.concat "&gt;"
 
+let rec is_first x list =
+  match list with
+  | [] ->
+      false
+  | hd :: _ ->
+      if hd = x then
+        true
+      else
+        false
+
+let rec is_last x list =
+  match list with
+  | [] ->
+      false
+  | hd :: [] ->
+      if hd = x then
+        true
+      else
+        false
+  | hd :: tl ->
+      if hd = x then
+        false
+      else
+        is_last x tl
+
 let list_index_of x list =
   let rec index_rec i = function
     | [] ->
