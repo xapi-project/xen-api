@@ -57,7 +57,7 @@ then, import the local module.
 ```
 module github.com/xapi-project/xen-api/sdk-gen/component-test/jsonrpc-client/go
 
-go 1.22.2
+go 1.27.1
 
 replace xenapi => ./goSDK
 ```
@@ -66,4 +66,4 @@ replace xenapi => ./goSDK
 For a CI step in the generate sdk sources job, it should involve performing lint and component testing after sdk generation.
 
 ## Run test locally
-Install python 3.11+ with requirements and go 1.22+ and go to ocaml/sdk-gen/component-test and run `bash run-tests.sh`
+Install python 3.11+ with requirements and go 1.27+ and go to ocaml/sdk-gen/component-test and run `bash run-tests.sh`
