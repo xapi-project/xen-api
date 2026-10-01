@@ -1133,30 +1133,48 @@ and print_dynamic_params classname enum commonVerb messagesWithParams =
           else
             ""
         )
-        (print_dynamic_param_members classname hd.msg_params commonVerb)
+        (print_dynamic_param_members classname hd.msg_params commonVerb
+           (overload_tracked_params hd classname commonVerb)
+        )
         (print_dynamic_params classname enum commonVerb tl)
 
-and print_dynamic_param_members classname params commonVerb =
+and print_dynamic_param_members classname params commonVerb tracked =
   match params with
   | [] ->
       ""
   | hd :: tl ->
       if is_class hd classname then
-        print_dynamic_param_members classname tl commonVerb
+        print_dynamic_param_members classname tl commonVerb tracked
       else
-        let publicProperty =
-          if
-            commonVerb = "Invoke"
-            && List.mem (String.lowercase_ascii hd.param_name) ["name"; "uuid"]
-          then
-            ocaml_class_to_csharp_property hd.param_name ^ "Param"
-          else
-            ocaml_class_to_csharp_property hd.param_name
-        in
+        let publicProperty = dynamic_param_property commonVerb hd in
         let theType = obj_internal_type hd.param_type in
-        sprintf "\n        [Parameter]\n        public %s %s { get; set; }\n%s "
-          theType publicProperty
-          (print_dynamic_param_members classname tl commonVerb)
+        let rest =
+          print_dynamic_param_members classname tl commonVerb tracked
+        in
+        if List.mem hd.param_name tracked then
+          (* Which overload to call depends on whether the caller set this, so
+             record that rather than relying on the value being non-default. *)
+          sprintf
+            "\n\
+            \        [Parameter]\n\
+            \        public %s %s\n\
+            \        {\n\
+            \            get => _%s;\n\
+            \            set\n\
+            \            {\n\
+            \                _%s = value;\n\
+            \                Is%sSpecified = true;\n\
+            \            }\n\
+            \        }\n\n\
+            \        private %s _%s;\n\n\
+            \        internal bool Is%sSpecified;\n\
+             %s "
+            theType publicProperty publicProperty publicProperty publicProperty
+            theType publicProperty publicProperty rest
+        else
+          sprintf
+            "\n        [Parameter]\n        public %s %s { get; set; }\n%s "
+            theType publicProperty rest
 
 and print_messages_as_enum commonVerb messages =
   let cut_message_name x = cut_msg_name (pascal_case x.msg_name) commonVerb in
@@ -1584,10 +1602,17 @@ and print_pass_thru x =
     x
 
 and gen_csharp_api_call_async message classname commonVerb =
-  sprintf "\n                    taskRef = %s.async_%s(%s);\n"
-    (qualified_class_name classname)
-    message.msg_name
-    (gen_call_params classname message commonVerb)
+  let call params =
+    sprintf "taskRef = %s.async_%s(%s);"
+      (qualified_class_name classname)
+      message.msg_name
+      (gen_call_params_for classname message commonVerb params)
+  in
+  match invoke_overloads message classname commonVerb with
+  | [] ->
+      sprintf "\n                    %s\n" (call message.msg_params)
+  | overloads ->
+      gen_overload_chain call overloads
 
 and gen_csharp_api_call_async_pipe =
   sprintf
@@ -1602,32 +1627,89 @@ and gen_csharp_api_call_async_pipe =
     \                        WriteObject(taskObj, true);"
 
 and gen_csharp_api_call_sync message classname commonVerb =
-  match message.msg_result with
-  | None ->
-      sprintf "\n                    %s.%s(%s);\n"
-        (qualified_class_name classname)
-        message.msg_name
-        (gen_call_params classname message commonVerb)
-  | Some (Ref _, _) ->
-      sprintf "\n                    string objRef = %s.%s(%s);\n"
-        (qualified_class_name classname)
-        message.msg_name
-        (gen_call_params classname message commonVerb)
-  | Some (Set (Ref _), _) ->
-      sprintf "\n                    var refs = %s.%s(%s);\n"
-        (qualified_class_name classname)
-        message.msg_name
-        (gen_call_params classname message commonVerb)
-  | Some (Map (_, _), _) ->
-      sprintf "\n                    var dict = %s.%s(%s);\n"
-        (qualified_class_name classname)
-        message.msg_name
-        (gen_call_params classname message commonVerb)
-  | Some (x, _) ->
-      sprintf "\n                    %s obj = %s.%s(%s);\n" (exposed_type x)
-        (qualified_class_name classname)
-        message.msg_name
-        (gen_call_params classname message commonVerb)
+  match invoke_overloads message classname commonVerb with
+  | [] -> (
+    match message.msg_result with
+    | None ->
+        sprintf "\n                    %s.%s(%s);\n"
+          (qualified_class_name classname)
+          message.msg_name
+          (gen_call_params classname message commonVerb)
+    | Some (Ref _, _) ->
+        sprintf "\n                    string objRef = %s.%s(%s);\n"
+          (qualified_class_name classname)
+          message.msg_name
+          (gen_call_params classname message commonVerb)
+    | Some (Set (Ref _), _) ->
+        sprintf "\n                    var refs = %s.%s(%s);\n"
+          (qualified_class_name classname)
+          message.msg_name
+          (gen_call_params classname message commonVerb)
+    | Some (Map (_, _), _) ->
+        sprintf "\n                    var dict = %s.%s(%s);\n"
+          (qualified_class_name classname)
+          message.msg_name
+          (gen_call_params classname message commonVerb)
+    | Some (x, _) ->
+        sprintf "\n                    %s obj = %s.%s(%s);\n" (exposed_type x)
+          (qualified_class_name classname)
+          message.msg_name
+          (gen_call_params classname message commonVerb)
+  )
+  | overloads ->
+      (* The result has to be declared before the chain so that every branch
+         assigns the same variable the rest of the cmdlet already reads. *)
+      let declaration, assignment =
+        match message.msg_result with
+        | None ->
+            ("", "")
+        | Some (Ref _, _) ->
+            ("string objRef = null;", "objRef = ")
+        | Some (Set (Ref x), _) ->
+            ( sprintf "List<XenRef<%s>> refs = null;" (exposed_class_name x)
+            , "refs = "
+            )
+        | Some (Map (x, y), _) ->
+            ( sprintf "Dictionary<%s, %s> dict = null;" (exposed_type x)
+                (exposed_type y)
+            , "dict = "
+            )
+        | Some (x, _) ->
+            ( sprintf "%s obj = default(%s);" (exposed_type x) (exposed_type x)
+            , "obj = "
+            )
+      in
+      let call params =
+        sprintf "%s%s.%s(%s);" assignment
+          (qualified_class_name classname)
+          message.msg_name
+          (gen_call_params_for classname message commonVerb params)
+      in
+      let chain = gen_overload_chain call overloads in
+      if declaration = "" then
+        chain
+      else
+        sprintf "\n                    %s\n%s" declaration chain
+
+(* Emits the run-time overload selection: a guarded branch per overload,
+   longest first, ending in an unconditional else. *)
+and gen_overload_chain call overloads =
+  let branch index (params, _, guard) =
+    match guard with
+    | [] ->
+        sprintf "                    else\n                        %s\n"
+          (call params)
+    | _ ->
+        sprintf "                    %sif (%s)\n                        %s\n"
+          ( if index = 0 then
+              ""
+            else
+              "else "
+          )
+          (String.concat " || " guard)
+          (call params)
+  in
+  "\n" ^ String.concat "" (List.mapi branch overloads)
 
 and gen_csharp_api_call_sync_pipe message classname =
   match message.msg_result with
@@ -1676,8 +1758,11 @@ and gen_csharp_api_call_sync_pipe message classname =
       sprintf "\n                        WriteObject(obj, true);"
 
 and gen_call_params classname message commonVerb =
+  gen_call_params_for classname message commonVerb message.msg_params
+
+and gen_call_params_for classname message commonVerb params =
   String.concat ", "
-    ("session" :: gen_param_list classname message.msg_params message commonVerb)
+    ("session" :: gen_param_list classname params message commonVerb)
 
 and gen_param_list classname params message commonVerb =
   let cutMessageName =
@@ -1785,5 +1870,87 @@ and explode_array name length result =
 and is_class param classname =
   String.lowercase_ascii param.param_name = "self"
   || String.lowercase_ascii param.param_name = String.lowercase_ascii classname
+
+(* The name of the dynamic parameter property generated for [param]. *)
+and dynamic_param_property commonVerb param =
+  if
+    commonVerb = "Invoke"
+    && List.mem (String.lowercase_ascii param.param_name) ["name"; "uuid"]
+  then
+    ocaml_class_to_csharp_property param.param_name ^ "Param"
+  else
+    ocaml_class_to_csharp_property param.param_name
+
+(* A message gains a new C# overload every time parameters are added to it in a
+   later release. Calling the newest overload unconditionally breaks against
+   hosts that only know the older one (CA-431418), so the generated cmdlet has
+   to choose at run time.
+
+   Returns the overloads longest first, as (parameters, guard) pairs: [guard] is
+   a disjunction that is true when the caller supplied any of the parameters
+   this overload added. The final entry always has an empty guard and is the
+   unconditional fallback to the overload published in the earliest release.
+
+   Returns [] when no choice is needed, in which case the caller emits a single
+   plain call exactly as before. *)
+and invoke_overloads message classname commonVerb =
+  if commonVerb <> "Invoke" || message.msg_params = [] then
+    []
+  else
+    match group_params_per_release message.msg_params with
+    | [] | [_] ->
+        []
+    | groups ->
+        (* Accumulate the parameters released so far, pairing each prefix with
+           the group that extended it. Prepending leaves the longest first. *)
+        let rec build acc released = function
+          | [] ->
+              acc
+          | group :: tl ->
+              let released = released @ group in
+              build ((released, group) :: acc) released tl
+        in
+        let guard_for added =
+          added
+          |> List.filter (fun p -> not (is_class p classname))
+          |> List.map (fun p ->
+              sprintf "contxt.Is%sSpecified"
+                (dynamic_param_property commonVerb p)
+          )
+        in
+        (* The oldest overload is the fallback, so it is never guarded: the
+           parameters it takes are the ones every supported host accepts. *)
+        let rec with_guards = function
+          | [] ->
+              []
+          | [(params, added)] ->
+              [(params, added, [])]
+          | (params, added) :: tl ->
+              (params, added, guard_for added) :: with_guards tl
+        in
+        let overloads = with_guards (build [] [] groups) in
+        (* Every overload above the fallback must be selectable, otherwise the
+           chain would emit an unreachable branch. *)
+        let rec selectable = function
+          | [] | [_] ->
+              true
+          | (_, _, []) :: _ ->
+              false
+          | _ :: tl ->
+              selectable tl
+        in
+        if selectable overloads then
+          overloads
+        else
+          []
+
+(* The parameters whose presence selects an overload. Only these need to track
+   whether the caller set them. *)
+and overload_tracked_params message classname commonVerb =
+  invoke_overloads message classname commonVerb
+  |> List.filter (fun (_, _, guard) -> guard <> [])
+  |> List.concat_map (fun (_, added, _) -> added)
+  |> List.filter (fun p -> not (is_class p classname))
+  |> List.map (fun p -> p.param_name)
 
 let _ = main ()
