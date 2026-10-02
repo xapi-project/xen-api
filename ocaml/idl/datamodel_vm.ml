@@ -233,8 +233,8 @@ let power_state =
         )
       ; ("Running", "Running")
       ; ( "Suspended"
-        , "VM state has been saved to disk and it is nolonger running. Note \
-           that disks remain in-use while the VM is suspended."
+        , "VM state has been saved to disk and it is no longer running. Note \
+           that disks remain in use while the VM is suspended."
         )
       ]
     )
@@ -388,8 +388,8 @@ let copy =
         )
       ]
     ~doc:
-      "Copied the specified VM, making a new VM. Unlike clone, copy does not \
-       exploits the capabilities of the underlying storage repository in which \
+      "Copies the specified VM, making a new VM. Unlike clone, copy does not \
+       exploit the capabilities of the underlying storage repository in which \
        the VM's disk images are stored. Instead, copy guarantees that the disk \
        images of the newly created VM will be 'full disks' - i.e. not part of \
        a CoW chain.  This function can only be called when the VM is in the \

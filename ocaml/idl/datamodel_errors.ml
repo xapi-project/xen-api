@@ -624,12 +624,12 @@ let _ =
     () ;
   error Api_errors.vm_checkpoint_suspend_failed ["vm"]
     ~doc:
-      "An error occured while saving the memory image of the specified virtual \
-       machine"
+      "An error occurred while saving the memory image of the specified \
+       virtual machine"
     () ;
   error Api_errors.vm_checkpoint_resume_failed ["vm"]
     ~doc:
-      "An error occured while restoring the memory image of the specified \
+      "An error occurred while restoring the memory image of the specified \
        virtual machine"
     () ;
   error Api_errors.vm_pv_drivers_in_use ["vm"] ~doc:"VM PV drivers still in use"

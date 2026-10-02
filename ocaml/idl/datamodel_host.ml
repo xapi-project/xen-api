@@ -1633,16 +1633,14 @@ let sync_data =
       [
         ( Published
         , rel_orlando
-        , "This causes the synchronisation of the non-database data (messages, \
-           RRDs and so on) stored on the coordinator to be synchronised with \
-           the host"
+        , "This causes the non-database data (messages, RRDs and so on) stored \
+           on the coordinator to be synchronised with the host"
         )
       ]
     ~params:[(Ref _host, "host", "The host to whom the data should be sent")]
     ~doc:
-      "This causes the synchronisation of the non-database data (messages, \
-       RRDs and so on) stored on the coordinator to be synchronised with the \
-       host"
+      "This causes the non-database data (messages, RRDs and so on) stored on \
+       the coordinator to be synchronised with the host"
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let backup_rrds =

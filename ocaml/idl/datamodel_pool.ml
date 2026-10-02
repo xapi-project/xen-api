@@ -241,7 +241,7 @@ let recover_slaves =
     ~params:[]
     ~result:
       ( Set (Ref _host)
-      , "list of hosts whose coordinator address were successfully reset"
+      , "list of hosts whose coordinator addresses were successfully reset"
       )
     ~doc:
       "Instruct a pool coordinator, M, to try and contact its supporters and, \

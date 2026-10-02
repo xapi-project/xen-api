@@ -279,12 +279,12 @@ module Session = struct
               [
                 ( Published
                 , rel_rio
-                , "True if this session relates to a intra-pool login, false \
+                , "True if this session relates to an intra-pool login, false \
                    otherwise"
                 )
               ]
             "pool"
-            "True if this session relates to a intra-pool login, false \
+            "True if this session relates to an intra-pool login, false \
              otherwise"
         ; field
             ~lifecycle:[(Published, rel_miami, "additional configuration")]
@@ -391,13 +391,13 @@ module Session = struct
               [
                 ( Published
                 , rel_clearwater
-                , "a key string provided by a API user to distinguish itself \
+                , "a key string provided by an API user to distinguish itself \
                    from other users sharing the same login name"
                 )
               ]
             ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String
             "originator"
-            "a key string provided by a API user to distinguish itself from \
+            "a key string provided by an API user to distinguish itself from \
              other users sharing the same login name"
         ; field
             ~lifecycle:
@@ -3366,12 +3366,12 @@ module PBD = struct
           ( Published
           , rel_rio
           , "Deactivate the specified PBD, causing the referenced SR to be \
-             detached and nolonger scanned"
+             detached and no longer scanned"
           )
         ]
       ~doc:
         "Deactivate the specified PBD, causing the referenced SR to be \
-         detached and nolonger scanned"
+         detached and no longer scanned"
       ~params:[(Ref _pbd, "self", "The PBD to deactivate")]
       ~allowed_roles:_R_POOL_OP ()
 
@@ -4264,7 +4264,7 @@ module Probe_result = struct
       ~descr:
         "A set of properties that describe one result element of SR.probe. \
          Result elements and properties can change dynamically based on \
-         changes to the the SR.probe input-parameters or the target."
+         changes to the SR.probe input-parameters or the target."
       ~gen_events:false ~messages:[] ~doccomments:[]
       ~messages_default_allowed_roles:(Some [])
         (* No messages, so no roles allowed to use them *)
@@ -7088,9 +7088,9 @@ module Auth = struct
         [
           ( Published
           , rel_george
-          , "This calls queries the external directory service to obtain the \
-             transitively-closed set of groups that the the subject_identifier \
-             is member of."
+          , "This call queries the external directory service to obtain the \
+             transitively-closed set of groups that the subject_identifier is \
+             a member of."
           )
         ]
       ~params:
@@ -7108,8 +7108,8 @@ module Auth = struct
            all groups a subject_identifier is member of."
         )
       ~doc:
-        "This calls queries the external directory service to obtain the \
-         transitively-closed set of groups that the the subject_identifier is \
+        "This call queries the external directory service to obtain the \
+         transitively-closed set of groups that the subject_identifier is a \
          member of."
       ~allowed_roles:_R_READ_ONLY ()
 
@@ -9117,14 +9117,13 @@ module Message = struct
         [
           ( Published
           , rel_orlando
-          , "An message for the attention of the administrator"
+          , "A message for the attention of the administrator"
           )
         ]
       ~in_oss_since:None ~persist:PersistNothing
       ~gen_constructor_destructor:false ~name:_message
-      ~descr:"An message for the attention of the administrator"
-      ~gen_events:true ~doccomments:[]
-      ~messages_default_allowed_roles:_R_POOL_OP
+      ~descr:"A message for the attention of the administrator" ~gen_events:true
+      ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:
         [
           create
