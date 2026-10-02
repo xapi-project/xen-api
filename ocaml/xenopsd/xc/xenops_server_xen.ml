@@ -2041,6 +2041,11 @@ module VM = struct
     let rename_domain di =
       debug "Renaming domain %d from %s to %s" di.Xenctrl.domid old_name
         new_name ;
+      (* Claim [new_name] before touching the domain. If a domain already exists
+         under [new_name], this raises here, before the xenstore tree changed.
+         That way the domain keeps its original name on failure, so the caller's
+         cleanup path (which uses the old path) can still find and destroy it. *)
+      DB.rename old_name new_name ;
       Xenctrl.domain_sethandle xc di.Xenctrl.domid new_name ;
       ( match when' with
       | Pre_migration ->
@@ -2055,7 +2060,6 @@ module VM = struct
       ) ;
       debug "Moving xenstore tree" ;
       Domain.move_xstree ~xs di.Xenctrl.domid old_name new_name ;
-      DB.rename old_name new_name ;
       Watcher.mark_refresh_domains ()
     in
     Option.iter rename_domain (di_of_uuid ~xc (uuid_of_string old_name))
