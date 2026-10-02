@@ -492,6 +492,7 @@
    (= :version))
   (xapi-expiry-alerts
    (= :version))
+  xapi-gpu
   (xapi-idl
    (= :version))
   (xapi-inventory
