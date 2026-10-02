@@ -62,3 +62,25 @@ let axis_of_mode = function
       axis ~enabled:true ~after:false
 
 let combine m n = axis_to_mode (combine_axis (axis_of_mode m) (axis_of_mode n))
+
+let combine_all = List.fold_left combine Not_supported
+
+let of_observations axes =
+  if List.mem None axes then
+    None
+  else
+    Some (combine_all (List.filter_map Fun.id axes))
+
+let to_api = function
+  | None ->
+      `unknown
+  | Some Not_supported ->
+      `not_supported
+  | Some Disabled ->
+      `disabled
+  | Some Enable_on_reboot ->
+      `enable_on_reboot
+  | Some Enabled ->
+      `enabled
+  | Some Disable_on_reboot ->
+      `disable_on_reboot

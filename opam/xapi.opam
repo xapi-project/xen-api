@@ -75,6 +75,7 @@ depends: [
   "xapi-consts" {= version}
   "xapi-datamodel" {= version}
   "xapi-expiry-alerts" {= version}
+  "xapi-gpu" {= version}
   "xapi-idl" {= version}
   "xapi-inventory" {= version}
   "xapi-log" {= version}
