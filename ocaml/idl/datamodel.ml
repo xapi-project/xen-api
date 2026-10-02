@@ -84,12 +84,12 @@ module Session = struct
   let slave_login =
     call ~flags:[] ~name:"slave_login"
       ~doc:
-        "Attempt to authenticate to the pool master by presenting the slave's \
-         host ref and pool secret"
+        "Attempt to authenticate to the pool coordinator by presenting the \
+         supporter's host ref and pool secret"
       ~result:(Ref _session, "ID of newly created session")
       ~params:
         [
-          (Ref _host, "host", "Host id of slave")
+          (Ref _host, "host", "Host id of the supporter")
         ; (SecretString, "psecret", "Pool secret")
         ]
       ~in_oss_since:None
@@ -97,8 +97,8 @@ module Session = struct
         [
           ( Published
           , rel_rio
-          , "Attempt to authenticate to the pool master by presenting the \
-             slave's host ref and pool secret"
+          , "Attempt to authenticate to the pool coordinator by presenting the \
+             supporter's host ref and pool secret"
           )
         ]
       ~secret:true ~hide_from_docs:true ~allowed_roles:_R_POOL_ADMIN
@@ -110,13 +110,13 @@ module Session = struct
         [
           ( Published
           , rel_miami
-          , "Authenticate locally against a slave in emergency mode. Note the \
-             resulting sessions are only good for use on this host."
+          , "Authenticate locally against a supporter in emergency mode. Note \
+             the resulting sessions are only good for use on this host."
           )
         ]
       ~name:"slave_local_login"
       ~doc:
-        "Authenticate locally against a slave in emergency mode. Note the \
+        "Authenticate locally against a supporter in emergency mode. Note the \
          resulting sessions are only good for use on this host."
       ~result:(Ref _session, "ID of newly created session")
       ~params:[(SecretString, "psecret", "Pool secret")]
@@ -129,13 +129,13 @@ module Session = struct
         [
           ( Published
           , rel_miami
-          , "Authenticate locally against a slave in emergency mode. Note the \
-             resulting sessions are only good for use on this host."
+          , "Authenticate locally against a supporter in emergency mode. Note \
+             the resulting sessions are only good for use on this host."
           )
         ]
       ~name:"slave_local_login_with_password"
       ~doc:
-        "Authenticate locally against a slave in emergency mode. Note the \
+        "Authenticate locally against a supporter in emergency mode. Note the \
          resulting sessions are only good for use on this host."
       ~result:(Ref _session, "ID of newly created session")
       ~params:
@@ -279,12 +279,12 @@ module Session = struct
               [
                 ( Published
                 , rel_rio
-                , "True if this session relates to a intra-pool login, false \
+                , "True if this session relates to an intra-pool login, false \
                    otherwise"
                 )
               ]
             "pool"
-            "True if this session relates to a intra-pool login, false \
+            "True if this session relates to an intra-pool login, false \
              otherwise"
         ; field
             ~lifecycle:[(Published, rel_miami, "additional configuration")]
@@ -391,13 +391,13 @@ module Session = struct
               [
                 ( Published
                 , rel_clearwater
-                , "a key string provided by a API user to distinguish itself \
+                , "a key string provided by an API user to distinguish itself \
                    from other users sharing the same login name"
                 )
               ]
             ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String
             "originator"
-            "a key string provided by a API user to distinguish itself from \
+            "a key string provided by an API user to distinguish itself from \
              other users sharing the same login name"
         ; field
             ~lifecycle:
@@ -737,11 +737,11 @@ module Task = struct
                 [
                   ( Published
                   , rel_rio
-                  , "True if this task has been forwarded to a slave"
+                  , "True if this task has been forwarded to a supporter"
                   )
                 ]
               ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "forwarded"
-              "True if this task has been forwarded to a slave"
+              "True if this task has been forwarded to a supporter"
           ; field ~in_oss_since:None
               ~lifecycle:
                 [
@@ -1561,8 +1561,10 @@ module Host_metrics = struct
         ; namespace ~name:"memory" ~contents:host_metrics_memory ()
         ; field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "live"
             ~lifecycle:
-              [(Published, rel_rio, "Pool master thinks this host is live")]
-            "Pool master thinks this host is live"
+              [
+                (Published, rel_rio, "Pool coordinator thinks this host is live")
+              ]
+            "Pool coordinator thinks this host is live"
         ; field ~qualifier:DynamicRO ~ty:DateTime
             ~lifecycle:
               [
@@ -2568,8 +2570,8 @@ module PIF = struct
           , "IGMP Snooping is disabled in the corresponding backend bridge.'"
           )
         ; ( "unknown"
-          , "IGMP snooping status is unknown. If this is a VLAN master, then \
-             please consult the underlying VLAN slave PIF."
+          , "IGMP snooping status is unknown. If this is the untagged PIF of a \
+             VLAN, then please consult the underlying tagged PIF."
           )
         ]
       )
@@ -3011,7 +3013,7 @@ module Bond = struct
           ; param_doc=
               "The MAC address to use on the bond itself. If this parameter is \
                the empty string then the bond will inherit its MAC address \
-               from the primary slave."
+               from the primary member."
           ; param_release= miami_release
           ; param_default= None
           }
@@ -3137,7 +3139,7 @@ module Bond = struct
             ~lifecycle:[(Published, rel_quebec, "")]
             ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool true))
             "auto_update_mac"
-            "true if the MAC was taken from the primary slave when the bond \
+            "true if the MAC was taken from the primary member when the bond \
              was created, and false if the client specified the MAC"
         ]
       ()
@@ -3364,12 +3366,12 @@ module PBD = struct
           ( Published
           , rel_rio
           , "Deactivate the specified PBD, causing the referenced SR to be \
-             detached and nolonger scanned"
+             detached and no longer scanned"
           )
         ]
       ~doc:
         "Deactivate the specified PBD, causing the referenced SR to be \
-         detached and nolonger scanned"
+         detached and no longer scanned"
       ~params:[(Ref _pbd, "self", "The PBD to deactivate")]
       ~allowed_roles:_R_POOL_OP ()
 
@@ -4262,7 +4264,7 @@ module Probe_result = struct
       ~descr:
         "A set of properties that describe one result element of SR.probe. \
          Result elements and properties can change dynamically based on \
-         changes to the the SR.probe input-parameters or the target."
+         changes to the SR.probe input-parameters or the target."
       ~gen_events:false ~messages:[] ~doccomments:[]
       ~messages_default_allowed_roles:(Some [])
         (* No messages, so no roles allowed to use them *)
@@ -7086,9 +7088,9 @@ module Auth = struct
         [
           ( Published
           , rel_george
-          , "This calls queries the external directory service to obtain the \
-             transitively-closed set of groups that the the subject_identifier \
-             is member of."
+          , "This call queries the external directory service to obtain the \
+             transitively-closed set of groups that the subject_identifier is \
+             a member of."
           )
         ]
       ~params:
@@ -7106,8 +7108,8 @@ module Auth = struct
            all groups a subject_identifier is member of."
         )
       ~doc:
-        "This calls queries the external directory service to obtain the \
-         transitively-closed set of groups that the the subject_identifier is \
+        "This call queries the external directory service to obtain the \
+         transitively-closed set of groups that the subject_identifier is a \
          member of."
       ~allowed_roles:_R_READ_ONLY ()
 
@@ -9115,14 +9117,13 @@ module Message = struct
         [
           ( Published
           , rel_orlando
-          , "An message for the attention of the administrator"
+          , "A message for the attention of the administrator"
           )
         ]
       ~in_oss_since:None ~persist:PersistNothing
       ~gen_constructor_destructor:false ~name:_message
-      ~descr:"An message for the attention of the administrator"
-      ~gen_events:true ~doccomments:[]
-      ~messages_default_allowed_roles:_R_POOL_OP
+      ~descr:"A message for the attention of the administrator" ~gen_events:true
+      ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:
         [
           create

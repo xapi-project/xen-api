@@ -624,12 +624,12 @@ let _ =
     () ;
   error Api_errors.vm_checkpoint_suspend_failed ["vm"]
     ~doc:
-      "An error occured while saving the memory image of the specified virtual \
-       machine"
+      "An error occurred while saving the memory image of the specified \
+       virtual machine"
     () ;
   error Api_errors.vm_checkpoint_resume_failed ["vm"]
     ~doc:
-      "An error occured while restoring the memory image of the specified \
+      "An error occurred while restoring the memory image of the specified \
        virtual machine"
     () ;
   error Api_errors.vm_pv_drivers_in_use ["vm"] ~doc:"VM PV drivers still in use"
@@ -1649,7 +1649,7 @@ let _ =
     () ;
 
   (* Pool errors *)
-  error Api_errors.host_is_slave ["Master IP address"]
+  error Api_errors.host_is_slave ["Coordinator IP address"]
     ~doc:
       "You cannot make regular API calls directly on a supporter. Please pass \
        API calls via the coordinator host."
@@ -2068,8 +2068,8 @@ let _ =
 
   error Api_errors.designate_new_master_in_progress []
     ~doc:
-      "The operation could not be performed because a new master is currently \
-       being designated"
+      "The operation could not be performed because a new coordinator is \
+       currently being designated"
     () ;
   error Api_errors.pool_secret_rotation_pending []
     ~doc:

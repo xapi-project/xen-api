@@ -12,7 +12,7 @@ let operations =
         , "Indicates this pool is in the process of creating a cluster"
         )
       ; ( "designate_new_master"
-        , "Indicates this pool is in the process of changing master"
+        , "Indicates this pool is in the process of changing coordinator"
         )
       ; ( "configure_repositories"
         , "Indicates this pool is in the process of configuring repositories"
@@ -108,15 +108,16 @@ let designate_new_master =
       [
         ( Published
         , rel_miami
-        , "Perform an orderly handover of the role of master to the referenced \
-           host."
+        , "Perform an orderly handover of the role of coordinator to the \
+           referenced host."
         )
       ]
     ~name:"designate_new_master" ~in_oss_since:None
-    ~params:[(Ref _host, "host", "The host who should become the new master")]
+    ~params:
+      [(Ref _host, "host", "The host who should become the new coordinator")]
     ~doc:
-      "Perform an orderly handover of the role of master to the referenced \
-       host."
+      "Perform an orderly handover of the role of coordinator to the \
+       referenced host."
     ~allowed_roles:_R_POOL_OP ()
 
 let join =
@@ -126,15 +127,15 @@ let join =
       [
         ( String
         , "master_address"
-        , "The hostname of the master of the pool to join"
+        , "The hostname of the coordinator of the pool to join"
         )
       ; ( String
         , "master_username"
-        , "The username of the master (for initial authentication)"
+        , "The username of the coordinator (for initial authentication)"
         )
       ; ( String
         , "master_password"
-        , "The password for the master (for initial authentication)"
+        , "The password for the coordinator (for initial authentication)"
         )
       ]
     ~errs:[Api_errors.pool_joining_host_cannot_contain_shared_SRs]
@@ -147,15 +148,15 @@ let join_force =
       [
         ( String
         , "master_address"
-        , "The hostname of the master of the pool to join"
+        , "The hostname of the coordinator of the pool to join"
         )
       ; ( String
         , "master_username"
-        , "The username of the master (for initial authentication)"
+        , "The username of the coordinator (for initial authentication)"
         )
       ; ( String
         , "master_password"
-        , "The password for the master (for initial authentication)"
+        , "The password for the coordinator (for initial authentication)"
         )
       ]
     ~doc:"Instruct host to join a new pool" ~allowed_roles:_R_POOL_OP ()
@@ -200,11 +201,13 @@ let slave_reset_master =
       [
         ( Published
         , rel_rio
-        , "Instruct a slave already in a pool that the master has changed"
+        , "Instruct a supporter already in a pool that the coordinator has \
+           changed"
         )
       ]
-    ~params:[(String, "master_address", "The hostname of the master")]
-    ~doc:"Instruct a slave already in a pool that the master has changed"
+    ~params:[(String, "master_address", "The hostname of the coordinator")]
+    ~doc:
+      "Instruct a supporter already in a pool that the coordinator has changed"
     ~allowed_roles:_R_POOL_OP ()
 
 let transition_to_master =
@@ -214,11 +217,14 @@ let transition_to_master =
       [
         ( Published
         , rel_rio
-        , "Instruct host that's currently a slave to transition to being master"
+        , "Instruct host that's currently a supporter to transition to being \
+           coordinator"
         )
       ]
     ~params:[]
-    ~doc:"Instruct host that's currently a slave to transition to being master"
+    ~doc:
+      "Instruct host that's currently a supporter to transition to being \
+       coordinator"
     ~allowed_roles:_R_POOL_OP ()
 
 let recover_slaves =
@@ -227,18 +233,20 @@ let recover_slaves =
       [
         ( Published
         , rel_rio
-        , "Instruct a pool master, M, to try and contact its slaves and, if \
-           slaves are in emergency mode, reset their master address to M."
+        , "Instruct a pool coordinator, M, to try and contact its supporters \
+           and, if supporters are in emergency mode, reset their coordinator \
+           address to M."
         )
       ]
     ~params:[]
     ~result:
       ( Set (Ref _host)
-      , "list of hosts whose master address were successfully reset"
+      , "list of hosts whose coordinator addresses were successfully reset"
       )
     ~doc:
-      "Instruct a pool master, M, to try and contact its slaves and, if slaves \
-       are in emergency mode, reset their master address to M."
+      "Instruct a pool coordinator, M, to try and contact its supporters and, \
+       if supporters are in emergency mode, reset their coordinator address to \
+       M."
     ~allowed_roles:_R_POOL_OP ()
 
 let eject =
@@ -247,11 +255,11 @@ let eject =
       [
         ( Published
         , rel_rio
-        , "Instruct a pool master to eject a host from the pool"
+        , "Instruct a pool coordinator to eject a host from the pool"
         )
       ]
     ~params:[(Ref _host, "host", "The host to eject")]
-    ~doc:"Instruct a pool master to eject a host from the pool"
+    ~doc:"Instruct a pool coordinator to eject a host from the pool"
     ~allowed_roles:_R_POOL_OP ()
 
 let initial_auth =
@@ -361,8 +369,8 @@ let ping_slave =
     ~doc:"Internal use only"
     ~result:
       ( Bool
-      , "returns false if pinged host is master [indicating critical error \
-         condition]; true if pinged host is slave"
+      , "returns false if pinged host is the coordinator [indicating critical \
+         error condition]; true if pinged host is a supporter"
       )
     ~hide_from_docs:true ~allowed_roles:_R_POOL_ADMIN ()
 
@@ -707,8 +715,8 @@ let detect_nonhomogeneous_external_auth =
         ( Published
         , rel_george
         , "This call asynchronously detects if the external authentication \
-           configuration in any slave is different from that in the master and \
-           raises appropriate alerts"
+           configuration in any supporter is different from that in the \
+           coordinator and raises appropriate alerts"
         )
       ]
     ~params:
@@ -721,8 +729,8 @@ let detect_nonhomogeneous_external_auth =
       ]
     ~doc:
       "This call asynchronously detects if the external authentication \
-       configuration in any slave is different from that in the master and \
-       raises appropriate alerts"
+       configuration in any supporter is different from that in the \
+       coordinator and raises appropriate alerts"
     ~allowed_roles:_R_POOL_OP ()
 
 let initialize_wlb =
@@ -998,11 +1006,14 @@ let certificate_sync =
       [
         ( Published
         , rel_george
-        , "Copy the TLS CA certificates and CRLs of the master to all slaves."
+        , "Copy the TLS CA certificates and CRLs of the coordinator to all \
+           supporters."
         )
       ]
     ~name:"certificate_sync"
-    ~doc:"Copy the TLS CA certificates and CRLs of the master to all slaves."
+    ~doc:
+      "Copy the TLS CA certificates and CRLs of the coordinator to all \
+       supporters."
     ~allowed_roles:_R_POOL_OP ()
 
 let enable_tls_verification =
@@ -1048,12 +1059,12 @@ let audit_log_append =
       [
         ( Published
         , rel_midnight_ride
-        , "Append a line to the audit log on the master."
+        , "Append a line to the audit log on the coordinator."
         )
       ]
     ~name:"audit_log_append"
     ~params:[(String, "line", "line to be appended to the audit log")]
-    ~doc:"Append a line to the audit log on the master."
+    ~doc:"Append a line to the audit log on the coordinator."
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let set_vswitch_controller =
@@ -1155,7 +1166,7 @@ let enable_ssl_legacy =
       ]
     ~params:[(Ref _pool, "self", "(ignored)")]
     ~doc:
-      "Sets ssl_legacy true on each host, pool-master last. See \
+      "Sets ssl_legacy true on each host, pool coordinator last. See \
        Host.ssl_legacy and Host.set_ssl_legacy."
     ~allowed_roles:_R_POOL_OP ()
 
@@ -1168,7 +1179,7 @@ let disable_ssl_legacy =
       ]
     ~params:[(Ref _pool, "self", "(ignored)")]
     ~doc:
-      "Sets ssl_legacy false on each host, pool-master last. See \
+      "Sets ssl_legacy false on each host, pool coordinator last. See \
        Host.ssl_legacy and Host.set_ssl_legacy."
     ~allowed_roles:_R_POOL_OP ()
 
@@ -1903,9 +1914,10 @@ let t =
             ~lifecycle:[(Published, rel_rio, "Description")]
             ~qualifier:RW ~ty:String "name_description" "Description"
         ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "The host that is pool master")]
+            ~lifecycle:
+              [(Published, rel_rio, "The host that is the pool coordinator")]
             ~qualifier:DynamicRO ~ty:(Ref _host) "master"
-            "The host that is pool master"
+            "The host that is the pool coordinator"
         ; field ~in_oss_since:None
             ~lifecycle:[(Published, rel_rio, "Default SR for VDIs")]
             ~qualifier:RW ~ty:(Ref _sr) "default_SR" "Default SR for VDIs"
@@ -2351,13 +2363,13 @@ let t =
               [
                 ( Published
                 , rel_rio
-                , "true if bias against pool master when scheduling vms is \
-                   enabled, false otherwise"
+                , "true if bias against pool coordinator when scheduling vms \
+                   is enabled, false otherwise"
                 )
               ]
             "coordinator_bias"
-            "true if bias against pool master when scheduling vms is enabled, \
-             false otherwise"
+            "true if bias against pool coordinator when scheduling vms is \
+             enabled, false otherwise"
         ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 8L))
             ~lifecycle:[] "local_auth_max_threads"
             "Maximum number of threads to use for PAM authentication"

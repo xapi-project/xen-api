@@ -233,8 +233,8 @@ let power_state =
         )
       ; ("Running", "Running")
       ; ( "Suspended"
-        , "VM state has been saved to disk and it is nolonger running. Note \
-           that disks remain in-use while the VM is suspended."
+        , "VM state has been saved to disk and it is no longer running. Note \
+           that disks remain in use while the VM is suspended."
         )
       ]
     )
@@ -388,8 +388,8 @@ let copy =
         )
       ]
     ~doc:
-      "Copied the specified VM, making a new VM. Unlike clone, copy does not \
-       exploits the capabilities of the underlying storage repository in which \
+      "Copies the specified VM, making a new VM. Unlike clone, copy does not \
+       exploit the capabilities of the underlying storage repository in which \
        the VM's disk images are stored. Instead, copy guarantees that the disk \
        images of the newly created VM will be 'full disks' - i.e. not part of \
        a CoW chain.  This function can only be called when the VM is in the \
@@ -1271,17 +1271,17 @@ let stateReset =
         ( Published
         , rel_rio
         , "Reset the power-state of the VM to halted in the database only. \
-           (Used to recover from slave failures in pooling scenarios by \
-           resetting the power-states of VMs running on dead slaves to \
+           (Used to recover from supporter failures in pooling scenarios by \
+           resetting the power-states of VMs running on dead supporters to \
            halted.) This is a potentially dangerous operation; use with care."
         )
       ]
     ~name:"power_state_reset"
     ~doc:
       "Reset the power-state of the VM to halted in the database only. (Used \
-       to recover from slave failures in pooling scenarios by resetting the \
-       power-states of VMs running on dead slaves to halted.) This is a \
-       potentially dangerous operation; use with care."
+       to recover from supporter failures in pooling scenarios by resetting \
+       the power-states of VMs running on dead supporters to halted.) This is \
+       a potentially dangerous operation; use with care."
     ~params:[(Ref _vm, "vm", "The VM to reset")]
     ~errs:[] ~allowed_roles:_R_POOL_OP ()
 
