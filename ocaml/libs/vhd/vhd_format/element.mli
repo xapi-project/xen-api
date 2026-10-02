@@ -17,7 +17,8 @@ type 'a t =
   [ `Copy of 'a * int64 * int64
     (** [Copy (t, offset, len)] copies [len] sectors from sector [offset]
       from the file [t] *)
-  | `Sectors of Cstruct.t  (** a new sector (e.g. for metadata) *)
+  | `Sectors of Cstruct.t * int option
+    (** a new sector (e.g. for metadata) and auxiliary information *)
   | `Empty of int64  (** empty space in sectors *) ]
 
 val to_string : 'a t -> string

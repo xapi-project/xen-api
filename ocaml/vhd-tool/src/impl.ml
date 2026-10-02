@@ -44,6 +44,8 @@ end)
 
 open F
 
+let twomib = 2 * 1024 * 1024
+
 let require name arg =
   match arg with
   | None ->
@@ -245,18 +247,67 @@ let stream_nbd _common c s prezeroed ~export ?(progress = no_progress_bar) () =
   in
   let p = progress total_work in
 
+  (* Pipeline several requests at the same time.
+     The NBD client already handles several independent requests in parallel.
+     Allocate [depth] buffers and re-use them once each promise completes. *)
+  let depth = 8 in
+  let pool = Array.init depth (fun _ -> IO.alloc twomib) in
+  let free = ref (List.init depth Fun.id) in
+  (* A list of promises and integers wrapped in an option representing an
+     index into the pool to allow re-using the buffers.
+     expand_empty allocates a single zero-filled buffer and does not need to
+     re-use the ones from the pool, so index is [None] in that case *)
+  let inflight : (unit Lwt.t * int option) list ref = ref [] in
+  let reap () =
+    match !inflight with
+    | [] ->
+        return ()
+    | l ->
+        Lwt.nchoose_split (List.map fst l) >>= fun (_, pending) ->
+        let pending, completed =
+          List.partition_map
+            (fun req ->
+              let t, i = req in
+              if List.memq t pending then
+                Either.Left req
+              else
+                Either.Right i
+            )
+            l
+        in
+        inflight := pending ;
+        let reusable_buffers = List.filter_map Fun.id completed in
+        free := reusable_buffers @ !free ;
+        return ()
+  in
+  let take_free_buffer () =
+    (* [reap] blocks until at least one promise succeeds or fails,
+       [free] list is guaranteed to be non-empty after calling it *)
+    (if !free = [] then reap () else return ()) >>= fun () ->
+    let index = List.hd !free in
+    free := List.tl !free ;
+    let buf = pool.(index) in
+    return (buf, Some index)
+  in
+  let rec drain () =
+    if !inflight = [] then return () else reap () >>= fun () -> drain ()
+  in
+
   (if not prezeroed then expand_empty s else return s) >>= fun s ->
-  expand_copy s >>= fun s ->
+  expand_copy s ~get_buffer:take_free_buffer >>= fun s ->
   fold_left
     (fun (sector, work_done) x ->
       ( match x with
-        | `Sectors data -> (
-            Client.write server (Int64.mul sector 512L) [data] >>= function
-            | Ok () ->
-                return Int64.(of_int (Cstruct.length data))
-            | Error _e ->
-                fail (Failure "Got error from NBD library")
-          )
+        | `Sectors (data, i) ->
+            let t =
+              Client.write server (Int64.mul sector 512L) [data] >>= function
+              | Ok () ->
+                  return ()
+              | Error _e ->
+                  fail (Failure "Got error from NBD library")
+            in
+            inflight := (t, i) :: !inflight ;
+            return Int64.(of_int (Cstruct.length data))
         | `Empty _n ->
             (* must be prezeroed *)
             assert prezeroed ;
@@ -270,6 +321,8 @@ let stream_nbd _common c s prezeroed ~export ?(progress = no_progress_bar) () =
               )
         )
       >>= fun work ->
+      (* Progress is reported when buffers are scheduled to be written,
+         not when completed *)
       let sector = Int64.add sector (Vhd_format.Element.len x) in
       let work_done = Int64.add work_done work in
       p work_done ;
@@ -277,6 +330,7 @@ let stream_nbd _common c s prezeroed ~export ?(progress = no_progress_bar) () =
     )
     (0L, 0L) s.elements
   >>= fun _ ->
+  drain () >>= fun () ->
   p total_work ;
 
   return (Some total_work)
@@ -300,7 +354,7 @@ let stream_chunked _common c s prezeroed _ ?(progress = no_progress_bar) () =
   fold_left
     (fun (sector, work_done) x ->
       ( match x with
-        | `Sectors data ->
+        | `Sectors (data, _) ->
             let t = Chunked.make ~sector ~size:512L data in
             Chunked.marshal header t ;
             c.Channels.really_write header >>= fun () ->
@@ -356,7 +410,7 @@ let stream_raw _common c s prezeroed _ ?(progress = no_progress_bar) () =
               Unix.SEEK_SET
             >>= fun (_ : int64) ->
             c.Channels.copy_from fd (Int64.mul 512L sector_len)
-        | `Sectors data ->
+        | `Sectors (data, _) ->
             c.Channels.really_write data >>= fun () ->
             return Int64.(of_int (Cstruct.length data))
         | `Empty n ->
@@ -527,7 +581,7 @@ let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
   fold_left
     (fun state x ->
       ( match x with
-        | `Sectors data ->
+        | `Sectors (data, _) ->
             input state data
         | `Empty n ->
             empty state Int64.(mul n 512L)
@@ -617,7 +671,6 @@ let serve_vhd_to_raw total_size c dest prezeroed progress _ _ =
 
 let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix
     ignore_checksums =
-  let twomib = 2 * 1024 * 1024 in
   let buffer = IO.alloc twomib in
   let header = IO.alloc 512 in
 
@@ -1204,7 +1257,6 @@ let serve_nbd_to_raw common size c dest _ _ _ _ =
   let buf = Cstruct.create (Negotiate.sizeof `V1) in
   Negotiate.marshal buf (Negotiate.V1 {Negotiate.size; flags}) ;
   c.Channels.really_write buf >>= fun () ->
-  let twomib = 2 * 1024 * 1024 in
   let block = IO.alloc twomib in
   let inblocks fn request =
     let rec loop offset remaining =
@@ -1261,7 +1313,6 @@ let serve_nbd_to_raw common size c dest _ _ _ _ =
 
 let serve_chunked_to_raw _ c dest _ _ _ _ =
   let header = Cstruct.create Chunked.sizeof in
-  let twomib = 2 * 1024 * 1024 in
   let buffer = IO.alloc twomib in
   let rec loop () =
     c.Channels.really_read header >>= fun () ->
@@ -1296,7 +1347,6 @@ let round_up_to_sector unbuffered len =
     len
 
 let serve_raw_to_raw common size c dest _ progress _ _ =
-  let twomib = 2 * 1024 * 1024 in
   let buffer = IO.alloc twomib in
   let p = progress size in
   let rec loop offset remaining =
