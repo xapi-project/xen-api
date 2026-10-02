@@ -300,16 +300,9 @@ let compute_evacuation_plan_no_wlb ~__context ~host ?(ignore_ha = false) () =
     ) ;
   let target_hosts =
     List.filter
-      (fun target ->
-        debug "host %s version: %s"
-          (Db.Host.get_hostname ~__context ~self:target)
-          Helpers.Checks.(
-            Migration.get_software_versions ~__context (LocalObject target)
-            |> versions_string_of
-          ) ;
-        Helpers.Checks.Migration.host_versions_not_decreasing ~__context
-          ~host_from:(Helpers.LocalObject host)
-          ~host_to:(Helpers.LocalObject target)
+      (fun dst ->
+        Xapi_host_helpers.check_host_versions_compatible ~__context ~src:host
+          ~dst
       )
       target_hosts
   in

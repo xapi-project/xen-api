@@ -101,6 +101,11 @@ val assert_xen_compatible : unit -> unit
     currently installed xenctrl library and the currently running Xen hypervisor.)
     Raises XEN_INCOMPATIBLE if not, and caches the outcome of the check. *)
 
+val check_host_versions_compatible :
+  __context:Context.t -> src:API.ref_host -> dst:API.ref_host -> bool
+(** [check_host_versions_compatible ~__context src dst] Checks whether host
+    versions on [src] and [dst] allow migrations from [src] to [dst] *)
+
 val remove_pending_guidance :
      __context:Context.t
   -> self:API.ref_host
