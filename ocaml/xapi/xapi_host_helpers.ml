@@ -348,6 +348,34 @@ let assert_xen_compatible () =
   in
   if not compatible then raise Api_errors.(Server_error (xen_incompatible, []))
 
+let check_host_versions_compatible ~__context ~src ~dst =
+  let version_increasing () =
+    (* This check is generic, used for both running and halted VMs (which do
+       not have source hosts). Skip the check in the latter case *)
+    if src <> Ref.null then (
+      debug "host %s version: %s"
+        (Db.Host.get_hostname ~__context ~self:dst)
+        Helpers.Checks.(
+          Migration.get_software_versions ~__context (LocalObject dst)
+          |> versions_string_of
+        ) ;
+      Helpers.Checks.Migration.host_versions_not_decreasing ~__context
+        ~host_from:(Helpers.LocalObject src) ~host_to:(Helpers.LocalObject dst)
+    ) else
+      true
+  in
+  let rpu_safe () =
+    if
+      (* During upgrade/update, migrate to upgraded/updated hosts only. *)
+      Helpers.rolling_upgrade_in_progress ~__context
+    then
+      Helpers.Checks.RPU.host_has_highest_version_in_pool ~__context
+        ~host:(Helpers.LocalObject dst)
+    else
+      true
+  in
+  version_increasing () && rpu_safe ()
+
 let remove_pending_guidance ~__context ~self ~value =
   let h = Db.Host.get_name_label ~__context ~self in
   if
