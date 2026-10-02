@@ -84,12 +84,12 @@ module Session = struct
   let slave_login =
     call ~flags:[] ~name:"slave_login"
       ~doc:
-        "Attempt to authenticate to the pool master by presenting the slave's \
-         host ref and pool secret"
+        "Attempt to authenticate to the pool coordinator by presenting the \
+         supporter's host ref and pool secret"
       ~result:(Ref _session, "ID of newly created session")
       ~params:
         [
-          (Ref _host, "host", "Host id of slave")
+          (Ref _host, "host", "Host id of the supporter")
         ; (SecretString, "psecret", "Pool secret")
         ]
       ~in_oss_since:None
@@ -97,8 +97,8 @@ module Session = struct
         [
           ( Published
           , rel_rio
-          , "Attempt to authenticate to the pool master by presenting the \
-             slave's host ref and pool secret"
+          , "Attempt to authenticate to the pool coordinator by presenting the \
+             supporter's host ref and pool secret"
           )
         ]
       ~secret:true ~hide_from_docs:true ~allowed_roles:_R_POOL_ADMIN
@@ -110,13 +110,13 @@ module Session = struct
         [
           ( Published
           , rel_miami
-          , "Authenticate locally against a slave in emergency mode. Note the \
-             resulting sessions are only good for use on this host."
+          , "Authenticate locally against a supporter in emergency mode. Note \
+             the resulting sessions are only good for use on this host."
           )
         ]
       ~name:"slave_local_login"
       ~doc:
-        "Authenticate locally against a slave in emergency mode. Note the \
+        "Authenticate locally against a supporter in emergency mode. Note the \
          resulting sessions are only good for use on this host."
       ~result:(Ref _session, "ID of newly created session")
       ~params:[(SecretString, "psecret", "Pool secret")]
@@ -129,13 +129,13 @@ module Session = struct
         [
           ( Published
           , rel_miami
-          , "Authenticate locally against a slave in emergency mode. Note the \
-             resulting sessions are only good for use on this host."
+          , "Authenticate locally against a supporter in emergency mode. Note \
+             the resulting sessions are only good for use on this host."
           )
         ]
       ~name:"slave_local_login_with_password"
       ~doc:
-        "Authenticate locally against a slave in emergency mode. Note the \
+        "Authenticate locally against a supporter in emergency mode. Note the \
          resulting sessions are only good for use on this host."
       ~result:(Ref _session, "ID of newly created session")
       ~params:
@@ -737,11 +737,11 @@ module Task = struct
                 [
                   ( Published
                   , rel_rio
-                  , "True if this task has been forwarded to a slave"
+                  , "True if this task has been forwarded to a supporter"
                   )
                 ]
               ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "forwarded"
-              "True if this task has been forwarded to a slave"
+              "True if this task has been forwarded to a supporter"
           ; field ~in_oss_since:None
               ~lifecycle:
                 [
@@ -1561,8 +1561,10 @@ module Host_metrics = struct
         ; namespace ~name:"memory" ~contents:host_metrics_memory ()
         ; field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "live"
             ~lifecycle:
-              [(Published, rel_rio, "Pool master thinks this host is live")]
-            "Pool master thinks this host is live"
+              [
+                (Published, rel_rio, "Pool coordinator thinks this host is live")
+              ]
+            "Pool coordinator thinks this host is live"
         ; field ~qualifier:DynamicRO ~ty:DateTime
             ~lifecycle:
               [
@@ -2568,8 +2570,8 @@ module PIF = struct
           , "IGMP Snooping is disabled in the corresponding backend bridge.'"
           )
         ; ( "unknown"
-          , "IGMP snooping status is unknown. If this is a VLAN master, then \
-             please consult the underlying VLAN slave PIF."
+          , "IGMP snooping status is unknown. If this is the untagged PIF of a \
+             VLAN, then please consult the underlying tagged PIF."
           )
         ]
       )
@@ -3011,7 +3013,7 @@ module Bond = struct
           ; param_doc=
               "The MAC address to use on the bond itself. If this parameter is \
                the empty string then the bond will inherit its MAC address \
-               from the primary slave."
+               from the primary member."
           ; param_release= miami_release
           ; param_default= None
           }
@@ -3137,7 +3139,7 @@ module Bond = struct
             ~lifecycle:[(Published, rel_quebec, "")]
             ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool true))
             "auto_update_mac"
-            "true if the MAC was taken from the primary slave when the bond \
+            "true if the MAC was taken from the primary member when the bond \
              was created, and false if the client specified the MAC"
         ]
       ()

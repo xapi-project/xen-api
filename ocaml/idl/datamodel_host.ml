@@ -224,7 +224,7 @@ let request_backup =
     ~params:
       [
         (Ref _host, "host", "The Host to send the request to")
-      ; (Int, "generation", "The generation count of the master's database")
+      ; (Int, "generation", "The generation count of the coordinator's database")
       ; ( Bool
         , "force"
         , "If this is true then the client _has_ to take a backup, otherwise \
@@ -242,7 +242,10 @@ let request_config_file_sync =
     ~params:
       [
         (Ref _host, "host", "The Host to send the request to")
-      ; (String, "hash", "The hash of the master's dom0 config files package")
+      ; ( String
+        , "hash"
+        , "The hash of the coordinator's dom0 config files package"
+        )
       ]
     ~pool_internal:true ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY
     ()
@@ -255,23 +258,23 @@ let propose_new_master =
       [
         ( Published
         , rel_miami
-        , "First phase of a two-phase commit protocol to set the new master. \
-           If the host has already committed to another configuration or if \
-           the proposed new master is not in this node's membership set then \
-           the call will return an exception."
+        , "First phase of a two-phase commit protocol to set the new \
+           coordinator. If the host has already committed to another \
+           configuration or if the proposed new coordinator is not in this \
+           node's membership set then the call will return an exception."
         )
       ]
     ~name:"propose_new_master"
     ~doc:
-      "First phase of a two-phase commit protocol to set the new master. If \
-       the host has already committed to another configuration or if the \
-       proposed new master is not in this node's membership set then the call \
-       will return an exception."
+      "First phase of a two-phase commit protocol to set the new coordinator. \
+       If the host has already committed to another configuration or if the \
+       proposed new coordinator is not in this node's membership set then the \
+       call will return an exception."
     ~params:
       [
         ( String
         , "address"
-        , "The address of the Host which is proposed as the new master"
+        , "The address of the Host which is proposed as the new coordinator"
         )
       ; ( Bool
         , "manual"
@@ -285,13 +288,16 @@ let propose_new_master =
 let abort_new_master =
   call ~flags:[`Session]
     ~lifecycle:
-      [(Published, rel_miami, "Causes the new master transaction to abort")]
-    ~name:"abort_new_master" ~doc:"Causes the new master transaction to abort"
+      [
+        (Published, rel_miami, "Causes the new coordinator transaction to abort")
+      ]
+    ~name:"abort_new_master"
+    ~doc:"Causes the new coordinator transaction to abort"
     ~params:
       [
         ( String
         , "address"
-        , "The address of the Host which is proposed as the new master"
+        , "The address of the Host which is proposed as the new coordinator"
         )
       ]
     ~pool_internal:true ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -303,16 +309,19 @@ let commit_new_master =
       [
         ( Published
         , rel_miami
-        , "Second phase of a two-phase commit protocol to set the new master."
+        , "Second phase of a two-phase commit protocol to set the new \
+           coordinator."
         )
       ]
     ~name:"commit_new_master"
-    ~doc:"Second phase of a two-phase commit protocol to set the new master."
+    ~doc:
+      "Second phase of a two-phase commit protocol to set the new coordinator."
     ~params:
       [
         ( String
         , "address"
-        , "The address of the Host which should be committed as the new master"
+        , "The address of the Host which should be committed as the new \
+           coordinator"
         )
       ]
     ~pool_internal:true ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -1108,7 +1117,7 @@ let update_master =
     ~params:
       [
         (Ref _host, "host", "The host")
-      ; (String, "master_address", "The new master address")
+      ; (String, "master_address", "The new coordinator address")
       ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
@@ -1593,8 +1602,8 @@ let tickle_heartbeat =
       [
         ( Published
         , rel_orlando
-        , "Needs to be called every 30 seconds for the master to believe the \
-           host is alive"
+        , "Needs to be called every 30 seconds for the coordinator to believe \
+           the host is alive"
         )
       ]
     ~params:
@@ -1605,13 +1614,16 @@ let tickle_heartbeat =
         )
       ; ( Map (String, String)
         , "stuff"
-        , "Anything else we want to let the master know"
+        , "Anything else we want to let the coordinator know"
         )
       ]
-    ~result:(Map (String, String), "Anything the master wants to tell the slave")
+    ~result:
+      ( Map (String, String)
+      , "Anything the coordinator wants to tell the supporter"
+      )
     ~doc:
-      "Needs to be called every 30 seconds for the master to believe the host \
-       is alive"
+      "Needs to be called every 30 seconds for the coordinator to believe the \
+       host is alive"
     ~pool_internal:true ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY
     ()
 
@@ -1622,14 +1634,15 @@ let sync_data =
         ( Published
         , rel_orlando
         , "This causes the synchronisation of the non-database data (messages, \
-           RRDs and so on) stored on the master to be synchronised with the \
-           host"
+           RRDs and so on) stored on the coordinator to be synchronised with \
+           the host"
         )
       ]
     ~params:[(Ref _host, "host", "The host to whom the data should be sent")]
     ~doc:
       "This causes the synchronisation of the non-database data (messages, \
-       RRDs and so on) stored on the master to be synchronised with the host"
+       RRDs and so on) stored on the coordinator to be synchronised with the \
+       host"
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let backup_rrds =
@@ -1638,7 +1651,7 @@ let backup_rrds =
       [
         ( Published
         , rel_orlando
-        , "This causes the RRDs to be backed up to the master"
+        , "This causes the RRDs to be backed up to the coordinator"
         )
       ]
     ~params:
@@ -1650,7 +1663,7 @@ let backup_rrds =
            backup"
         )
       ]
-    ~doc:"This causes the RRDs to be backed up to the master"
+    ~doc:"This causes the RRDs to be backed up to the coordinator"
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let get_servertime =
@@ -2302,21 +2315,21 @@ let sm_dp_destroy =
 let sync_vlans =
   call ~flags:[`Session] ~name:"sync_vlans"
     ~lifecycle:[(Published, rel_boston, "")]
-    ~doc:"Synchronise VLANs on given host with the master's VLANs"
+    ~doc:"Synchronise VLANs on given host with the coordinator's VLANs"
     ~params:[(Ref _host, "host", "The host")]
     ~hide_from_docs:true ~pool_internal:true ~allowed_roles:_R_POOL_OP ()
 
 let sync_tunnels =
   call ~flags:[`Session] ~name:"sync_tunnels"
     ~lifecycle:[(Published, rel_boston, "")]
-    ~doc:"Synchronise tunnels on given host with the master's tunnels"
+    ~doc:"Synchronise tunnels on given host with the coordinator's tunnels"
     ~params:[(Ref _host, "host", "The host")]
     ~hide_from_docs:true ~pool_internal:true ~allowed_roles:_R_POOL_OP ()
 
 let sync_pif_currently_attached =
   call ~flags:[`Session] ~name:"sync_pif_currently_attached"
     ~lifecycle:[(Published, rel_boston, "")]
-    ~doc:"Synchronise tunnels on given host with the master's tunnels"
+    ~doc:"Synchronise tunnels on given host with the coordinator's tunnels"
     ~params:
       [
         (Ref _host, "host", "The host")

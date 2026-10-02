@@ -1271,17 +1271,17 @@ let stateReset =
         ( Published
         , rel_rio
         , "Reset the power-state of the VM to halted in the database only. \
-           (Used to recover from slave failures in pooling scenarios by \
-           resetting the power-states of VMs running on dead slaves to \
+           (Used to recover from supporter failures in pooling scenarios by \
+           resetting the power-states of VMs running on dead supporters to \
            halted.) This is a potentially dangerous operation; use with care."
         )
       ]
     ~name:"power_state_reset"
     ~doc:
       "Reset the power-state of the VM to halted in the database only. (Used \
-       to recover from slave failures in pooling scenarios by resetting the \
-       power-states of VMs running on dead slaves to halted.) This is a \
-       potentially dangerous operation; use with care."
+       to recover from supporter failures in pooling scenarios by resetting \
+       the power-states of VMs running on dead supporters to halted.) This is \
+       a potentially dangerous operation; use with care."
     ~params:[(Ref _vm, "vm", "The VM to reset")]
     ~errs:[] ~allowed_roles:_R_POOL_OP ()
 
