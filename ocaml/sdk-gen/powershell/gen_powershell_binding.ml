@@ -109,11 +109,16 @@ let rec main () =
   in
   render_file
     ("XenServerPSModule.mustache", "XenServerPSModule.psd1")
-    module_json templdir destdir
+    module_json templdir destdir ;
+
+  Gen_powershell_help.gen_help ()
 
 (****************)
 (* Http actions *)
 (****************)
+
+(* Shared by the cmdlet template and the generated help, so that the two cannot
+   disagree about what an HTTP action's query arguments are called. *)
 and gen_http_action action =
   let name, (meth, uri, _, args, _, _) = action in
   let commonVerb = get_http_action_verb name meth in

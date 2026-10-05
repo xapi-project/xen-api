@@ -11,7 +11,7 @@
  *
  * The fixtures deliberately mirror the JSON built by the corresponding
  * function in gen_powershell_binding.ml (gen_class, gen_constructor,
- * gen_message_family, gen_invoker), so a template that stops
+ * gen_message_family, gen_invoker, gen_help), so a template that stops
  * agreeing with its caller shows up here.
  *
  * The large C# fragments (parameter blocks, method bodies) are injected by the
@@ -277,6 +277,152 @@ let invoke_xen_object =
       )
     ]
 
+(* PowerShellHelp.mustache, as built by [gen_help]. Two commands: a getter with
+   two parameter sets and examples, and a dynamic-parameter cmdlet with an enum
+   value group and a parameter that is documented but kept out of the syntax. *)
+let help_param ?(required = "false") ?(pipeline = "false") ?(position = "Named")
+    ?(switch = false) ?(values = []) ?(aliases = "") name typ description =
+  `O
+    [
+      ("name", str name)
+    ; ("type", str typ)
+    ; ("description", str description)
+    ; ("required", str required)
+    ; ("pipeline", str pipeline)
+    ; ("position", str position)
+    ; ("switch", `Bool switch)
+    ; ( "default_value"
+      , str
+          ( if switch then
+              "False"
+            else
+              "None"
+          )
+      )
+    ; ("aliases", str aliases)
+    ; ("has_values", `Bool (values <> []))
+    ; ("values", `A (List.map (fun v -> `O [("value", str v)]) values))
+    ]
+
+let syntax_item cmdlet set_name parameters =
+  `O
+    [
+      ("cmdlet", str cmdlet)
+    ; ("set_name", str set_name)
+    ; ("parameters", `A parameters)
+    ]
+
+let p_ref =
+  help_param ~pipeline:"true (ByPropertyName)" ~position:"0"
+    ~aliases:"opaque_ref" "Ref" "XenRef&lt;XenAPI.VM&gt;"
+    "The VM object to operate on, specified by its opaque reference."
+
+let p_uuid =
+  help_param ~required:"true" ~pipeline:"true (ByValue)" ~position:"0" "Uuid"
+    "Guid" "The UUID of the VM to operate on."
+
+let p_besteffort =
+  help_param ~switch:true "BestEffort" "SwitchParameter"
+    "If set, the cmdlet keeps going after a per-object failure."
+
+let p_session =
+  help_param "SessionOpaqueRef" "String"
+    "The session object on which to run the cmdlet."
+
+let p_action =
+  help_param ~required:"true"
+    ~values:["Snapshot"; "Clone"; "Destroy"]
+    "XenAction" "XenVMAction" "Selects which action to use."
+
+(* Documented, but deliberately absent from the syntax items below. *)
+let p_dynamic =
+  help_param "NewName" "string"
+    "The name of the new VM. Accepted when -XenAction is Snapshot, Clone."
+
+let powershell_help =
+  `O
+    [
+      ( "commands"
+      , `A
+          [
+            `O
+              [
+                ("name", str "Get-XenVM")
+              ; ("verb", str "Get")
+              ; ("noun", str "XenVM")
+              ; ("synopsis", str "Gets the XenServer VM objects.")
+              ; ( "description"
+                , `A
+                    [
+                      `O [("para", str "Returns the VM objects on the server.")]
+                    ; `O
+                        [
+                          ( "para"
+                          , str
+                              "A VM is a virtual machine, or a template from \
+                               which one can be created."
+                          )
+                        ]
+                    ]
+                )
+              ; ( "syntax"
+                , `A
+                    [
+                      syntax_item "Get-XenVM" "Ref"
+                        [p_ref; p_session; p_besteffort]
+                    ; syntax_item "Get-XenVM" "Uuid"
+                        [p_uuid; p_session; p_besteffort]
+                    ]
+                )
+              ; ("parameters", `A [p_ref; p_uuid; p_session; p_besteffort])
+              ; ("has_inputs", `Bool true)
+              ; ( "inputs"
+                , `A
+                    [`O [("type", str "XenRef[VM]")]; `O [("type", str "guid")]]
+                )
+              ; ("has_outputs", `Bool true)
+              ; ("outputs", `A [`O [("type", str "VM[]")]])
+              ; ("has_examples", `Bool true)
+              ; ( "examples"
+                , `A
+                    [
+                      `O
+                        [
+                          ("title", str "-------- Example 1 --------")
+                        ; ("code", str "Get-XenVM -Name &quot;my vm&quot;")
+                        ; ( "remarks"
+                          , str "Gets the VM whose name_label is 'my vm'."
+                          )
+                        ]
+                    ]
+                )
+              ]
+          ; `O
+              [
+                ("name", str "Invoke-XenVM")
+              ; ("verb", str "Invoke")
+              ; ("noun", str "XenVM")
+              ; ("synopsis", str "Invokes an operation on a VM object.")
+              ; ( "description"
+                , `A [`O [("para", str "Invokes an operation on a VM object.")]]
+                )
+              ; ( "syntax"
+                , `A [syntax_item "Invoke-XenVM" "Ref" [p_ref; p_action]]
+                )
+              ; ("parameters", `A [p_ref; p_action; p_dynamic])
+                (* Declares no pipeline input, so the inputTypes block must be
+                   gated off, but still declares an output type. *)
+              ; ("has_inputs", `Bool false)
+              ; ("inputs", `A [])
+              ; ("has_outputs", `Bool true)
+              ; ("outputs", `A [`O [("type", str "System.Object")]])
+              ; ("has_examples", `Bool false)
+              ; ("examples", `A [])
+              ]
+          ]
+      )
+    ]
+
 (* ------------------------------------------------------------------ *)
 (* Golden-file tests                                                   *)
 (* ------------------------------------------------------------------ *)
@@ -307,6 +453,11 @@ let cases =
     , "Invoke-XenObject.mustache"
     , invoke_xen_object
     , "invoke_xen_object.cs"
+    )
+  ; ( "PowerShellHelp.mustache"
+    , "PowerShellHelp.mustache"
+    , powershell_help
+    , "powershell_help.xml"
     )
   ]
 
@@ -345,6 +496,18 @@ module InvariantsTest = struct
       i + nl <= hl && (String.sub haystack i nl = needle || go (i + 1))
     in
     nl = 0 || go 0
+
+  let count_substring needle haystack =
+    let nl = String.length needle and hl = String.length haystack in
+    let rec go i acc =
+      if i + nl > hl then
+        acc
+      else if String.sub haystack i nl = needle then
+        go (i + nl) (acc + 1)
+      else
+        go (i + 1) acc
+    in
+    go 0 0
 
   (* The generator loads templates with [string_of_file], which joins lines
      with "\n" and so discards the final newline. Every template therefore has
@@ -392,10 +555,138 @@ module InvariantsTest = struct
     Alcotest.(check bool)
       "no unrendered mustache tags remain" false (contains "{{" rendered)
 
+  (* Once external MAML help exists, Get-Help no longer derives the SYNTAX
+     section by reflection: if the syntax block goes missing the section
+     silently renders empty for every cmdlet. *)
+  let test_maml_has_syntax_block () =
+    let rendered = render "PowerShellHelp.mustache" powershell_help in
+    Alcotest.(check int)
+      "one syntax block per command" 2
+      (count_substring "<command:syntax>" rendered) ;
+    (* One syntaxItem per parameter set, not per command: Get-XenVM is callable
+       by Ref or by Uuid, Invoke-XenVM only by Ref. Collapsing these into a
+       single item makes Get-Help present mutually exclusive parameters as
+       though they could be combined. *)
+    Alcotest.(check int)
+      "one syntaxItem per parameter set" 3
+      (count_substring "<command:syntaxItem>" rendered) ;
+    Alcotest.(check int)
+      "parameters listed across the syntax items and parameter blocks" 15
+      (count_substring "<command:parameter " rendered)
+
+  (* An enum parameter must carry its permitted values, or the syntax degrades
+     from "-XenAction {Snapshot | Clone | Destroy}" to a bare type name and the
+     caller has no way to discover the actions. *)
+  let test_maml_enum_value_group () =
+    let rendered = render "PowerShellHelp.mustache" powershell_help in
+    (* Once in the syntax item, once in the parameters block. *)
+    Alcotest.(check int)
+      "value group emitted in both places" 2
+      (count_substring "<command:parameterValueGroup>" rendered) ;
+    Alcotest.(check int)
+      "every permitted value is listed in both" 6
+      (count_substring "variableLength=\"false\"" rendered)
+
+  (* Dynamic parameters are documented in the parameters block but left out of
+     the syntax: a cmdlet like Invoke-XenVM has dozens across its actions, and
+     listing them all would make the syntax unreadable. *)
+  let test_maml_dynamic_params_documented_not_in_syntax () =
+    let rendered = render "PowerShellHelp.mustache" powershell_help in
+    (* Once only: a second occurrence would mean it had leaked into the
+       syntax item as well. *)
+    Alcotest.(check int)
+      "the dynamic parameter is documented exactly once" 1
+      (count_substring "<maml:name>NewName</maml:name>" rendered) ;
+    Alcotest.(check bool)
+      "the dynamic parameter carries the actions it applies to" true
+      (contains "Accepted when -XenAction is Snapshot, Clone." rendered)
+
+  (* A switch must not be given a parameter value in the syntax, or Get-Help
+     renders it as "-BestEffort <SwitchParameter>", implying it takes an
+     argument. *)
+  let test_maml_switch_has_no_syntax_value () =
+    let rendered = render "PowerShellHelp.mustache" powershell_help in
+    Alcotest.(check int)
+      "switch declared as SwitchParameter only in the parameters block" 1
+      (count_substring
+         "<command:parameterValue \
+          required=\"false\">SwitchParameter</command:parameterValue>"
+         rendered
+      )
+
+  (* Aliases survive only through the parameter's aliases attribute. Without
+     it the Aliases row renders blank and -Ref stops advertising opaque_ref. *)
+  let test_maml_aliases () =
+    let rendered = render "PowerShellHelp.mustache" powershell_help in
+    Alcotest.(check bool)
+      "the declared alias reaches the parameter block" true
+      (contains "aliases=\"opaque_ref\"" rendered) ;
+    Alcotest.(check bool)
+      "a parameter without aliases emits an empty attribute" true
+      (contains "aliases=\"\"" rendered)
+
+  (* External help replaces the reflected INPUTS and OUTPUTS too, so the file
+     has to carry them: without inputTypes and returnValues both sections
+     render empty, losing the pipeline types and the cmdlet's output type. *)
+  let test_maml_inputs_and_outputs () =
+    let rendered = render "PowerShellHelp.mustache" powershell_help in
+    Alcotest.(check int)
+      "inputTypes emitted for the command that declares them" 1
+      (count_substring "<command:inputTypes>" rendered) ;
+    Alcotest.(check int)
+      "one inputType per pipeline type" 2
+      (count_substring "<command:inputType>" rendered) ;
+    Alcotest.(check int)
+      "returnValues emitted for both commands" 2
+      (count_substring "<command:returnValues>" rendered) ;
+    Alcotest.(check bool)
+      "the output type is carried through" true
+      (contains "<maml:name>VM[]</maml:name>" rendered) ;
+    (* Gated the same way the examples block is: the second command declares no
+       pipeline input, and must not emit an empty inputTypes element. *)
+    Alcotest.(check int)
+      "no stray empty inputTypes" 1
+      (count_substring "</command:inputTypes>" rendered)
+
+  (* has_examples gates the examples block: cmdlets without examples must not
+     emit an empty <command:examples/>, which some help renderers show as a
+     stray empty EXAMPLES heading. *)
+  let test_maml_examples_are_gated () =
+    let rendered = render "PowerShellHelp.mustache" powershell_help in
+    Alcotest.(check int)
+      "only the command with examples emits the block" 1
+      (count_substring "<command:examples>" rendered)
+
+  (* Descriptions and parameter values reach the template already escaped by
+     escape_xml; the template must interpolate with {{{ }}} so mustache does
+     not escape them a second time. *)
+  let test_maml_no_double_escaping () =
+    let rendered = render "PowerShellHelp.mustache" powershell_help in
+    Alcotest.(check bool)
+      "generic parameter type survives intact" true
+      (contains "XenRef&lt;XenAPI.VM&gt;" rendered) ;
+    Alcotest.(check bool)
+      "entities are not escaped twice" false
+      (contains "&amp;lt;" rendered)
+
   let tests =
     [
       ("single_trailing_newline", `Quick, test_single_trailing_newline)
     ; ("open_brace_interpolation", `Quick, test_open_brace_interpolation)
+    ; ("maml_has_syntax_block", `Quick, test_maml_has_syntax_block)
+    ; ("maml_enum_value_group", `Quick, test_maml_enum_value_group)
+    ; ( "maml_dynamic_params_documented_not_in_syntax"
+      , `Quick
+      , test_maml_dynamic_params_documented_not_in_syntax
+      )
+    ; ( "maml_switch_has_no_syntax_value"
+      , `Quick
+      , test_maml_switch_has_no_syntax_value
+      )
+    ; ("maml_aliases", `Quick, test_maml_aliases)
+    ; ("maml_inputs_and_outputs", `Quick, test_maml_inputs_and_outputs)
+    ; ("maml_examples_are_gated", `Quick, test_maml_examples_are_gated)
+    ; ("maml_no_double_escaping", `Quick, test_maml_no_double_escaping)
     ]
 end
 
