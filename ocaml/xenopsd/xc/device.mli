@@ -500,6 +500,8 @@ module Serial : sig
     xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> unit end
 
 module Vusb : sig
+  type controller = Legacy | Xhci
+
   val vusb_plug :
        xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> privileged:bool
@@ -509,6 +511,7 @@ module Vusb : sig
     -> hostport:string
     -> version:string
     -> speed:float
+    -> ctrl:controller
     -> unit
 
   val vusb_unplug :

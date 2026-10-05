@@ -3980,10 +3980,27 @@ module VUSB = struct
           info "VM = %s; USB passthrough is only supported for HVM guests" vm
         else
           let privileged = is_privileged vm in
+          let vmextra = DB.read_exn vm in
+          let ctrl =
+            match
+              List.assoc_opt "usb-controller"
+                vmextra.VmExtra.persistent.platformdata
+            with
+            | Some "xhci" ->
+                Device.Vusb.Xhci
+            | None | Some "legacy" ->
+                Device.Vusb.Legacy
+            | Some v ->
+                warn
+                  "VM = %s; unknown platform:usb-controller value %s, falling \
+                   back to legacy"
+                  vm v ;
+                Device.Vusb.Legacy
+          in
           Device.Vusb.vusb_plug ~xs ~privileged ~domid:frontend_domid
             ~id:(snd vusb.Vusb.id) ~hostbus:vusb.Vusb.hostbus
             ~hostport:vusb.Vusb.hostport ~version:vusb.Vusb.version
-            ~speed:vusb.Vusb.speed
+            ~speed:vusb.Vusb.speed ~ctrl
       )
       vm
 
