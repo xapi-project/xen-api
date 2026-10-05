@@ -276,6 +276,18 @@ jobs:
           # Cmdlet Get-Help content (MAML external help)
           Copy-Item -Verbose "source\XenServerPowerShell.dll-Help.xml" -Destination "output" -Force
 
+      - name: Retrieve the help verification script
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: ocaml/sdk-gen/powershell/verify-help.ps1
+          sparse-checkout-cone-mode: false
+          path: repo
+          persist-credentials: false
+
+      - name: Verify cmdlet Get-Help content
+        shell: pwsh
+        run: repo/ocaml/sdk-gen/powershell/verify-help.ps1 -ModulePath output
+
       - name: Store PowerShell SDK (.NET ${{ matrix.dotnet }})
         uses: actions/upload-artifact@v7
         with:

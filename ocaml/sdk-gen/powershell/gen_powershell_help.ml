@@ -16,7 +16,7 @@
    gen_powershell_binding (getters, constructors, setters, adders, removers,
    the Invoke cmdlets with their dynamic parameters, the HTTP actions and the
    hand-written cmdlets) and describes the parameters each of them ends up
-   with. *)
+   with. verify-help.ps1 checks the result against the compiled module in CI. *)
 
 open Printf
 open Datamodel
