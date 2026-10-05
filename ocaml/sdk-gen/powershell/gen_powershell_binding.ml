@@ -271,103 +271,29 @@ and write_file cmdletname content =
 (*********************************)
 (* Print function for Get-XenFoo *)
 (*********************************)
+and render_to_string template_name json =
+  let path = Filename.concat templdir template_name in
+  let templ = string_of_file path |> Mustache.of_string in
+  Mustache.render templ json
+
 and gen_class obj classname =
   if List.mem classname classes_with_records then
-    print_header_class classname
-    ^ print_parameters_class obj classname
-    ^ print_methods_class classname (has_uuid obj) (has_name obj)
+    let json =
+      `O
+        [
+          ("licence", `String Licence.bsd_two_clause)
+        ; ("class", `String (ocaml_class_to_csharp_class classname))
+        ; ("qualified_type", `String (qualified_class_name classname))
+        ; ( "params"
+          , `String (print_xenobject_params obj classname false false true)
+          )
+        ; ("has_uuid", `Bool (has_uuid obj))
+        ; ("has_name", `Bool (has_name obj))
+        ]
+    in
+    render_to_string "Get-XenObject.mustache" json
   else
     ""
-
-and print_header_class classname =
-  sprintf
-    "%s\n\n\
-     using System;\n\
-     using System.Collections;\n\
-     using System.Collections.Generic;\n\
-     using System.Management.Automation;\n\
-     using XenAPI;\n\n\
-     namespace Citrix.XenServer.Commands\n\
-     {\n\
-    \    [Cmdlet(VerbsCommon.Get, \"Xen%s\", DefaultParameterSetName = \
-     \"Ref\", SupportsShouldProcess = false)]\n\
-    \    [OutputType(typeof(%s[]))]\n\
-    \    public class GetXen%sCommand : XenServerCmdlet\n\
-    \    {\n"
-    Licence.bsd_two_clause
-    (ocaml_class_to_csharp_class classname)
-    (qualified_class_name classname)
-    (ocaml_class_to_csharp_class classname)
-
-and print_parameters_class obj classname =
-  sprintf "        #region Cmdlet Parameters\n%s\n        #endregion\n"
-    (print_xenobject_params obj classname false false true)
-
-and print_methods_class classname has_uuid has_name =
-  let classType = qualified_class_name classname in
-  sprintf
-    "\n\
-    \        #region Cmdlet Methods\n\n\
-    \        protected override void ProcessRecord()\n\
-    \        {\n\
-    \            GetSession();\n\n\
-    \            var records = %s.get_all_records(session);\n\n\
-    \            foreach (var record in records)\n\
-    \                record.Value.opaque_ref = record.Key;\n\n\
-    \            var results = new List<%s>();\n\n\
-    \            if (Ref != null)\n\
-    \            {\n\
-    \                foreach (var record in records)\n\
-    \                    if (Ref.opaque_ref == record.Key.opaque_ref)\n\
-    \                    {\n\
-    \                        results.Add(record.Value);\n\
-    \                        break;\n\
-    \                    }\n\
-    \            }%s%s\n\
-    \            else\n\
-    \            {\n\
-    \                results.AddRange(records.Values);\n\
-    \            }\n\n\
-    \            WriteObject(results, true);\n\n\
-    \            UpdateSessions();\n\
-    \        }\n\n\
-    \        #endregion\n\
-    \    }\n\
-     }\n"
-    classType classType
-    ( if has_name then
-        sprintf
-          "\n\
-          \            else if (Name != null)\n\
-          \            {\n\
-          \                var options = WildcardOptions.IgnoreCase\n\
-          \                              | WildcardOptions.Compiled\n\
-          \                              | WildcardOptions.CultureInvariant;\n\
-          \                var wildcard = new WildcardPattern(Name, options);\n\n\
-          \                foreach (var record in records)\n\
-          \                {\n\
-          \                    if (wildcard.IsMatch(record.Value.name_label))\n\
-          \                        results.Add(record.Value);\n\
-          \                }\n\
-          \            }"
-      else
-        ""
-    )
-    ( if has_uuid then
-        sprintf
-          "\n\
-          \            else if (Uuid != Guid.Empty)\n\
-          \            {\n\
-          \                foreach (var record in records)\n\
-          \                    if (Uuid.ToString() == record.Value.uuid)\n\
-          \                    {\n\
-          \                        results.Add(record.Value);\n\
-          \                        break;\n\
-          \                    }\n\
-          \            }"
-      else
-        ""
-    )
 
 (*********************************)
 (* Print function for New-XenFoo *)
@@ -376,66 +302,51 @@ and gen_constructor obj classname messages =
   match messages with
   | [] ->
       ""
-  | [x] ->
-      print_header_constructor x classname
-      ^ print_params_constructor x obj classname
-      ^ print_methods_constructor x obj classname
+  | [message] ->
+      let fields_or_params =
+        if is_real_constructor message then
+          gen_fields (DU.fields_of_obj obj)
+        else
+          gen_constructor_params message.msg_params
+      in
+      let async_param_override =
+        if message.msg_async then
+          "\n\
+          \        protected override bool GenerateAsyncParam\n\
+          \        {\n\
+          \            get { return true; }\n\
+          \        }\n"
+        else
+          ""
+      in
+      let make =
+        if is_real_constructor message then
+          gen_make_record obj classname
+        else
+          gen_make_fields message obj
+      in
+      let json =
+        `O
+          [
+            ("licence", `String Licence.bsd_two_clause)
+          ; ("class", `String (ocaml_class_to_csharp_class classname))
+          ; ("qualified_type", `String (qualified_class_name classname))
+          ; ("async_task", `Bool message.msg_async)
+          ; ("fields_or_params", `String fields_or_params)
+          ; ("async_param_override", `String async_param_override)
+          ; ("make", `String make)
+          ; ( "shouldprocess"
+            , `String (gen_shouldprocess "New" message classname)
+            )
+          ; ("open_brace", `String "{")
+          ; ( "api_call"
+            , `String (gen_csharp_api_call message classname "New" "passthru")
+            )
+          ]
+      in
+      render_to_string "New-XenObject.mustache" json
   | _ ->
       assert false
-
-and print_header_constructor message classname =
-  sprintf
-    "%s\n\n\
-     using System;\n\
-     using System.Collections;\n\
-     using System.Collections.Generic;\n\
-     using System.Management.Automation;\n\
-     using XenAPI;\n\n\
-     namespace Citrix.XenServer.Commands\n\
-     {\n\
-    \    [Cmdlet(VerbsCommon.New, \"Xen%s\", DefaultParameterSetName = \
-     \"Hashtable\", SupportsShouldProcess = true)]\n\
-    \    [OutputType(typeof(%s))]%s\n\
-    \    [OutputType(typeof(void))]\n\
-    \    public class NewXen%sCommand : XenServerCmdlet\n\
-    \    {"
-    Licence.bsd_two_clause
-    (ocaml_class_to_csharp_class classname)
-    (qualified_class_name classname)
-    ( if message.msg_async then
-        "\n    [OutputType(typeof(XenAPI.Task))]"
-      else
-        ""
-    )
-    (ocaml_class_to_csharp_class classname)
-
-and print_params_constructor message obj classname =
-  sprintf
-    "\n\
-    \        #region Cmdlet Parameters\n\n\
-    \        [Parameter]\n\
-    \        public SwitchParameter PassThru { get; set; }\n\n\
-    \        [Parameter(ParameterSetName = \"Hashtable\", Mandatory = true)]\n\
-    \        public Hashtable HashTable { get; set; }\n\n\
-    \        [Parameter(ParameterSetName = \"Record\", Mandatory = true)]\n\
-    \        public %s Record { get; set; }\n\
-     %s%s\n\
-    \        #endregion\n"
-    (qualified_class_name classname)
-    ( if is_real_constructor message then
-        gen_fields (DU.fields_of_obj obj)
-      else
-        gen_constructor_params message.msg_params
-    )
-    ( if message.msg_async then
-        "\n\
-        \        protected override bool GenerateAsyncParam\n\
-        \        {\n\
-        \            get { return true; }\n\
-        \        }\n"
-      else
-        ""
-    )
 
 and gen_constructor_params params =
   match params with
@@ -470,29 +381,6 @@ and gen_constructor_param paramName paramType paramsets =
       (print_parameter_sets paramsets)
       (obj_internal_type paramType)
       publicName
-
-and print_methods_constructor message obj classname =
-  sprintf
-    "\n\
-    \        #region Cmdlet Methods\n\n\
-    \        protected override void ProcessRecord()\n\
-    \        {\n\
-    \            GetSession();%s%s\n\
-    \            RunApiCall(()=>\n\
-    \            {%s\n\
-    \            });\n\n\
-    \            UpdateSessions();\n\
-    \        }\n\n\
-    \        #endregion\n\
-    \   }\n\
-     }\n"
-    ( if is_real_constructor message then
-        gen_make_record obj classname
-      else
-        gen_make_fields message obj
-    )
-    (gen_shouldprocess "New" message classname)
-    (gen_csharp_api_call message classname "New" "passthru")
 
 and gen_make_record obj classname =
   sprintf
@@ -689,197 +577,74 @@ and gen_destructor obj =
 (*****************************************)
 (* Print function for Remove-XenFoo -Bar *)
 (*****************************************)
-and gen_remover obj classname messages =
+and gen_message_family verb noun class_decl void_output obj classname messages =
   match messages with
   | [] ->
       ""
   | _ ->
-      let cut_message_name x = cut_msg_name (pascal_case x.msg_name) "Remove" in
+      let cut_message_name x = cut_msg_name (pascal_case x.msg_name) verb in
       let asyncMessages =
         List.map cut_message_name (List.filter (fun x -> x.msg_async) messages)
       in
-      sprintf
-        "%s\n\n\
-         using System;\n\
-         using System.Collections;\n\
-         using System.Collections.Generic;\n\
-         using System.Management.Automation;\n\
-         using XenAPI;\n\n\
-         namespace Citrix.XenServer.Commands\n\
-         {\n\
-        \    [Cmdlet(VerbsCommon.Remove, \"Xen%sProperty\", \
-         SupportsShouldProcess = true)]\n\
-        \    [OutputType(typeof(%s))]%s\n\
-        \    public class RemoveXen%sProperty : XenServerCmdlet\n\
-        \    {\n\
-        \        #region Cmdlet Parameters\n\n\
-        \        [Parameter]\n\
-        \        public SwitchParameter PassThru { get; set; }\n\
-         %s%s%s\n\
-        \        #endregion\n\n\
-        \        #region Cmdlet Methods\n\n\
-        \        protected override void ProcessRecord()\n\
-        \        {\n\
-        \            GetSession();\n\n\
-        \            string %s = Parse%s();\n\n\
-        \            %s\n\n\
-        \            %s\n\n\
-        \            UpdateSessions();\n\
-        \        }\n\n\
-        \        #endregion\n\n\
-        \        #region Private Methods\n\
-         %s%s\n\
-        \        #endregion\n\
-        \    }\n\
-         }\n"
-        Licence.bsd_two_clause
-        (ocaml_class_to_csharp_class classname)
-        (qualified_class_name classname)
-        ( if asyncMessages <> [] then
-            "\n    [OutputType(typeof(XenAPI.Task))]"
-          else
-            ""
-        )
-        (ocaml_class_to_csharp_class classname)
-        (print_xenobject_params obj classname true true true)
-        (print_async_param asyncMessages)
-        (gen_message_as_param classname "Remove" messages)
-        (ocaml_class_to_csharp_local_var classname)
-        (ocaml_class_to_csharp_property classname)
-        (print_cmdlet_methods classname messages "Remove")
-        (gen_passthru classname)
-        (print_parse_xenobject_private_method obj classname true)
-        (print_process_record_private_methods classname messages "Remove" "")
+      let json =
+        `O
+          [
+            ("licence", `String Licence.bsd_two_clause)
+          ; ("verb", `String verb)
+          ; ("noun", `String noun)
+          ; ("qualified_type", `String (qualified_class_name classname))
+          ; ("async_task", `Bool (asyncMessages <> []))
+          ; ("void_output", `Bool void_output)
+          ; ("class_decl", `String class_decl)
+          ; ( "params"
+            , `String (print_xenobject_params obj classname true true true)
+            )
+          ; ("async_param", `String (print_async_param asyncMessages))
+          ; ( "message_params"
+            , `String (gen_message_as_param classname verb messages)
+            )
+          ; ("local_var", `String (ocaml_class_to_csharp_local_var classname))
+          ; ("property", `String (ocaml_class_to_csharp_property classname))
+          ; ( "cmdlet_methods"
+            , `String (print_cmdlet_methods classname messages verb)
+            )
+          ; ("passthru", `String (gen_passthru classname))
+          ; ( "parse_method"
+            , `String (print_parse_xenobject_private_method obj classname true)
+            )
+          ; ( "process_methods"
+            , `String
+                (print_process_record_private_methods classname messages verb "")
+            )
+          ]
+      in
+      render_to_string "Set-XenObject.mustache" json
+
+(*****************************************)
+(* Print function for Remove-XenFoo -Bar *)
+(*****************************************)
+and gen_remover obj classname messages =
+  let stem = ocaml_class_to_csharp_class classname in
+  gen_message_family "Remove"
+    (sprintf "%sProperty" stem)
+    (sprintf "RemoveXen%sProperty" stem)
+    false obj classname messages
 
 (**************************************)
 (* Print function for Set-XenFoo -Bar *)
 (**************************************)
 and gen_setter obj classname messages =
-  match messages with
-  | [] ->
-      ""
-  | _ ->
-      let cut_message_name x = cut_msg_name (pascal_case x.msg_name) "Set" in
-      let asyncMessages =
-        List.map cut_message_name (List.filter (fun x -> x.msg_async) messages)
-      in
-      sprintf
-        "%s\n\n\
-         using System;\n\
-         using System.Collections;\n\
-         using System.Collections.Generic;\n\
-         using System.Management.Automation;\n\
-         using XenAPI;\n\n\
-         namespace Citrix.XenServer.Commands\n\
-         {\n\
-        \    [Cmdlet(VerbsCommon.Set, \"Xen%s\", SupportsShouldProcess = true)]\n\
-        \    [OutputType(typeof(%s))]%s\n\
-        \    [OutputType(typeof(void))]\n\
-        \    public class SetXen%s : XenServerCmdlet\n\
-        \    {\n\
-        \        #region Cmdlet Parameters\n\n\
-        \        [Parameter]\n\
-        \        public SwitchParameter PassThru { get; set; }\n\
-         %s%s%s\n\
-        \        #endregion\n\n\
-        \        #region Cmdlet Methods\n\n\
-        \        protected override void ProcessRecord()\n\
-        \        {\n\
-        \            GetSession();\n\n\
-        \            string %s = Parse%s();\n\n\
-        \            %s\n\n\
-        \            %s\n\n\
-        \            UpdateSessions();\n\
-        \        }\n\n\
-        \        #endregion\n\n\
-        \        #region Private Methods\n\
-         %s%s\n\
-        \        #endregion\n\
-        \    }\n\
-         }\n"
-        Licence.bsd_two_clause
-        (ocaml_class_to_csharp_class classname)
-        (qualified_class_name classname)
-        ( if asyncMessages <> [] then
-            "\n    [OutputType(typeof(XenAPI.Task))]"
-          else
-            ""
-        )
-        (ocaml_class_to_csharp_class classname)
-        (print_xenobject_params obj classname true true true)
-        (print_async_param asyncMessages)
-        (gen_message_as_param classname "Set" messages)
-        (ocaml_class_to_csharp_local_var classname)
-        (ocaml_class_to_csharp_property classname)
-        (print_cmdlet_methods classname messages "Set")
-        (gen_passthru classname)
-        (print_parse_xenobject_private_method obj classname true)
-        (print_process_record_private_methods classname messages "Set" "")
+  let stem = ocaml_class_to_csharp_class classname in
+  gen_message_family "Set" stem (sprintf "SetXen%s" stem) true obj classname
+    messages
 
 (**************************************)
 (* Print function for Add-XenFoo -Bar *)
 (**************************************)
 and gen_adder obj classname messages =
-  match messages with
-  | [] ->
-      ""
-  | _ ->
-      let cut_message_name x = cut_msg_name (pascal_case x.msg_name) "Add" in
-      let asyncMessages =
-        List.map cut_message_name (List.filter (fun x -> x.msg_async) messages)
-      in
-      sprintf
-        "%s\n\n\
-         using System;\n\
-         using System.Collections;\n\
-         using System.Collections.Generic;\n\
-         using System.Management.Automation;\n\
-         using XenAPI;\n\n\
-         namespace Citrix.XenServer.Commands\n\
-         {\n\
-        \    [Cmdlet(VerbsCommon.Add, \"Xen%s\", SupportsShouldProcess = true)]\n\
-        \    [OutputType(typeof(%s))]%s\n\
-        \    [OutputType(typeof(void))]\n\
-        \    public class AddXen%s : XenServerCmdlet\n\
-        \    {\n\
-        \        #region Cmdlet Parameters\n\n\
-        \        [Parameter]\n\
-        \        public SwitchParameter PassThru { get; set; }\n\
-         %s%s%s\n\
-        \        #endregion\n\n\
-        \        #region Cmdlet Methods\n\n\
-        \        protected override void ProcessRecord()\n\
-        \        {\n\
-        \            GetSession();\n\n\
-        \            string %s = Parse%s();\n\n\
-        \            %s\n\n\
-        \            %s\n\n\
-        \            UpdateSessions();\n\
-        \        }\n\n\
-        \        #endregion\n\n\
-        \        #region Private Methods\n\
-         %s%s\n\
-        \        #endregion\n\
-        \    }\n\
-         }\n"
-        Licence.bsd_two_clause
-        (ocaml_class_to_csharp_class classname)
-        (qualified_class_name classname)
-        ( if asyncMessages <> [] then
-            "\n    [OutputType(typeof(XenAPI.Task))]"
-          else
-            ""
-        )
-        (ocaml_class_to_csharp_class classname)
-        (print_xenobject_params obj classname true true true)
-        (print_async_param asyncMessages)
-        (gen_message_as_param classname "Add" messages)
-        (ocaml_class_to_csharp_local_var classname)
-        (ocaml_class_to_csharp_property classname)
-        (print_cmdlet_methods classname messages "Add")
-        (gen_passthru classname)
-        (print_parse_xenobject_private_method obj classname true)
-        (print_process_record_private_methods classname messages "Add" "")
+  let stem = ocaml_class_to_csharp_class classname in
+  gen_message_family "Add" stem (sprintf "AddXen%s" stem) true obj classname
+    messages
 
 (*****************************************)
 (* Print function for Invoke-XenFoo -Bar *)
@@ -889,66 +654,63 @@ and gen_invoker obj classname messages =
   | [] ->
       ""
   | _ ->
+      let stem = ocaml_class_to_csharp_class classname in
       let messagesWithParams =
         List.filter (is_message_with_dynamic_params classname) messages
       in
-      sprintf
-        "%s\n\n\
-         using System;\n\
-         using System.Collections;\n\
-         using System.Collections.Generic;\n\
-         using System.Management.Automation;\n\
-         using XenAPI;\n\n\
-         namespace Citrix.XenServer.Commands\n\
-         {\n\
-        \    [Cmdlet(VerbsLifecycle.Invoke, \"Xen%s\", SupportsShouldProcess = \
-         true)]\n\
-        \    public class InvokeXen%s : XenServerCmdlet\n\
-        \    {\n\
-        \        #region Cmdlet Parameters\n\n\
-        \        [Parameter]\n\
-        \        public SwitchParameter PassThru { get; set; }\n\
-         %s\n\
-        \        [Parameter(Mandatory = true)]\n\
-        \        public Xen%sAction XenAction { get; set; }\n\n\
-        \        #endregion\n\
-         %s\n\
-        \        #region Cmdlet Methods\n\n\
-        \        protected override void ProcessRecord()\n\
-        \        {\n\
-        \            GetSession();\n\n\
-        \            string %s = Parse%s();\n\n\
-        \            switch (XenAction)\n\
-        \            {%s\n\
-        \            }\n\n\
-        \            UpdateSessions();\n\
-        \        }\n\n\
-        \        #endregion\n\n\
-        \        #region Private Methods\n\
-         %s%s\n\
-        \        #endregion\n\
-        \    }\n\n\
-        \    public enum Xen%sAction\n\
-        \    {%s\n\
-        \    }\n\
-         %s\n\
-         }\n"
-        Licence.bsd_two_clause
-        (ocaml_class_to_csharp_class classname)
-        (ocaml_class_to_csharp_class classname)
-        (print_xenobject_params obj classname true true true)
-        (ocaml_class_to_csharp_class classname)
-        (print_dynamic_generator classname "Action" "Invoke" messagesWithParams)
-        (ocaml_class_to_csharp_local_var classname)
-        (ocaml_class_to_csharp_property classname)
-        (print_cmdlet_methods_dynamic classname messages "Action" "Invoke")
-        (print_parse_xenobject_private_method obj classname true)
-        (print_process_record_private_methods classname messages "Invoke"
-           "passthru"
-        )
-        (ocaml_class_to_csharp_class classname)
-        (print_messages_as_enum "Invoke" messages)
-        (print_dynamic_params classname "Action" "Invoke" messagesWithParams)
+      let json =
+        `O
+          [
+            ("licence", `String Licence.bsd_two_clause)
+          ; ("verb_expr", `String "VerbsLifecycle.Invoke")
+          ; ("noun", `String stem)
+          ; ("should_process", `String "true")
+          ; ("class_decl", `String (sprintf "InvokeXen%s" stem))
+          ; ("class", `String stem)
+          ; ("enum_kind", `String "Action")
+          ; ("open_brace", `String "{")
+          ; ( "passthru_param"
+            , `String
+                "\n\
+                \        [Parameter]\n\
+                \        public SwitchParameter PassThru { get; set; }\n"
+            )
+          ; ( "params"
+            , `String (print_xenobject_params obj classname true true true)
+            )
+          ; ( "dynamic_generator"
+            , `String
+                (print_dynamic_generator classname "Action" "Invoke"
+                   messagesWithParams
+                )
+            )
+          ; ("local_var", `String (ocaml_class_to_csharp_local_var classname))
+          ; ("property", `String (ocaml_class_to_csharp_property classname))
+          ; ( "cmdlet_methods_dynamic"
+            , `String
+                (print_cmdlet_methods_dynamic classname messages "Action"
+                   "Invoke"
+                )
+            )
+          ; ( "parse_method"
+            , `String (print_parse_xenobject_private_method obj classname true)
+            )
+          ; ( "process_methods"
+            , `String
+                (print_process_record_private_methods classname messages
+                   "Invoke" "passthru"
+                )
+            )
+          ; ("messages_enum", `String (print_messages_as_enum "Invoke" messages))
+          ; ( "dynamic_params"
+            , `String
+                (print_dynamic_params classname "Action" "Invoke"
+                   messagesWithParams
+                )
+            )
+          ]
+      in
+      render_to_string "Invoke-XenObject.mustache" json
 
 (**********************************************)
 (* Print function for Get-XenFooProperty -Bar *)
@@ -958,62 +720,58 @@ and gen_getter obj classname messages =
   | [] ->
       ""
   | _ ->
+      let stem = ocaml_class_to_csharp_class classname in
       let messagesWithParams =
         List.filter (is_message_with_dynamic_params classname) messages
       in
-      sprintf
-        "%s\n\n\
-         using System;\n\
-         using System.Collections;\n\
-         using System.Collections.Generic;\n\
-         using System.Management.Automation;\n\
-         using XenAPI;\n\n\
-         namespace Citrix.XenServer.Commands\n\
-         {\n\
-        \    [Cmdlet(VerbsCommon.Get, \"Xen%sProperty\", SupportsShouldProcess \
-         = false)]\n\
-        \    public class GetXen%sProperty : XenServerCmdlet\n\
-        \    {\n\
-        \        #region Cmdlet Parameters\n\
-         %s\n\
-        \        [Parameter(Mandatory = true)]\n\
-        \        public Xen%sProperty XenProperty { get; set; }\n\n\
-        \        #endregion\n\
-         %s\n\
-        \        #region Cmdlet Methods\n\n\
-        \        protected override void ProcessRecord()\n\
-        \        {\n\
-        \            GetSession();\n\n\
-        \            string %s = Parse%s();\n\n\
-        \            switch (XenProperty)\n\
-        \            {%s\n\
-        \            }\n\n\
-        \            UpdateSessions();\n\
-        \        }\n\n\
-        \        #endregion\n\n\
-        \        #region Private Methods\n\
-         %s%s\n\
-        \        #endregion\n\
-        \    }\n\n\
-        \    public enum Xen%sProperty\n\
-        \    {%s\n\
-        \    }\n\
-         %s\n\
-         }\n"
-        Licence.bsd_two_clause
-        (ocaml_class_to_csharp_class classname)
-        (ocaml_class_to_csharp_class classname)
-        (print_xenobject_params obj classname true true false)
-        (ocaml_class_to_csharp_class classname)
-        (print_dynamic_generator classname "Property" "Get" messagesWithParams)
-        (ocaml_class_to_csharp_local_var classname)
-        (ocaml_class_to_csharp_property classname)
-        (print_cmdlet_methods_dynamic classname messages "Property" "Get")
-        (print_parse_xenobject_private_method obj classname false)
-        (print_process_record_private_methods classname messages "Get" "pipe")
-        (ocaml_class_to_csharp_class classname)
-        (print_messages_as_enum "Get" messages)
-        (print_dynamic_params classname "Property" "Get" messagesWithParams)
+      let json =
+        `O
+          [
+            ("licence", `String Licence.bsd_two_clause)
+          ; ("verb_expr", `String "VerbsCommon.Get")
+          ; ("noun", `String (sprintf "%sProperty" stem))
+          ; ("should_process", `String "false")
+          ; ("class_decl", `String (sprintf "GetXen%sProperty" stem))
+          ; ("class", `String stem)
+          ; ("enum_kind", `String "Property")
+          ; ("open_brace", `String "{")
+          ; ("passthru_param", `String "")
+          ; ( "params"
+            , `String (print_xenobject_params obj classname true true false)
+            )
+          ; ( "dynamic_generator"
+            , `String
+                (print_dynamic_generator classname "Property" "Get"
+                   messagesWithParams
+                )
+            )
+          ; ("local_var", `String (ocaml_class_to_csharp_local_var classname))
+          ; ("property", `String (ocaml_class_to_csharp_property classname))
+          ; ( "cmdlet_methods_dynamic"
+            , `String
+                (print_cmdlet_methods_dynamic classname messages "Property"
+                   "Get"
+                )
+            )
+          ; ( "parse_method"
+            , `String (print_parse_xenobject_private_method obj classname false)
+            )
+          ; ( "process_methods"
+            , `String
+                (print_process_record_private_methods classname messages "Get"
+                   "pipe"
+                )
+            )
+          ; ("messages_enum", `String (print_messages_as_enum "Get" messages))
+          ; ( "dynamic_params"
+            , `String
+                (print_dynamic_params classname "Property" "Get"
+                   messagesWithParams
+                )
+            )
+          ]
+      in
+      render_to_string "Invoke-XenObject.mustache" json
 
 and print_cmdlet_methods_dynamic classname messages enum commonVerb =
   let cut_message_name x = cut_msg_name (pascal_case x.msg_name) commonVerb in

@@ -1,0 +1,48 @@
+{{{licence}}}
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Management.Automation;
+using XenAPI;
+
+namespace Citrix.XenServer.Commands
+{
+    [Cmdlet({{{verb_expr}}}, "Xen{{{noun}}}", SupportsShouldProcess = {{{should_process}}})]
+    public class {{{class_decl}}} : XenServerCmdlet
+    {
+        #region Cmdlet Parameters
+{{{passthru_param}}}{{{params}}}
+        [Parameter(Mandatory = true)]
+        public Xen{{{class}}}{{{enum_kind}}} Xen{{{enum_kind}}} { get; set; }
+
+        #endregion
+{{{dynamic_generator}}}
+        #region Cmdlet Methods
+
+        protected override void ProcessRecord()
+        {
+            GetSession();
+
+            string {{{local_var}}} = Parse{{{property}}}();
+
+            switch (Xen{{{enum_kind}}})
+            {{{open_brace}}}{{{cmdlet_methods_dynamic}}}
+            }
+
+            UpdateSessions();
+        }
+
+        #endregion
+
+        #region Private Methods
+{{{parse_method}}}{{{process_methods}}}
+        #endregion
+    }
+
+    public enum Xen{{{class}}}{{{enum_kind}}}
+    {{{open_brace}}}{{{messages_enum}}}
+    }
+{{{dynamic_params}}}
+}
+
