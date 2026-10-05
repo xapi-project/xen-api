@@ -690,8 +690,222 @@ module InvariantsTest = struct
     ]
 end
 
+(* The entries in curated_examples.ml are written by hand, so they get the same
+   scrutiny as generated output.
+
+   These checks need nothing but the module itself -- no compiled PowerShell
+   module, no host to talk to -- so they run with the rest of the unit tests.
+   They cover the part that can be settled from the file alone: that an entry
+   is well formed, and that it is filed under the cmdlet it actually shows.
+   Whether the cmdlet still exists is settled by gen_powershell_binding, which
+   refuses to build on an orphaned entry; whether the parameters and enum
+   values still exist is settled by verify-help.ps1 against the built module in
+   CI. *)
+module CuratedExamplesTest = struct
+  let examples = Curated_examples.examples
+
+  let contains needle haystack =
+    let nl = String.length needle and hl = String.length haystack in
+    let rec go i =
+      i + nl <= hl && (String.sub haystack i nl = needle || go (i + 1))
+    in
+    nl = 0 || go 0
+
+  (* Walk every (cmdlet, title, code, explanation), tagging failures with the
+     cmdlet so a broken entry is named rather than merely counted. *)
+  let iter_examples f =
+    List.iter
+      (fun (cmdlet, es) ->
+        List.iter (fun (title, code, expl) -> f cmdlet title code expl) es
+      )
+      examples
+
+  let lines s =
+    String.split_on_char '\n' s |> List.filter (fun l -> String.trim l <> "")
+
+  let test_each_cmdlet_has_an_example () =
+    List.iter
+      (fun (cmdlet, es) ->
+        Alcotest.(check bool)
+          (cmdlet ^ ": listed, so must carry at least one example")
+          true (es <> [])
+      )
+      examples
+
+  let test_no_duplicate_cmdlets () =
+    let names = List.map fst examples in
+    let sorted = List.sort_uniq String.compare names in
+    Alcotest.(check int)
+      "each cmdlet appears once; a second entry would silently win"
+      (List.length names) (List.length sorted)
+
+  (* All three parts reach the reader: the title becomes the heading Get-Help
+     prints, the code dev:code and the explanation dev:remarks. An empty one
+     renders as a blank example. *)
+  let test_all_parts_present () =
+    iter_examples (fun cmdlet title code expl ->
+        Alcotest.(check bool)
+          (cmdlet ^ ": example has a title")
+          true
+          (String.trim title <> "") ;
+        Alcotest.(check bool)
+          (cmdlet ^ ": example code is not blank")
+          true
+          (String.trim code <> "") ;
+        Alcotest.(check bool)
+          (cmdlet ^ ": example has an explanation")
+          true
+          (String.trim expl <> "")
+    )
+
+  (* Titles are headings, not sentences: "Start a VM", not "Starts the VM." *)
+  let test_titles_read_as_headings () =
+    iter_examples (fun cmdlet title _ _ ->
+        let t = String.trim title in
+        Alcotest.(check bool)
+          (cmdlet ^ ": title opens with a capital")
+          true
+          (t <> "" && t.[0] = Char.uppercase_ascii t.[0]) ;
+        Alcotest.(check bool)
+          (cmdlet ^ ": title does not end with a full stop")
+          false
+          (t <> "" && t.[String.length t - 1] = '.') ;
+        (* Get-Help pads the heading with 26 dashes either side, so a long
+           title wraps and the separator stops looking like one. Terse titles
+           read better anyway. *)
+        Alcotest.(check bool)
+          (cmdlet ^ ": title is short enough not to wrap: " ^ t)
+          true
+          (String.length t <= 44)
+    )
+
+  (* Get-Help renders examples verbatim, so the layout has to carry the
+     meaning: a prompt opens each statement, and a statement continued over
+     several lines is indented instead. verify-help.ps1 strips the prompts on
+     exactly that rule before parsing the example, so a continuation that
+     wrongly carries one stops being part of the statement above it. *)
+  let test_prompts_open_statements () =
+    iter_examples (fun cmdlet _ code _ ->
+        let ls = lines code in
+        ( match ls with
+        | first :: _ ->
+            Alcotest.(check bool)
+              (cmdlet ^ ": example opens at a PS> prompt")
+              true
+              (String.starts_with ~prefix:"PS> " first)
+        | [] ->
+            ()
+        ) ;
+        List.iter
+          (fun line ->
+            Alcotest.(check bool)
+              (cmdlet
+              ^ ": line is a prompt or an indented continuation: "
+              ^ line
+              )
+              true
+              (String.starts_with ~prefix:"PS> " line
+              || String.starts_with ~prefix:"    " line
+              )
+          )
+          ls
+    )
+
+  (* An example filed under the wrong cmdlet is worse than no example: it is
+     shown under a heading it does not illustrate. *)
+  let test_example_invokes_its_own_cmdlet () =
+    iter_examples (fun cmdlet _ code _ ->
+        Alcotest.(check bool)
+          (cmdlet ^ ": example actually invokes " ^ cmdlet)
+          true (contains cmdlet code)
+    )
+
+  (* Not a PowerShell parse -- that is verify-help.ps1's job against the built
+     module -- but unbalanced delimiters are the way a hand-edited snippet
+     usually breaks, and they are cheap to catch here. *)
+  let test_snippets_are_balanced () =
+    let count c s =
+      String.fold_left
+        (fun n ch ->
+          if ch = c then
+            n + 1
+          else
+            n
+        )
+        0 s
+    in
+    iter_examples (fun cmdlet _ code _ ->
+        let balanced l r = count l code = count r code in
+        Alcotest.(check bool)
+          (cmdlet ^ ": double quotes are balanced")
+          true
+          (count '"' code mod 2 = 0) ;
+        Alcotest.(check bool)
+          (cmdlet ^ ": parentheses are balanced")
+          true (balanced '(' ')') ;
+        Alcotest.(check bool)
+          (cmdlet ^ ": braces are balanced")
+          true (balanced '{' '}') ;
+        Alcotest.(check bool)
+          (cmdlet ^ ": brackets are balanced")
+          true (balanced '[' ']')
+    )
+
+  (* The explanations sit together in one EXAMPLES block, so they should read
+     alike: a sentence, not a fragment. *)
+  let test_explanations_read_as_sentences () =
+    iter_examples (fun cmdlet _ _ expl ->
+        let e = String.trim expl in
+        Alcotest.(check bool)
+          (cmdlet ^ ": explanation opens with a capital")
+          true
+          (e <> "" && e.[0] = Char.uppercase_ascii e.[0]) ;
+        Alcotest.(check bool)
+          (cmdlet ^ ": explanation ends with a full stop")
+          true
+          (e <> "" && e.[String.length e - 1] = '.')
+    )
+
+  (* The lookup the generator goes through, rather than the table behind it. *)
+  let test_lookup_matches_the_table () =
+    List.iter
+      (fun (cmdlet, es) ->
+        Alcotest.(check int)
+          (cmdlet ^ ": for_cmdlet returns its examples")
+          (List.length es)
+          (List.length (Curated_examples.for_cmdlet cmdlet))
+      )
+      examples ;
+    Alcotest.(check int)
+      "an unknown cmdlet has no curated examples" 0
+      (List.length (Curated_examples.for_cmdlet "Get-XenNoSuchThing"))
+
+  let tests =
+    [
+      ("each_cmdlet_has_an_example", `Quick, test_each_cmdlet_has_an_example)
+    ; ("no_duplicate_cmdlets", `Quick, test_no_duplicate_cmdlets)
+    ; ("all_parts_present", `Quick, test_all_parts_present)
+    ; ("titles_read_as_headings", `Quick, test_titles_read_as_headings)
+    ; ("prompts_open_statements", `Quick, test_prompts_open_statements)
+    ; ( "example_invokes_its_own_cmdlet"
+      , `Quick
+      , test_example_invokes_its_own_cmdlet
+      )
+    ; ("snippets_are_balanced", `Quick, test_snippets_are_balanced)
+    ; ( "explanations_read_as_sentences"
+      , `Quick
+      , test_explanations_read_as_sentences
+      )
+    ; ("lookup_matches_the_table", `Quick, test_lookup_matches_the_table)
+    ]
+end
+
 let tests =
   Test_highlevel.make_suite "gen_powershell_binding_"
-    [("templates", TemplatesTest.tests); ("invariants", InvariantsTest.tests)]
+    [
+      ("templates", TemplatesTest.tests)
+    ; ("invariants", InvariantsTest.tests)
+    ; ("curated_examples", CuratedExamplesTest.tests)
+    ]
 
 let () = Alcotest.run "Gen PowerShell binding" tests

@@ -174,6 +174,12 @@ type help_parameter = {
   ; hp_in_syntax: bool
 }
 
+(* Which curated examples were actually attached to a cmdlet. Checked at the
+   end of generation: an entry that matches nothing means the cmdlet it names
+   has been renamed or withdrawn, and the example is now describing something
+   that does not exist. *)
+let curated_used = ref []
+
 (* Take the first [n], which is how a family tops its examples up to three
    without inventing anything: the list is already in best-first order. *)
 let help_take n l = List.filteri (fun i _ -> i < n) l
@@ -217,7 +223,22 @@ let rec gen_help () =
   let json = `O [("commands", `A commands)] in
   render_file
     ("PowerShellHelp.mustache", "XenServerPowerShell.dll-Help.xml")
-    json templdir destdir
+    json templdir destdir ;
+  (* Refuse to produce help that carries an example for a cmdlet this
+     generator no longer emits: the entry in curated_examples.ml has outlived
+     whatever it was describing. *)
+  match
+    List.filter
+      (fun n -> not (List.mem n !curated_used))
+      Curated_examples.cmdlet_names
+  with
+  | [] ->
+      ()
+  | orphans ->
+      eprintf
+        "curated_examples.ml has entries for cmdlets that are not generated: %s\n"
+        (String.concat ", " orphans) ;
+      exit 1
 
 (* What each query argument of an HTTP action does. The datamodel declares the
    arguments but documents none of them, so these are written from the
@@ -1103,8 +1124,8 @@ and enum_values_of_ty ty =
   | _ ->
       []
 
-(* Examples are numbered by help_command once they have been put together,
-   so nothing here has to know its position.
+(* Examples are numbered by help_command once the generated and the curated
+   ones have been put together, so nothing here has to know its position.
    [title] says what the example shows; Get-Help puts it in the heading, the
    way a reader coming from any other module expects. *)
 and help_example ?(title = "") code remarks = (title, code, remarks)
@@ -1407,16 +1428,34 @@ and help_command ~name ~synopsis ~description ?(parameters = [])
       )
     @ match async with Some p -> [p] | None -> []
   in
+  (* Where a cmdlet has curated examples, lead with the plain generated form
+     and let the curated ones carry the rest, topping back up from the
+     remaining generated ones only if that leaves fewer than three. A curated
+     example says more than a generated one, but a cmdlet should not end up
+     with fewer examples for having been given better ones. *)
+  let curated = Curated_examples.for_cmdlet name in
+  let all_examples =
+    if curated = [] then
+      examples
+    else (
+      curated_used := name :: !curated_used ;
+      let first, rest =
+        match examples with e :: r -> ([e], r) | [] -> ([], [])
+      in
+      let kept = first @ curated in
+      kept @ help_take (3 - List.length kept) rest
+    )
+  in
   (* A class with neither a name_label nor a uuid, or with a single field to
      operate on, can run out of things to vary. Fall back to the session
      parameter: every cmdlet takes it, and driving more than one server from
      the same shell is worth knowing about. *)
   let all_examples =
-    match examples with
-    | (_, code, _) :: _ when List.length examples < 3 ->
-        examples
+    match all_examples with
+    | (_, code, _) :: _ when List.length all_examples < 3 ->
+        all_examples
         @ help_take
-            (3 - List.length examples)
+            (3 - List.length all_examples)
             [
               help_example ~title:"Run against a particular session"
                 (code ^ " -SessionOpaqueRef $session.opaque_ref")
@@ -1431,7 +1470,7 @@ and help_command ~name ~synopsis ~description ?(parameters = [])
                  than stopping the pipeline."
             ]
     | _ ->
-        examples
+        all_examples
   in
   (* Reflection derived INPUTS from the parameters that accept pipeline input;
      take them from the same place rather than restating them, so the two
@@ -1484,6 +1523,8 @@ and help_command ~name ~synopsis ~description ?(parameters = [])
              outputs
           )
       )
+      (* The curated examples follow the generated one, so each cmdlet reads
+         from the simplest form to the most involved. *)
     ; ("has_examples", `Bool (all_examples <> []))
     ; ( "examples"
       , `A (List.mapi (fun i e -> help_example_json (i + 1) e) all_examples)
