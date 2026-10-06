@@ -349,6 +349,7 @@
   uuidm
   uutf
   x509
+  xapi-consts
   xapi-log
   xapi-types
   xapi-rate-limit

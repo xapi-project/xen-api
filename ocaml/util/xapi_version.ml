@@ -57,3 +57,9 @@ let xapi_user_agent =
   ^ string_of_int xapi_version_major
   ^ "."
   ^ string_of_int xapi_version_minor
+
+let arg_spec =
+  ( "--version"
+  , Arg.Unit (fun () -> print_endline version ; exit 0)
+  , " Print the version and exit"
+  )

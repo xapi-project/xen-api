@@ -39,6 +39,7 @@ let _ =
     ; ("-p", Arg.Set_int port, "port number to connect to")
     ; ("-u", Arg.Set_string username, "username to connect with")
     ; ("-pw", Arg.Set_string password, "password to connect with")
+    ; Xapi_version.arg_spec
     ]
     (fun x -> Printf.printf "Skipping unknown argument: %s" x)
     "Subscribe to an event stream and print the results" ;

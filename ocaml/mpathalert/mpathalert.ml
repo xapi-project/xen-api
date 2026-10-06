@@ -373,6 +373,7 @@ let _ =
               (default is %.0f)"
              !delay
          )
+       ; Xapi_version.arg_spec
        ]
     )
     (fun _ -> failwith "Invalid argument")

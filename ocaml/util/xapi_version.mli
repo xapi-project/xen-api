@@ -27,3 +27,6 @@ val xapi_version_minor : int
 val compare_version : string -> string -> int
 
 val xapi_user_agent : string
+
+val arg_spec : string * Arg.spec * string
+(** A --version option for the Arg module, which prints [version] and exits *)
