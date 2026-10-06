@@ -126,6 +126,7 @@ type create_info = {
   ; is_uefi: bool
   ; pci_passthrough: bool
   ; pxe_dhcp_ipv4_allowed: bool
+  ; pxe_dhcp_ipv6_allowed: bool
 }
 [@@deriving rpcty]
 
@@ -659,7 +660,10 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
       xs.Xs.write (dom_path ^ "/hvmloader/bios") "ovmf" ;
       xs.Xs.write
         (dom_path ^ "/dhcp/allow-ipv4")
-        (string_of_bool vm_info.pxe_dhcp_ipv4_allowed)
+        (string_of_bool vm_info.pxe_dhcp_ipv4_allowed) ;
+      xs.Xs.write
+        (dom_path ^ "/dhcp/allow-ipv6")
+        (string_of_bool vm_info.pxe_dhcp_ipv6_allowed)
     ) ;
     xs.Xs.write
       (dom_path ^ "/hvmloader/pci/xen-platform-pci-bar-uc")

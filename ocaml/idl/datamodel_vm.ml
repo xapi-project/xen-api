@@ -3382,6 +3382,10 @@ let t =
             "pxe_dhcp_ipv4_allowed"
             "Whether PXE boot via DHCP IPv4 is allowed for this VM (UEFI VMs \
              only)"
+        ; field ~lifecycle:[] ~ty:Bool ~default_value:(Some (VBool true))
+            "pxe_dhcp_ipv6_allowed"
+            "Whether PXE boot via DHCP IPv6 is allowed for this VM (UEFI VMs \
+             only)"
         ]
       )
     ()

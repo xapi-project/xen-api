@@ -88,6 +88,7 @@ type create_info = {
   ; is_uefi: bool
   ; pci_passthrough: bool
   ; pxe_dhcp_ipv4_allowed: bool
+  ; pxe_dhcp_ipv6_allowed: bool
 }
 
 val typ_of_create_info : create_info Rpc.Types.typ
