@@ -2810,6 +2810,13 @@ let vm_record rpc session_id vm =
               (x ()).API.vM_pending_guidances_full
           )
           ()
+      ; make_field ~name:"pxe-dhcp-ipv4-allowed"
+          ~get:(fun () -> string_of_bool (x ()).API.vM_pxe_dhcp_ipv4_allowed)
+          ~set:(fun x ->
+            Client.VM.set_pxe_dhcp_ipv4_allowed ~rpc ~session_id ~self:vm
+              ~value:(safe_bool_of_string "pxe-dhcp-ipv4-allowed" x)
+          )
+          ()
       ]
   }
 

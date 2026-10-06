@@ -125,6 +125,7 @@ type create_info = {
   ; has_vendor_device: bool
   ; is_uefi: bool
   ; pci_passthrough: bool
+  ; pxe_dhcp_ipv4_allowed: bool
 }
 [@@deriving rpcty]
 
@@ -654,7 +655,12 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
     xs.Xs.writev dom_path (filtered_xsdata vm_info.xsdata) ;
     xs.Xs.writev (dom_path ^ "/platform") vm_info.platformdata ;
     xs.Xs.writev (dom_path ^ "/bios-strings") vm_info.bios_strings ;
-    if vm_info.is_uefi then xs.Xs.write (dom_path ^ "/hvmloader/bios") "ovmf" ;
+    if vm_info.is_uefi then (
+      xs.Xs.write (dom_path ^ "/hvmloader/bios") "ovmf" ;
+      xs.Xs.write
+        (dom_path ^ "/dhcp/allow-ipv4")
+        (string_of_bool vm_info.pxe_dhcp_ipv4_allowed)
+    ) ;
     xs.Xs.write
       (dom_path ^ "/hvmloader/pci/xen-platform-pci-bar-uc")
       ( if !Xenopsd.xen_platform_pci_bar_uc then

@@ -3378,6 +3378,10 @@ let t =
             ~default_value:(Some (VEnum "ok")) "secureboot_certificates_state"
             "The state of the Secure Boot certificates, showing whether an \
              update is available, already scheduled, or not needed."
+        ; field ~lifecycle:[] ~ty:Bool ~default_value:(Some (VBool true))
+            "pxe_dhcp_ipv4_allowed"
+            "Whether PXE boot via DHCP IPv4 is allowed for this VM (UEFI VMs \
+             only)"
         ]
       )
     ()

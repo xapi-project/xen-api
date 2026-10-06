@@ -202,6 +202,7 @@ val create :
   -> reference_label:string
   -> domain_type:API.domain_type
   -> nVRAM:(string * string) list
+  -> pxe_dhcp_ipv4_allowed:bool
   -> API.ref_VM
 
 val destroy : __context:Context.t -> self:[`VM] Ref.t -> unit
