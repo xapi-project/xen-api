@@ -9,6 +9,7 @@
     xapi-idl.storage
     xapi-idl.storage.interface
     xapi_internal
+    xapi-consts.xapi_version
     re
     re.str
     rpclib.core

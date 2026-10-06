@@ -33,9 +33,6 @@
 # check_hardcoded_rrd2csv_version
 #   rrd2csv prints a version written in its source.
 #
-# check_hardcoded_sm_cli_version
-#   sm-cli prints a version written in its source.
-#
 # check_unknown_option
 #   the program does not know --version yet.
 #
@@ -255,20 +252,6 @@ check_hardcoded_rrd2csv_version () {
   fi
 }
 
-check_hardcoded_sm_cli_version () {
-  installed "$1" || return
-  run "$1"
-  local property="reports the hard-coded version 1.0.0"
-  if [ "$STATUS" -eq 0 ] && [ "$OUT" = 1.0.0 ] && [ -z "$ERR" ]; then
-    pass "$1" "$property"
-  else
-    fail_run "$1" "$property" \
-      "  expected exit status: 0" \
-      "$(block "expected stdout" 1.0.0)" \
-      "  expected stderr: (empty)"
-  fi
-}
-
 # check_all_checked: every installed program that links Xapi_version is
 # listed below, and every program listed below links it. Programs are told
 # from other files by their ELF header, and from shared libraries, which
@@ -323,8 +306,7 @@ count () {
 summary () {
   local passed=0 check
   for check in check_version check_hardcoded_rrd2csv_version \
-    check_hardcoded_sm_cli_version check_unknown_option \
-    check_unknown_option_after_seed check_installed; do
+    check_unknown_option check_unknown_option_after_seed check_installed; do
     passed=$((passed + ${PASSED[$check]:-0}))
   done
   count "$FOUND" "program linking Xapi_version found under DESTDIR" \
@@ -335,8 +317,6 @@ summary () {
   echo "  $(count "$n" "program reports" "programs report") the correct version ($CORRECT_VERSION)"
   n=${PASSED[check_hardcoded_rrd2csv_version]:-0}
   echo "  $(count "$n" "program reports" "programs report") the hard-coded version 0.1.3"
-  n=${PASSED[check_hardcoded_sm_cli_version]:-0}
-  echo "  $(count "$n" "program reports" "programs report") the hard-coded version 1.0.0"
   n=${PASSED[check_unknown_option]:-0}
   echo "  $(count "$n" "program does" "programs do") not recognise --version"
   n=${PASSED[check_unknown_option_after_seed]:-0}
@@ -361,10 +341,10 @@ check_unknown_option            "$OPTDIR/debug/vncproxy"
 check_installed                 "$OPTDIR/libexec/alert-certificate-check"
 check_installed                 "$OPTDIR/libexec/daily-license-check"
 check_unknown_option            "$PREFIX/bin/gen_lifecycle"
-check_unknown_option            "$XENOPSD_LIBEXECDIR/pvs-proxy-ovs-setup"
-check_hardcoded_sm_cli_version  "$PREFIX/sbin/sm-cli"
+check_version                   "$XENOPSD_LIBEXECDIR/pvs-proxy-ovs-setup"
+check_version                   "$PREFIX/sbin/sm-cli"
 check_version                   "$PREFIX/sbin/squeezed"
-check_unknown_option            "$PREFIX/sbin/varstored-guard"
+check_version                   "$PREFIX/sbin/varstored-guard"
 check_version                   "$PREFIX/sbin/xapi-storage-script"
 check_version                   "$PREFIX/sbin/xcp-networkd"
 check_version                   "$PREFIX/sbin/xcp-rrdd"
