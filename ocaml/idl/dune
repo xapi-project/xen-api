@@ -66,13 +66,14 @@
 )
 
 (tests
-  (names schematest test_datetimes test_host)
+  (names schematest test_datetimes test_host test_error_registration)
   (modes exe)
-  (modules schematest test_datetimes test_host)
+  (modules schematest test_datetimes test_host test_error_registration)
   (libraries
     astring
     rpclib.core
     rpclib.json
+    xapi-consts
     xapi_datamodel
   )
   (package xapi-datamodel)
