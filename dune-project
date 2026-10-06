@@ -192,6 +192,8 @@
   ppx_deriving_rpc
   (xapi-client
    (= :version))
+  (xapi-consts
+   (= :version))
   (xapi-idl
    (= :version))
   (xapi-rate-limit
