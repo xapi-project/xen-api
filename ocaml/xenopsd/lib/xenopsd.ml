@@ -81,6 +81,8 @@ let vm_suspend_timeout = ref 1200.
 
 let vm_suspend_ack_timeout = ref 30.
 
+let dhcp_ipv4_path = ref "/dhcp/allow-ipv4"
+
 let oxenstored_conf = ref "/etc/xen/oxenstored.conf"
 
 let for_each_line path f =
@@ -355,6 +357,11 @@ let options =
        migration socket. On any failure the 'ktls' path logs a warning and \
        falls back to stunnel. If unset, uses 'ktls' when the experimental \
        feature flag migration_ktls is on, otherwise 'stunnel'."
+    )
+  ; ( "dhcp-ipv4-path"
+    , Arg.Set_string dhcp_ipv4_path
+    , (fun () -> !dhcp_ipv4_path)
+    , "XenStore path for controlling DHCP PXE boot over IPv4"
     )
   ]
 
