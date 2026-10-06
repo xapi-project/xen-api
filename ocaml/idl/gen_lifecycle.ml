@@ -72,7 +72,9 @@ let reset = ref false
 
 let _ =
   Arg.parse
-    [("-reset", Arg.Set reset, "Output empty functions ")]
+    [
+      ("-reset", Arg.Set reset, "Output empty functions "); Xapi_version.arg_spec
+    ]
     (fun x -> Printf.eprintf "Ignoring argument: %s\n" x)
     "Generate lifecycle replacement module from the datamodel." ;
 

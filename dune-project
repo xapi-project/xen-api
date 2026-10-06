@@ -342,6 +342,7 @@
   uutf
   x509
   xapi-backtrace
+  xapi-consts
   xapi-log
   xapi-types
   xapi-rate-limit

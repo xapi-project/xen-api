@@ -30,18 +30,9 @@
 # check_version
 #   the program reports the correct version.
 #
-# check_hardcoded_rrd2csv_version
-#   rrd2csv prints a version written in its source.
-#
-# check_unknown_option
-#   the program does not know --version yet.
-#
 # check_installed
 #   the program is only checked to be installed: it parses no argument,
 #   and running it with --version would make it do its real work.
-#
-# Messages from the OCaml runtime, the standard library or Cmdliner are not
-# ours and can change with their versions: only their substance is checked.
 #
 # By default, only failures are reported, on stderr. With -v, successes are
 # reported too, on stdout. With -s, a summary is printed last, on stdout:
@@ -180,11 +171,6 @@ run () {
   rm -f "$err"
 }
 
-# unknown_option: tell whether the program rejected --version
-unknown_option () {
-  [ "$STATUS" -ne 0 ] && [[ "$ERR" == *"unknown option '--version'"* ]]
-}
-
 # Checks
 
 check_installed () {
@@ -202,35 +188,6 @@ check_version () {
     fail_run "$1" "$property" \
       "  expected exit status: 0" \
       "$(block "expected stdout" "$CORRECT_VERSION")" \
-      "  expected stderr: (empty)"
-  fi
-}
-
-check_unknown_option () {
-  installed "$1" || return
-  run "$1"
-  local property="does not recognise --version"
-  if unknown_option && [ -z "$OUT" ]; then
-    pass "$1" "$property"
-  else
-    fail_run "$1" "$property" \
-      "  expected exit status: non-zero" \
-      "  expected stdout: (empty)" \
-      "$(block "expected stderr containing" "unknown option '--version'")"
-  fi
-}
-
-check_hardcoded_rrd2csv_version () {
-  installed "$1" || return
-  run "$1"
-  local property="reports the hard-coded version 0.1.3"
-  local version=$'rrd2csv version 0.1.3\n(C) Citrix 2012'
-  if [ "$STATUS" -eq 0 ] && [ "$OUT" = "$version" ] && [ -z "$ERR" ]; then
-    pass "$1" "$property"
-  else
-    fail_run "$1" "$property" \
-      "  expected exit status: 0" \
-      "$(block "expected stdout" "$version")" \
       "  expected stderr: (empty)"
   fi
 }
@@ -288,8 +245,7 @@ count () {
 # summary: print the summary, the checks in the order of the header
 summary () {
   local passed=0 check
-  for check in check_version check_hardcoded_rrd2csv_version \
-    check_unknown_option check_installed; do
+  for check in check_version check_installed; do
     passed=$((passed + ${PASSED[$check]:-0}))
   done
   count "$FOUND" "program linking Xapi_version found under DESTDIR" \
@@ -298,10 +254,6 @@ summary () {
   local n
   n=${PASSED[check_version]:-0}
   echo "  $(count "$n" "program reports" "programs report") the correct version ($CORRECT_VERSION)"
-  n=${PASSED[check_hardcoded_rrd2csv_version]:-0}
-  echo "  $(count "$n" "program reports" "programs report") the hard-coded version 0.1.3"
-  n=${PASSED[check_unknown_option]:-0}
-  echo "  $(count "$n" "program does" "programs do") not recognise --version"
   n=${PASSED[check_installed]:-0}
   echo "  $(count "$n" "program" "programs") could only be checked to be installed"
   n=$((REQUESTED - passed))
@@ -312,16 +264,16 @@ verbose "correct version: $CORRECT_VERSION (from ./configure --xapi_version)"
 
 # The programs, by installed path. The paths follow the install rules of the
 # Makefile.
-check_unknown_option            "$OPTDIR/bin/mpathalert"
-check_hardcoded_rrd2csv_version "$OPTDIR/bin/rrd2csv"
+check_version                   "$OPTDIR/bin/mpathalert"
+check_version                   "$OPTDIR/bin/rrd2csv"
 check_version                   "$OPTDIR/bin/xapi"
-check_unknown_option            "$OPTDIR/debug/event_listen"
-check_unknown_option            "$OPTDIR/debug/quicktestbin"
+check_version                   "$OPTDIR/debug/event_listen"
+check_version                   "$OPTDIR/debug/quicktestbin"
 check_version                   "$OPTDIR/debug/suspend-image-viewer"
-check_unknown_option            "$OPTDIR/debug/vncproxy"
+check_version                   "$OPTDIR/debug/vncproxy"
 check_installed                 "$OPTDIR/libexec/alert-certificate-check"
 check_installed                 "$OPTDIR/libexec/daily-license-check"
-check_unknown_option            "$PREFIX/bin/gen_lifecycle"
+check_version                   "$PREFIX/bin/gen_lifecycle"
 check_version                   "$XENOPSD_LIBEXECDIR/pvs-proxy-ovs-setup"
 check_version                   "$PREFIX/sbin/sm-cli"
 check_version                   "$PREFIX/sbin/squeezed"

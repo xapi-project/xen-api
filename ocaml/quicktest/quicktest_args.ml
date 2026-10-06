@@ -128,6 +128,7 @@ let parse () =
       , Arg.Set list_tests
       , "Lists test names as they are consumed by -run-only"
       )
+    ; Xapi_version.arg_spec
     ]
     (fun x ->
       match (!host, !username, !password) with
