@@ -36,9 +36,6 @@
 # check_unknown_option
 #   the program does not know --version yet.
 #
-# check_unknown_option_after_seed
-#   same, but the program first prints a random qcheck seed.
-#
 # check_installed
 #   the program is only checked to be installed: it parses no argument,
 #   and running it with --version would make it do its real work.
@@ -223,20 +220,6 @@ check_unknown_option () {
   fi
 }
 
-check_unknown_option_after_seed () {
-  installed "$1" || return
-  run "$1"
-  local property="does not recognise --version but prints a qcheck seed"
-  if unknown_option && [[ "$OUT" =~ ^"qcheck random seed: "[0-9]+$ ]]; then
-    pass "$1" "$property"
-  else
-    fail_run "$1" "$property" \
-      "  expected exit status: non-zero" \
-      "$(block "expected stdout" "qcheck random seed: <number>")" \
-      "$(block "expected stderr containing" "unknown option '--version'")"
-  fi
-}
-
 check_hardcoded_rrd2csv_version () {
   installed "$1" || return
   run "$1"
@@ -306,7 +289,7 @@ count () {
 summary () {
   local passed=0 check
   for check in check_version check_hardcoded_rrd2csv_version \
-    check_unknown_option check_unknown_option_after_seed check_installed; do
+    check_unknown_option check_installed; do
     passed=$((passed + ${PASSED[$check]:-0}))
   done
   count "$FOUND" "program linking Xapi_version found under DESTDIR" \
@@ -319,8 +302,6 @@ summary () {
   echo "  $(count "$n" "program reports" "programs report") the hard-coded version 0.1.3"
   n=${PASSED[check_unknown_option]:-0}
   echo "  $(count "$n" "program does" "programs do") not recognise --version"
-  n=${PASSED[check_unknown_option_after_seed]:-0}
-  echo "  $(count "$n" "program does not recognise --version but prints" "programs do not recognise --version but print") a qcheck seed"
   n=${PASSED[check_installed]:-0}
   echo "  $(count "$n" "program" "programs") could only be checked to be installed"
   n=$((REQUESTED - passed))
@@ -335,7 +316,7 @@ check_unknown_option            "$OPTDIR/bin/mpathalert"
 check_hardcoded_rrd2csv_version "$OPTDIR/bin/rrd2csv"
 check_version                   "$OPTDIR/bin/xapi"
 check_unknown_option            "$OPTDIR/debug/event_listen"
-check_unknown_option_after_seed "$OPTDIR/debug/quicktestbin"
+check_unknown_option            "$OPTDIR/debug/quicktestbin"
 check_version                   "$OPTDIR/debug/suspend-image-viewer"
 check_unknown_option            "$OPTDIR/debug/vncproxy"
 check_installed                 "$OPTDIR/libexec/alert-certificate-check"
