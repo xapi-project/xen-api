@@ -1,6 +1,9 @@
 (executable
   (modes exe)
   (name main)
+  ; belong to the package, so that dune-build-info reports its version
+  (public_name -)
+  (package message-switch-cli)
   (libraries
     cmdliner
     message-switch-core

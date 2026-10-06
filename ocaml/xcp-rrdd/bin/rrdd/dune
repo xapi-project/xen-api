@@ -39,6 +39,9 @@
 (executable
   (modes exe)
   (name xcp_rrdd)
+  ; belong to the package, so that dune-build-info reports its version
+  (public_name -)
+  (package xapi-tools)
   (modules xcp_rrdd)
   (libraries
     astring
