@@ -1746,6 +1746,7 @@ module VM = struct
     ; has_vendor_device= vm.has_vendor_device
     ; is_uefi
     ; pci_passthrough
+    ; pxe_dhcp_ipv4_allowed= vm.pxe_dhcp_ipv4_allowed
     }
 
   let xen_platform_of ~vm ~vmextra =

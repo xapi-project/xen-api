@@ -404,7 +404,8 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     ~pending_guidances:[] ~recommended_guidances:[]
     ~pending_guidances_recommended:[] ~pending_guidances_full:[]
     ~secureboot_certificates_state:
-      all.Db_actions.vM_secureboot_certificates_state ;
+      all.Db_actions.vM_secureboot_certificates_state
+    ~pxe_dhcp_ipv4_allowed:all.Db_actions.vM_pxe_dhcp_ipv4_allowed ;
   (* update the VM's parent field in case of snapshot. Note this must be done after "ref"
      	   has been created, so that its "children" field can be updated by the database layer *)
   ( match disk_op with

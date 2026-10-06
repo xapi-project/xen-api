@@ -582,7 +582,7 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~snapshot_schedule:_ ~is_vmss_snapshot:_ ~appliance ~start_delay
     ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
     ~hardware_platform_version ~has_vendor_device ~reference_label ~domain_type
-    ~nVRAM : API.ref_VM =
+    ~nVRAM ~pxe_dhcp_ipv4_allowed : API.ref_VM =
   (* Add random mac_seed if there isn't one specified already *)
   let other_config =
     let gen_mac_seed () = Uuidx.to_string (Uuidx.make ()) in
@@ -689,7 +689,7 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~has_vendor_device ~requires_reboot:false ~reference_label ~domain_type
     ~pending_guidances:[] ~recommended_guidances:[]
     ~pending_guidances_recommended:[] ~pending_guidances_full:[]
-    ~secureboot_certificates_state:`ok ;
+    ~secureboot_certificates_state:`ok ~pxe_dhcp_ipv4_allowed ;
   (* Inspect the NVRAM supplied at creation time and record whether its Secure
      Boot certificates are due to expire. If the pool has opted in to automatic
      Secure Boot certificate updates and an update is available, schedule it on
