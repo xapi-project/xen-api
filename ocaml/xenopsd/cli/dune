@@ -19,6 +19,7 @@
       unix
       uuid
       uuidm
+      xapi-consts.xapi_version
       xapi-idl
       xapi-idl.xen
       xapi-idl.xen.interface
