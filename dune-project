@@ -382,6 +382,7 @@
   ; because it is not in xs-opam yet
   rrd-transport
   rrdd-plugin
+  xapi-consts
   xapi-stdext-std
   xapi-tracing-export
   xen-api-client
