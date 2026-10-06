@@ -23,6 +23,7 @@
     daily_license_check
     http_lib
     xapi-client
+    xapi-consts.xapi_version
     xapi-types
     clock
     xapi-stdext-pervasives

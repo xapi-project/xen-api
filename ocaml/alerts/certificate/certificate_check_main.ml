@@ -7,6 +7,14 @@ let rpc xml =
     ~http:(xmlrpc ~version:"1.0" "/")
     xml
 
+let () =
+  match Sys.argv with
+  | [|_; "--version"|] ->
+      print_endline Xapi_version.version ;
+      exit 0
+  | _ ->
+      ()
+
 let _ =
   let session_id =
     XenAPI.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.0"
