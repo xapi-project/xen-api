@@ -83,6 +83,8 @@ let vm_suspend_ack_timeout = ref 30.
 
 let dhcp_ipv4_path = ref "/dhcp/allow-ipv4"
 
+let dhcp_ipv6_path = ref "/dhcp/allow-ipv6"
+
 let oxenstored_conf = ref "/etc/xen/oxenstored.conf"
 
 let for_each_line path f =
@@ -362,6 +364,11 @@ let options =
     , Arg.Set_string dhcp_ipv4_path
     , (fun () -> !dhcp_ipv4_path)
     , "XenStore path for controlling DHCP PXE boot over IPv4"
+    )
+  ; ( "dhcp-ipv6-path"
+    , Arg.Set_string dhcp_ipv6_path
+    , (fun () -> !dhcp_ipv6_path)
+    , "XenStore path for controlling DHCP PXE boot over IPv6"
     )
   ]
 
