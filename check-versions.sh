@@ -6,9 +6,8 @@
 # make install DESTDIR=<dir>. make check-versions DESTDIR=<dir> [V=1] runs
 # it with -s.
 #
-# The checks can only be done once the programs are installed: a version
-# that dune takes from git describe is written into a program only when
-# it is installed.
+# The checks can only be done once the programs are installed: they also
+# verify where each program is installed, and that none is left out.
 #
 # The correct version is the one given to ./configure --xapi_version,
 # without its leading "v". What really matters is that every program gets
@@ -34,22 +33,14 @@
 # check_hardcoded_rrd2csv_version
 #   rrd2csv prints a version written in its source.
 #
+# check_hardcoded_sm_cli_version
+#   sm-cli prints a version written in its source.
+#
 # check_unknown_option
 #   the program does not know --version yet.
 #
 # check_unknown_option_after_seed
 #   same, but the program first prints a random qcheck seed.
-#
-# check_git_describe BEHAVIOUR
-#   the program is installed by an (install) stanza and belongs to no
-#   package, so dune ignores the configured version and gives it the
-#   output of git describe instead: the program never reports the
-#   configured version. Moreover, in a clone without annotated tags, that
-#   output is a bare hash, which is not a valid xapi version, and the
-#   program aborts when it starts. Otherwise it starts and does what
-#   BEHAVIOUR says: version (reports the version from git describe),
-#   unknown_option (does not recognise --version) or
-#   hardcoded_sm_cli_version (reports the hard-coded version 1.0.0).
 #
 # check_installed
 #   the program is only checked to be installed: it parses no argument,
@@ -109,12 +100,6 @@ if [ -z "$XAPI_VERSION" ]; then
   exit 2
 fi
 CORRECT_VERSION=${XAPI_VERSION#v}
-
-# The version dune finds in git for programs without package, with the
-# command dune 3.20 uses (src/dune_vcs/vcs.ml), and without the leading "v"
-# that Xapi_version drops.
-GIT_VERSION=$(git -C "$SRCDIR" describe --always --dirty --abbrev=7 2>/dev/null)
-GIT_VERSION=${GIT_VERSION#v}
 
 FAILURES=0
 REQUESTED=0
@@ -227,69 +212,6 @@ check_version () {
   fi
 }
 
-# check_git_describe BEHAVIOUR PROGRAM
-check_git_describe () {
-  installed "$2" || return
-  run "$2"
-  local property
-  # Xapi_version.parse_xapi_version needs "<major>.<minor>.<rest>"
-  if ! [[ "$GIT_VERSION" =~ ^[0-9]+\.[0-9]+\. ]]; then
-    property="aborts on the version it gets from git describe"
-    local message="Couldn't determine xapi version from string: '$GIT_VERSION'"
-    if [ "$STATUS" -ne 0 ] && [ -z "$OUT" ] && [[ "$ERR" == *"$message"* ]]
-    then
-      pass "$2" "$property"
-    else
-      fail_run "$2" "$property" \
-        "  expected exit status: non-zero" \
-        "  expected stdout: (empty)" \
-        "$(block "expected stderr containing" "$message")"
-    fi
-    return
-  fi
-  # The version is valid: the program starts and does what BEHAVIOUR says
-  case "$1" in
-    version)
-      property="reports the version it gets from git describe"
-      if [ "$STATUS" -eq 0 ] && [ "$OUT" = "$GIT_VERSION" ] && [ -z "$ERR" ]
-      then
-        pass "$2" "$property"
-      else
-        fail_run "$2" "$property" \
-          "  expected exit status: 0" \
-          "$(block "expected stdout" "$GIT_VERSION")" \
-          "  expected stderr: (empty)"
-      fi
-      ;;
-    unknown_option)
-      property="does not recognise --version"
-      if unknown_option && [ -z "$OUT" ]; then
-        pass "$2" "$property"
-      else
-        fail_run "$2" "$property" \
-          "  expected exit status: non-zero" \
-          "  expected stdout: (empty)" \
-          "$(block "expected stderr containing" "unknown option '--version'")"
-      fi
-      ;;
-    hardcoded_sm_cli_version)
-      property="reports the hard-coded version 1.0.0"
-      if [ "$STATUS" -eq 0 ] && [ "$OUT" = 1.0.0 ] && [ -z "$ERR" ]; then
-        pass "$2" "$property"
-      else
-        fail_run "$2" "$property" \
-          "  expected exit status: 0" \
-          "$(block "expected stdout" 1.0.0)" \
-          "  expected stderr: (empty)"
-      fi
-      ;;
-    *)
-      echo "check_git_describe: unknown behaviour $1" 1>&2
-      exit 2
-      ;;
-  esac
-}
-
 check_unknown_option () {
   installed "$1" || return
   run "$1"
@@ -329,6 +251,20 @@ check_hardcoded_rrd2csv_version () {
     fail_run "$1" "$property" \
       "  expected exit status: 0" \
       "$(block "expected stdout" "$version")" \
+      "  expected stderr: (empty)"
+  fi
+}
+
+check_hardcoded_sm_cli_version () {
+  installed "$1" || return
+  run "$1"
+  local property="reports the hard-coded version 1.0.0"
+  if [ "$STATUS" -eq 0 ] && [ "$OUT" = 1.0.0 ] && [ -z "$ERR" ]; then
+    pass "$1" "$property"
+  else
+    fail_run "$1" "$property" \
+      "  expected exit status: 0" \
+      "$(block "expected stdout" 1.0.0)" \
       "  expected stderr: (empty)"
   fi
 }
@@ -387,8 +323,8 @@ count () {
 summary () {
   local passed=0 check
   for check in check_version check_hardcoded_rrd2csv_version \
-    check_unknown_option check_unknown_option_after_seed \
-    check_git_describe check_installed; do
+    check_hardcoded_sm_cli_version check_unknown_option \
+    check_unknown_option_after_seed check_installed; do
     passed=$((passed + ${PASSED[$check]:-0}))
   done
   count "$FOUND" "program linking Xapi_version found under DESTDIR" \
@@ -399,12 +335,12 @@ summary () {
   echo "  $(count "$n" "program reports" "programs report") the correct version ($CORRECT_VERSION)"
   n=${PASSED[check_hardcoded_rrd2csv_version]:-0}
   echo "  $(count "$n" "program reports" "programs report") the hard-coded version 0.1.3"
+  n=${PASSED[check_hardcoded_sm_cli_version]:-0}
+  echo "  $(count "$n" "program reports" "programs report") the hard-coded version 1.0.0"
   n=${PASSED[check_unknown_option]:-0}
   echo "  $(count "$n" "program does" "programs do") not recognise --version"
   n=${PASSED[check_unknown_option_after_seed]:-0}
   echo "  $(count "$n" "program does not recognise --version but prints" "programs do not recognise --version but print") a qcheck seed"
-  n=${PASSED[check_git_describe]:-0}
-  echo "  $(count "$n" "program gets its" "programs get their") version from git describe"
   n=${PASSED[check_installed]:-0}
   echo "  $(count "$n" "program" "programs") could only be checked to be installed"
   n=$((REQUESTED - passed))
@@ -412,7 +348,6 @@ summary () {
 }
 
 verbose "correct version: $CORRECT_VERSION (from ./configure --xapi_version)"
-verbose "version from git describe: $GIT_VERSION"
 
 # The programs, by installed path. The paths follow the install rules of the
 # Makefile.
@@ -426,15 +361,15 @@ check_unknown_option            "$OPTDIR/debug/vncproxy"
 check_installed                 "$OPTDIR/libexec/alert-certificate-check"
 check_installed                 "$OPTDIR/libexec/daily-license-check"
 check_unknown_option            "$PREFIX/bin/gen_lifecycle"
-check_git_describe unknown_option "$XENOPSD_LIBEXECDIR/pvs-proxy-ovs-setup"
-check_git_describe hardcoded_sm_cli_version "$PREFIX/sbin/sm-cli"
-check_git_describe unknown_option "$PREFIX/sbin/squeezed"
-check_git_describe unknown_option "$PREFIX/sbin/varstored-guard"
-check_git_describe version "$PREFIX/sbin/xapi-storage-script"
-check_git_describe version "$PREFIX/sbin/xcp-networkd"
-check_git_describe version "$PREFIX/sbin/xcp-rrdd"
-check_git_describe version "$PREFIX/sbin/xenopsd-simulator"
-check_git_describe version "$PREFIX/sbin/xenopsd-xc"
+check_unknown_option            "$XENOPSD_LIBEXECDIR/pvs-proxy-ovs-setup"
+check_hardcoded_sm_cli_version  "$PREFIX/sbin/sm-cli"
+check_unknown_option            "$PREFIX/sbin/squeezed"
+check_unknown_option            "$PREFIX/sbin/varstored-guard"
+check_version                   "$PREFIX/sbin/xapi-storage-script"
+check_version                   "$PREFIX/sbin/xcp-networkd"
+check_version                   "$PREFIX/sbin/xcp-rrdd"
+check_version                   "$PREFIX/sbin/xenopsd-simulator"
+check_version                   "$PREFIX/sbin/xenopsd-xc"
 
 check_all_checked
 

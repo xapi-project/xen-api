@@ -1,6 +1,9 @@
 (executable
   (modes exe)
   (name switch_main)
+  ; belong to the package, so that dune-build-info reports its version
+  (public_name -)
+  (package message-switch)
   (libraries
     cmdliner
     cohttp
