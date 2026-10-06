@@ -30,10 +30,6 @@
 # check_version
 #   the program reports the correct version.
 #
-# check_installed
-#   the program is only checked to be installed: it parses no argument,
-#   and running it with --version would make it do its real work.
-#
 # By default, only failures are reported, on stderr. With -v, successes are
 # reported too, on stdout. With -s, a summary is printed last, on stdout:
 # the number of programs linking Xapi_version found under DESTDIR, the
@@ -173,10 +169,6 @@ run () {
 
 # Checks
 
-check_installed () {
-  installed "$1" && pass "$1" "is installed"
-}
-
 check_version () {
   installed "$1" || return
   run "$1"
@@ -244,18 +236,13 @@ count () {
 
 # summary: print the summary, the checks in the order of the header
 summary () {
-  local passed=0 check
-  for check in check_version check_installed; do
-    passed=$((passed + ${PASSED[$check]:-0}))
-  done
+  local passed=${PASSED[check_version]:-0}
   count "$FOUND" "program linking Xapi_version found under DESTDIR" \
     "programs linking Xapi_version found under DESTDIR"
   echo "$(count "$REQUESTED" "check requested" "checks requested"):"
   local n
   n=${PASSED[check_version]:-0}
   echo "  $(count "$n" "program reports" "programs report") the correct version ($CORRECT_VERSION)"
-  n=${PASSED[check_installed]:-0}
-  echo "  $(count "$n" "program" "programs") could only be checked to be installed"
   n=$((REQUESTED - passed))
   echo "  $(count "$n" "program failed its check" "programs failed their check")"
 }
@@ -271,8 +258,8 @@ check_version                   "$OPTDIR/debug/event_listen"
 check_version                   "$OPTDIR/debug/quicktestbin"
 check_version                   "$OPTDIR/debug/suspend-image-viewer"
 check_version                   "$OPTDIR/debug/vncproxy"
-check_installed                 "$OPTDIR/libexec/alert-certificate-check"
-check_installed                 "$OPTDIR/libexec/daily-license-check"
+check_version                   "$OPTDIR/libexec/alert-certificate-check"
+check_version                   "$OPTDIR/libexec/daily-license-check"
 check_version                   "$PREFIX/bin/gen_lifecycle"
 check_version                   "$XENOPSD_LIBEXECDIR/pvs-proxy-ovs-setup"
 check_version                   "$PREFIX/sbin/sm-cli"

@@ -25,6 +25,7 @@
 
     http_lib
     xapi-client
+    xapi-consts.xapi_version
     xapi-types
     xapi-stdext-pervasives
   )
