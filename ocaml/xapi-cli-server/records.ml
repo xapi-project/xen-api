@@ -2847,6 +2847,13 @@ let vm_record rpc session_id vm =
               ~value:(safe_bool_of_string "pxe-dhcp-ipv4-allowed" x)
           )
           ()
+      ; make_field ~name:"pxe-dhcp-ipv6-allowed"
+          ~get:(fun () -> string_of_bool (x ()).API.vM_pxe_dhcp_ipv6_allowed)
+          ~set:(fun x ->
+            Client.VM.set_pxe_dhcp_ipv6_allowed ~rpc ~session_id ~self:vm
+              ~value:(safe_bool_of_string "pxe-dhcp-ipv6-allowed" x)
+          )
+          ()
       ]
   }
 
