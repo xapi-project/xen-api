@@ -175,7 +175,8 @@ let init_args () =
   (* Immediately register callback functions *)
   register_callback_fns () ;
   Xcp_service.configure ~options:Xapi_globs.all_options
-    ~resources:Xapi_globs.Resources.xcp_resources () ;
+    ~resources:Xapi_globs.Resources.xcp_resources ~version:Xapi_version.version
+    () ;
   if not !Xcp_client.use_switch then (
     debug "Xcp_client.use_switch=false: resetting list of xenopsds" ;
     Xapi_globs.xenopsd_queues := ["xenopsd"]
