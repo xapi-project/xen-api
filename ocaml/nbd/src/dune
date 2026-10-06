@@ -22,6 +22,7 @@
   uuid
   vbd_store
   xapi-consts
+  xapi-consts.xapi_version
   xapi-inventory
   xapi-types
   xen-api-client-lwt

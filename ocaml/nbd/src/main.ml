@@ -252,7 +252,9 @@ let cmd =
     Arg.(value & opt int Consts.standard_nbd_port & info ["port"] ~doc)
   in
   Cmd.v
-    (Cmd.info "xapi-nbd" ~version:"1.0.0" ~doc ~man ~sdocs:_common_options)
+    (Cmd.info "xapi-nbd" ~version:Xapi_version.version ~doc ~man
+       ~sdocs:_common_options
+    )
     Term.(ret (const main $ port $ certfile $ ciphersuites))
 
 let setup_logging () =
