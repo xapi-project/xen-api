@@ -4,6 +4,7 @@
  (wrapped false)
  (libraries
   astring
+  clock
   forkexec
   mtime
   safe-resources
