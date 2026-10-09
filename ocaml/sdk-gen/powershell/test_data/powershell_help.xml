@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     This file is auto-generated. Do not edit.
+     PowerShell external help (MAML) for the XenServer PowerShell module.
+-->
+<helpItems schema="maml" xmlns="http://msh"
+           xmlns:maml="http://schemas.microsoft.com/maml/2004/10"
+           xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10"
+           xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+  <command:command>
+    <command:details>
+      <command:name>Get-XenVM</command:name>
+      <maml:description>
+        <maml:para>Gets the XenServer VM objects.</maml:para>
+      </maml:description>
+      <command:verb>Get</command:verb>
+      <command:noun>XenVM</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Returns the VM objects on the server.</maml:para>
+      <maml:para>A VM is a virtual machine, or a template from which one can be created.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Get-XenVM</maml:name>
+        <command:parameter required="false" globbing="false" pipelineInput="true (ByPropertyName)" position="0">
+          <maml:name>Ref</maml:name>
+          <command:parameterValue required="false">XenRef&lt;XenAPI.VM&gt;</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" globbing="false" pipelineInput="false" position="Named">
+          <maml:name>SessionOpaqueRef</maml:name>
+          <command:parameterValue required="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" globbing="false" pipelineInput="false" position="Named">
+          <maml:name>BestEffort</maml:name>
+        </command:parameter>
+      </command:syntaxItem>
+      <command:syntaxItem>
+        <maml:name>Get-XenVM</maml:name>
+        <command:parameter required="true" globbing="false" pipelineInput="true (ByValue)" position="0">
+          <maml:name>Uuid</maml:name>
+          <command:parameterValue required="true">Guid</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" globbing="false" pipelineInput="false" position="Named">
+          <maml:name>SessionOpaqueRef</maml:name>
+          <command:parameterValue required="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" globbing="false" pipelineInput="false" position="Named">
+          <maml:name>BestEffort</maml:name>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" globbing="false" pipelineInput="true (ByPropertyName)" position="0" aliases="opaque_ref">
+        <maml:name>Ref</maml:name>
+        <maml:description>
+          <maml:para>The VM object to operate on, specified by its opaque reference.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false">XenRef&lt;XenAPI.VM&gt;</command:parameterValue>
+        <dev:type>
+          <maml:name>XenRef&lt;XenAPI.VM&gt;</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="true" globbing="false" pipelineInput="true (ByValue)" position="0" aliases="">
+        <maml:name>Uuid</maml:name>
+        <maml:description>
+          <maml:para>The UUID of the VM to operate on.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true">Guid</command:parameterValue>
+        <dev:type>
+          <maml:name>Guid</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" globbing="false" pipelineInput="false" position="Named" aliases="">
+        <maml:name>SessionOpaqueRef</maml:name>
+        <maml:description>
+          <maml:para>The session object on which to run the cmdlet.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false">String</command:parameterValue>
+        <dev:type>
+          <maml:name>String</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" globbing="false" pipelineInput="false" position="Named" aliases="">
+        <maml:name>BestEffort</maml:name>
+        <maml:description>
+          <maml:para>If set, the cmdlet keeps going after a per-object failure.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false">SwitchParameter</command:parameterValue>
+        <dev:type>
+          <maml:name>SwitchParameter</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType>
+        <dev:type>
+          <maml:name>XenRef[VM]</maml:name>
+          <maml:uri />
+        </dev:type>
+      </command:inputType>
+      <command:inputType>
+        <dev:type>
+          <maml:name>guid</maml:name>
+          <maml:uri />
+        </dev:type>
+      </command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>VM[]</maml:name>
+          <maml:uri />
+        </dev:type>
+      </command:returnValue>
+    </command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>-------- Example 1 --------</maml:title>
+        <dev:code>Get-XenVM -Name &quot;my vm&quot;</dev:code>
+        <dev:remarks>
+          <maml:para>Gets the VM whose name_label is 'my vm'.</maml:para>
+          <maml:para></maml:para>
+        </dev:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>Invoke-XenVM</command:name>
+      <maml:description>
+        <maml:para>Invokes an operation on a VM object.</maml:para>
+      </maml:description>
+      <command:verb>Invoke</command:verb>
+      <command:noun>XenVM</command:noun>
+    </command:details>
+    <maml:description>
+      <maml:para>Invokes an operation on a VM object.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Invoke-XenVM</maml:name>
+        <command:parameter required="false" globbing="false" pipelineInput="true (ByPropertyName)" position="0">
+          <maml:name>Ref</maml:name>
+          <command:parameterValue required="false">XenRef&lt;XenAPI.VM&gt;</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" globbing="false" pipelineInput="false" position="Named">
+          <maml:name>XenAction</maml:name>
+          <command:parameterValue required="true">XenVMAction</command:parameterValue>
+          <command:parameterValueGroup>
+            <command:parameterValue required="false" variableLength="false">Snapshot</command:parameterValue>
+            <command:parameterValue required="false" variableLength="false">Clone</command:parameterValue>
+            <command:parameterValue required="false" variableLength="false">Destroy</command:parameterValue>
+          </command:parameterValueGroup>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" globbing="false" pipelineInput="true (ByPropertyName)" position="0" aliases="opaque_ref">
+        <maml:name>Ref</maml:name>
+        <maml:description>
+          <maml:para>The VM object to operate on, specified by its opaque reference.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false">XenRef&lt;XenAPI.VM&gt;</command:parameterValue>
+        <dev:type>
+          <maml:name>XenRef&lt;XenAPI.VM&gt;</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="true" globbing="false" pipelineInput="false" position="Named" aliases="">
+        <maml:name>XenAction</maml:name>
+        <maml:description>
+          <maml:para>Selects which action to use.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true">XenVMAction</command:parameterValue>
+        <command:parameterValueGroup>
+          <command:parameterValue required="false" variableLength="false">Snapshot</command:parameterValue>
+          <command:parameterValue required="false" variableLength="false">Clone</command:parameterValue>
+          <command:parameterValue required="false" variableLength="false">Destroy</command:parameterValue>
+        </command:parameterValueGroup>
+        <dev:type>
+          <maml:name>XenVMAction</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" globbing="false" pipelineInput="false" position="Named" aliases="">
+        <maml:name>NewName</maml:name>
+        <maml:description>
+          <maml:para>The name of the new VM. Accepted when -XenAction is Snapshot, Clone.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false">string</command:parameterValue>
+        <dev:type>
+          <maml:name>string</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>System.Object</maml:name>
+          <maml:uri />
+        </dev:type>
+      </command:returnValue>
+    </command:returnValues>
+  </command:command>
+</helpItems>

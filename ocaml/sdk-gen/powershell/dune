@@ -1,14 +1,26 @@
+; Its own library so that the generator and the test suite can both link it,
+; and the examples can be checked without building the PowerShell module.
+(library
+ (name curated_examples)
+ (modules curated_examples))
+
 (executable
  (modes exe)
  (name gen_powershell_binding)
- (modules gen_powershell_binding common_functions)
- (libraries astring CommonFunctions mustache xapi-datamodel))
+ (modules gen_powershell_binding gen_powershell_help common_functions)
+ (libraries astring CommonFunctions curated_examples mustache xapi-datamodel))
 
 (test
  (name test_gen_powershell)
  (package xapi-sdk)
  (modules test_gen_powershell)
- (libraries CommonFunctions alcotest fmt mustache xapi-test-utils)
+ (libraries
+  CommonFunctions
+  alcotest
+  curated_examples
+  fmt
+  mustache
+  xapi-test-utils)
  (deps
   (source_tree test_data)
   (source_tree templates)))

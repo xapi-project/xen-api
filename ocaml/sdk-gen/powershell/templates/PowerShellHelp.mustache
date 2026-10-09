@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     This file is auto-generated. Do not edit.
+     PowerShell external help (MAML) for the XenServer PowerShell module.
+-->
+<helpItems schema="maml" xmlns="http://msh"
+           xmlns:maml="http://schemas.microsoft.com/maml/2004/10"
+           xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10"
+           xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+{{#commands}}
+  <command:command>
+    <command:details>
+      <command:name>{{{name}}}</command:name>
+      <maml:description>
+        <maml:para>{{{synopsis}}}</maml:para>
+      </maml:description>
+      <command:verb>{{{verb}}}</command:verb>
+      <command:noun>{{{noun}}}</command:noun>
+    </command:details>
+    <maml:description>
+{{#description}}
+      <maml:para>{{{para}}}</maml:para>
+{{/description}}
+    </maml:description>
+    <command:syntax>
+{{#syntax}}
+      <command:syntaxItem>
+        <maml:name>{{{cmdlet}}}</maml:name>
+{{#parameters}}
+        <command:parameter required="{{{required}}}" globbing="false" pipelineInput="{{{pipeline}}}" position="{{{position}}}">
+          <maml:name>{{{name}}}</maml:name>
+{{^switch}}
+          <command:parameterValue required="{{{required}}}">{{{type}}}</command:parameterValue>
+{{/switch}}
+{{#has_values}}
+          <command:parameterValueGroup>
+{{#values}}
+            <command:parameterValue required="false" variableLength="false">{{{value}}}</command:parameterValue>
+{{/values}}
+          </command:parameterValueGroup>
+{{/has_values}}
+        </command:parameter>
+{{/parameters}}
+      </command:syntaxItem>
+{{/syntax}}
+    </command:syntax>
+    <command:parameters>
+{{#parameters}}
+      <command:parameter required="{{{required}}}" globbing="false" pipelineInput="{{{pipeline}}}" position="{{{position}}}" aliases="{{{aliases}}}">
+        <maml:name>{{{name}}}</maml:name>
+        <maml:description>
+          <maml:para>{{{description}}}</maml:para>
+        </maml:description>
+{{^switch}}
+        <command:parameterValue required="{{{required}}}">{{{type}}}</command:parameterValue>
+{{/switch}}
+{{#switch}}
+        <command:parameterValue required="false">SwitchParameter</command:parameterValue>
+{{/switch}}
+{{#has_values}}
+        <command:parameterValueGroup>
+{{#values}}
+          <command:parameterValue required="false" variableLength="false">{{{value}}}</command:parameterValue>
+{{/values}}
+        </command:parameterValueGroup>
+{{/has_values}}
+        <dev:type>
+          <maml:name>{{{type}}}</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>{{{default_value}}}</dev:defaultValue>
+      </command:parameter>
+{{/parameters}}
+    </command:parameters>
+{{#has_inputs}}
+    <command:inputTypes>
+{{#inputs}}
+      <command:inputType>
+        <dev:type>
+          <maml:name>{{{type}}}</maml:name>
+          <maml:uri />
+        </dev:type>
+      </command:inputType>
+{{/inputs}}
+    </command:inputTypes>
+{{/has_inputs}}
+{{#has_outputs}}
+    <command:returnValues>
+{{#outputs}}
+      <command:returnValue>
+        <dev:type>
+          <maml:name>{{{type}}}</maml:name>
+          <maml:uri />
+        </dev:type>
+      </command:returnValue>
+{{/outputs}}
+    </command:returnValues>
+{{/has_outputs}}
+{{#has_examples}}
+    <command:examples>
+{{#examples}}
+      <command:example>
+        <maml:title>{{{title}}}</maml:title>
+        <dev:code>{{{code}}}</dev:code>
+        <dev:remarks>
+          <maml:para>{{{remarks}}}</maml:para>
+{{! An empty paragraph is how MAML asks for a blank line: without it Get-Help
+    runs each example's remarks straight into the next example's title. }}
+          <maml:para></maml:para>
+        </dev:remarks>
+      </command:example>
+{{/examples}}
+    </command:examples>
+{{/has_examples}}
+  </command:command>
+{{/commands}}
+</helpItems>
+
