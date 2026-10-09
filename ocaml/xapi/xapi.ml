@@ -445,8 +445,7 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
             Some Permanent
         | `ok ->
             let xapi_version_higher version =
-              version |> Xapi_version.compare_version Xapi_version.version
-              |> fun r -> r > 0
+              Xapi_version.compare_to_local version > 0
             in
             if
               xapi_version_higher
