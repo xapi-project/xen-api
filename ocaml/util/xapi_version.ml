@@ -48,26 +48,24 @@ let version, xapi_version_major, xapi_version_minor, git_id =
           exit 2
     )
 
-let compare_version version_a version_b =
-  let parse version =
-    match parse_xapi_version version with
+let compare_to_local v =
+  let maj, min, _ =
+    match parse_xapi_version v with
     | Some parsed ->
         parsed
     | None ->
         failwith
-          (Printf.sprintf "Couldn't determine xapi version from string: '%s'"
-             version
-          )
+          (Printf.sprintf "Couldn't determine xapi version from string: '%s'" v)
   in
-  let maj_a, min_a, _ = parse version_a in
-  let maj_b, min_b, _ = parse version_b in
   let ( <?> ) a b =
     if a = 0 then
       b
     else
       a
   in
-  Int.compare maj_a maj_b <?> Int.compare min_a min_b <?> 0
+  Int.compare xapi_version_major maj
+  <?> Int.compare xapi_version_minor min
+  <?> 0
 
 let xapi_user_agent =
   "xapi/"
