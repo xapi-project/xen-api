@@ -17,6 +17,7 @@ depends: [
   "cmdliner"
   "message-switch-unix"
   "ppx_deriving_rpc"
+  "xapi-consts"
 ]
 synopsis: "A simple store-and-forward message switch"
 description: """

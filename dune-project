@@ -567,6 +567,8 @@
    (= :version))
   (vhd-format-lwt
    (= :version))
+  (xapi-consts
+   (= :version))
   (xapi-idl
    (= :version))
   (xapi-log
@@ -646,6 +648,7 @@
   (depends
     qcow-stream
     cmdliner
+    xapi-consts
     yojson
   )
 )

@@ -28,7 +28,7 @@ end
 
 let info =
   let doc = "minimal CLI for qcow-stream" in
-  Cmd.info "qcow-stream-tool" ~version:"1.0.0" ~doc
+  Cmd.info "qcow-stream-tool" ~version:Xapi_version.version ~doc
 
 let () =
   let cmd = Cmd.group info Cli.cmds in

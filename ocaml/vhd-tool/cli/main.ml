@@ -433,7 +433,8 @@ let () =
   in
   let doc = "manipulate virtual disks stored in vhd files" in
   let info =
-    Cmd.info "vhd-tool" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man:help
+    Cmd.info "vhd-tool" ~version:Xapi_version.version ~sdocs:_common_options
+      ~doc ~man:help
   in
   let cmd = Cmd.group ~default info cmds in
   exit (Cmd.eval cmd)

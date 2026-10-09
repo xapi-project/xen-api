@@ -10,6 +10,7 @@
     lwt.unix
     lwt
     qcow-types
+    xapi-consts.xapi_version
     yojson
   )
 )
