@@ -3,6 +3,7 @@ Description=XAPI SSH monitor service
 After=network.target
 After=xapi.service
 OnFailure=sshd.service
+PartOf=toolstack.target
 
 [Service]
 Type=simple
