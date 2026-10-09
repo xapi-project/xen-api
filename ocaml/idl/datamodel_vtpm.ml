@@ -80,24 +80,10 @@ let t =
            ]
          ; allowed_and_current_operations operations
          ; [
-             field ~qualifier:StaticRO ~ty:(Ref _vm) "VM"
-               ~lifecycle:
-                 [
-                   ( Published
-                   , rel_rio
-                   , "The virtual machine the TPM is attached to"
-                   )
-                 ]
+             field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" ~published:rel_rio
                "The virtual machine the TPM is attached to"
            ; field ~qualifier:DynamicRO ~ty:(Ref _vm) "backend"
-               ~lifecycle:
-                 [
-                   ( Published
-                   , rel_rio
-                   , "The domain where the backend is located (unused)"
-                   )
-                 ]
-               ~default_value:(Some (VRef null_ref))
+               ~published:rel_rio ~default_value:(Some (VRef null_ref))
                "The domain where the backend is located (unused)"
            ; field ~qualifier:DynamicRO ~ty:persistence_backend
                ~default_value:(Some (VEnum "xapi")) ~lifecycle:[]

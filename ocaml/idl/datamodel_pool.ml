@@ -64,9 +64,7 @@ let telemetry_frequency =
     )
 
 let enable_ha =
-  call
-    ~lifecycle:[(Published, rel_miami, "Turn on High Availability mode")]
-    ~name:"enable_ha" ~in_oss_since:None
+  call ~published:rel_miami ~name:"enable_ha" ~in_oss_since:None
     ~versioned_params:
       [
         {
@@ -89,30 +87,17 @@ let enable_ha =
     ()
 
 let disable_ha =
-  call
-    ~lifecycle:[(Published, rel_miami, "Turn off High Availability mode")]
-    ~name:"disable_ha" ~in_oss_since:None ~params:[]
+  call ~published:rel_miami ~name:"disable_ha" ~in_oss_since:None ~params:[]
     ~doc:"Turn off High Availability mode"
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
 let sync_database =
-  call ~name:"sync_database" ~in_oss_since:None
-    ~lifecycle:[(Published, rel_rio, "Forcibly synchronise the database now")]
-    ~params:[] ~doc:"Forcibly synchronise the database now"
-    ~allowed_roles:_R_POOL_OP ()
+  call ~name:"sync_database" ~in_oss_since:None ~published:rel_rio ~params:[]
+    ~doc:"Forcibly synchronise the database now" ~allowed_roles:_R_POOL_OP ()
 
 let designate_new_master =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_miami
-        , "Perform an orderly handover of the role of coordinator to the \
-           referenced host."
-        )
-      ]
-    ~name:"designate_new_master" ~in_oss_since:None
+  call ~published:rel_miami ~name:"designate_new_master" ~in_oss_since:None
     ~params:
       [(Ref _host, "host", "The host who should become the new coordinator")]
     ~doc:
@@ -121,8 +106,7 @@ let designate_new_master =
     ~allowed_roles:_R_POOL_OP ()
 
 let join =
-  call ~name:"join" ~in_oss_since:None
-    ~lifecycle:[(Published, rel_rio, "Instruct host to join a new pool")]
+  call ~name:"join" ~in_oss_since:None ~published:rel_rio
     ~params:
       [
         ( String
@@ -142,8 +126,7 @@ let join =
     ~doc:"Instruct host to join a new pool" ~allowed_roles:_R_POOL_OP ()
 
 let join_force =
-  call ~name:"join_force" ~in_oss_since:None
-    ~lifecycle:[(Published, rel_rio, "Instruct host to join a new pool")]
+  call ~name:"join_force" ~in_oss_since:None ~published:rel_rio
     ~params:
       [
         ( String
@@ -197,14 +180,7 @@ let exchange_ca_certificates_on_join =
 
 let slave_reset_master =
   call ~flags:[`Session] ~name:"emergency_reset_master" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Instruct a supporter already in a pool that the coordinator has \
-           changed"
-        )
-      ]
+    ~published:rel_rio
     ~params:[(String, "master_address", "The hostname of the coordinator")]
     ~doc:
       "Instruct a supporter already in a pool that the coordinator has changed"
@@ -212,33 +188,14 @@ let slave_reset_master =
 
 let transition_to_master =
   call ~flags:[`Session] ~name:"emergency_transition_to_master"
-    ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Instruct host that's currently a supporter to transition to being \
-           coordinator"
-        )
-      ]
-    ~params:[]
+    ~in_oss_since:None ~published:rel_rio ~params:[]
     ~doc:
       "Instruct host that's currently a supporter to transition to being \
        coordinator"
     ~allowed_roles:_R_POOL_OP ()
 
 let recover_slaves =
-  call ~name:"recover_slaves" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Instruct a pool coordinator, M, to try and contact its supporters \
-           and, if supporters are in emergency mode, reset their coordinator \
-           address to M."
-        )
-      ]
-    ~params:[]
+  call ~name:"recover_slaves" ~in_oss_since:None ~published:rel_rio ~params:[]
     ~result:
       ( Set (Ref _host)
       , "list of hosts whose coordinator addresses were successfully reset"
@@ -250,29 +207,18 @@ let recover_slaves =
     ~allowed_roles:_R_POOL_OP ()
 
 let eject =
-  call ~name:"eject" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Instruct a pool coordinator to eject a host from the pool"
-        )
-      ]
+  call ~name:"eject" ~in_oss_since:None ~published:rel_rio
     ~params:[(Ref _host, "host", "The host to eject")]
     ~doc:"Instruct a pool coordinator to eject a host from the pool"
     ~allowed_roles:_R_POOL_OP ()
 
 let initial_auth =
-  call ~name:"initial_auth" ~in_oss_since:None
-    ~lifecycle:[(Published, rel_rio, "Internal use only")]
-    ~params:[] ~result:(SecretString, "") ~doc:"Internal use only"
-    ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
+  call ~name:"initial_auth" ~in_oss_since:None ~published:rel_rio ~params:[]
+    ~result:(SecretString, "") ~doc:"Internal use only" ~hide_from_docs:true
+    ~allowed_roles:_R_POOL_OP ()
 
 let create_VLAN_from_PIF =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [(Published, rel_rio, "Create a pool-wide VLAN by taking the PIF.")]
-    ~name:"create_VLAN_from_PIF"
+  call ~in_oss_since:None ~published:rel_rio ~name:"create_VLAN_from_PIF"
     ~doc:"Create a pool-wide VLAN by taking the PIF."
     ~params:
       [
@@ -294,17 +240,7 @@ let create_VLAN_from_PIF =
 (* !! THIS IS BROKEN; it takes a device name which in the case of a bond is not homogeneous across all pool hosts.
       See CA-22613. !! *)
 let create_VLAN =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Create PIFs, mapping a network to the same physical interface/VLAN \
-           on each host. This call is deprecated: use \
-           Pool.create_VLAN_from_PIF instead."
-        )
-      ]
-    ~name:"create_VLAN"
+  call ~in_oss_since:None ~published:rel_rio ~name:"create_VLAN"
     ~doc:
       "Create PIFs, mapping a network to the same physical interface/VLAN on \
        each host. This call is deprecated: use Pool.create_VLAN_from_PIF \
@@ -327,14 +263,7 @@ let create_VLAN =
 
 let management_reconfigure =
   call ~name:"management_reconfigure" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_inverness
-        , "Reconfigure the management network interface for all Hosts in the \
-           Pool"
-        )
-      ]
+    ~published:rel_inverness
     ~params:[(Ref _network, "network", "The network")]
     ~doc:
       "Reconfigure the management network interface for all Hosts in the Pool"
@@ -356,15 +285,13 @@ let hello_return =
     )
 
 let hello =
-  call ~name:"hello" ~in_oss_since:None
-    ~lifecycle:[(Published, rel_rio, "Internal use only")]
+  call ~name:"hello" ~in_oss_since:None ~published:rel_rio
     ~params:[(String, "host_uuid", ""); (String, "host_address", "")]
     ~result:(hello_return, "") ~doc:"Internal use only" ~hide_from_docs:true
     ~allowed_roles:_R_POOL_OP ()
 
 let ping_slave =
-  call ~flags:[`Session] ~name:"is_slave" ~in_oss_since:None
-    ~lifecycle:[(Published, rel_rio, "Internal use only")]
+  call ~flags:[`Session] ~name:"is_slave" ~in_oss_since:None ~published:rel_rio
     ~params:[(Ref _host, "host", "")]
     ~doc:"Internal use only"
     ~result:
@@ -376,15 +303,7 @@ let ping_slave =
 
 let ha_prevent_restarts_for =
   call ~flags:[`Session] ~name:"ha_prevent_restarts_for"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando_update_1
-        , "When this call returns the VM restart logic will not run for the \
-           requested number of seconds. If the argument is zero then the \
-           restart thread is immediately unblocked"
-        )
-      ]
+    ~published:rel_orlando_update_1
     ~doc:
       "When this call returns the VM restart logic will not run for the \
        requested number of seconds. If the argument is zero then the restart \
@@ -396,15 +315,7 @@ let ha_prevent_restarts_for =
     ~allowed_roles:_R_POOL_OP ()
 
 let ha_failover_plan_exists =
-  call ~flags:[`Session] ~name:"ha_failover_plan_exists"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Returns true if a VM failover plan exists for up to 'n' host \
-           failures"
-        )
-      ]
+  call ~flags:[`Session] ~name:"ha_failover_plan_exists" ~published:rel_orlando
     ~doc:"Returns true if a VM failover plan exists for up to 'n' host failures"
     ~params:[(Int, "n", "The number of host failures to plan for")]
     ~result:
@@ -416,14 +327,7 @@ let ha_failover_plan_exists =
 
 let ha_compute_max_host_failures_to_tolerate =
   call ~flags:[`Session] ~name:"ha_compute_max_host_failures_to_tolerate"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Returns the maximum number of host failures we could tolerate \
-           before we would be unable to restart configured VMs"
-        )
-      ]
+    ~published:rel_orlando
     ~doc:
       "Returns the maximum number of host failures we could tolerate before we \
        would be unable to restart configured VMs"
@@ -438,14 +342,7 @@ let ha_compute_max_host_failures_to_tolerate =
 let ha_compute_hypothetical_max_host_failures_to_tolerate =
   call ~flags:[`Session]
     ~name:"ha_compute_hypothetical_max_host_failures_to_tolerate"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Returns the maximum number of host failures we could tolerate \
-           before we would be unable to restart the provided VMs"
-        )
-      ]
+    ~published:rel_orlando
     ~doc:
       "Returns the maximum number of host failures we could tolerate before we \
        would be unable to restart the provided VMs"
@@ -465,13 +362,7 @@ let ha_compute_hypothetical_max_host_failures_to_tolerate =
 
 let ha_compute_vm_failover_plan =
   call ~flags:[`Session] ~name:"ha_compute_vm_failover_plan"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Return a VM failover plan assuming a given subset of hosts fail"
-        )
-      ]
+    ~published:rel_orlando
     ~doc:"Return a VM failover plan assuming a given subset of hosts fail"
     ~params:
       [
@@ -488,15 +379,7 @@ let ha_compute_vm_failover_plan =
     ~allowed_roles:_R_POOL_OP ()
 
 let create_new_blob =
-  call ~name:"create_new_blob"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Create a placeholder for a named binary blob of data that is \
-           associated with this pool"
-        )
-      ]
+  call ~name:"create_new_blob" ~published:rel_orlando
     ~doc:
       "Create a placeholder for a named binary blob of data that is associated \
        with this pool"
@@ -538,15 +421,7 @@ let create_new_blob =
     ~allowed_roles:_R_POOL_OP ()
 
 let set_ha_host_failures_to_tolerate =
-  call ~name:"set_ha_host_failures_to_tolerate"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Set the maximum number of host failures to consider in the HA VM \
-           restart planner"
-        )
-      ]
+  call ~name:"set_ha_host_failures_to_tolerate" ~published:rel_orlando
     ~doc:
       "Set the maximum number of host failures to consider in the HA VM \
        restart planner"
@@ -558,46 +433,20 @@ let set_ha_host_failures_to_tolerate =
     ~allowed_roles:_R_POOL_OP ()
 
 let ha_schedule_plan_recomputation =
-  call ~name:"ha_schedule_plan_recomputation"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Signal that the plan should be recomputed (eg a host has come \
-           online)"
-        )
-      ]
+  call ~name:"ha_schedule_plan_recomputation" ~published:rel_orlando
     ~doc:"Signal that the plan should be recomputed (eg a host has come online)"
     ~params:[] ~hide_from_docs:true ~pool_internal:true
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let enable_binary_storage =
-  call ~name:"enable_binary_storage"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Enable the storage of larger objects, such as RRDs, messages and \
-           binary blobs across all hosts in the pool"
-        )
-      ]
-    ~hide_from_docs:true
+  call ~name:"enable_binary_storage" ~published:rel_orlando ~hide_from_docs:true
     ~doc:
       "Enable the storage of larger objects, such as RRDs, messages and binary \
        blobs across all hosts in the pool"
     ~params:[] ~allowed_roles:_R_POOL_OP ()
 
 let disable_binary_storage =
-  call ~name:"disable_binary_storage"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Disable the storage of larger objects, such as RRDs, messages and \
-           binary blobs across all hosts in the pool. This will destroy all of \
-           these objects where they exist."
-        )
-      ]
+  call ~name:"disable_binary_storage" ~published:rel_orlando
     ~hide_from_docs:true
     ~doc:
       "Disable the storage of larger objects, such as RRDs, messages and \
@@ -607,14 +456,7 @@ let disable_binary_storage =
 
 let enable_external_auth =
   call ~flags:[`Session] ~name:"enable_external_auth" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "This call enables external authentication on all the hosts of the \
-           pool"
-        )
-      ]
+    ~published:rel_george
     ~params:
       [
         ( Ref _pool
@@ -637,14 +479,7 @@ let enable_external_auth =
 
 let disable_external_auth =
   call ~flags:[`Session] ~name:"disable_external_auth" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "This call disables external authentication on all the hosts of the \
-           pool"
-        )
-      ]
+    ~published:rel_george
     ~versioned_params:
       [
         {
@@ -670,14 +505,7 @@ let disable_external_auth =
 
 let external_auth_set_ldaps =
   call ~flags:[`Session] ~name:"external_auth_set_ldaps" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , "26.16.0"
-        , "This call enables or disables LDAPS for external authentication on \
-           all hosts in the pool"
-        )
-      ]
+    ~published:"26.16.0"
     ~versioned_params:
       [
         {
@@ -709,16 +537,7 @@ let external_auth_set_ldaps =
 
 let detect_nonhomogeneous_external_auth =
   call ~flags:[`Session] ~name:"detect_nonhomogeneous_external_auth"
-    ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "This call asynchronously detects if the external authentication \
-           configuration in any supporter is different from that in the \
-           coordinator and raises appropriate alerts"
-        )
-      ]
+    ~in_oss_since:None ~published:rel_george
     ~params:
       [
         ( Ref _pool
@@ -734,15 +553,7 @@ let detect_nonhomogeneous_external_auth =
     ~allowed_roles:_R_POOL_OP ()
 
 let initialize_wlb =
-  call ~name:"initialize_wlb"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Initializes workload balancing monitoring on this pool with the \
-           specified wlb server"
-        )
-      ]
+  call ~name:"initialize_wlb" ~published:rel_george
     ~doc:
       "Initializes workload balancing monitoring on this pool with the \
        specified wlb server"
@@ -774,27 +585,12 @@ let initialize_wlb =
     ~allowed_roles:_R_POOL_OP ()
 
 let deconfigure_wlb =
-  call ~name:"deconfigure_wlb"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Permanently deconfigures workload balancing monitoring on this pool"
-        )
-      ]
+  call ~name:"deconfigure_wlb" ~published:rel_george
     ~doc:"Permanently deconfigures workload balancing monitoring on this pool"
     ~params:[] ~allowed_roles:_R_POOL_OP ()
 
 let send_wlb_configuration =
-  call ~name:"send_wlb_configuration"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Sets the pool optimization criteria for the workload balancing \
-           server"
-        )
-      ]
+  call ~name:"send_wlb_configuration" ~published:rel_george
     ~doc:"Sets the pool optimization criteria for the workload balancing server"
     ~params:
       [
@@ -806,15 +602,7 @@ let send_wlb_configuration =
     ~allowed_roles:_R_POOL_OP ()
 
 let retrieve_wlb_configuration =
-  call ~name:"retrieve_wlb_configuration"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Retrieves the pool optimization criteria from the workload \
-           balancing server"
-        )
-      ]
+  call ~name:"retrieve_wlb_configuration" ~published:rel_george
     ~doc:
       "Retrieves the pool optimization criteria from the workload balancing \
        server"
@@ -824,15 +612,7 @@ let retrieve_wlb_configuration =
     ~allowed_roles:_R_READ_ONLY ()
 
 let retrieve_wlb_recommendations =
-  call ~name:"retrieve_wlb_recommendations"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Retrieves vm migrate recommendations for the pool from the workload \
-           balancing server"
-        )
-      ]
+  call ~name:"retrieve_wlb_recommendations" ~published:rel_george
     ~doc:
       "Retrieves vm migrate recommendations for the pool from the workload \
        balancing server"
@@ -842,15 +622,7 @@ let retrieve_wlb_recommendations =
     ~allowed_roles:_R_READ_ONLY ()
 
 let send_test_post =
-  call ~name:"send_test_post"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Send the given body to the given host and port, using HTTPS, and \
-           print the response.  This is used for debugging the SSL layer."
-        )
-      ]
+  call ~name:"send_test_post" ~published:rel_george
     ~doc:
       "Send the given body to the given host and port, using HTTPS, and print \
        the response.  This is used for debugging the SSL layer."
@@ -955,45 +727,20 @@ let certificate_list =
     ()
 
 let crl_install =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Install a TLS CA-issued Certificate Revocation List, pool-wide."
-        )
-      ]
-    ~name:"crl_install"
+  call ~in_oss_since:None ~published:rel_george ~name:"crl_install"
     ~doc:"Install a TLS CA-issued Certificate Revocation List, pool-wide."
     ~params:
       [(String, "name", "A name to give the CRL"); (String, "cert", "The CRL")]
     ~allowed_roles:_R_POOL_OP ()
 
 let crl_uninstall =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Remove a pool-wide TLS CA-issued Certificate Revocation List."
-        )
-      ]
-    ~name:"crl_uninstall"
+  call ~in_oss_since:None ~published:rel_george ~name:"crl_uninstall"
     ~doc:"Remove a pool-wide TLS CA-issued Certificate Revocation List."
     ~params:[(String, "name", "The CRL name")]
     ~allowed_roles:_R_POOL_OP ()
 
 let crl_list =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "List the names of all installed TLS CA-issued Certificate \
-           Revocation Lists."
-        )
-      ]
-    ~name:"crl_list"
+  call ~in_oss_since:None ~published:rel_george ~name:"crl_list"
     ~doc:
       "List the names of all installed TLS CA-issued Certificate Revocation \
        Lists."
@@ -1001,16 +748,7 @@ let crl_list =
     ~allowed_roles:_R_POOL_OP ()
 
 let certificate_sync =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Copy the TLS CA certificates and CRLs of the coordinator to all \
-           supporters."
-        )
-      ]
-    ~name:"certificate_sync"
+  call ~in_oss_since:None ~published:rel_george ~name:"certificate_sync"
     ~doc:
       "Copy the TLS CA certificates and CRLs of the coordinator to all \
        supporters."
@@ -1024,16 +762,7 @@ let enable_tls_verification =
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let enable_redo_log =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Enable the redo log on the given SR and start using it, unless HA \
-           is enabled."
-        )
-      ]
-    ~name:"enable_redo_log"
+  call ~in_oss_since:None ~published:rel_midnight_ride ~name:"enable_redo_log"
     ~params:[(Ref _sr, "sr", "SR to hold the redo log.")]
     ~doc:
       "Enable the redo log on the given SR and start using it, unless HA is \
@@ -1041,28 +770,13 @@ let enable_redo_log =
     ~allowed_roles:_R_POOL_OP ()
 
 let disable_redo_log =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Disable the redo log if in use, unless HA is enabled."
-        )
-      ]
-    ~name:"disable_redo_log"
+  call ~in_oss_since:None ~published:rel_midnight_ride ~name:"disable_redo_log"
     ~doc:"Disable the redo log if in use, unless HA is enabled."
     ~allowed_roles:_R_POOL_OP ()
 
 let audit_log_append =
   call ~in_oss_since:None ~pool_internal:true ~hide_from_docs:true
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Append a line to the audit log on the coordinator."
-        )
-      ]
-    ~name:"audit_log_append"
+    ~published:rel_midnight_ride ~name:"audit_log_append"
     ~params:[(String, "line", "line to be appended to the audit log")]
     ~doc:"Append a line to the audit log on the coordinator."
     ~allowed_roles:_R_POOL_ADMIN ()
@@ -1092,8 +806,7 @@ let set_vswitch_controller =
 
 let test_archive_target =
   call ~flags:[`Session] ~name:"test_archive_target" ~in_oss_since:None
-    ~lifecycle:
-      [(Published, rel_cowley, "This call tests if a location is valid")]
+    ~published:rel_cowley
     ~params:
       [
         (Ref _pool, "self", "Reference to the pool")
@@ -1105,39 +818,20 @@ let test_archive_target =
 
 let enable_local_storage_caching =
   call ~name:"enable_local_storage_caching" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_cowley
-        , "This call attempts to enable pool-wide local storage caching"
-        )
-      ]
+    ~published:rel_cowley
     ~params:[(Ref _pool, "self", "Reference to the pool")]
     ~doc:"This call attempts to enable pool-wide local storage caching"
     ~allowed_roles:_R_POOL_OP ()
 
 let disable_local_storage_caching =
   call ~name:"disable_local_storage_caching" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_cowley
-        , "This call disables pool-wide local storage caching"
-        )
-      ]
+    ~published:rel_cowley
     ~params:[(Ref _pool, "self", "Reference to the pool")]
     ~doc:"This call disables pool-wide local storage caching"
     ~allowed_roles:_R_POOL_OP ()
 
 let get_license_state =
-  call ~name:"get_license_state" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_clearwater
-        , "This call returns the license state for the pool"
-        )
-      ]
+  call ~name:"get_license_state" ~in_oss_since:None ~published:rel_clearwater
     ~params:[(Ref _pool, "self", "Reference to the pool")]
     ~doc:"This call returns the license state for the pool"
     ~allowed_roles:_R_READ_ONLY
@@ -1145,9 +839,7 @@ let get_license_state =
     ()
 
 let apply_edition =
-  call ~name:"apply_edition" ~in_oss_since:None
-    ~lifecycle:
-      [(Published, rel_clearwater, "Apply an edition to all hosts in the pool")]
+  call ~name:"apply_edition" ~in_oss_since:None ~published:rel_clearwater
     ~params:
       [
         (Ref _pool, "self", "Reference to the pool")
@@ -1184,14 +876,7 @@ let disable_ssl_legacy =
     ~allowed_roles:_R_POOL_OP ()
 
 let set_igmp_snooping_enabled =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_inverness
-        , "Enable or disable IGMP Snooping on the pool."
-        )
-      ]
+  call ~in_oss_since:None ~published:rel_inverness
     ~name:"set_igmp_snooping_enabled"
     ~params:
       [
@@ -1202,14 +887,7 @@ let set_igmp_snooping_enabled =
     ~allowed_roles:_R_POOL_OP ()
 
 let has_extension =
-  call ~name:"has_extension"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_dundee
-        , "Return true if the extension is available on the pool"
-        )
-      ]
+  call ~name:"has_extension" ~published:rel_dundee
     ~doc:"Return true if the extension is available on the pool"
     ~params:
       [
@@ -1220,14 +898,7 @@ let has_extension =
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let add_to_guest_agent_config =
-  call ~name:"add_to_guest_agent_config"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_dundee
-        , "Add a key-value pair to the pool-wide guest agent configuration"
-        )
-      ]
+  call ~name:"add_to_guest_agent_config" ~published:rel_dundee
     ~doc:"Add a key-value pair to the pool-wide guest agent configuration"
     ~params:
       [
@@ -1238,14 +909,7 @@ let add_to_guest_agent_config =
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let remove_from_guest_agent_config =
-  call ~name:"remove_from_guest_agent_config"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_dundee
-        , "Remove a key-value pair from the pool-wide guest agent configuration"
-        )
-      ]
+  call ~name:"remove_from_guest_agent_config" ~published:rel_dundee
     ~doc:"Remove a key-value pair from the pool-wide guest agent configuration"
     ~params:
       [(Ref _pool, "self", "The pool"); (String, "key", "The key to remove")]
@@ -1907,42 +1571,21 @@ let t =
            _pool
        ]
       @ [
-          field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Short name")]
-            ~qualifier:RW ~ty:String "name_label" "Short name"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Description")]
-            ~qualifier:RW ~ty:String "name_description" "Description"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [(Published, rel_rio, "The host that is the pool coordinator")]
-            ~qualifier:DynamicRO ~ty:(Ref _host) "master"
-            "The host that is the pool coordinator"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Default SR for VDIs")]
-            ~qualifier:RW ~ty:(Ref _sr) "default_SR" "Default SR for VDIs"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "The SR in which VDIs for suspend images are created"
-                )
-              ]
-            ~qualifier:RW ~ty:(Ref _sr) "suspend_image_SR"
+          field ~in_oss_since:None ~published:rel_rio ~qualifier:RW ~ty:String
+            "name_label" "Short name"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:RW ~ty:String
+            "name_description" "Description"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
+            ~ty:(Ref _host) "master" "The host that is the pool coordinator"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:RW
+            ~ty:(Ref _sr) "default_SR" "Default SR for VDIs"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:RW
+            ~ty:(Ref _sr) "suspend_image_SR"
             "The SR in which VDIs for suspend images are created"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "The SR in which VDIs for crash dumps are created"
-                )
-              ]
-            ~qualifier:RW ~ty:(Ref _sr) "crash_dump_SR"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:RW
+            ~ty:(Ref _sr) "crash_dump_SR"
             "The SR in which VDIs for crash dumps are created"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "additional configuration")]
+        ; field ~in_oss_since:None ~published:rel_rio
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
             ~map_keys_roles:
@@ -1951,165 +1594,64 @@ let t =
               ; ("XenCenter.CustomFields.*", _R_VM_OP)
               ; ("EMPTY_FOLDERS", _R_VM_OP)
               ]
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "true if HA is enabled on the pool, false otherwise"
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false))
-            "ha_enabled" "true if HA is enabled on the pool, false otherwise"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [(Published, rel_orlando, "The current HA configuration")]
-            ~qualifier:DynamicRO
+        ; field ~in_oss_since:None ~published:rel_orlando ~qualifier:DynamicRO
+            ~ty:Bool ~default_value:(Some (VBool false)) "ha_enabled"
+            "true if HA is enabled on the pool, false otherwise"
+        ; field ~in_oss_since:None ~published:rel_orlando ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "ha_configuration"
             "The current HA configuration"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_orlando, "HA statefile VDIs in use")]
-            ~qualifier:DynamicRO ~ty:(Set String)
-            ~default_value:(Some (VSet [])) "ha_statefiles"
+        ; field ~in_oss_since:None ~published:rel_orlando ~qualifier:DynamicRO
+            ~ty:(Set String) ~default_value:(Some (VSet [])) "ha_statefiles"
             "HA statefile VDIs in use"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "Number of host failures to tolerate before the Pool is \
-                   declared to be overcommitted"
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L))
+        ; field ~in_oss_since:None ~published:rel_orlando ~qualifier:DynamicRO
+            ~ty:Int ~default_value:(Some (VInt 0L))
             "ha_host_failures_to_tolerate"
             "Number of host failures to tolerate before the Pool is declared \
              to be overcommitted"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "Number of future host failures we have managed to find a \
-                   plan for. Once this reaches zero any future host failures \
-                   will cause the failure of protected VMs."
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L))
-            "ha_plan_exists_for"
+        ; field ~in_oss_since:None ~published:rel_orlando ~qualifier:DynamicRO
+            ~ty:Int ~default_value:(Some (VInt 0L)) "ha_plan_exists_for"
             "Number of future host failures we have managed to find a plan \
              for. Once this reaches zero any future host failures will cause \
              the failure of protected VMs."
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "If set to false then operations which would cause the Pool \
-                   to become overcommitted will be blocked."
-                )
-              ]
-            ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false))
-            "ha_allow_overcommit"
+        ; field ~in_oss_since:None ~published:rel_orlando ~qualifier:RW ~ty:Bool
+            ~default_value:(Some (VBool false)) "ha_allow_overcommit"
             "If set to false then operations which would cause the Pool to \
              become overcommitted will be blocked."
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "True if the Pool is considered to be overcommitted i.e. if \
-                   there exist insufficient physical resources to tolerate the \
-                   configured number of host failures"
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false))
-            "ha_overcommitted"
+        ; field ~in_oss_since:None ~published:rel_orlando ~qualifier:DynamicRO
+            ~ty:Bool ~default_value:(Some (VBool false)) "ha_overcommitted"
             "True if the Pool is considered to be overcommitted i.e. if there \
              exist insufficient physical resources to tolerate the configured \
              number of host failures"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "Binary blobs associated with this pool"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~published:rel_orlando
             ~ty:(Map (String, Ref _blob))
             ~default_value:(Some (VMap [])) "blobs"
             "Binary blobs associated with this pool"
-        ; field ~writer_roles:_R_VM_OP
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "user-specified tags for categorization purposes"
-                )
-              ]
+        ; field ~writer_roles:_R_VM_OP ~published:rel_orlando
             ~default_value:(Some (VSet [])) ~ty:(Set String) "tags"
             "user-specified tags for categorization purposes"
-        ; field ~writer_roles:_R_VM_OP
-            ~lifecycle:
-              [(Published, rel_orlando, "gui-specific configuration for pool")]
+        ; field ~writer_roles:_R_VM_OP ~published:rel_orlando
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "gui_config" "gui-specific configuration for pool"
-        ; field ~writer_roles:_R_POOL_OP
-            ~lifecycle:
-              [
-                ( Published
-                , rel_dundee
-                , "Configuration for the automatic health check feature"
-                )
-              ]
+        ; field ~writer_roles:_R_POOL_OP ~published:rel_dundee
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "health_check_config"
             "Configuration for the automatic health check feature"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_george
-                , "Url for the configured workload balancing host"
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString ""))
-            "wlb_url" "Url for the configured workload balancing host"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_george
-                , "Username for accessing the workload balancing host"
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString ""))
-            "wlb_username" "Username for accessing the workload balancing host"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_george
-                , "Password for accessing the workload balancing host"
-                )
-              ]
-            ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _secret)
-            "wlb_password" "Password for accessing the workload balancing host"
+        ; field ~published:rel_george ~qualifier:DynamicRO ~ty:String
+            ~default_value:(Some (VString "")) "wlb_url"
+            "Url for the configured workload balancing host"
+        ; field ~published:rel_george ~qualifier:DynamicRO ~ty:String
+            ~default_value:(Some (VString "")) "wlb_username"
+            "Username for accessing the workload balancing host"
+        ; field ~published:rel_george ~internal_only:true ~qualifier:DynamicRO
+            ~ty:(Ref _secret) "wlb_password"
+            "Password for accessing the workload balancing host"
         ; field
             ~writer_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-            ~lifecycle:
-              [
-                ( Published
-                , rel_george
-                , "true if workload balancing is enabled on the pool, false \
-                   otherwise"
-                )
-              ]
-            ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false))
-            "wlb_enabled"
+            ~published:rel_george ~qualifier:RW ~ty:Bool
+            ~default_value:(Some (VBool false)) "wlb_enabled"
             "true if workload balancing is enabled on the pool, false otherwise"
         ; field ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false))
             "wlb_verify_cert"
@@ -2124,28 +1666,12 @@ let t =
                    Pool.enable_tls_verification instead"
                 )
               ]
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "true a redo-log is to be used other than when HA is \
-                   enabled, false otherwise"
-                )
-              ]
+        ; field ~in_oss_since:None ~published:rel_midnight_ride
             ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false))
             "redo_log_enabled"
             "true a redo-log is to be used other than when HA is enabled, \
              false otherwise"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "indicates the VDI to use for the redo-log other than when \
-                   HA is enabled"
-                )
-              ]
+        ; field ~in_oss_since:None ~published:rel_midnight_ride
             ~qualifier:DynamicRO ~ty:(Ref _vdi)
             ~default_value:(Some (VRef null_ref)) "redo_log_vdi"
             "indicates the VDI to use for the redo-log other than when HA is \
@@ -2165,64 +1691,26 @@ let t =
                    SDN_controller instead."
                 )
               ]
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "Pool-wide restrictions currently in effect"
-                )
-              ]
+        ; field ~in_oss_since:None ~published:rel_midnight_ride
             ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "restrictions"
             "Pool-wide restrictions currently in effect"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_boston
-                , "The set of currently known metadata VDIs for this pool"
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "metadata_VDIs"
+        ; field ~in_oss_since:None ~published:rel_boston ~qualifier:DynamicRO
+            ~ty:(Set (Ref _vdi)) "metadata_VDIs"
             "The set of currently known metadata VDIs for this pool"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_dundee
-                , "The HA cluster stack that is currently in use. Only valid \
-                   when HA is enabled."
-                )
-              ]
-            ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String
-            "ha_cluster_stack"
+        ; field ~in_oss_since:None ~published:rel_dundee ~qualifier:DynamicRO
+            ~default_value:(Some (VString "")) ~ty:String "ha_cluster_stack"
             "The HA cluster stack that is currently in use. Only valid when HA \
              is enabled."
         ]
       @ allowed_and_current_operations operations
       @ [
-          field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_dundee
-                , "Pool-wide guest agent configuration information"
-                )
-              ]
-            ~qualifier:DynamicRO
+          field ~in_oss_since:None ~published:rel_dundee ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "guest_agent_config"
             "Pool-wide guest agent configuration information"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_dundee
-                , "Details about the physical CPUs on the pool"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~published:rel_dundee
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "cpu_info" "Details about the physical CPUs on the pool"
@@ -2236,30 +1724,13 @@ let t =
             "This field was consulted when VM.create did not specify a value \
              for 'has_vendor_device'; VM.create now uses a simple default and \
              no longer consults this value."
-        ; field ~qualifier:RW
-            ~lifecycle:
-              [
-                ( Published
-                , rel_ely
-                , "The pool-wide flag to show if the live patching feauture is \
-                   disabled or not."
-                )
-              ]
+        ; field ~qualifier:RW ~published:rel_ely
             ~default_value:(Some (VBool false)) ~ty:Bool
             "live_patching_disabled"
             "The pool-wide flag to show if the live patching feauture is \
              disabled or not."
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_inverness
-                , "true if IGMP snooping is enabled in the pool, false \
-                   otherwise."
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false))
-            "igmp_snooping_enabled"
+        ; field ~published:rel_inverness ~qualifier:DynamicRO ~ty:Bool
+            ~default_value:(Some (VBool false)) "igmp_snooping_enabled"
             "true if IGMP snooping is enabled in the pool, false otherwise."
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:
@@ -2278,17 +1749,8 @@ let t =
         ; field ~qualifier:StaticRO ~ty:String ~lifecycle:[]
             ~default_value:(Some (VString "")) "custom_uefi_certificates"
             "Custom UEFI certificates allowing Secure Boot"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_stockholm_psr
-                , "True if either a PSR is running or we are waiting for a PSR \
-                   to be re-run"
-                )
-              ]
-            ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false))
-            "is_psr_pending"
+        ; field ~published:rel_stockholm_psr ~qualifier:RW ~ty:Bool
+            ~default_value:(Some (VBool false)) "is_psr_pending"
             "True if either a PSR is running or we are waiting for a PSR to be \
              re-run"
         ; field ~qualifier:DynamicRO
@@ -2296,16 +1758,8 @@ let t =
             ~ty:Bool ~default_value:(Some (VBool false))
             "tls_verification_enabled"
             "True iff TLS certificate verification is enabled"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , "1.301.0"
-                , "The set of currently enabled repositories"
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:(Set (Ref _repository))
-            ~ignore_foreign_key:true "repositories"
+        ; field ~published:"1.301.0" ~qualifier:DynamicRO
+            ~ty:(Set (Ref _repository)) ~ignore_foreign_key:true "repositories"
             ~default_value:(Some (VSet []))
             "The set of currently enabled repositories"
         ; field ~qualifier:DynamicRO
@@ -2319,29 +1773,11 @@ let t =
             "client_certificate_auth_name"
             "The name (CN/SAN) that an incoming client certificate must have \
              to allow authentication"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , "21.3.0"
-                , "Url of the proxy used in syncing with the enabled \
-                   repositories"
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString ""))
-            "repository_proxy_url"
+        ; field ~published:"21.3.0" ~qualifier:DynamicRO ~ty:String
+            ~default_value:(Some (VString "")) "repository_proxy_url"
             "Url of the proxy used in syncing with the enabled repositories"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , "21.3.0"
-                , "Username for the authentication of the proxy used in \
-                   syncing with the enabled repositories"
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString ""))
-            "repository_proxy_username"
+        ; field ~published:"21.3.0" ~qualifier:DynamicRO ~ty:String
+            ~default_value:(Some (VString "")) "repository_proxy_username"
             "Username for the authentication of the proxy used in syncing with \
              the enabled repositories"
         ; field ~qualifier:DynamicRO
@@ -2359,15 +1795,7 @@ let t =
             "Default behaviour during migration, True if stream compression \
              should be used"
         ; field ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool true))
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "true if bias against pool coordinator when scheduling vms \
-                   is enabled, false otherwise"
-                )
-              ]
-            "coordinator_bias"
+            ~published:rel_rio "coordinator_bias"
             "true if bias against pool coordinator when scheduling vms is \
              enabled, false otherwise"
         ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 8L))
