@@ -96,12 +96,47 @@ let post_install_key = "postinstall"
 
 open Client
 
+(** UUID of the pool's default SR. Raises DEFAULT_SR_NOT_FOUND if it is unset
+    or dangling. *)
+let get_default_sr_uuid rpc session_id =
+  let sr =
+    match Client.Pool.get_all ~rpc ~session_id with
+    | pool :: _ ->
+        Client.Pool.get_default_SR ~rpc ~session_id ~self:pool
+    | [] ->
+        Ref.null
+  in
+  try Client.SR.get_uuid ~rpc ~session_id ~self:sr
+  with _ ->
+    raise
+      (Api_errors.Server_error
+         (Api_errors.default_sr_not_found, [Ref.string_of sr])
+      )
+
+(** Templates ship with sr="" in their provision spec, meaning "the default
+    SR". xe vm-install substitutes it before provisioning; do the same here so
+    API clients calling VM.clone + VM.provision behave identically. *)
+let resolve_default_sr rpc session_id disks =
+  if List.exists (fun d -> d.sr = "") disks then
+    let default_sr = get_default_sr_uuid rpc session_id in
+    List.map
+      (fun d ->
+        if d.sr = "" then
+          {d with sr= default_sr}
+        else
+          d
+      )
+      disks
+  else
+    disks
+
 (** From a VM reference, return an 'install' record option. *)
 let get_template_record rpc session_id vm =
   let other_config = Client.VM.get_other_config ~rpc ~session_id ~self:vm in
   let disks =
     if List.mem_assoc disks_key other_config then
       disks_of_xml (Xml.parse_string (List.assoc disks_key other_config))
+      |> resolve_default_sr rpc session_id
     else
       []
   in
