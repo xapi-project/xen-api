@@ -90,7 +90,13 @@ module type S = sig
     module Dump : Dump
 
     val start : int -> unit
-    (** [start n] Launches [n] additional worker threads *)
+    (** [start n] Launches [n] additional worker threads on every queue *)
+
+    val start_default : int -> unit
+    (** [start_default n] Launches [n] additional worker threads serving the
+        default queue only. Use this instead of [start] when the caller never
+        pushes to [parallel_queues], [nested_parallel_queues] or
+        [receive_memory_queues], to avoid creating idle threads for them. *)
 
     val set_size : int -> unit
     (** [set_size n] sets the worker pool size to [n]. *)
