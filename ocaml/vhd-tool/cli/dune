@@ -20,6 +20,7 @@
     uri
     vhd-format
     vhd-format-lwt
+    xapi-consts.xapi_version
     xapi-idl
     xapi-log
     xapi-stdext-unix
