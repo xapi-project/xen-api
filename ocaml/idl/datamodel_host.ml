@@ -7,9 +7,7 @@ open Datamodel_types
 let host_memory =
   let field = field ~ty:Int in
   [
-    field ~qualifier:DynamicRO "overhead"
-      ~lifecycle:
-        [(Published, rel_rio, "Virtualization memory overhead (bytes).")]
+    field ~qualifier:DynamicRO "overhead" ~published:rel_rio
       "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L))
       ~doc_tags:[Memory]
   ]
@@ -17,32 +15,17 @@ let host_memory =
 let api_version =
   let field' = field ~qualifier:DynamicRO in
   [
-    field' ~ty:Int
-      ~lifecycle:[(Published, rel_rio, "major version number")]
-      "major" "major version number"
-  ; field' ~ty:Int
-      ~lifecycle:[(Published, rel_rio, "minor version number")]
-      "minor" "minor version number"
-  ; field' ~ty:String
-      ~lifecycle:[(Published, rel_rio, "identification of vendor")]
-      "vendor" "identification of vendor"
+    field' ~ty:Int ~published:rel_rio "major" "major version number"
+  ; field' ~ty:Int ~published:rel_rio "minor" "minor version number"
+  ; field' ~ty:String ~published:rel_rio "vendor" "identification of vendor"
   ; field'
       ~ty:(Map (String, String))
-      ~lifecycle:[(Published, rel_rio, "details of vendor implementation")]
-      "vendor_implementation" "details of vendor implementation"
+      ~published:rel_rio "vendor_implementation"
+      "details of vendor implementation"
   ]
 
 let migrate_receive =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_tampa
-        , "Prepare to receive a VM, returning a token which can be passed to \
-           VM.migrate."
-        )
-      ]
-    ~name:"migrate_receive"
+  call ~in_oss_since:None ~published:rel_tampa ~name:"migrate_receive"
     ~doc:
       "Prepare to receive a VM, returning a token which can be passed to \
        VM.migrate."
@@ -60,17 +43,7 @@ let migrate_receive =
     ~allowed_roles:_R_VM_POWER_ADMIN ()
 
 let ha_disable_failover_decisions =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Prevents future failover decisions happening on this node. This \
-           function should only be used as part of a controlled shutdown of \
-           the HA system."
-        )
-      ]
-    ~name:"ha_disable_failover_decisions"
+  call ~published:rel_orlando ~name:"ha_disable_failover_decisions"
     ~doc:
       "Prevents future failover decisions happening on this node. This \
        function should only be used as part of a controlled shutdown of the HA \
@@ -80,17 +53,7 @@ let ha_disable_failover_decisions =
     ()
 
 let ha_disarm_fencing =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Disarms the fencing function of the HA subsystem. This function is \
-           extremely dangerous and should only be used as part of a controlled \
-           shutdown of the HA system."
-        )
-      ]
-    ~name:"ha_disarm_fencing"
+  call ~published:rel_orlando ~name:"ha_disarm_fencing"
     ~doc:
       "Disarms the fencing function of the HA subsystem. This function is \
        extremely dangerous and should only be used as part of a controlled \
@@ -100,17 +63,7 @@ let ha_disarm_fencing =
     ()
 
 let ha_stop_daemon =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Stops the HA daemon. This function is extremely dangerous and \
-           should only be used as part of a controlled shutdown of the HA \
-           system."
-        )
-      ]
-    ~name:"ha_stop_daemon"
+  call ~published:rel_orlando ~name:"ha_stop_daemon"
     ~doc:
       "Stops the HA daemon. This function is extremely dangerous and should \
        only be used as part of a controlled shutdown of the HA system."
@@ -119,16 +72,7 @@ let ha_stop_daemon =
     ()
 
 let ha_release_resources =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Cleans up any resources on the host associated with this HA \
-           instance."
-        )
-      ]
-    ~name:"ha_release_resources"
+  call ~published:rel_orlando ~name:"ha_release_resources"
     ~doc:"Cleans up any resources on the host associated with this HA instance."
     ~params:
       [(Ref _host, "host", "The Host whose resources should be cleaned up")]
@@ -136,16 +80,7 @@ let ha_release_resources =
     ()
 
 let local_assert_healthy =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [
-        ( Published
-        , rel_miami
-        , "Returns nothing if this host is healthy, otherwise it throws an \
-           error explaining why the host is unhealthy"
-        )
-      ]
-    ~name:"local_assert_healthy"
+  call ~flags:[`Session] ~published:rel_miami ~name:"local_assert_healthy"
     ~doc:
       "Returns nothing if this host is healthy, otherwise it throws an error \
        explaining why the host is unhealthy"
@@ -165,16 +100,7 @@ let local_assert_healthy =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let preconfigure_ha =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_miami
-        , "Attach statefiles, generate config files but do not start the xHA \
-           daemon."
-        )
-      ]
-    ~name:"preconfigure_ha"
+  call ~published:rel_miami ~name:"preconfigure_ha"
     ~doc:
       "Attach statefiles, generate config files but do not start the xHA \
        daemon."
@@ -189,26 +115,14 @@ let preconfigure_ha =
     ()
 
 let ha_join_liveset =
-  call
-    ~lifecycle:
-      [(Published, rel_orlando, "Block until this host joins the liveset.")]
-    ~name:"ha_join_liveset" ~doc:"Block until this host joins the liveset."
+  call ~published:rel_orlando ~name:"ha_join_liveset"
+    ~doc:"Block until this host joins the liveset."
     ~params:[(Ref _host, "host", "The Host whose HA daemon to start")]
     ~pool_internal:true ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY
     ()
 
 let ha_wait_for_shutdown_via_statefile =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Block until this host xHA daemon exits after having seen the \
-           invalid statefile. If the host loses statefile access then throw an \
-           exception"
-        )
-      ]
-    ~name:"ha_wait_for_shutdown_via_statefile"
+  call ~published:rel_orlando ~name:"ha_wait_for_shutdown_via_statefile"
     ~doc:
       "Block until this host xHA daemon exits after having seen the invalid \
        statefile. If the host loses statefile access then throw an exception"
@@ -217,9 +131,7 @@ let ha_wait_for_shutdown_via_statefile =
     ()
 
 let request_backup =
-  call ~flags:[`Session] ~name:"request_backup"
-    ~lifecycle:
-      [(Published, rel_rio, "Request this host performs a database backup")]
+  call ~flags:[`Session] ~name:"request_backup" ~published:rel_rio
     ~doc:"Request this host performs a database backup"
     ~params:
       [
@@ -235,9 +147,7 @@ let request_backup =
     ()
 
 let request_config_file_sync =
-  call ~flags:[`Session] ~name:"request_config_file_sync"
-    ~lifecycle:
-      [(Published, rel_rio, "Request this host syncs dom0 config files")]
+  call ~flags:[`Session] ~name:"request_config_file_sync" ~published:rel_rio
     ~doc:"Request this host syncs dom0 config files"
     ~params:
       [
@@ -253,18 +163,7 @@ let request_config_file_sync =
 (* Since there are no async versions, no tasks are generated (!) this is important
    otherwise the call would block doing a Db.Task.create *)
 let propose_new_master =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [
-        ( Published
-        , rel_miami
-        , "First phase of a two-phase commit protocol to set the new \
-           coordinator. If the host has already committed to another \
-           configuration or if the proposed new coordinator is not in this \
-           node's membership set then the call will return an exception."
-        )
-      ]
-    ~name:"propose_new_master"
+  call ~flags:[`Session] ~published:rel_miami ~name:"propose_new_master"
     ~doc:
       "First phase of a two-phase commit protocol to set the new coordinator. \
        If the host has already committed to another configuration or if the \
@@ -286,12 +185,7 @@ let propose_new_master =
     ()
 
 let abort_new_master =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [
-        (Published, rel_miami, "Causes the new coordinator transaction to abort")
-      ]
-    ~name:"abort_new_master"
+  call ~flags:[`Session] ~published:rel_miami ~name:"abort_new_master"
     ~doc:"Causes the new coordinator transaction to abort"
     ~params:
       [
@@ -304,16 +198,7 @@ let abort_new_master =
     ()
 
 let commit_new_master =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [
-        ( Published
-        , rel_miami
-        , "Second phase of a two-phase commit protocol to set the new \
-           coordinator."
-        )
-      ]
-    ~name:"commit_new_master"
+  call ~flags:[`Session] ~published:rel_miami ~name:"commit_new_master"
     ~doc:
       "Second phase of a two-phase commit protocol to set the new coordinator."
     ~params:
@@ -328,15 +213,7 @@ let commit_new_master =
     ()
 
 let compute_free_memory =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Computes the amount of free memory on the host."
-        )
-      ]
-    ~name:"compute_free_memory"
+  call ~published:rel_orlando ~name:"compute_free_memory"
     ~doc:"Computes the amount of free memory on the host."
     ~params:[(Ref _host, "host", "The host to send the request to")]
     ~pool_internal:false ~hide_from_docs:false
@@ -344,15 +221,7 @@ let compute_free_memory =
     ~allowed_roles:_R_READ_ONLY ~doc_tags:[Memory] ()
 
 let compute_memory_overhead =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Computes the virtualization memory overhead of a host."
-        )
-      ]
-    ~name:"compute_memory_overhead"
+  call ~published:rel_midnight_ride ~name:"compute_memory_overhead"
     ~doc:"Computes the virtualization memory overhead of a host."
     ~params:
       [(Ref _host, "host", "The host for which to compute the memory overhead")]
@@ -362,15 +231,7 @@ let compute_memory_overhead =
 
 (* Diagnostics see if host is in emergency mode *)
 let is_in_emergency_mode =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [
-        ( Published
-        , rel_miami
-        , "Diagnostics call to discover if host is in emergency mode"
-        )
-      ]
-    ~name:"is_in_emergency_mode"
+  call ~flags:[`Session] ~published:rel_miami ~name:"is_in_emergency_mode"
     ~doc:"Diagnostics call to discover if host is in emergency mode" ~params:[]
     ~pool_internal:false ~hide_from_docs:true
     ~result:(Bool, "true if host is in emergency mode")
@@ -378,16 +239,7 @@ let is_in_emergency_mode =
 
 (* Signal that the management IP address or hostname has been changed beneath us. *)
 let signal_networking_change =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [
-        ( Published
-        , rel_miami
-        , "Signals that the management IP address or hostname has been changed \
-           beneath us."
-        )
-      ]
-    ~name:"signal_networking_change"
+  call ~flags:[`Session] ~published:rel_miami ~name:"signal_networking_change"
     ~doc:
       "Signals that the management IP address or hostname has been changed \
        beneath us."
@@ -395,9 +247,7 @@ let signal_networking_change =
     ~doc_tags:[Networking] ()
 
 let notify =
-  call
-    ~lifecycle:[(Published, rel_miami, "Notify an event")]
-    ~name:"notify" ~doc:"Notify an event"
+  call ~published:rel_miami ~name:"notify" ~doc:"Notify an event"
     ~params:
       [
         (String, "ty", "type of the notification")
@@ -407,9 +257,8 @@ let notify =
     ()
 
 let syslog_reconfigure =
-  call
-    ~lifecycle:[(Published, rel_miami, "Re-configure syslog logging")]
-    ~name:"syslog_reconfigure" ~doc:"Re-configure syslog logging"
+  call ~published:rel_miami ~name:"syslog_reconfigure"
+    ~doc:"Re-configure syslog logging"
     ~params:
       [
         ( Ref _host
@@ -421,10 +270,7 @@ let syslog_reconfigure =
     ~allowed_roles:_R_POOL_OP ()
 
 let management_reconfigure =
-  call
-    ~lifecycle:
-      [(Published, rel_miami, "Reconfigure the management network interface")]
-    ~name:"management_reconfigure"
+  call ~published:rel_miami ~name:"management_reconfigure"
     ~doc:"Reconfigure the management network interface"
     ~params:
       [
@@ -436,16 +282,7 @@ let management_reconfigure =
     ~allowed_roles:_R_POOL_OP ~doc_tags:[Networking] ()
 
 let local_management_reconfigure =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [
-        ( Published
-        , rel_miami
-        , "Reconfigure the management network interface. Should only be used \
-           if Host.management_reconfigure is impossible because the network \
-           configuration is broken."
-        )
-      ]
+  call ~flags:[`Session] ~published:rel_miami
     ~name:"local_management_reconfigure"
     ~doc:
       "Reconfigure the management network interface. Should only be used if \
@@ -461,25 +298,15 @@ let local_management_reconfigure =
     ~allowed_roles:_R_POOL_OP ()
 
 let ha_xapi_healthcheck =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Returns true if xapi appears to be functioning normally."
-        )
-      ]
-    ~name:"ha_xapi_healthcheck"
+  call ~flags:[`Session] ~published:rel_orlando ~name:"ha_xapi_healthcheck"
     ~doc:"Returns true if xapi appears to be functioning normally."
     ~result:(Bool, "true if xapi is functioning normally.")
     ~hide_from_docs:true ~allowed_roles:_R_POOL_ADMIN ()
 
 let management_disable =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [(Published, rel_miami, "Disable the management network interface")]
-    ~name:"management_disable" ~doc:"Disable the management network interface"
-    ~params:[] ~allowed_roles:_R_POOL_OP ~doc_tags:[Networking] ()
+  call ~flags:[`Session] ~published:rel_miami ~name:"management_disable"
+    ~doc:"Disable the management network interface" ~params:[]
+    ~allowed_roles:_R_POOL_OP ~doc_tags:[Networking] ()
 
 let get_management_interface =
   call
@@ -495,25 +322,15 @@ let get_management_interface =
    Not intended for HA *)
 
 let assert_can_evacuate =
-  call
-    ~lifecycle:[(Published, rel_miami, "Check this host can be evacuated.")]
-    ~name:"assert_can_evacuate" ~doc:"Check this host can be evacuated."
+  call ~published:rel_miami ~name:"assert_can_evacuate"
+    ~doc:"Check this host can be evacuated."
     ~params:[(Ref _host, "host", "The host to evacuate")]
     ~allowed_roles:_R_POOL_OP ()
 
 (* New Orlando message which aims to make the GUI less brittle (unexpected errors will trigger a VM suspend)
    and sensitive to HA planning constraints *)
 let get_vms_which_prevent_evacuation =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Return a set of VMs which prevent the host being evacuated, with \
-           per-VM error codes"
-        )
-      ]
-    ~name:"get_vms_which_prevent_evacuation"
+  call ~published:rel_orlando ~name:"get_vms_which_prevent_evacuation"
     ~doc:
       "Return a set of VMs which prevent the host being evacuated, with per-VM \
        error codes"
@@ -601,16 +418,7 @@ let get_uncooperative_domains =
     ()
 
 let retrieve_wlb_evacuate_recommendations =
-  call ~name:"retrieve_wlb_evacuate_recommendations"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Retrieves recommended host migrations to perform when evacuating \
-           the host from the wlb server. If a VM cannot be migrated from the \
-           host the reason is listed instead of a recommendation."
-        )
-      ]
+  call ~name:"retrieve_wlb_evacuate_recommendations" ~published:rel_george
     ~doc:
       "Retrieves recommended host migrations to perform when evacuating the \
        host from the wlb server. If a VM cannot be migrated from the host the \
@@ -671,14 +479,7 @@ let disable =
 (* Host.Enable *)
 
 let enable =
-  call ~name:"enable"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Puts the host into a state in which new VMs can be started."
-        )
-      ]
+  call ~name:"enable" ~published:rel_rio
     ~doc:"Puts the host into a state in which new VMs can be started."
     ~params:[(Ref _host, "host", "The Host to enable")]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
@@ -687,15 +488,7 @@ let enable =
 (* Host.Shutdown *)
 
 let shutdown =
-  call ~name:"shutdown"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Shutdown the host. (This function can only be called if there are \
-           no currently running VMs on the host and it is disabled.)"
-        )
-      ]
+  call ~name:"shutdown" ~published:rel_rio
     ~doc:
       "Shutdown the host. (This function can only be called if there are no \
        currently running VMs on the host and it is disabled.)"
@@ -705,15 +498,7 @@ let shutdown =
 (* Host.reboot *)
 
 let reboot =
-  call ~name:"reboot"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Reboot the host. (This function can only be called if there are no \
-           currently running VMs on the host and it is disabled.)"
-        )
-      ]
+  call ~name:"reboot" ~published:rel_rio
     ~doc:
       "Reboot the host. (This function can only be called if there are no \
        currently running VMs on the host and it is disabled.)"
@@ -723,14 +508,7 @@ let reboot =
 (* Host.prepare_for_poweroff *)
 
 let prepare_for_poweroff =
-  call ~name:"prepare_for_poweroff"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_kolkata
-        , "Performs the necessary actions before host shutdown or reboot."
-        )
-      ]
+  call ~name:"prepare_for_poweroff" ~published:rel_kolkata
     ~doc:"Performs the necessary actions before host shutdown or reboot."
     ~params:
       [(Ref _host, "host", "The Host that is about to reboot or shutdown")]
@@ -739,31 +517,13 @@ let prepare_for_poweroff =
 (* Host.power_on *)
 
 let power_on =
-  call ~name:"power_on"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Attempt to power-on the host (if the capability exists)."
-        )
-      ]
+  call ~name:"power_on" ~published:rel_orlando
     ~doc:"Attempt to power-on the host (if the capability exists)."
     ~params:[(Ref _host, "host", "The Host to power on")]
     ~allowed_roles:_R_POOL_OP ()
 
 let restart_agent =
-  call ~name:"restart_agent"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Restarts the agent after a 10 second pause. WARNING: this is a \
-           dangerous operation. Any operations in progress will be aborted, \
-           and unrecoverable data loss may occur. The caller is responsible \
-           for ensuring that there are no operations in progress when this \
-           method is called."
-        )
-      ]
+  call ~name:"restart_agent" ~published:rel_rio
     ~doc:
       "Restarts the agent after a 10 second pause. WARNING: this is a \
        dangerous operation. Any operations in progress will be aborted, and \
@@ -775,18 +535,7 @@ let restart_agent =
     ~allowed_roles:_R_POOL_OP ()
 
 let shutdown_agent =
-  call ~name:"shutdown_agent"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Shuts the agent down after a 10 second pause. WARNING: this is a \
-           dangerous operation. Any operations in progress will be aborted, \
-           and unrecoverable data loss may occur. The caller is responsible \
-           for ensuring that there are no operations in progress when this \
-           method is called."
-        )
-      ]
+  call ~name:"shutdown_agent" ~published:rel_orlando
     ~doc:
       "Shuts the agent down after a 10 second pause. WARNING: this is a \
        dangerous operation. Any operations in progress will be aborted, and \
@@ -797,37 +546,24 @@ let shutdown_agent =
     ~allowed_roles:_R_POOL_OP ()
 
 let dmesg =
-  call ~name:"dmesg"
-    ~lifecycle:[(Published, rel_rio, "Get the host xen dmesg.")]
-    ~doc:"Get the host xen dmesg."
+  call ~name:"dmesg" ~published:rel_rio ~doc:"Get the host xen dmesg."
     ~params:[(Ref _host, "host", "The Host to query")]
     ~result:(String, "dmesg string") ~allowed_roles:_R_POOL_OP ()
 
 let dmesg_clear =
-  call ~name:"dmesg_clear"
-    ~lifecycle:
-      [(Published, rel_rio, "Get the host xen dmesg, and clear the buffer.")]
+  call ~name:"dmesg_clear" ~published:rel_rio
     ~doc:"Get the host xen dmesg, and clear the buffer."
     ~params:[(Ref _host, "host", "The Host to query")]
     ~result:(String, "dmesg string") ~allowed_roles:_R_POOL_OP ()
 
 let get_log =
-  call ~name:"get_log"
-    ~lifecycle:[(Published, rel_rio, "Get the host's log file")]
-    ~doc:"Get the host's log file"
+  call ~name:"get_log" ~published:rel_rio ~doc:"Get the host's log file"
     ~params:[(Ref _host, "host", "The Host to query")]
     ~result:(String, "The contents of the host's primary log file")
     ~allowed_roles:_R_READ_ONLY ()
 
 let send_debug_keys =
-  call ~name:"send_debug_keys"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Inject the given string as debugging keys into Xen"
-        )
-      ]
+  call ~name:"send_debug_keys" ~published:rel_rio
     ~doc:"Inject the given string as debugging keys into Xen"
     ~params:
       [(Ref _host, "host", "The host"); (String, "keys", "The keys to send")]
@@ -842,9 +578,7 @@ let get_data_sources =
     ~errs:[] ~flags:[`Session] ~allowed_roles:_R_READ_ONLY ()
 
 let record_data_source =
-  call ~name:"record_data_source" ~in_oss_since:None
-    ~lifecycle:
-      [(Published, rel_orlando, "Start recording the specified data source")]
+  call ~name:"record_data_source" ~in_oss_since:None ~published:rel_orlando
     ~doc:"Start recording the specified data source"
     ~params:
       [
@@ -854,14 +588,7 @@ let record_data_source =
     ~errs:[] ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
 
 let query_data_source =
-  call ~name:"query_data_source" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Query the latest value of the specified data source"
-        )
-      ]
+  call ~name:"query_data_source" ~in_oss_since:None ~published:rel_orlando
     ~doc:"Query the latest value of the specified data source"
     ~params:
       [
@@ -872,9 +599,7 @@ let query_data_source =
     ~errs:[] ~flags:[`Session] ~allowed_roles:_R_READ_ONLY ()
 
 let attach_static_vdis =
-  call ~name:"attach_static_vdis"
-    ~lifecycle:
-      [(Published, rel_midnight_ride, "Statically attach VDIs on a host.")]
+  call ~name:"attach_static_vdis" ~published:rel_midnight_ride
     ~doc:"Statically attach VDIs on a host."
     ~params:
       [
@@ -888,9 +613,7 @@ let attach_static_vdis =
     ()
 
 let detach_static_vdis =
-  call ~name:"detach_static_vdis"
-    ~lifecycle:
-      [(Published, rel_midnight_ride, "Detach static VDIs from a host.")]
+  call ~name:"detach_static_vdis" ~published:rel_midnight_ride
     ~doc:"Detach static VDIs from a host."
     ~params:
       [
@@ -901,16 +624,7 @@ let detach_static_vdis =
     ()
 
 let declare_dead =
-  call ~name:"declare_dead"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_clearwater
-        , "Declare that a host is dead. This is a dangerous operation, and \
-           should only be called if the administrator is absolutely sure the \
-           host is definitely dead"
-        )
-      ]
+  call ~name:"declare_dead" ~published:rel_clearwater
     ~doc:
       "Declare that a host is dead. This is a dangerous operation, and should \
        only be called if the administrator is absolutely sure the host is \
@@ -920,13 +634,7 @@ let declare_dead =
 
 let forget_data_source_archives =
   call ~name:"forget_data_source_archives" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Forget the recorded statistics related to the specified data source"
-        )
-      ]
+    ~published:rel_orlando
     ~doc:"Forget the recorded statistics related to the specified data source"
     ~params:
       [
@@ -939,14 +647,7 @@ let forget_data_source_archives =
     ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
 
 let get_diagnostic_timing_stats =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [
-        ( Published
-        , rel_miami
-        , "Return timing statistics for diagnostic purposes"
-        )
-      ]
+  call ~flags:[`Session] ~published:rel_miami
     ~name:"get_diagnostic_timing_stats"
     ~doc:"Return timing statistics for diagnostic purposes"
     ~result:(Map (String, String), "population name to summary map")
@@ -971,15 +672,7 @@ let get_diagnostic_timing_stats =
     ()
 
 let create_new_blob =
-  call ~name:"create_new_blob"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Create a placeholder for a named binary blob of data that is \
-           associated with this host"
-        )
-      ]
+  call ~name:"create_new_blob" ~published:rel_orlando
     ~doc:
       "Create a placeholder for a named binary blob of data that is associated \
        with this host"
@@ -1021,8 +714,7 @@ let create_new_blob =
     ~allowed_roles:_R_POOL_OP ()
 
 let call_plugin =
-  call ~name:"call_plugin"
-    ~lifecycle:[(Published, rel_orlando, "Call an API plugin on this host")]
+  call ~name:"call_plugin" ~published:rel_orlando
     ~doc:"Call an API plugin on this host"
     ~params:
       [
@@ -1035,14 +727,7 @@ let call_plugin =
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let has_extension =
-  call ~name:"has_extension"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_ely
-        , "Return true if the extension is available on the host"
-        )
-      ]
+  call ~name:"has_extension" ~published:rel_ely
     ~doc:"Return true if the extension is available on the host"
     ~params:
       [
@@ -1053,9 +738,8 @@ let has_extension =
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let call_extension =
-  call ~name:"call_extension"
-    ~lifecycle:[(Published, rel_ely, "Call an API extension on this host")]
-    ~custom_marshaller:true ~doc:"Call an API extension on this host"
+  call ~name:"call_extension" ~published:rel_ely ~custom_marshaller:true
+    ~doc:"Call an API extension on this host"
     ~params:
       [
         (Ref _host, "host", "The host")
@@ -1066,16 +750,8 @@ let call_extension =
     ()
 
 let enable_binary_storage =
-  call ~name:"enable_binary_storage"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Enable binary storage on a particular host, for storing RRDs, \
-           messages and blobs"
-        )
-      ]
-    ~hide_from_docs:true ~pool_internal:true
+  call ~name:"enable_binary_storage" ~published:rel_orlando ~hide_from_docs:true
+    ~pool_internal:true
     ~doc:
       "Enable binary storage on a particular host, for storing RRDs, messages \
        and blobs"
@@ -1083,15 +759,7 @@ let enable_binary_storage =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let disable_binary_storage =
-  call ~name:"disable_binary_storage"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Disable binary storage on a particular host, deleting stored RRDs, \
-           messages and blobs"
-        )
-      ]
+  call ~name:"disable_binary_storage" ~published:rel_orlando
     ~hide_from_docs:true ~pool_internal:true
     ~doc:
       "Disable binary storage on a particular host, deleting stored RRDs, \
@@ -1122,9 +790,7 @@ let update_master =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let set_localdb_key =
-  call ~name:"set_localdb_key"
-    ~lifecycle:
-      [(Published, rel_midnight_ride, "Set a key in the local DB of the host.")]
+  call ~name:"set_localdb_key" ~published:rel_midnight_ride
     ~doc:"Set a key in the local DB of the host."
     ~params:
       [
@@ -1150,14 +816,7 @@ let refresh_pack_info =
 let bugreport_upload =
   call ~name:"bugreport_upload"
     ~doc:"Run xen-bugtool --yestoall and upload the output to support"
-    ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Run xen-bugtool --yestoall and upload the output to support"
-        )
-      ]
+    ~in_oss_since:None ~published:rel_rio
     ~params:
       [
         (Ref _host, "host", "The host on which to run xen-bugtool")
@@ -1167,9 +826,8 @@ let bugreport_upload =
     ~allowed_roles:_R_POOL_OP ()
 
 let list_methods =
-  call ~name:"list_methods"
-    ~lifecycle:[(Published, rel_rio, "List all supported methods")]
-    ~flags:[`Session] ~doc:"List all supported methods" ~params:[]
+  call ~name:"list_methods" ~published:rel_rio ~flags:[`Session]
+    ~doc:"List all supported methods" ~params:[]
     ~result:(Set String, "The name of every supported method.")
     ~allowed_roles:_R_READ_ONLY ()
 
@@ -1558,9 +1216,7 @@ let create =
     ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
 
 let destroy =
-  call ~name:"destroy" ~in_oss_since:None
-    ~lifecycle:
-      [(Published, rel_rio, "Destroy specified host record in database")]
+  call ~name:"destroy" ~in_oss_since:None ~published:rel_rio
     ~doc:"Destroy specified host record in database"
     ~params:[(Ref _host, "self", "The host record to remove")]
     ~allowed_roles:_R_POOL_OP ()
@@ -1577,14 +1233,7 @@ let get_system_status_capabilities =
 
 let set_hostname_live =
   call ~flags:[`Session] ~name:"set_hostname_live" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_miami
-        , "Sets the host name to the specified string.  Both the API and \
-           lower-level system hostname are changed immediately."
-        )
-      ]
+    ~published:rel_miami
     ~params:
       [
         (Ref _host, "host", "The host whose host name to set")
@@ -1598,14 +1247,7 @@ let set_hostname_live =
 
 let tickle_heartbeat =
   call ~flags:[`Session] ~name:"tickle_heartbeat" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Needs to be called every 30 seconds for the coordinator to believe \
-           the host is alive"
-        )
-      ]
+    ~published:rel_orlando
     ~params:
       [
         ( Ref _host
@@ -1629,14 +1271,7 @@ let tickle_heartbeat =
 
 let sync_data =
   call ~flags:[`Session] ~name:"sync_data" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "This causes the non-database data (messages, RRDs and so on) stored \
-           on the coordinator to be synchronised with the host"
-        )
-      ]
+    ~published:rel_orlando
     ~params:[(Ref _host, "host", "The host to whom the data should be sent")]
     ~doc:
       "This causes the non-database data (messages, RRDs and so on) stored on \
@@ -1645,13 +1280,7 @@ let sync_data =
 
 let backup_rrds =
   call ~flags:[`Session] ~name:"backup_rrds" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "This causes the RRDs to be backed up to the coordinator"
-        )
-      ]
+    ~published:rel_orlando
     ~params:
       [
         (Ref _host, "host", "Schedule a backup of the RRDs of this host")
@@ -1666,13 +1295,7 @@ let backup_rrds =
 
 let get_servertime =
   call ~flags:[`Session] ~name:"get_servertime" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "This call queries the host's clock for the current time"
-        )
-      ]
+    ~published:rel_orlando
     ~params:[(Ref _host, "host", "The host whose clock should be queried")]
     ~doc:"This call queries the host's clock for the current time"
     ~result:(DateTime, "The current time")
@@ -1680,14 +1303,7 @@ let get_servertime =
 
 let get_server_localtime =
   call ~flags:[`Session] ~name:"get_server_localtime" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_cowley
-        , "This call queries the host's clock for the current time in the \
-           host's local timezone"
-        )
-      ]
+    ~published:rel_cowley
     ~params:[(Ref _host, "host", "The host whose clock should be queried")]
     ~doc:
       "This call queries the host's clock for the current time in the host's \
@@ -1697,14 +1313,7 @@ let get_server_localtime =
 
 let emergency_ha_disable =
   call ~flags:[`Session] ~name:"emergency_ha_disable" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "This call disables HA on the local host. This should only be used \
-           with extreme care."
-        )
-      ]
+    ~published:rel_orlando
     ~versioned_params:
       [
         {
@@ -1788,15 +1397,8 @@ let certificate_list =
     ()
 
 let crl_install =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Install a TLS CA-issued Certificate Revocation List to this host."
-        )
-      ]
-    ~pool_internal:true ~hide_from_docs:true ~name:"crl_install"
+  call ~in_oss_since:None ~published:rel_george ~pool_internal:true
+    ~hide_from_docs:true ~name:"crl_install"
     ~doc:"Install a TLS CA-issued Certificate Revocation List to this host."
     ~params:
       [
@@ -1807,31 +1409,15 @@ let crl_install =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let crl_uninstall =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Uninstall a TLS CA-issued certificate revocation list from this \
-           host."
-        )
-      ]
-    ~pool_internal:true ~hide_from_docs:true ~name:"crl_uninstall"
+  call ~in_oss_since:None ~published:rel_george ~pool_internal:true
+    ~hide_from_docs:true ~name:"crl_uninstall"
     ~doc:"Uninstall a TLS CA-issued certificate revocation list from this host."
     ~params:[(Ref _host, "host", "The host"); (String, "name", "The CRL name")]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let crl_list =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "List the filenames of all installed TLS CA-issued Certificate \
-           Revocation Lists."
-        )
-      ]
-    ~pool_internal:true ~hide_from_docs:true ~name:"crl_list"
+  call ~in_oss_since:None ~published:rel_george ~pool_internal:true
+    ~hide_from_docs:true ~name:"crl_list"
     ~doc:
       "List the filenames of all installed TLS CA-issued Certificate \
        Revocation Lists."
@@ -1840,16 +1426,8 @@ let crl_list =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let certificate_sync =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Make installed TLS CA certificates and CRLs available to all \
-           programs using OpenSSL."
-        )
-      ]
-    ~pool_internal:true ~hide_from_docs:true ~name:"certificate_sync"
+  call ~in_oss_since:None ~published:rel_george ~pool_internal:true
+    ~hide_from_docs:true ~name:"certificate_sync"
     ~doc:
       "Make installed TLS CA certificates and CRLs available to all programs \
        using OpenSSL."
@@ -1991,13 +1569,7 @@ let operations =
 
 let enable_external_auth =
   call ~flags:[`Session] ~name:"enable_external_auth" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "This call enables external authentication on a host"
-        )
-      ]
+    ~published:rel_george
     ~params:
       [
         ( Ref _host
@@ -2019,13 +1591,7 @@ let enable_external_auth =
 
 let disable_external_auth =
   call ~flags:[`Session] ~name:"disable_external_auth" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "This call disables external authentication on the local host"
-        )
-      ]
+    ~published:rel_george
     ~versioned_params:
       [
         {
@@ -2057,14 +1623,7 @@ let disable_external_auth =
 
 let external_auth_set_ldaps =
   call ~flags:[`Session] ~name:"external_auth_set_ldaps" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , "26.16.0"
-        , "This call enables or disables LDAPS for external authentication on \
-           the host"
-        )
-      ]
+    ~published:"26.16.0"
     ~versioned_params:
       [
         {
@@ -2096,15 +1655,7 @@ let external_auth_set_ldaps =
 
 let set_license_params =
   call ~name:"set_license_params"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Set the new license details in the database, trigger a \
-           recomputation of the pool SKU"
-        )
-      ]
-      (* actually update 3 aka floodgate *)
+    ~published:rel_orlando (* actually update 3 aka floodgate *)
     ~doc:
       "Set the new license details in the database, trigger a recomputation of \
        the pool SKU"
@@ -2117,16 +1668,7 @@ let set_license_params =
     ()
 
 let apply_edition =
-  call ~flags:[`Session] ~name:"apply_edition"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Change to another edition, or reactivate the current edition after \
-           a license has expired. This may be subject to the successful \
-           checkout of an appropriate license."
-        )
-      ]
+  call ~flags:[`Session] ~name:"apply_edition" ~published:rel_midnight_ride
     ~doc:
       "Change to another edition, or reactivate the current edition after a \
        license has expired. This may be subject to the successful checkout of \
@@ -2244,13 +1786,7 @@ let reset_networking =
 
 let enable_local_storage_caching =
   call ~flags:[`Session] ~name:"enable_local_storage_caching"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_cowley
-        , "Enable the use of a local SR for caching purposes"
-        )
-      ]
+    ~published:rel_cowley
     ~doc:"Enable the use of a local SR for caching purposes"
     ~params:
       [
@@ -2261,42 +1797,27 @@ let enable_local_storage_caching =
 
 let disable_local_storage_caching =
   call ~flags:[`Session] ~name:"disable_local_storage_caching"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_cowley
-        , "Disable the use of a local SR for caching purposes"
-        )
-      ]
+    ~published:rel_cowley
     ~doc:"Disable the use of a local SR for caching purposes"
     ~params:[(Ref _host, "host", "The host")]
     ~allowed_roles:_R_POOL_OP ()
 
 let get_sm_diagnostics =
-  call ~flags:[`Session] ~name:"get_sm_diagnostics"
-    ~lifecycle:[(Published, rel_boston, "Return live SM diagnostics")]
+  call ~flags:[`Session] ~name:"get_sm_diagnostics" ~published:rel_boston
     ~doc:"Return live SM diagnostics"
     ~params:[(Ref _host, "host", "The host")]
     ~result:(String, "Printable diagnostic data")
     ~allowed_roles:_R_POOL_OP ~hide_from_docs:true ()
 
 let get_thread_diagnostics =
-  call ~flags:[`Session] ~name:"get_thread_diagnostics"
-    ~lifecycle:[(Published, rel_boston, "Return live thread diagnostics")]
+  call ~flags:[`Session] ~name:"get_thread_diagnostics" ~published:rel_boston
     ~doc:"Return live thread diagnostics"
     ~params:[(Ref _host, "host", "The host")]
     ~result:(String, "Printable diagnostic data")
     ~allowed_roles:_R_POOL_OP ~hide_from_docs:true ()
 
 let sm_dp_destroy =
-  call ~flags:[`Session] ~name:"sm_dp_destroy"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_boston
-        , "Attempt to cleanup and destroy a named SM datapath"
-        )
-      ]
+  call ~flags:[`Session] ~name:"sm_dp_destroy" ~published:rel_boston
     ~doc:"Attempt to cleanup and destroy a named SM datapath"
     ~params:
       [
@@ -2969,90 +2490,43 @@ let t =
       @ allowed_and_current_operations operations
       @ [
           namespace ~name:"API_version" ~contents:api_version ()
-        ; field ~qualifier:DynamicRO ~ty:Bool "enabled"
-            ~lifecycle:
-              [(Published, rel_rio, "True if the host is currently enabled")]
+        ; field ~qualifier:DynamicRO ~ty:Bool "enabled" ~published:rel_rio
             "True if the host is currently enabled"
         ; field ~qualifier:StaticRO
             ~ty:(Map (String, String))
-            ~lifecycle:[(Published, rel_rio, "version strings")]
-            "software_version" "version strings"
+            ~published:rel_rio "software_version" "version strings"
         ; field
             ~ty:(Map (String, String))
-            ~lifecycle:[(Published, rel_rio, "additional configuration")]
-            "other_config" "additional configuration"
+            ~published:rel_rio "other_config" "additional configuration"
             ~map_keys_roles:
               [("folder", _R_VM_OP); ("XenCenter.CustomFields.*", _R_VM_OP)]
-        ; field ~qualifier:StaticRO ~ty:(Set String)
-            ~lifecycle:[(Published, rel_rio, "Xen capabilities")]
+        ; field ~qualifier:StaticRO ~ty:(Set String) ~published:rel_rio
             "capabilities" "Xen capabilities"
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "The CPU configuration on this host.  May contain keys such \
-                   as \"nr_nodes\", \"sockets_per_node\", \
-                   \"cores_per_socket\", or \"threads_per_core\""
-                )
-              ]
-            "cpu_configuration"
+            ~published:rel_rio "cpu_configuration"
             "The CPU configuration on this host.  May contain keys such as \
              \"nr_nodes\", \"sockets_per_node\", \"cores_per_socket\", or \
              \"threads_per_core\""
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Scheduler policy currently in force on this host"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio
             "sched_policy" "Scheduler policy currently in force on this host"
-        ; field ~qualifier:DynamicRO ~ty:(Set String)
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "a list of the bootloaders installed on the machine"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~ty:(Set String) ~published:rel_rio
             "supported_bootloaders"
             "a list of the bootloaders installed on the machine"
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm))
-            ~lifecycle:
-              [(Published, rel_rio, "list of VMs currently resident on host")]
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) ~published:rel_rio
             "resident_VMs" "list of VMs currently resident on host"
         ; field ~qualifier:RW
             ~ty:(Map (String, String))
-            ~lifecycle:[(Published, rel_rio, "logging configuration")]
-            "logging" "logging configuration"
+            ~published:rel_rio "logging" "logging configuration"
         ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) ~doc_tags:[Networking]
-            ~lifecycle:[(Published, rel_rio, "physical network interfaces")]
-            "PIFs" "physical network interfaces"
-        ; field ~qualifier:RW ~ty:(Ref _sr)
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "The SR in which VDIs for suspend images are created"
-                )
-              ]
+            ~published:rel_rio "PIFs" "physical network interfaces"
+        ; field ~qualifier:RW ~ty:(Ref _sr) ~published:rel_rio
             "suspend_image_sr"
             "The SR in which VDIs for suspend images are created"
-        ; field ~qualifier:RW ~ty:(Ref _sr)
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "The SR in which VDIs for crash dumps are created"
-                )
-              ]
-            "crash_dump_sr" "The SR in which VDIs for crash dumps are created"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Set of host crash dumps")]
-            ~qualifier:DynamicRO ~ty:(Set (Ref _host_crashdump)) "crashdumps"
+        ; field ~qualifier:RW ~ty:(Ref _sr) ~published:rel_rio "crash_dump_sr"
+            "The SR in which VDIs for crash dumps are created"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
+            ~ty:(Set (Ref _host_crashdump)) "crashdumps"
             "Set of host crash dumps"
         ; field ~in_oss_since:None
             ~lifecycle:
@@ -3062,147 +2536,61 @@ let t =
               ]
             ~qualifier:DynamicRO ~ty:(Set (Ref _host_patch)) "patches"
             "Set of host patches"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_ely, "Set of updates")]
-            ~qualifier:DynamicRO ~ty:(Set (Ref _pool_update)) "updates"
-            "Set of updates"
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd))
-            ~lifecycle:[(Published, rel_rio, "physical blockdevices")]
+        ; field ~in_oss_since:None ~published:rel_ely ~qualifier:DynamicRO
+            ~ty:(Set (Ref _pool_update)) "updates" "Set of updates"
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd)) ~published:rel_rio
             "PBDs" "physical blockdevices"
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _hostcpu))
-            ~lifecycle:[(Published, rel_rio, "The physical CPUs on this host")]
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _hostcpu)) ~published:rel_rio
             "host_CPUs" "The physical CPUs on this host"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "Details about the physical CPUs on this host"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~published:rel_midnight_ride
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "cpu_info" "Details about the physical CPUs on this host"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "The hostname of this host")]
-            ~qualifier:RW ~ty:String ~doc_tags:[Networking] "hostname"
-            "The hostname of this host"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "The address by which this host can be contacted from any \
-                   other host in the pool"
-                )
-              ]
-            ~qualifier:RW ~ty:String ~doc_tags:[Networking] "address"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:RW ~ty:String
+            ~doc_tags:[Networking] "hostname" "The hostname of this host"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:RW ~ty:String
+            ~doc_tags:[Networking] "address"
             "The address by which this host can be contacted from any other \
              host in the pool"
-        ; field ~qualifier:DynamicRO ~ty:(Ref _host_metrics)
-            ~lifecycle:
-              [(Published, rel_rio, "metrics associated with this host")]
+        ; field ~qualifier:DynamicRO ~ty:(Ref _host_metrics) ~published:rel_rio
             "metrics" "metrics associated with this host"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "State of the current license")]
-            ~qualifier:DynamicRO
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             "license_params" "State of the current license"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [(Published, rel_rio, "Free memory on host at boot time")]
-            ~internal_only:true ~qualifier:DynamicRO ~ty:Int "boot_free_mem"
+        ; field ~in_oss_since:None ~published:rel_rio ~internal_only:true
+            ~qualifier:DynamicRO ~ty:Int "boot_free_mem"
             "Free memory on host at boot time"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "The set of statefiles accessible from this host"
-                )
-              ]
+        ; field ~in_oss_since:None ~qualifier:DynamicRO ~published:rel_orlando
             ~ty:(Set String) ~default_value:(Some (VSet [])) "ha_statefiles"
             "The set of statefiles accessible from this host"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "The set of hosts visible via the network from this host"
-                )
-              ]
+        ; field ~in_oss_since:None ~qualifier:DynamicRO ~published:rel_orlando
             ~ty:(Set String) ~default_value:(Some (VSet [])) "ha_network_peers"
             "The set of hosts visible via the network from this host"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "Binary blobs associated with this host"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~published:rel_orlando
             ~ty:(Map (String, Ref _blob))
             ~default_value:(Some (VMap [])) "blobs"
             "Binary blobs associated with this host"
-        ; field ~writer_roles:_R_VM_OP ~qualifier:RW
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "user-specified tags for categorization purposes"
-                )
-              ]
+        ; field ~writer_roles:_R_VM_OP ~qualifier:RW ~published:rel_orlando
             ~default_value:(Some (VSet [])) ~ty:(Set String) "tags"
             "user-specified tags for categorization purposes"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_george
-                , "type of external authentication service configured; empty \
-                   if none configured."
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~published:rel_george
             ~default_value:(Some (VString "")) ~ty:String "external_auth_type"
             "type of external authentication service configured; empty if none \
              configured."
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_george
-                , "name of external authentication service configured; empty \
-                   if none configured."
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~published:rel_george
             ~default_value:(Some (VString "")) ~ty:String
             "external_auth_service_name"
             "name of external authentication service configured; empty if none \
              configured."
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_george
-                , "configuration specific to external authentication service"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~published:rel_george
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "external_auth_configuration"
             "configuration specific to external authentication service"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:[(Published, rel_midnight_ride, "Product edition")]
+        ; field ~qualifier:DynamicRO ~published:rel_midnight_ride
             ~default_value:(Some (VString "")) ~ty:String "edition"
             "Product edition"
-        ; field ~qualifier:RW
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "Contact information of the license server"
-                )
-              ]
+        ; field ~qualifier:RW ~published:rel_midnight_ride
             ~default_value:
               (Some
                  (VMap
@@ -3214,23 +2602,18 @@ let t =
               )
             ~ty:(Map (String, String))
             "license_server" "Contact information of the license server"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:[(Published, rel_midnight_ride, "BIOS strings")]
+        ; field ~qualifier:DynamicRO ~published:rel_midnight_ride
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "bios_strings" "BIOS strings"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:[(Published, rel_midnight_ride, "The power on mode")]
+        ; field ~qualifier:DynamicRO ~published:rel_midnight_ride
             ~default_value:(Some (VString "")) ~ty:String "power_on_mode"
             "The power on mode"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:[(Published, rel_midnight_ride, "The power on config")]
+        ; field ~qualifier:DynamicRO ~published:rel_midnight_ride
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "power_on_config" "The power on config"
-        ; field ~qualifier:StaticRO
-            ~lifecycle:
-              [(Published, rel_cowley, "The SR that is used as a local cache")]
+        ; field ~qualifier:StaticRO ~published:rel_cowley
             ~default_value:(Some (VRef null_ref)) ~ty:(Ref _sr) "local_cache_sr"
             "The SR that is used as a local cache"
         ; field ~qualifier:DynamicRO
@@ -3260,45 +2643,22 @@ let t =
              restarts its SSL/TLS listening service; typically this takes less \
              than a second but existing connections to it will be broken. API \
              login sessions will remain valid."
-        ; field ~qualifier:RW
-            ~lifecycle:
-              [
-                ( Published
-                , rel_tampa
-                , "VCPUs params to apply to all resident guests"
-                )
-              ]
+        ; field ~qualifier:RW ~published:rel_tampa
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "guest_VCPUs_params" "VCPUs params to apply to all resident guests"
-        ; field ~qualifier:RW
-            ~lifecycle:
-              [
-                ( Published
-                , rel_cream
-                , "indicates whether the host is configured to output its \
-                   console to a physical display device"
-                )
-              ]
+        ; field ~qualifier:RW ~published:rel_cream
             ~default_value:(Some (VEnum "enabled")) ~ty:display "display"
             "indicates whether the host is configured to output its console to \
              a physical display device"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_cream
-                , "The set of versions of the virtual hardware platform that \
-                   the host can offer to its guests"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~published:rel_cream
             ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set Int)
             "virtual_hardware_platform_versions"
             "The set of versions of the virtual hardware platform that the \
              host can offer to its guests"
         ; field ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref))
-            ~lifecycle:[(Published, rel_ely, "The control domain (domain 0)")]
-            ~ty:(Ref _vm) "control_domain" "The control domain (domain 0)"
+            ~published:rel_ely ~ty:(Ref _vm) "control_domain"
+            "The control domain (domain 0)"
         ; field ~qualifier:DynamicRO
             ~lifecycle:[(Published, rel_ely, "")]
             ~ty:(Set (Ref _pool_update)) ~ignore_foreign_key:true
@@ -3331,31 +2691,14 @@ let t =
             ~lifecycle:[(Published, rel_stockholm, "")]
             ~default_value:(Some (VSet [])) ~ty:(Set String) "editions"
             "List of all available product editions"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , "1.303.0"
-                , "The set of pending mandatory guidances after applying \
-                   updates, which must be applied, otherwise there may be, for \
-                   example, VM failures"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~published:"1.303.0"
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
             "The set of pending mandatory guidances after applying updates, \
              which must be applied, otherwise there may be, for example, VM \
              failures"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , "1.313.0"
-                , "True if this host has TLS verifcation enabled"
-                )
-              ]
-            ~ty:Bool "tls_verification_enabled"
-            ~default_value:(Some (VBool false))
+        ; field ~qualifier:DynamicRO ~published:"1.313.0" ~ty:Bool
+            "tls_verification_enabled" ~default_value:(Some (VBool false))
             "True if this host has TLS verifcation enabled"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
             "last_software_update" ~default_value:(Some (VDateTime Date.epoch))

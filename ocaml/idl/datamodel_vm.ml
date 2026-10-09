@@ -21,25 +21,14 @@ let vmpp_deprecated =
 
 let pv =
   [
-    field
-      ~lifecycle:[(Published, rel_rio, "name of or path to bootloader")]
-      "bootloader" "name of or path to bootloader"
-  ; field
-      ~lifecycle:[(Published, rel_rio, "path to the kernel")]
-      "kernel" "path to the kernel"
-  ; field
-      ~lifecycle:[(Published, rel_rio, "path to the initrd")]
-      "ramdisk" "path to the initrd"
-  ; field
-      ~lifecycle:[(Published, rel_rio, "kernel command-line arguments")]
-      "args" "kernel command-line arguments"
-  ; field
-      ~lifecycle:
-        [(Published, rel_rio, "miscellaneous arguments for the bootloader")]
-      "bootloader_args" "miscellaneous arguments for the bootloader"
-  ; field ~in_oss_since:None
-      ~lifecycle:[(Published, rel_rio, "to make Zurich guests boot")]
-      "legacy_args" "to make Zurich guests boot"
+    field ~published:rel_rio "bootloader" "name of or path to bootloader"
+  ; field ~published:rel_rio "kernel" "path to the kernel"
+  ; field ~published:rel_rio "ramdisk" "path to the initrd"
+  ; field ~published:rel_rio "args" "kernel command-line arguments"
+  ; field ~published:rel_rio "bootloader_args"
+      "miscellaneous arguments for the bootloader"
+  ; field ~in_oss_since:None ~published:rel_rio "legacy_args"
+      "to make Zurich guests boot"
   ]
 
 (** HVM domain booting *)
@@ -52,20 +41,11 @@ let hvm =
         ; (Deprecated, rel_kolkata, "Replaced by VM.domain_type")
         ]
       "boot_policy" "HVM boot policy"
-  ; field
-      ~lifecycle:[(Published, rel_rio, "HVM boot params")]
+  ; field ~published:rel_rio
       ~ty:(Map (String, String))
       "boot_params" "HVM boot params"
   ; field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~ty:Float
-      ~lifecycle:
-        [
-          ( Published
-          , rel_miami
-          , "multiplier applied to the amount of shadow that will be made \
-             available to the guest"
-          )
-        ]
-      ~qualifier:StaticRO "shadow_multiplier"
+      ~published:rel_miami ~qualifier:StaticRO "shadow_multiplier"
       "multiplier applied to the amount of shadow that will be made available \
        to the guest"
       ~default_value:(Some (VFloat 1.))
@@ -74,12 +54,9 @@ let hvm =
 let guest_memory =
   let field = field ~ty:Int in
   [
-    field "overhead"
-      ~lifecycle:
-        [(Published, rel_rio, "Virtualization memory overhead (bytes).")]
-      ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
-      "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L))
-      ~doc_tags:[Memory]
+    field "overhead" ~published:rel_rio ~writer_roles:_R_VM_POWER_ADMIN
+      ~qualifier:DynamicRO "Virtualization memory overhead (bytes)."
+      ~default_value:(Some (VInt 0L)) ~doc_tags:[Memory]
   ; field "target"
       ~lifecycle:
         [
@@ -94,40 +71,18 @@ let guest_memory =
       "Dynamically-set memory target (bytes). The value of this field \
        indicates the current target for memory available to this VM."
       ~default_value:(Some (VInt 0L)) ~doc_tags:[Memory]
-  ; field "static_max"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Statically-set (i.e. absolute) maximum (bytes). The value of this \
-             field at VM start time acts as a hard limit of the amount of \
-             memory a guest can use. New values only take effect on reboot."
-          )
-        ]
-      ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
+  ; field "static_max" ~published:rel_rio ~writer_roles:_R_VM_POWER_ADMIN
+      ~qualifier:StaticRO
       "Statically-set (i.e. absolute) maximum (bytes). The value of this field \
        at VM start time acts as a hard limit of the amount of memory a guest \
        can use. New values only take effect on reboot."
       ~doc_tags:[Memory]
-  ; field "dynamic_max"
-      ~lifecycle:[(Published, rel_rio, "Dynamic maximum (bytes)")]
-      ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
-      "Dynamic maximum (bytes)" ~doc_tags:[Memory]
-  ; field "dynamic_min"
-      ~lifecycle:[(Published, rel_rio, "Dynamic minimum (bytes)")]
-      ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
-      "Dynamic minimum (bytes)" ~doc_tags:[Memory]
-  ; field "static_min"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Statically-set (i.e. absolute) mininum (bytes). The value of this \
-             field indicates the least amount of memory this VM can boot with \
-             without crashing."
-          )
-        ]
-      ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
+  ; field "dynamic_max" ~published:rel_rio ~writer_roles:_R_VM_POWER_ADMIN
+      ~qualifier:StaticRO "Dynamic maximum (bytes)" ~doc_tags:[Memory]
+  ; field "dynamic_min" ~published:rel_rio ~writer_roles:_R_VM_POWER_ADMIN
+      ~qualifier:StaticRO "Dynamic minimum (bytes)" ~doc_tags:[Memory]
+  ; field "static_min" ~published:rel_rio ~writer_roles:_R_VM_POWER_ADMIN
+      ~qualifier:StaticRO
       "Statically-set (i.e. absolute) mininum (bytes). The value of this field \
        indicates the least amount of memory this VM can boot with without \
        crashing."
@@ -170,22 +125,13 @@ let on_normal_exit_behaviour =
 (** Virtual CPUs *)
 let vcpus =
   [
-    field
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "configuration parameters for the selected VCPU policy"
-          )
-        ]
+    field ~published:rel_rio
       ~ty:(Map (String, String))
       "params" "configuration parameters for the selected VCPU policy"
-  ; field
-      ~lifecycle:[(Published, rel_rio, "Max number of VCPUs")]
-      ~qualifier:StaticRO ~ty:Int "max" "Max number of VCPUs"
-  ; field
-      ~lifecycle:[(Published, rel_rio, "Boot number of VCPUs")]
-      ~qualifier:StaticRO ~ty:Int "at_startup" "Boot number of VCPUs"
+  ; field ~published:rel_rio ~qualifier:StaticRO ~ty:Int "max"
+      "Max number of VCPUs"
+  ; field ~published:rel_rio ~qualifier:StaticRO ~ty:Int "at_startup"
+      "Boot number of VCPUs"
   ]
 
 (** Default actions *)
@@ -212,8 +158,7 @@ let actions =
   ]
 
 let set_actions_after_crash =
-  call ~name:"set_actions_after_crash" ~in_oss_since:None
-    ~lifecycle:[(Published, rel_rio, "Sets the actions_after_crash parameter")]
+  call ~name:"set_actions_after_crash" ~in_oss_since:None ~published:rel_rio
     ~doc:"Sets the actions_after_crash parameter"
     ~params:
       [
@@ -264,9 +209,7 @@ let get_data_sources =
     ~errs:[] ~flags:[`Session] ~allowed_roles:_R_READ_ONLY ()
 
 let record_data_source =
-  call ~name:"record_data_source" ~in_oss_since:None
-    ~lifecycle:
-      [(Published, rel_orlando, "Start recording the specified data source")]
+  call ~name:"record_data_source" ~in_oss_since:None ~published:rel_orlando
     ~doc:"Start recording the specified data source"
     ~params:
       [
@@ -276,14 +219,7 @@ let record_data_source =
     ~errs:[] ~flags:[`Session] ~allowed_roles:_R_VM_ADMIN ()
 
 let query_data_source =
-  call ~name:"query_data_source" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Query the latest value of the specified data source"
-        )
-      ]
+  call ~name:"query_data_source" ~in_oss_since:None ~published:rel_orlando
     ~doc:"Query the latest value of the specified data source"
     ~params:
       [
@@ -295,13 +231,7 @@ let query_data_source =
 
 let forget_data_source_archives =
   call ~name:"forget_data_source_archives" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Forget the recorded statistics related to the specified data source"
-        )
-      ]
+    ~published:rel_orlando
     ~doc:"Forget the recorded statistics related to the specified data source"
     ~params:
       [
@@ -325,14 +255,7 @@ let set_ha_always_run =
     ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
 
 let set_ha_restart_priority =
-  call ~name:"set_ha_restart_priority" ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Set the value of the ha_restart_priority field"
-        )
-      ]
+  call ~name:"set_ha_restart_priority" ~in_oss_since:None ~published:rel_orlando
     ~doc:"Set the value of the ha_restart_priority field"
     ~params:[(Ref _vm, "self", "The VM"); (String, "value", "The value")]
     ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
@@ -340,18 +263,7 @@ let set_ha_restart_priority =
 (* VM.Clone *)
 
 let clone =
-  call ~name:"clone"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Clones the specified VM, making a new VM. Clone automatically \
-           exploits the capabilities of the underlying storage repository in \
-           which the VM's disk images are stored (for example, Copy on Write). \
-           This function can only be called when the VM is in the Halted \
-           State."
-        )
-      ]
+  call ~name:"clone" ~published:rel_rio
     ~doc:
       "Clones the specified VM, making a new VM. Clone automatically exploits \
        the capabilities of the underlying storage repository in which the VM's \
@@ -458,16 +370,7 @@ let update_snapshot_metadata =
     ~allowed_roles:_R_POOL_OP ()
 
 let snapshot =
-  call ~name:"snapshot"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Snapshots the specified VM, making a new VM. Snapshot automatically \
-           exploits the capabilities of the underlying storage repository in \
-           which the VM's disk images are stored (for example, Copy on Write)."
-        )
-      ]
+  call ~name:"snapshot" ~published:rel_orlando
     ~doc:
       "Snapshots the specified VM, making a new VM. Snapshot automatically \
        exploits the capabilities of the underlying storage repository in which \
@@ -506,14 +409,7 @@ let snapshot =
     ~allowed_roles:_R_VM_POWER_ADMIN ~doc_tags:[Snapshots] ()
 
 let revert =
-  call ~name:"revert"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Reverts the specified VM to a previous state."
-        )
-      ]
+  call ~name:"revert" ~published:rel_midnight_ride
     ~doc:"Reverts the specified VM to a previous state."
     ~params:[(Ref _vm, "snapshot", "The snapshotted state that we revert to")]
     ~errs:
@@ -526,17 +422,7 @@ let revert =
     ~allowed_roles:_R_VM_POWER_ADMIN ~doc_tags:[Snapshots] ()
 
 let checkpoint =
-  call ~name:"checkpoint"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Checkpoints the specified VM, making a new VM. Checkpoint \
-           automatically exploits the capabilities of the underlying storage \
-           repository in which the VM's disk images are stored (for example, \
-           Copy on Write) and saves the memory image as well."
-        )
-      ]
+  call ~name:"checkpoint" ~published:rel_midnight_ride
     ~doc:
       "Checkpoints the specified VM, making a new VM. Checkpoint automatically \
        exploits the capabilities of the underlying storage repository in which \
@@ -584,8 +470,7 @@ let set_is_default_template =
     ~errs:[] ~allowed_roles:_R_POOL_ADMIN ()
 
 let import_convert =
-  call ~name:"import_convert"
-    ~lifecycle:[(Published, rel_tampa, "Import using a conversion service.")]
+  call ~name:"import_convert" ~published:rel_tampa
     ~doc:"Import using a conversion service."
     ~params:
       [
@@ -606,30 +491,13 @@ let provision =
        creates VDIs and VBDs and then executes any applicable post-install \
        script."
     ~params:[(Ref _vm, "vm", "The VM to be provisioned")]
-    ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Inspects the disk configuration contained within the VM's \
-           other_config, creates VDIs and VBDs and then executes any \
-           applicable post-install script."
-        )
-      ]
-    ~errs:(errnames_of_call clone) ~allowed_roles:_R_VM_ADMIN ()
+    ~in_oss_since:None ~published:rel_rio ~errs:(errnames_of_call clone)
+    ~allowed_roles:_R_VM_ADMIN ()
 
 (* VM.Start *)
 
 let start =
-  call ~name:"start"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Start the specified VM.  This function can only be called with the \
-           VM is in the Halted State."
-        )
-      ]
+  call ~name:"start" ~published:rel_rio
     ~doc:
       "Start the specified VM.  This function can only be called with the VM \
        is in the Halted State."
@@ -699,15 +567,7 @@ let assert_can_boot_here =
     ~doc_tags:[Memory] ()
 
 let assert_agile =
-  call ~name:"assert_agile"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Returns an error if the VM is not considered agile, for example, \
-           because it is tied to a resource local to a host"
-        )
-      ]
+  call ~name:"assert_agile" ~published:rel_orlando
     ~doc:
       "Returns an error if the VM is not considered agile, for example, \
        because it is tied to a resource local to a host"
@@ -715,30 +575,14 @@ let assert_agile =
     ~allowed_roles:_R_READ_ONLY ()
 
 let get_possible_hosts =
-  call ~name:"get_possible_hosts"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Return the list of hosts on which this VM may run."
-        )
-      ]
+  call ~name:"get_possible_hosts" ~published:rel_rio
     ~doc:"Return the list of hosts on which this VM may run."
     ~params:[(Ref _vm, "vm", "The VM")]
     ~result:(Set (Ref _host), "The possible hosts")
     ~allowed_roles:_R_READ_ONLY ()
 
 let retrieve_wlb_recommendations =
-  call ~name:"retrieve_wlb_recommendations"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_george
-        , "Returns mapping of hosts to ratings, indicating the suitability of \
-           starting the VM at that location according to wlb. Rating is \
-           replaced with an error if the VM cannot boot there."
-        )
-      ]
+  call ~name:"retrieve_wlb_recommendations" ~published:rel_george
     ~doc:
       "Returns mapping of hosts to ratings, indicating the suitability of \
        starting the VM at that location according to wlb. Rating is replaced \
@@ -751,19 +595,7 @@ let retrieve_wlb_recommendations =
     ~allowed_roles:_R_READ_ONLY ()
 
 let maximise_memory =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_miami
-        , "Returns the maximum amount of guest memory which will fit, together \
-           with overheads, in the supplied amount of physical memory. If \
-           'exact' is true then an exact calculation is performed using the \
-           VM's current settings. If 'exact' is false then a more conservative \
-           approximation is used"
-        )
-      ]
-    ~name:"maximise_memory"
+  call ~published:rel_miami ~name:"maximise_memory"
     ~doc:
       "Returns the maximum amount of guest memory which will fit, together \
        with overheads, in the supplied amount of physical memory. If 'exact' \
@@ -785,15 +617,7 @@ let maximise_memory =
     ~allowed_roles:_R_READ_ONLY ~doc_tags:[Memory] ()
 
 let get_allowed_VBD_devices =
-  call ~flags:[`Session] ~no_current_operations:true
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Returns a list of the allowed values that a VBD device field can \
-           take"
-        )
-      ]
+  call ~flags:[`Session] ~no_current_operations:true ~published:rel_rio
     ~name:"get_allowed_VBD_devices"
     ~doc:"Returns a list of the allowed values that a VBD device field can take"
     ~params:[(Ref _vm, "vm", "The VM to query")]
@@ -801,15 +625,7 @@ let get_allowed_VBD_devices =
     ~allowed_roles:_R_READ_ONLY ()
 
 let get_allowed_VIF_devices =
-  call ~flags:[`Session] ~no_current_operations:true
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Returns a list of the allowed values that a VIF device field can \
-           take"
-        )
-      ]
+  call ~flags:[`Session] ~no_current_operations:true ~published:rel_rio
     ~name:"get_allowed_VIF_devices"
     ~doc:"Returns a list of the allowed values that a VIF device field can take"
     ~params:[(Ref _vm, "vm", "The VM to query")]
@@ -832,15 +648,7 @@ let atomic_set_resident_on =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let compute_memory_overhead =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Computes the virtualization memory overhead of a VM."
-        )
-      ]
-    ~name:"compute_memory_overhead"
+  call ~published:rel_midnight_ride ~name:"compute_memory_overhead"
     ~doc:"Computes the virtualization memory overhead of a VM."
     ~params:[(Ref _vm, "vm", "The VM for which to compute the memory overhead")]
     ~pool_internal:false ~hide_from_docs:false
@@ -848,14 +656,7 @@ let compute_memory_overhead =
     ~allowed_roles:_R_READ_ONLY ~doc_tags:[Memory] ()
 
 let set_memory_dynamic_max =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Set the value of the memory_dynamic_max field"
-        )
-      ]
+  call ~flags:[`Session] ~published:rel_midnight_ride
     ~name:"set_memory_dynamic_max"
     ~doc:"Set the value of the memory_dynamic_max field"
     ~params:
@@ -866,14 +667,7 @@ let set_memory_dynamic_max =
     ~allowed_roles:_R_VM_POWER_ADMIN ~errs:[] ~doc_tags:[Memory] ()
 
 let set_memory_dynamic_min =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Set the value of the memory_dynamic_min field"
-        )
-      ]
+  call ~flags:[`Session] ~published:rel_midnight_ride
     ~name:"set_memory_dynamic_min"
     ~doc:"Set the value of the memory_dynamic_min field"
     ~params:
@@ -884,15 +678,7 @@ let set_memory_dynamic_min =
     ~allowed_roles:_R_VM_POWER_ADMIN ~errs:[] ~doc_tags:[Memory] ()
 
 let set_memory_dynamic_range =
-  call ~name:"set_memory_dynamic_range"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Set the minimum and maximum amounts of physical memory the VM is \
-           allowed to use."
-        )
-      ]
+  call ~name:"set_memory_dynamic_range" ~published:rel_midnight_ride
     ~doc:
       "Set the minimum and maximum amounts of physical memory the VM is \
        allowed to use."
@@ -908,10 +694,7 @@ let set_memory_dynamic_range =
 (* When HA is enabled we need to prevent memory *)
 (* changes which will break the recovery plan.  *)
 let set_memory_static_max =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [(Published, rel_orlando, "Set the value of the memory_static_max field")]
-    ~name:"set_memory_static_max"
+  call ~flags:[`Session] ~published:rel_orlando ~name:"set_memory_static_max"
     ~doc:"Set the value of the memory_static_max field"
     ~errs:[Api_errors.ha_operation_would_break_failover_plan]
     ~allowed_roles:_R_VM_POWER_ADMIN
@@ -923,14 +706,7 @@ let set_memory_static_max =
     ~doc_tags:[Memory] ()
 
 let set_memory_static_min =
-  call ~flags:[`Session]
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Set the value of the memory_static_min field"
-        )
-      ]
+  call ~flags:[`Session] ~published:rel_midnight_ride
     ~name:"set_memory_static_min"
     ~doc:"Set the value of the memory_static_min field" ~errs:[]
     ~allowed_roles:_R_VM_POWER_ADMIN
@@ -942,15 +718,7 @@ let set_memory_static_min =
     ~doc_tags:[Memory] ()
 
 let set_memory_static_range =
-  call ~name:"set_memory_static_range"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Set the static (ie boot-time) range of virtual memory that the VM \
-           is allowed to use."
-        )
-      ]
+  call ~name:"set_memory_static_range" ~published:rel_midnight_ride
     ~doc:
       "Set the static (ie boot-time) range of virtual memory that the VM is \
        allowed to use."
@@ -964,9 +732,7 @@ let set_memory_static_range =
     ~doc_tags:[Memory] ()
 
 let set_memory_limits =
-  call ~name:"set_memory_limits"
-    ~lifecycle:
-      [(Published, rel_midnight_ride, "Set the memory limits of this VM.")]
+  call ~name:"set_memory_limits" ~published:rel_midnight_ride
     ~doc:"Set the memory limits of this VM." ~allowed_roles:_R_VM_POWER_ADMIN
     ~params:
       [
@@ -979,16 +745,7 @@ let set_memory_limits =
     ~doc_tags:[Memory] ()
 
 let set_memory =
-  call ~name:"set_memory"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_ely
-        , "Set the memory allocation of this VM. Sets all of \
-           memory_static_max, memory_dynamic_min, and memory_dynamic_max to \
-           the given value, and leaves memory_static_min untouched."
-        )
-      ]
+  call ~name:"set_memory" ~published:rel_ely
     ~doc:
       "Set the memory allocation of this VM. Sets all of memory_static_max, \
        memory_dynamic_min, and memory_dynamic_max to the given value, and \
@@ -1048,15 +805,7 @@ let get_cooperative =
     ~allowed_roles:_R_READ_ONLY ~doc_tags:[Memory] ()
 
 let query_services =
-  call ~name:"query_services"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_tampa
-        , "Query the system services advertised by this VM and register them. \
-           This can only be applied to a system domain."
-        )
-      ]
+  call ~name:"query_services" ~published:rel_tampa
     ~doc:
       "Query the system services advertised by this VM and register them. This \
        can only be applied to a system domain."
@@ -1067,16 +816,7 @@ let query_services =
 (* VM.StartOn *)
 
 let start_on =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Start the specified VM on a particular host.  This function can \
-           only be called with the VM is in the Halted State."
-        )
-      ]
-    ~name:"start_on"
+  call ~published:rel_rio ~name:"start_on"
     ~doc:
       "Start the specified VM on a particular host.  This function can only be \
        called with the VM is in the Halted State."
@@ -1108,16 +848,7 @@ let start_on =
 (* VM.Pause *)
 
 let pause =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Pause the specified VM. This can only be called when the specified \
-           VM is in the Running state."
-        )
-      ]
-    ~name:"pause"
+  call ~published:rel_rio ~name:"pause"
     ~doc:
       "Pause the specified VM. This can only be called when the specified VM \
        is in the Running state."
@@ -1134,16 +865,7 @@ let pause =
 (* VM.UnPause *)
 
 let unpause =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Resume the specified VM. This can only be called when the specified \
-           VM is in the Paused state."
-        )
-      ]
-    ~name:"unpause"
+  call ~published:rel_rio ~name:"unpause"
     ~doc:
       "Resume the specified VM. This can only be called when the specified VM \
        is in the Paused state."
@@ -1159,17 +881,7 @@ let unpause =
 (* VM.CleanShutdown *)
 
 let cleanShutdown =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Attempt to cleanly shutdown the specified VM. (Note: this may not \
-           be supported, for example, if a guest agent is not installed). This \
-           can only be called when the specified VM is in the Running state."
-        )
-      ]
-    ~name:"clean_shutdown"
+  call ~published:rel_rio ~name:"clean_shutdown"
     ~doc:
       "Attempt to cleanly shutdown the specified VM. (Note: this may not be \
        supported, for example, if a guest agent is not installed). This can \
@@ -1187,17 +899,7 @@ let cleanShutdown =
 (* VM.CleanReboot *)
 
 let cleanReboot =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Attempt to cleanly shutdown the specified VM (Note: this may not be \
-           supported, for example, if a guest agent is not installed). This \
-           can only be called when the specified VM is in the Running state."
-        )
-      ]
-    ~name:"clean_reboot"
+  call ~published:rel_rio ~name:"clean_reboot"
     ~doc:
       "Attempt to cleanly shutdown the specified VM (Note: this may not be \
        supported, for example, if a guest agent is not installed). This can \
@@ -1215,15 +917,7 @@ let cleanReboot =
 (* VM.HardShutdown *)
 
 let hardShutdown =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Stop executing the specified VM without attempting a clean shutdown."
-        )
-      ]
-    ~name:"hard_shutdown"
+  call ~published:rel_rio ~name:"hard_shutdown"
     ~doc:"Stop executing the specified VM without attempting a clean shutdown."
     ~params:[(Ref _vm, "vm", "The VM to destroy")]
     ~errs:
@@ -1238,16 +932,7 @@ let hardShutdown =
 (* VM.Shutdown *)
 
 let shutdown =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_clearwater
-        , "Attempts to first clean shutdown a VM and if it should fail then \
-           perform a hard shutdown on it."
-        )
-      ]
-    ~name:"shutdown"
+  call ~published:rel_clearwater ~name:"shutdown"
     ~doc:
       "Attempts to first clean shutdown a VM and if it should fail then \
        perform a hard shutdown on it."
@@ -1265,18 +950,7 @@ let shutdown =
 (* VM.PowerStateReset *)
 
 let stateReset =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Reset the power-state of the VM to halted in the database only. \
-           (Used to recover from supporter failures in pooling scenarios by \
-           resetting the power-states of VMs running on dead supporters to \
-           halted.) This is a potentially dangerous operation; use with care."
-        )
-      ]
-    ~name:"power_state_reset"
+  call ~published:rel_rio ~name:"power_state_reset"
     ~doc:
       "Reset the power-state of the VM to halted in the database only. (Used \
        to recover from supporter failures in pooling scenarios by resetting \
@@ -1288,16 +962,7 @@ let stateReset =
 (* VM.HardReboot *)
 
 let hardReboot =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Stop executing the specified VM without attempting a clean shutdown \
-           and immediately restart the VM."
-        )
-      ]
-    ~name:"hard_reboot"
+  call ~published:rel_rio ~name:"hard_reboot"
     ~doc:
       "Stop executing the specified VM without attempting a clean shutdown and \
        immediately restart the VM."
@@ -1330,16 +995,7 @@ let hardReboot_internal =
 (* VM.Hibernate *)
 
 let suspend =
-  call
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Suspend the specified VM to disk.  This can only be called when the \
-           specified VM is in the Running state."
-        )
-      ]
-    ~name:"suspend"
+  call ~published:rel_rio ~name:"suspend"
     ~doc:
       "Suspend the specified VM to disk.  This can only be called when the \
        specified VM is in the Running state."
@@ -1374,15 +1030,7 @@ let csvm =
 (* VM.UnHibernate *)
 
 let resume =
-  call ~name:"resume"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Awaken the specified VM and resume it.  This can only be called \
-           when the specified VM is in the Suspended state."
-        )
-      ]
+  call ~name:"resume" ~published:rel_rio
     ~doc:
       "Awaken the specified VM and resume it.  This can only be called when \
        the specified VM is in the Suspended state."
@@ -1406,15 +1054,7 @@ let resume =
     ~allowed_roles:_R_VM_OP ()
 
 let resume_on =
-  call ~name:"resume_on"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Awaken the specified VM and resume it on a particular Host.  This \
-           can only be called when the specified VM is in the Suspended state."
-        )
-      ]
+  call ~name:"resume_on" ~published:rel_rio
     ~doc:
       "Awaken the specified VM and resume it on a particular Host.  This can \
        only be called when the specified VM is in the Suspended state."
@@ -1441,9 +1081,8 @@ let resume_on =
     ()
 
 let pool_migrate =
-  call ~in_oss_since:None
-    ~lifecycle:[(Published, rel_rio, "Migrate a VM to another Host.")]
-    ~name:"pool_migrate" ~doc:"Migrate a VM to another Host."
+  call ~in_oss_since:None ~published:rel_rio ~name:"pool_migrate"
+    ~doc:"Migrate a VM to another Host."
     ~params:
       [
         (Ref _vm, "vm", "The VM to migrate")
@@ -1467,15 +1106,7 @@ let pool_migrate =
     ()
 
 let pool_migrate_complete =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_tampa
-        , "Tell a destination host that migration is complete."
-        )
-      ]
-    ~name:"pool_migrate_complete"
+  call ~in_oss_since:None ~published:rel_tampa ~name:"pool_migrate_complete"
     ~doc:"Tell a destination host that migration is complete."
     ~params:
       [
@@ -1505,14 +1136,7 @@ let set_vcpus_number_live =
     ()
 
 let set_VCPUs_max =
-  call ~flags:[`Session] ~name:"set_VCPUs_max"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Set the maximum number of VCPUs for a halted VM"
-        )
-      ]
+  call ~flags:[`Session] ~name:"set_VCPUs_max" ~published:rel_midnight_ride
     ~doc:"Set the maximum number of VCPUs for a halted VM"
     ~params:
       [
@@ -1523,13 +1147,7 @@ let set_VCPUs_max =
 
 let set_VCPUs_at_startup =
   call ~flags:[`Session] ~name:"set_VCPUs_at_startup"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Set the number of startup VCPUs for a halted VM"
-        )
-      ]
+    ~published:rel_midnight_ride
     ~doc:"Set the number of startup VCPUs for a halted VM"
     ~params:
       [
@@ -1540,13 +1158,7 @@ let set_VCPUs_at_startup =
 
 let set_HVM_shadow_multiplier =
   call ~flags:[`Session] ~name:"set_HVM_shadow_multiplier"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Set the shadow memory multiplier on a halted VM"
-        )
-      ]
+    ~published:rel_midnight_ride
     ~doc:"Set the shadow memory multiplier on a halted VM"
     ~params:
       [
@@ -1556,9 +1168,7 @@ let set_HVM_shadow_multiplier =
     ~allowed_roles:_R_VM_POWER_ADMIN ()
 
 let set_shadow_multiplier_live =
-  call ~name:"set_shadow_multiplier_live"
-    ~lifecycle:
-      [(Published, rel_rio, "Set the shadow memory multiplier on a running VM")]
+  call ~name:"set_shadow_multiplier_live" ~published:rel_rio
     ~doc:"Set the shadow memory multiplier on a running VM"
     ~params:
       [
@@ -1568,15 +1178,7 @@ let set_shadow_multiplier_live =
     ~allowed_roles:_R_VM_POWER_ADMIN ()
 
 let add_to_VCPUs_params_live =
-  call ~name:"add_to_VCPUs_params_live"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Add the given key-value pair to VM.VCPUs_params, and apply that \
-           value on the running VM"
-        )
-      ]
+  call ~name:"add_to_VCPUs_params_live" ~published:rel_rio
     ~doc:
       "Add the given key-value pair to VM.VCPUs_params, and apply that value \
        on the running VM"
@@ -1615,16 +1217,7 @@ let set_NVRAM =
     ~allowed_roles:_R_VM_ADMIN ()
 
 let send_sysrq =
-  call ~name:"send_sysrq"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Send the given key as a sysrq to this VM.  The key is specified as \
-           a single character (a String of length 1).  This can only be called \
-           when the specified VM is in the Running state."
-        )
-      ]
+  call ~name:"send_sysrq" ~published:rel_rio
     ~doc:
       "Send the given key as a sysrq to this VM.  The key is specified as a \
        single character (a String of length 1).  This can only be called when \
@@ -1634,15 +1227,7 @@ let send_sysrq =
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let send_trigger =
-  call ~name:"send_trigger"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Send the named trigger to this VM.  This can only be called when \
-           the specified VM is in the Running state."
-        )
-      ]
+  call ~name:"send_trigger" ~published:rel_rio
     ~doc:
       "Send the named trigger to this VM.  This can only be called when the \
        specified VM is in the Running state."
@@ -1652,15 +1237,7 @@ let send_trigger =
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let migrate_send =
-  call ~name:"migrate_send"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_tampa
-        , "Migrate the VM to another host.  This can only be called when the \
-           specified VM is in the Running state."
-        )
-      ]
+  call ~name:"migrate_send" ~published:rel_tampa
     ~doc:
       "Migrate the VM to another host.  This can only be called when the \
        specified VM is in the Running state."
@@ -1729,14 +1306,7 @@ let migrate_send =
     ~allowed_roles:_R_VM_POWER_ADMIN ()
 
 let assert_can_migrate =
-  call ~name:"assert_can_migrate"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_tampa
-        , "Assert whether a VM can be migrated to the specified destination."
-        )
-      ]
+  call ~name:"assert_can_migrate" ~published:rel_tampa
     ~doc:"Assert whether a VM can be migrated to the specified destination."
     ~versioned_params:
       [
@@ -1825,33 +1395,19 @@ let assert_can_migrate_sender =
     ~allowed_roles:_R_VM_POWER_ADMIN ~hide_from_docs:true ()
 
 let s3_suspend =
-  call ~name:"s3_suspend"
-    ~lifecycle:
-      [(Published, rel_midnight_ride, "Try to put the VM into ACPI S3 state")]
+  call ~name:"s3_suspend" ~published:rel_midnight_ride
     ~doc:"Try to put the VM into ACPI S3 state"
     ~params:[(Ref _vm, "vm", "The VM")]
     ~hide_from_docs:true ~allowed_roles:_R_VM_OP ()
 
 let s3_resume =
-  call ~name:"s3_resume"
-    ~lifecycle:
-      [
-        (Published, rel_midnight_ride, "Try to resume the VM from ACPI S3 state")
-      ]
+  call ~name:"s3_resume" ~published:rel_midnight_ride
     ~doc:"Try to resume the VM from ACPI S3 state"
     ~params:[(Ref _vm, "vm", "The VM")]
     ~hide_from_docs:true ~allowed_roles:_R_VM_OP ()
 
 let create_new_blob =
-  call ~name:"create_new_blob"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Create a placeholder for a named binary blob of data that is \
-           associated with this VM"
-        )
-      ]
+  call ~name:"create_new_blob" ~published:rel_orlando
     ~doc:
       "Create a placeholder for a named binary blob of data that is associated \
        with this VM"
@@ -1893,22 +1449,7 @@ let create_new_blob =
     ~allowed_roles:_R_VM_POWER_ADMIN ()
 
 let set_bios_strings =
-  call ~name:"set_bios_strings"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_inverness
-        , "Set custom BIOS strings to this VM. VM will be given a default set \
-           of BIOS strings, only some of which can be overridden by the \
-           supplied values. Allowed keys are: 'bios-vendor', 'bios-version', \
-           'system-manufacturer', 'system-product-name', 'system-version', \
-           'system-serial-number', 'enclosure-asset-tag', \
-           'baseboard-manufacturer', 'baseboard-product-name', \
-           'baseboard-version', 'baseboard-serial-number', \
-           'baseboard-asset-tag', 'baseboard-location-in-chassis', \
-           'enclosure-asset-tag'"
-        )
-      ]
+  call ~name:"set_bios_strings" ~published:rel_inverness
     ~doc:
       "Set custom BIOS strings to this VM. VM will be given a default set of \
        BIOS strings, only some of which can be overridden by the supplied \
@@ -1931,14 +1472,7 @@ let set_bios_strings =
     ()
 
 let copy_bios_strings =
-  call ~name:"copy_bios_strings"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_midnight_ride
-        , "Copy the BIOS strings from the given host to this VM"
-        )
-      ]
+  call ~name:"copy_bios_strings" ~published:rel_midnight_ride
     ~doc:"Copy the BIOS strings from the given host to this VM"
     ~params:
       [
@@ -1954,16 +1488,13 @@ let set_protection_policy =
     ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
 
 let set_snapshot_schedule =
-  call ~name:"set_snapshot_schedule" ~in_oss_since:None
-    ~lifecycle:
-      [(Published, rel_falcon, "Set the value of the snapshot schedule field")]
+  call ~name:"set_snapshot_schedule" ~in_oss_since:None ~published:rel_falcon
     ~doc:"Set the value of the snapshot schedule field"
     ~params:[(Ref _vm, "self", "The VM"); (Ref _vmss, "value", "The value")]
     ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
 
 let set_start_delay =
-  call ~name:"set_start_delay"
-    ~lifecycle:[(Published, rel_boston, "Set this VM's start delay in seconds")]
+  call ~name:"set_start_delay" ~published:rel_boston
     ~doc:"Set this VM's start delay in seconds"
     ~params:
       [
@@ -1973,9 +1504,7 @@ let set_start_delay =
     ~allowed_roles:_R_POOL_OP ()
 
 let set_shutdown_delay =
-  call ~name:"set_shutdown_delay"
-    ~lifecycle:
-      [(Published, rel_boston, "Set this VM's shutdown delay in seconds")]
+  call ~name:"set_shutdown_delay" ~published:rel_boston
     ~doc:"Set this VM's shutdown delay in seconds"
     ~params:
       [
@@ -1985,23 +1514,13 @@ let set_shutdown_delay =
     ~allowed_roles:_R_POOL_OP ()
 
 let set_order =
-  call ~name:"set_order"
-    ~lifecycle:[(Published, rel_boston, "Set this VM's boot order")]
-    ~doc:"Set this VM's boot order"
+  call ~name:"set_order" ~published:rel_boston ~doc:"Set this VM's boot order"
     ~params:
       [(Ref _vm, "self", "The VM"); (Int, "value", "This VM's boot order")]
     ~allowed_roles:_R_POOL_OP ()
 
 let set_suspend_VDI =
-  call ~name:"set_suspend_VDI"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_boston
-        , "Set this VM's suspend VDI, which must be indentical to its current \
-           one"
-        )
-      ]
+  call ~name:"set_suspend_VDI" ~published:rel_boston
     ~doc:
       "Set this VM's suspend VDI, which must be indentical to its current one"
     ~params:
@@ -2009,14 +1528,7 @@ let set_suspend_VDI =
     ~allowed_roles:_R_POOL_OP ()
 
 let assert_can_be_recovered =
-  call ~name:"assert_can_be_recovered"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_boston
-        , "Assert whether all SRs required to recover this VM are available."
-        )
-      ]
+  call ~name:"assert_can_be_recovered" ~published:rel_boston
     ~doc:"Assert whether all SRs required to recover this VM are available."
     ~params:
       [
@@ -2030,14 +1542,7 @@ let assert_can_be_recovered =
     ~allowed_roles:_R_READ_ONLY ()
 
 let get_SRs_required_for_recovery =
-  call ~name:"get_SRs_required_for_recovery"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_creedence
-        , "List all the SR's that are required for the VM to be recovered"
-        )
-      ]
+  call ~name:"get_SRs_required_for_recovery" ~published:rel_creedence
     ~doc:"List all the SR's that are required for the VM to be recovered"
     ~params:
       [
@@ -2051,9 +1556,7 @@ let get_SRs_required_for_recovery =
     ~errs:[] ~allowed_roles:_R_READ_ONLY ()
 
 let recover =
-  call ~name:"recover"
-    ~lifecycle:[(Published, rel_boston, "Recover the VM")]
-    ~doc:"Recover the VM"
+  call ~name:"recover" ~published:rel_boston ~doc:"Recover the VM"
     ~params:
       [
         (Ref _vm, "self", "The VM to recover")
@@ -2069,8 +1572,7 @@ let recover =
     ~allowed_roles:_R_READ_ONLY ()
 
 let set_appliance =
-  call ~name:"set_appliance"
-    ~lifecycle:[(Published, rel_boston, "Assign this VM to an appliance.")]
+  call ~name:"set_appliance" ~published:rel_boston
     ~doc:"Assign this VM to an appliance."
     ~params:
       [
@@ -2093,8 +1595,7 @@ let set_groups =
     ~allowed_roles:_R_VM_ADMIN ()
 
 let call_plugin =
-  call ~name:"call_plugin"
-    ~lifecycle:[(Published, rel_cream, "Call an API plugin on this vm")]
+  call ~name:"call_plugin" ~published:rel_cream
     ~doc:"Call an API plugin on this vm"
     ~params:
       [
@@ -2120,18 +1621,7 @@ let call_host_plugin =
     ~allowed_roles:_R_VM_OP ()
 
 let set_has_vendor_device =
-  call ~name:"set_has_vendor_device"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_dundee
-        , "Controls whether, when the VM starts in HVM mode, its virtual \
-           hardware will include the emulated PCI device for which drivers may \
-           be available through Windows Update. Usually this should never be \
-           changed on a VM on which Windows has been installed: changing it on \
-           such a VM is likely to lead to a crash on next start."
-        )
-      ]
+  call ~name:"set_has_vendor_device" ~published:rel_dundee
     ~doc:
       "Controls whether, when the VM starts in HVM mode, its virtual hardware \
        will include the emulated PCI device for which drivers may be available \
@@ -2146,9 +1636,7 @@ let set_has_vendor_device =
     ~allowed_roles:_R_VM_ADMIN ~doc_tags:[Windows] ()
 
 let import =
-  call ~name:"import"
-    ~lifecycle:[(Published, rel_dundee, "Import an XVA from a URI")]
-    ~doc:"Import an XVA from a URI"
+  call ~name:"import" ~published:rel_dundee ~doc:"Import an XVA from a URI"
     ~params:
       [
         (String, "url", "The URL of the XVA file")
@@ -2225,15 +1713,7 @@ let operations =
 
 let set_blocked_operations =
   call ~name:"set_blocked_operations"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Update list of operations which have been explicitly blocked and an \
-           error code"
-        )
-      ]
-      (* but updated 2024 *)
+    ~published:rel_orlando (* but updated 2024 *)
     ~doc:
       "Update list of operations which have been explicitly blocked and an \
        error code"
@@ -2246,15 +1726,7 @@ let set_blocked_operations =
 
 let add_to_blocked_operations =
   call ~name:"add_to_blocked_operations"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Update list of operations which have been explicitly blocked and an \
-           error code"
-        )
-      ]
-      (* but updated 2024 *)
+    ~published:rel_orlando (* but updated 2024 *)
     ~doc:
       "Update list of operations which have been explicitly blocked and an \
        error code"
@@ -2268,15 +1740,7 @@ let add_to_blocked_operations =
 
 let remove_from_blocked_operations =
   call ~name:"remove_from_blocked_operations"
-    ~lifecycle:
-      [
-        ( Published
-        , rel_orlando
-        , "Update list of operations which have been explicitly blocked and an \
-           error code"
-        )
-      ]
-      (* but updated 2024 *)
+    ~published:rel_orlando (* but updated 2024 *)
     ~doc:
       "Update list of operations which have been explicitly blocked and an \
        error code"
@@ -2285,17 +1749,7 @@ let remove_from_blocked_operations =
     ~allowed_roles:_R_VM_ADMIN ()
 
 let assert_operation_valid =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [
-        ( Published
-        , rel_rio
-        , "Check to see whether this operation is acceptable in the current \
-           state of the system, raising an error if the operation is invalid \
-           for some reason"
-        )
-      ]
-    ~name:"assert_operation_valid"
+  call ~in_oss_since:None ~published:rel_rio ~name:"assert_operation_valid"
     ~doc:
       "Check to see whether this operation is acceptable in the current state \
        of the system, raising an error if the operation is invalid for some \
@@ -2308,10 +1762,7 @@ let assert_operation_valid =
     ~allowed_roles:_R_READ_ONLY ()
 
 let update_allowed_operations =
-  call ~in_oss_since:None
-    ~lifecycle:
-      [(Published, rel_rio, "Recomputes the list of acceptable operations")]
-    ~name:"update_allowed_operations"
+  call ~in_oss_since:None ~published:rel_rio ~name:"update_allowed_operations"
     ~doc:"Recomputes the list of acceptable operations"
     ~params:[(Ref _vm, _self, "reference to the object")]
     ~allowed_roles:_R_POOL_ADMIN ()
@@ -2796,25 +2247,9 @@ let t =
                 )
               ]
             ~ty:power_state "power_state" "Current power state of the machine"
-        ; field ~ty:Int "user_version"
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Creators of VMs and templates may store version information \
-                   here."
-                )
-              ]
+        ; field ~ty:Int "user_version" ~published:rel_rio
             "Creators of VMs and templates may store version information here."
-        ; field ~has_effect:true ~ty:Bool "is_a_template"
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "true if this is a template. Template VMs can never be \
-                   started, they are used only for cloning other VMs"
-                )
-              ]
+        ; field ~has_effect:true ~ty:Bool "is_a_template" ~published:rel_rio
             "true if this is a template. Template VMs can never be started, \
              they are used only for cloning other VMs"
         ; field ~ty:Bool ~default_value:(Some (VBool false))
@@ -2836,73 +2271,42 @@ let t =
             ~ty:(Ref _vdi) "suspend_VDI"
             "The VDI that a suspend image is stored on. (Only has meaning if \
              VM is currently suspended)"
-        ; field
-            ~lifecycle:
-              [(Published, rel_rio, "the host the VM is currently resident on")]
-            ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~ty:(Ref _host)
-            "resident_on" "the host the VM is currently resident on"
+        ; field ~published:rel_rio ~writer_roles:_R_VM_POWER_ADMIN
+            ~qualifier:DynamicRO ~ty:(Ref _host) "resident_on"
+            "the host the VM is currently resident on"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "the host on which the VM is due to be \
-                   started/resumed/migrated. This acts as a memory reservation \
-                   indicator"
-                )
-              ]
-            ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref))
-            ~ty:(Ref _host) "scheduled_to_be_resident_on"
+            ~published:rel_rio ~qualifier:DynamicRO
+            ~default_value:(Some (VRef null_ref)) ~ty:(Ref _host)
+            "scheduled_to_be_resident_on"
             "the host on which the VM is due to be started/resumed/migrated. \
              This acts as a memory reservation indicator"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "A host which the VM has some affinity for (or NULL). This \
-                   is used as a hint to the start call when it decides where \
-                   to run the VM. Resource constraints may cause the VM to be \
-                   started elsewhere."
-                )
-              ]
-            ~ty:(Ref _host) "affinity"
+            ~published:rel_rio ~ty:(Ref _host) "affinity"
             "A host which the VM has some affinity for (or NULL). This is used \
              as a hint to the start call when it decides where to run the VM. \
              Resource constraints may cause the VM to be started elsewhere."
         ; namespace ~name:"memory" ~contents:guest_memory ()
         ; namespace ~name:"VCPUs" ~contents:vcpus ()
         ; namespace ~name:"actions" ~contents:actions ()
-        ; field
-            ~lifecycle:[(Published, rel_rio, "virtual console devices")]
-            ~writer_roles:_R_POOL_ADMIN ~qualifier:DynamicRO
-            ~ty:(Set (Ref _console)) "consoles" "virtual console devices"
-        ; field
-            ~lifecycle:[(Published, rel_rio, "virtual network interfaces")]
-            ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) ~doc_tags:[Networking]
-            "VIFs" "virtual network interfaces"
-        ; field
-            ~lifecycle:[(Published, rel_rio, "virtual block devices")]
-            ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs"
-            "virtual block devices"
-        ; field
-            ~lifecycle:[(Published, rel_rio, "virtual usb devices")]
-            ~qualifier:DynamicRO ~ty:(Set (Ref _vusb)) "VUSBs"
-            "virtual usb devices"
-        ; field
-            ~lifecycle:
-              [(Published, rel_rio, "crash dumps associated with this VM")]
-            ~writer_roles:_R_POOL_ADMIN ~qualifier:DynamicRO
-            ~ty:(Set (Ref _crashdump)) "crash_dumps"
+        ; field ~published:rel_rio ~writer_roles:_R_POOL_ADMIN
+            ~qualifier:DynamicRO ~ty:(Set (Ref _console)) "consoles"
+            "virtual console devices"
+        ; field ~published:rel_rio ~qualifier:DynamicRO ~ty:(Set (Ref _vif))
+            ~doc_tags:[Networking] "VIFs" "virtual network interfaces"
+        ; field ~published:rel_rio ~qualifier:DynamicRO ~ty:(Set (Ref _vbd))
+            "VBDs" "virtual block devices"
+        ; field ~published:rel_rio ~qualifier:DynamicRO ~ty:(Set (Ref _vusb))
+            "VUSBs" "virtual usb devices"
+        ; field ~published:rel_rio ~writer_roles:_R_POOL_ADMIN
+            ~qualifier:DynamicRO ~ty:(Set (Ref _crashdump)) "crash_dumps"
             "crash dumps associated with this VM"
-        ; field
-            ~lifecycle:[(Published, rel_rio, "virtual TPMs")]
-            ~qualifier:DynamicRO ~ty:(Set (Ref _vtpm)) "VTPMs" "virtual TPMs"
+        ; field ~published:rel_rio ~qualifier:DynamicRO ~ty:(Set (Ref _vtpm))
+            "VTPMs" "virtual TPMs"
         ; namespace ~name:"PV" ~contents:pv ()
         ; namespace ~name:"HVM" ~contents:hvm ()
         ; field ~qualifier:StaticRO
             ~ty:(Map (String, String))
-            ~lifecycle:[(Published, rel_rio, "platform-specific configuration")]
+            ~published:rel_rio
             ~map_keys_roles:[("hvm_serial", _R_POOL_ADMIN)]
             "platform" "platform-specific configuration"
         ; field
@@ -2912,8 +2316,7 @@ let t =
               ; (Deprecated, rel_boston, "Field was never used")
               ]
             "PCI_bus" "PCI bus path for pass-through devices"
-        ; field ~qualifier:StaticRO
-            ~lifecycle:[(Published, rel_rio, "additional configuration")]
+        ; field ~qualifier:StaticRO ~published:rel_rio
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
             ~map_keys_roles:
@@ -2923,53 +2326,22 @@ let t =
               ; ("folder", _R_VM_OP)
               ; ("XenCenter.CustomFields.*", _R_VM_OP)
               ]
-        ; field ~qualifier:DynamicRO ~ty:Int "domid"
-            ~lifecycle:
-              [(Published, rel_rio, "domain ID (if available, -1 otherwise)")]
+        ; field ~qualifier:DynamicRO ~ty:Int "domid" ~published:rel_rio
             "domain ID (if available, -1 otherwise)"
-        ; field ~qualifier:DynamicRO ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Domain architecture (if available, null string otherwise)"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~in_oss_since:None ~published:rel_rio
             ~ty:String "domarch"
             "Domain architecture (if available, null string otherwise)"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "describes the CPU flags on which the VM was last booted"
-                )
-              ]
-            ~qualifier:StaticRO
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:StaticRO
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "last_boot_CPU_flags"
             "describes the CPU flags on which the VM was last booted"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "true if this is a control domain (domain 0 or a driver \
-                   domain)"
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:Bool "is_control_domain"
+        ; field ~published:rel_rio ~qualifier:DynamicRO ~ty:Bool
+            "is_control_domain"
             "true if this is a control domain (domain 0 or a driver domain)"
-        ; field
-            ~lifecycle:[(Published, rel_rio, "metrics associated with this VM")]
-            ~qualifier:DynamicRO ~ty:(Ref _vm_metrics) "metrics"
-            "metrics associated with this VM"
-        ; field
-            ~lifecycle:
-              [
-                (Published, rel_rio, "metrics associated with the running guest")
-              ]
-            ~qualifier:DynamicRO ~ty:(Ref _vm_guest_metrics) "guest_metrics"
+        ; field ~published:rel_rio ~qualifier:DynamicRO ~ty:(Ref _vm_metrics)
+            "metrics" "metrics associated with this VM"
+        ; field ~published:rel_rio ~qualifier:DynamicRO
+            ~ty:(Ref _vm_guest_metrics) "guest_metrics"
             "metrics associated with the running guest"
         ; (* This was an internal field in Rio, Miami beta1, Miami beta2 but is now exposed so that
              	   it will be included automatically in Miami GA exports and can be restored, important if
@@ -2991,29 +2363,13 @@ let t =
             ~qualifier:StaticRO ~ty:String "last_booted_record"
             "marshalled value containing VM record at time of last boot"
             ~default_value:(Some (VString ""))
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "An XML specification of recommended values and ranges for \
-                   properties of this VM"
-                )
-              ]
-            ~ty:String "recommendations"
+        ; field ~in_oss_since:None ~published:rel_rio ~ty:String
+            "recommendations"
             "An XML specification of recommended values and ranges for \
              properties of this VM"
         ; field ~has_effect:true ~in_oss_since:None
             ~ty:(Map (String, String))
-            ~lifecycle:
-              [
-                ( Published
-                , rel_miami
-                , "data to be inserted into the xenstore tree \
-                   (/local/domain/<domid>/vm-data) after the VM is created."
-                )
-              ]
-            ~qualifier:RW "xenstore_data"
+            ~published:rel_miami ~qualifier:RW "xenstore_data"
             "data to be inserted into the xenstore tree \
              (/local/domain/<domid>/vm-data) after the VM is created."
             ~default_value:(Some (VMap []))
@@ -3032,18 +2388,7 @@ let t =
              much as possible."
             ~default_value:(Some (VBool false))
         ; field ~writer_roles:_R_POOL_OP ~in_oss_since:None ~ty:String
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "has possible values: \"best-effort\" meaning \"try to \
-                   restart this VM if possible but don't consider the Pool to \
-                   be overcommitted if this is not possible\"; \"restart\" \
-                   meaning \"this VM should be restarted\"; \"\" meaning \"do \
-                   not try to restart this VM\""
-                )
-              ]
-            ~qualifier:StaticRO "ha_restart_priority"
+            ~published:rel_orlando ~qualifier:StaticRO "ha_restart_priority"
             "has possible values: \"best-effort\" meaning \"try to restart \
              this VM if possible but don't consider the Pool to be \
              overcommitted if this is not possible\"; \"restart\" meaning \
@@ -3051,127 +2396,52 @@ let t =
              restart this VM\""
             ~default_value:(Some (VString ""))
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "true if this is a snapshot. Snapshotted VMs can never be \
-                   started, they are used only for cloning other VMs"
-                )
-              ]
-            ~default_value:(Some (VBool false)) ~ty:Bool "is_a_snapshot"
+            ~published:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool
+            "is_a_snapshot"
             "true if this is a snapshot. Snapshotted VMs can never be started, \
              they are used only for cloning other VMs"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "Ref pointing to the VM this snapshot is of."
-                )
-              ]
-            ~default_value:(Some (VRef "")) ~ty:(Ref _vm) "snapshot_of"
-            "Ref pointing to the VM this snapshot is of."
+            ~published:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _vm)
+            "snapshot_of" "Ref pointing to the VM this snapshot is of."
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "List pointing to all the VM snapshots."
-                )
-              ]
-            ~ty:(Set (Ref _vm)) "snapshots"
+            ~published:rel_orlando ~ty:(Set (Ref _vm)) "snapshots"
             "List pointing to all the VM snapshots."
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "Date/time when this snapshot was created."
-                )
-              ]
-            ~default_value:(Some (VDateTime Date.epoch)) ~ty:DateTime
-            "snapshot_time" "Date/time when this snapshot was created."
+            ~published:rel_orlando ~default_value:(Some (VDateTime Date.epoch))
+            ~ty:DateTime "snapshot_time"
+            "Date/time when this snapshot was created."
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
-            ~lifecycle:
-              [(Published, rel_orlando, "Transportable ID of the snapshot VM")]
-            ~default_value:(Some (VString "")) ~ty:String
+            ~published:rel_orlando ~default_value:(Some (VString "")) ~ty:String
             "transportable_snapshot_id" "Transportable ID of the snapshot VM"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [(Published, rel_orlando, "Binary blobs associated with this VM")]
+        ; field ~qualifier:DynamicRO ~published:rel_orlando
             ~ty:(Map (String, Ref _blob))
             ~default_value:(Some (VMap [])) "blobs"
             "Binary blobs associated with this VM"
-        ; field ~writer_roles:_R_VM_OP
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "user-specified tags for categorization purposes"
-                )
-              ]
+        ; field ~writer_roles:_R_VM_OP ~published:rel_orlando
             ~default_value:(Some (VSet [])) ~ty:(Set String) "tags"
             "user-specified tags for categorization purposes"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "List of operations which have been explicitly blocked and \
-                   an error code"
-                )
-              ]
-            ~default_value:(Some (VMap [])) ~qualifier:StaticRO
+        ; field ~published:rel_orlando ~default_value:(Some (VMap []))
+            ~qualifier:StaticRO
             ~ty:(Map (operations, String))
             "blocked_operations"
             "List of operations which have been explicitly blocked and an \
              error code"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "Human-readable information concerning this snapshot"
-                )
-              ]
-            ~default_value:(Some (VMap []))
+            ~published:rel_midnight_ride ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "snapshot_info"
             "Human-readable information concerning this snapshot"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "Encoded information about the VM's metadata this is a \
-                   snapshot of"
-                )
-              ]
-            ~default_value:(Some (VString "")) ~ty:String "snapshot_metadata"
+            ~published:rel_midnight_ride ~default_value:(Some (VString ""))
+            ~ty:String "snapshot_metadata"
             "Encoded information about the VM's metadata this is a snapshot of"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "Ref pointing to the parent of this VM"
-                )
-              ]
-            ~default_value:(Some (VRef "")) ~ty:(Ref _vm) "parent"
-            "Ref pointing to the parent of this VM"
+            ~published:rel_midnight_ride ~default_value:(Some (VRef ""))
+            ~ty:(Ref _vm) "parent" "Ref pointing to the parent of this VM"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "List pointing to all the children of this VM"
-                )
-              ]
-            ~ty:(Set (Ref _vm)) "children"
+            ~published:rel_midnight_ride ~ty:(Set (Ref _vm)) "children"
             "List pointing to all the children of this VM"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:[(Published, rel_midnight_ride, "BIOS strings")]
+        ; field ~qualifier:DynamicRO ~published:rel_midnight_ride
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "bios_strings" "BIOS strings"
@@ -3184,65 +2454,29 @@ let t =
             "is_snapshot_from_vmpp"
             "true if this snapshot was created by the protection policy"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_falcon
-                , "Ref pointing to a snapshot schedule for this VM"
-                )
-              ]
-            ~default_value:(Some (VRef null_ref)) ~ty:(Ref _vmss)
-            "snapshot_schedule"
+            ~published:rel_falcon ~default_value:(Some (VRef null_ref))
+            ~ty:(Ref _vmss) "snapshot_schedule"
             "Ref pointing to a snapshot schedule for this VM"
         ; field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_falcon
-                , "true if this snapshot was created by the snapshot schedule"
-                )
-              ]
-            ~default_value:(Some (VBool false)) ~ty:Bool "is_vmss_snapshot"
+            ~published:rel_falcon ~default_value:(Some (VBool false)) ~ty:Bool
+            "is_vmss_snapshot"
             "true if this snapshot was created by the snapshot schedule"
-        ; field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO
-            ~lifecycle:
-              [(Published, rel_rio, "the appliance to which this VM belongs")]
+        ; field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~published:rel_rio
             ~ty:(Ref _vm_appliance) ~default_value:(Some (VRef null_ref))
             "appliance" "the appliance to which this VM belongs"
         ; field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_boston
-                , "The delay to wait before proceeding to the next order in \
-                   the startup sequence (seconds)"
-                )
-              ]
-            ~default_value:(Some (VInt 0L)) ~ty:Int "start_delay"
+            ~published:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int
+            "start_delay"
             "The delay to wait before proceeding to the next order in the \
              startup sequence (seconds)"
         ; field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_boston
-                , "The delay to wait before proceeding to the next order in \
-                   the shutdown sequence (seconds)"
-                )
-              ]
-            ~default_value:(Some (VInt 0L)) ~ty:Int "shutdown_delay"
+            ~published:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int
+            "shutdown_delay"
             "The delay to wait before proceeding to the next order in the \
              shutdown sequence (seconds)"
         ; field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_boston
-                , "The point in the startup or shutdown sequence at which this \
-                   VM will be started"
-                )
-              ]
-            ~default_value:(Some (VInt 0L)) ~ty:Int "order"
+            ~published:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int
+            "order"
             "The point in the startup or shutdown sequence at which this VM \
              will be started"
         ; field ~qualifier:DynamicRO
@@ -3252,38 +2486,16 @@ let t =
             ~lifecycle:[(Published, rel_boston, "")]
             ~ty:(Set (Ref _pci)) "attached_PCIs"
             "Currently passed-through PCI devices"
-        ; field ~writer_roles:_R_VM_ADMIN ~qualifier:RW
-            ~lifecycle:
-              [
-                ( Published
-                , rel_boston
-                , "The SR on which a suspend image is stored"
-                )
-              ]
+        ; field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~published:rel_boston
             ~default_value:(Some (VRef null_ref)) ~ty:(Ref _sr) "suspend_SR"
             "The SR on which a suspend image is stored"
-        ; field ~qualifier:StaticRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_boston
-                , "The number of times this VM has been recovered"
-                )
-              ]
+        ; field ~qualifier:StaticRO ~published:rel_boston
             ~default_value:(Some (VInt 0L)) ~ty:Int "version"
             "The number of times this VM has been recovered"
-        ; field ~qualifier:StaticRO
-            ~lifecycle:[(Published, rel_clearwater, "Generation ID of the VM")]
+        ; field ~qualifier:StaticRO ~published:rel_clearwater
             ~default_value:(Some (VString "0:0")) ~ty:String "generation_id"
             "Generation ID of the VM"
-        ; field ~writer_roles:_R_VM_ADMIN ~qualifier:RW
-            ~lifecycle:
-              [
-                ( Published
-                , rel_cream
-                , "The host virtual hardware platform version the VM can run on"
-                )
-              ]
+        ; field ~writer_roles:_R_VM_ADMIN ~qualifier:RW ~published:rel_cream
             ~default_value:(Some (VInt 0L)) ~ty:Int "hardware_platform_version"
             "The host virtual hardware platform version the VM can run on"
         ; field ~qualifier:StaticRO
@@ -3305,18 +2517,7 @@ let t =
             ~default_value:(Some (VBool false)) "requires_reboot"
             "Indicates whether a VM requires a reboot in order to update its \
              configuration, for example, its memory allocation."
-        ; field ~qualifier:StaticRO ~ty:String
-            ~lifecycle:
-              [
-                ( Published
-                , rel_ely
-                , "Textual reference to the template used to create a VM. This \
-                   can be used by clients in need of an immutable reference to \
-                   the template since the latter's uuid and name_label may \
-                   change, for example, after a package installation or \
-                   upgrade."
-                )
-              ]
+        ; field ~qualifier:StaticRO ~ty:String ~published:rel_ely
             ~default_value:(Some (VString "")) "reference_label"
             "Textual reference to the template used to create a VM. This can \
              be used by clients in need of an immutable reference to the \
@@ -3340,16 +2541,7 @@ let t =
             "NVRAM" ~default_value:(Some (VMap []))
             "initial value for guest NVRAM (containing UEFI variables, etc). \
              Cannot be changed while the VM is running"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , "1.303.0"
-                , "The set of pending mandatory guidances after applying \
-                   updates, which must be applied, otherwise there may be, for \
-                   example, VM failures"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~published:"1.303.0"
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
             "The set of pending mandatory guidances after applying updates, \

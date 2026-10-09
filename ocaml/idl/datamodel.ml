@@ -30,15 +30,7 @@ let api_version_minor = Datamodel_common.api_version_minor
 
 module Session = struct
   let login =
-    call ~flags:[] ~name:"login_with_password"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Attempt to authenticate the user, returning a session reference \
-             if successful"
-          )
-        ]
+    call ~flags:[] ~name:"login_with_password" ~published:rel_rio
       ~doc:
         "Attempt to authenticate the user, returning a session reference if \
          successful"
@@ -92,29 +84,11 @@ module Session = struct
           (Ref _host, "host", "Host id of the supporter")
         ; (SecretString, "psecret", "Pool secret")
         ]
-      ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Attempt to authenticate to the pool coordinator by presenting the \
-             supporter's host ref and pool secret"
-          )
-        ]
-      ~secret:true ~hide_from_docs:true ~allowed_roles:_R_POOL_ADMIN
-      (*system can create a slave session !!! *) ()
+      ~in_oss_since:None ~published:rel_rio ~secret:true ~hide_from_docs:true
+      ~allowed_roles:_R_POOL_ADMIN (*system can create a slave session !!! *) ()
 
   let slave_local_login =
-    call ~flags:[]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_miami
-          , "Authenticate locally against a supporter in emergency mode. Note \
-             the resulting sessions are only good for use on this host."
-          )
-        ]
-      ~name:"slave_local_login"
+    call ~flags:[] ~published:rel_miami ~name:"slave_local_login"
       ~doc:
         "Authenticate locally against a supporter in emergency mode. Note the \
          resulting sessions are only good for use on this host."
@@ -124,16 +98,7 @@ module Session = struct
       ~allowed_roles:_R_POOL_ADMIN (*system can create a slave session*) ()
 
   let slave_local_login_with_password =
-    call ~flags:[]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_miami
-          , "Authenticate locally against a supporter in emergency mode. Note \
-             the resulting sessions are only good for use on this host."
-          )
-        ]
-      ~name:"slave_local_login_with_password"
+    call ~flags:[] ~published:rel_miami ~name:"slave_local_login_with_password"
       ~doc:
         "Authenticate locally against a supporter in emergency mode. Note the \
          resulting sessions are only good for use on this host."
@@ -156,17 +121,14 @@ module Session = struct
       ~in_oss_since:None ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let local_logout =
-    call ~flags:[`Session]
-      ~lifecycle:[(Published, rel_miami, "Log out of local session.")]
-      ~name:"local_logout" ~doc:"Log out of local session." ~params:[]
-      ~in_oss_since:None ~allowed_roles:_R_POOL_ADMIN
-      (*system can destroy a local session*) ()
+    call ~flags:[`Session] ~published:rel_miami ~name:"local_logout"
+      ~doc:"Log out of local session." ~params:[] ~in_oss_since:None
+      ~allowed_roles:_R_POOL_ADMIN (*system can destroy a local session*) ()
 
   let logout =
-    call ~flags:[`Session]
-      ~lifecycle:[(Published, rel_rio, "Log out of a session")]
-      ~name:"logout" ~doc:"Log out of a session" ~params:[]
-      ~allowed_roles:_R_ALL (*any role can destroy a known user session*) ()
+    call ~flags:[`Session] ~published:rel_rio ~name:"logout"
+      ~doc:"Log out of a session" ~params:[] ~allowed_roles:_R_ALL
+      (*any role can destroy a known user session*) ()
 
   let change_password =
     call ~flags:[`Session] ~name:"change_password"
@@ -179,16 +141,7 @@ module Session = struct
           (String, "old_pwd", "Old password for account")
         ; (String, "new_pwd", "New password for account")
         ]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Change the account password; if your session is authenticated \
-             with root privileges then the old_pwd is validated and the \
-             new_pwd is set regardless"
-          )
-        ]
-      ~in_oss_since:None ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~published:rel_rio ~in_oss_since:None ~allowed_roles:_R_LOCAL_ROOT_ONLY
       (*not even pool-admin can change passwords, only root*) ()
 
   let get_all_subject_identifiers =
@@ -200,16 +153,8 @@ module Session = struct
         ( Set String
         , "The list of user subject-identifiers of all existing sessions"
         )
-      ~params:[]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_george
-          , "Return a list of all the user subject-identifiers of all existing \
-             sessions"
-          )
-        ]
-      ~in_oss_since:None ~allowed_roles:_R_ALL ()
+      ~params:[] ~published:rel_george ~in_oss_since:None ~allowed_roles:_R_ALL
+      ()
 
   let logout_subject_identifier =
     call ~name:"logout_subject_identifier"
@@ -223,16 +168,7 @@ module Session = struct
           , "User subject-identifier of the sessions to be destroyed"
           )
         ]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_george
-          , "Log out all sessions associated to a user subject-identifier, \
-             except the session associated with the context calling this \
-             function"
-          )
-        ]
-      ~in_oss_since:None ~allowed_roles:_R_POOL_OP ()
+      ~published:rel_george ~in_oss_since:None ~allowed_roles:_R_POOL_OP ()
 
   let t =
     create_obj ~in_db:true
@@ -259,157 +195,56 @@ module Session = struct
           uid _session
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
-        ; field ~qualifier:DynamicRO ~ty:(Ref _host)
-            ~lifecycle:[(Published, rel_rio, "Currently connected host")]
+        ; field ~qualifier:DynamicRO ~ty:(Ref _host) ~published:rel_rio
             "this_host" "Currently connected host"
-        ; field ~qualifier:DynamicRO ~ty:(Ref _user)
-            ~lifecycle:[(Published, rel_rio, "Currently connected user")]
+        ; field ~qualifier:DynamicRO ~ty:(Ref _user) ~published:rel_rio
             "this_user" "Currently connected user"
-        ; field ~qualifier:DynamicRO ~ty:DateTime
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Timestamp for last time session was active"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~published:rel_rio
             "last_active" "Timestamp for last time session was active"
         ; field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "True if this session relates to an intra-pool login, false \
-                   otherwise"
-                )
-              ]
-            "pool"
+            ~published:rel_rio "pool"
             "True if this session relates to an intra-pool login, false \
              otherwise"
-        ; field
-            ~lifecycle:[(Published, rel_miami, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~published:rel_miami ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_george
-                , "true iff this session was created using local superuser \
-                   credentials"
-                )
-              ]
-            ~qualifier:DynamicRO ~default_value:(Some (VBool false)) ~ty:Bool
-            "is_local_superuser"
+        ; field ~published:rel_george ~qualifier:DynamicRO
+            ~default_value:(Some (VBool false)) ~ty:Bool "is_local_superuser"
             "true iff this session was created using local superuser \
              credentials"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_george
-                , "references the subject instance that created the session. \
-                   If a session instance has is_local_superuser set, then the \
-                   value of this field is undefined."
-                )
-              ]
-            ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref))
-            ~ty:(Ref _subject) "subject"
+        ; field ~published:rel_george ~qualifier:DynamicRO
+            ~default_value:(Some (VRef null_ref)) ~ty:(Ref _subject) "subject"
             "references the subject instance that created the session. If a \
              session instance has is_local_superuser set, then the value of \
              this field is undefined."
-        ; field
-            ~lifecycle:
-              [(Published, rel_george, "time when session was last validated")]
-            ~qualifier:DynamicRO ~default_value:(Some (VDateTime Date.epoch))
-            ~ty:DateTime "validation_time"
-            "time when session was last validated"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_george
-                , "the subject identifier of the user that was externally \
-                   authenticated. If a session instance has is_local_superuser \
-                   set, then the value of this field is undefined."
-                )
-              ]
-            ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String
-            "auth_user_sid"
+        ; field ~published:rel_george ~qualifier:DynamicRO
+            ~default_value:(Some (VDateTime Date.epoch)) ~ty:DateTime
+            "validation_time" "time when session was last validated"
+        ; field ~published:rel_george ~qualifier:DynamicRO
+            ~default_value:(Some (VString "")) ~ty:String "auth_user_sid"
             "the subject identifier of the user that was externally \
              authenticated. If a session instance has is_local_superuser set, \
              then the value of this field is undefined."
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "the subject name of the user that was externally \
-                   authenticated. If a session instance has is_local_superuser \
-                   set, then the value of this field is undefined."
-                )
-              ]
-            ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String
-            "auth_user_name"
+        ; field ~published:rel_midnight_ride ~qualifier:DynamicRO
+            ~default_value:(Some (VString "")) ~ty:String "auth_user_name"
             "the subject name of the user that was externally authenticated. \
              If a session instance has is_local_superuser set, then the value \
              of this field is undefined."
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "list with all RBAC permissions for this session"
-                )
-              ]
-            ~qualifier:StaticRO ~default_value:(Some (VSet [])) ~ty:(Set String)
-            "rbac_permissions" "list with all RBAC permissions for this session"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "list of tasks created using the current session"
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:(Set (Ref _task)) "tasks"
+        ; field ~published:rel_midnight_ride ~qualifier:StaticRO
+            ~default_value:(Some (VSet [])) ~ty:(Set String) "rbac_permissions"
+            "list with all RBAC permissions for this session"
+        ; field ~published:rel_midnight_ride ~qualifier:DynamicRO
+            ~ty:(Set (Ref _task)) "tasks"
             "list of tasks created using the current session"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "references the parent session that created this session"
-                )
-              ]
-            ~qualifier:StaticRO ~default_value:(Some (VRef null_ref))
-            ~ty:(Ref _session) "parent"
+        ; field ~published:rel_midnight_ride ~qualifier:StaticRO
+            ~default_value:(Some (VRef null_ref)) ~ty:(Ref _session) "parent"
             "references the parent session that created this session"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_clearwater
-                , "a key string provided by an API user to distinguish itself \
-                   from other users sharing the same login name"
-                )
-              ]
-            ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String
-            "originator"
+        ; field ~published:rel_clearwater ~qualifier:DynamicRO
+            ~default_value:(Some (VString "")) ~ty:String "originator"
             "a key string provided by an API user to distinguish itself from \
              other users sharing the same login name"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , "21.2.0"
-                , "indicates whether this session was authenticated using a \
-                   client certificate"
-                )
-              ]
-            ~qualifier:DynamicRO ~default_value:(Some (VBool false)) ~ty:Bool
-            "client_certificate"
+        ; field ~published:"21.2.0" ~qualifier:DynamicRO
+            ~default_value:(Some (VBool false)) ~ty:Bool "client_certificate"
             "indicates whether this session was authenticated using a client \
              certificate"
         ]
@@ -431,17 +266,7 @@ module Task = struct
       )
 
   let cancel =
-    call ~name:"cancel"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Request that a task be cancelled. Note that a task may fail to be \
-             cancelled and may complete or fail normally and note that, even \
-             when a task does cancel, it might take an arbitrary amount of \
-             time."
-          )
-        ]
+    call ~name:"cancel" ~published:rel_rio
       ~doc:
         "Request that a task be cancelled. Note that a task may fail to be \
          cancelled and may complete or fail normally and note that, even when \
@@ -453,15 +278,7 @@ module Task = struct
       ()
 
   let create =
-    call ~flags:[`Session] ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Create a new task object which must be manually destroyed."
-          )
-        ]
-      ~name:"create"
+    call ~flags:[`Session] ~in_oss_since:None ~published:rel_rio ~name:"create"
       ~doc:"Create a new task object which must be manually destroyed."
       ~params:
         [
@@ -472,17 +289,15 @@ module Task = struct
       ~allowed_roles:_R_READ_ONLY (* any subject can create tasks *) ()
 
   let destroy =
-    call ~flags:[`Session] ~in_oss_since:None
-      ~lifecycle:[(Published, rel_rio, "Destroy the task object")]
-      ~name:"destroy" ~doc:"Destroy the task object"
+    call ~flags:[`Session] ~in_oss_since:None ~published:rel_rio ~name:"destroy"
+      ~doc:"Destroy the task object"
       ~params:[(Ref _task, "self", "Reference to the task object")]
       ~allowed_roles:_R_READ_ONLY
       (* POOL_OP can destroy any tasks, others can destroy only owned tasks *)
       ()
 
   let set_status =
-    call ~flags:[`Session] ~in_oss_since:None
-      ~lifecycle:[(Published, rel_falcon, "Set the task status")]
+    call ~flags:[`Session] ~in_oss_since:None ~published:rel_falcon
       ~name:"set_status" ~doc:"Set the task status"
       ~params:
         [
@@ -494,8 +309,7 @@ module Task = struct
       ()
 
   let set_progress =
-    call ~flags:[`Session] ~in_oss_since:None
-      ~lifecycle:[(Published, rel_stockholm, "Set the task progress")]
+    call ~flags:[`Session] ~in_oss_since:None ~published:rel_stockholm
       ~name:"set_progress" ~doc:"Set the task progress"
       ~params:
         [
@@ -660,61 +474,26 @@ module Task = struct
          ]
         @ allowed_and_current_operations task_allowed_operations
         @ [
-            field ~qualifier:DynamicRO ~ty:DateTime
-              ~lifecycle:[(Published, rel_rio, "Time task was created")]
-              "created" "Time task was created"
-          ; field ~qualifier:DynamicRO ~ty:DateTime
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "Time task finished (i.e. succeeded or failed). If \
-                     task-status is pending, then the value of this field has \
-                     no meaning"
-                  )
-                ]
+            field ~qualifier:DynamicRO ~ty:DateTime ~published:rel_rio "created"
+              "Time task was created"
+          ; field ~qualifier:DynamicRO ~ty:DateTime ~published:rel_rio
               "finished"
               "Time task finished (i.e. succeeded or failed). If task-status \
                is pending, then the value of this field has no meaning"
-          ; field ~qualifier:DynamicRO ~ty:status_type
-              ~lifecycle:[(Published, rel_rio, "current status of the task")]
+          ; field ~qualifier:DynamicRO ~ty:status_type ~published:rel_rio
               "status" "current status of the task"
-          ; field ~in_oss_since:None
-              ~lifecycle:
-                [(Published, rel_rio, "the session that created the task")]
-              ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _session)
-              "session" "the session that created the task"
-          ; field ~qualifier:DynamicRO ~ty:(Ref _host)
-              ~lifecycle:
-                [(Published, rel_rio, "the host on which the task is running")]
+          ; field ~in_oss_since:None ~published:rel_rio ~internal_only:true
+              ~qualifier:DynamicRO ~ty:(Ref _session) "session"
+              "the session that created the task"
+          ; field ~qualifier:DynamicRO ~ty:(Ref _host) ~published:rel_rio
               "resident_on" "the host on which the task is running"
-          ; field ~qualifier:DynamicRO ~ty:Float
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "This field contains the estimated fraction of the task \
-                     which is complete. This field should not be used to \
-                     determine whether the task is complete - for this the \
-                     status field of the task should be used."
-                  )
-                ]
-              "progress"
+          ; field ~qualifier:DynamicRO ~ty:Float ~published:rel_rio "progress"
               "This field contains the estimated fraction of the task which is \
                complete. This field should not be used to determine whether \
                the task is complete - for this the status field of the task \
                should be used."
-          ; field ~in_oss_since:None
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "If the task has spawned a program, the field record the \
-                     PID of the process that the task is waiting on. (-1 if no \
-                     waiting completion of an external program )"
-                  )
-                ]
-              ~internal_only:true ~qualifier:DynamicRO ~ty:Int "externalpid"
+          ; field ~in_oss_since:None ~published:rel_rio ~internal_only:true
+              ~qualifier:DynamicRO ~ty:Int "externalpid"
               "If the task has spawned a program, the field record the PID of \
                the process that the task is waiting on. (-1 if no waiting \
                completion of an external program )"
@@ -732,69 +511,25 @@ module Task = struct
               ~internal_only:true ~qualifier:DynamicRO ~ty:Int "stunnelpid"
               "If the task has been forwarded, this field records the pid of \
                the stunnel process spawned to manage the forwarding connection"
-          ; field ~in_oss_since:None
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "True if this task has been forwarded to a supporter"
-                  )
-                ]
-              ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "forwarded"
+          ; field ~in_oss_since:None ~published:rel_rio ~internal_only:true
+              ~qualifier:DynamicRO ~ty:Bool "forwarded"
               "True if this task has been forwarded to a supporter"
-          ; field ~in_oss_since:None
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "The host to which the task has been forwarded"
-                  )
-                ]
-              ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _host)
-              "forwarded_to" "The host to which the task has been forwarded"
-          ; field ~qualifier:DynamicRO ~ty:String
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "if the task has completed successfully, this field \
-                     contains the type of the encoded result (i.e. name of the \
-                     class whose reference is in the result field). Undefined \
-                     otherwise."
-                  )
-                ]
-              "type"
+          ; field ~in_oss_since:None ~published:rel_rio ~internal_only:true
+              ~qualifier:DynamicRO ~ty:(Ref _host) "forwarded_to"
+              "The host to which the task has been forwarded"
+          ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "type"
               "if the task has completed successfully, this field contains the \
                type of the encoded result (i.e. name of the class whose \
                reference is in the result field). Undefined otherwise."
-          ; field ~qualifier:DynamicRO ~ty:String
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "if the task has completed successfully, this field \
-                     contains the result value (either Void or an object \
-                     reference). Undefined otherwise."
-                  )
-                ]
-              "result"
+          ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "result"
               "if the task has completed successfully, this field contains the \
                result value (either Void or an object reference). Undefined \
                otherwise."
-          ; field ~qualifier:DynamicRO ~ty:(Set String)
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "if the task has failed, this field contains the set of \
-                     associated error strings. Undefined otherwise."
-                  )
-                ]
+          ; field ~qualifier:DynamicRO ~ty:(Set String) ~published:rel_rio
               "error_info"
               "if the task has failed, this field contains the set of \
                associated error strings. Undefined otherwise."
-          ; field ~qualifier:DynamicRO
-              ~lifecycle:[(Published, rel_miami, "additional configuration")]
+          ; field ~qualifier:DynamicRO ~published:rel_miami
               ~default_value:(Some (VMap []))
               ~ty:(Map (String, String))
               "other_config" "additional configuration"
@@ -804,27 +539,13 @@ module Task = struct
                 ; ("XenCenterUUID", _R_VM_OP)
                 ; ("XenCenterMeddlingActionTitle", _R_VM_OP)
                 ]
-          ; field ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_orlando
-                  , "Ref pointing to the task this is a substask of."
-                  )
-                ]
+          ; field ~qualifier:DynamicRO ~published:rel_orlando
               ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of"
               "Ref pointing to the task this is a substask of."
-          ; field ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  (Published, rel_orlando, "List pointing to all the substasks.")
-                ]
+          ; field ~qualifier:DynamicRO ~published:rel_orlando
               ~ty:(Set (Ref _task)) "subtasks"
               "List pointing to all the substasks."
-          ; field ~qualifier:DynamicRO
-              ~lifecycle:
-                [(Published, rel_dundee, "Function call trace for debugging.")]
-              ~ty:String
+          ; field ~qualifier:DynamicRO ~published:rel_dundee ~ty:String
               ~default_value:
                 (Some
                    (VString (Sexplib0.Sexp.to_string Backtrace.(sexp_of_t empty))
@@ -876,16 +597,10 @@ module User = struct
           uid _user
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
-        ; field ~qualifier:StaticRO
-            ~lifecycle:
-              [(Published, rel_rio, "short name (for example, userid)")]
-            "short_name" "short name (for example, userid)"
-        ; field
-            ~lifecycle:[(Published, rel_rio, "full name")]
-            "fullname" "full name"
-        ; field
-            ~lifecycle:[(Published, rel_orlando, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~qualifier:StaticRO ~published:rel_rio "short_name"
+            "short name (for example, userid)"
+        ; field ~published:rel_rio "fullname" "full name"
+        ; field ~published:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ]
@@ -901,28 +616,14 @@ module Host_crashdump = struct
   let destroy =
     call ~name:"destroy"
       ~doc:"Destroy specified host crash dump, removing it from the disk."
-      ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Destroy specified host crash dump, removing it from the disk."
-          )
-        ]
+      ~in_oss_since:None ~published:rel_rio
       ~params:[(Ref _host_crashdump, "self", "The host crashdump to destroy")]
       ~allowed_roles:_R_POOL_OP ()
 
   let upload =
     call ~name:"upload"
       ~doc:"Upload the specified host crash dump to a specified URL"
-      ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Upload the specified host crash dump to a specified URL"
-          )
-        ]
+      ~in_oss_since:None ~published:rel_rio
       ~params:
         [
           (Ref _host_crashdump, "self", "The host crashdump to upload")
@@ -944,23 +645,16 @@ module Host_crashdump = struct
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
             _host_crashdump
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Host the crashdump relates to")]
-            ~qualifier:StaticRO ~ty:(Ref _host) "host"
-            "Host the crashdump relates to"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Time the crash happened")]
-            ~qualifier:DynamicRO ~ty:DateTime "timestamp"
-            "Time the crash happened"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Size of the crashdump")]
-            ~qualifier:DynamicRO ~ty:Int "size" "Size of the crashdump"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:StaticRO
+            ~ty:(Ref _host) "host" "Host the crashdump relates to"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
+            ~ty:DateTime "timestamp" "Time the crash happened"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
+            ~ty:Int "size" "Size of the crashdump"
         ; field ~qualifier:StaticRO ~ty:String ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "filename of crash dir")]
-            ~internal_only:true "filename" "filename of crash dir"
-        ; field
-            ~lifecycle:[(Published, rel_miami, "additional configuration")]
-            ~default_value:(Some (VMap []))
+            ~published:rel_rio ~internal_only:true "filename"
+            "filename of crash dir"
+        ; field ~published:rel_miami ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ]
@@ -1004,7 +698,7 @@ module Pool_update = struct
 
   let introduce =
     call ~name:"introduce" ~doc:"Introduce update VDI" ~in_oss_since:None
-      ~lifecycle:[(Published, rel_ely, "Introduce update VDI")]
+      ~published:rel_ely
       ~params:[(Ref _vdi, "vdi", "The VDI which contains a software update.")]
       ~result:(Ref _pool_update, "the introduced pool update")
       ~allowed_roles:_R_POOL_OP ()
@@ -1012,14 +706,7 @@ module Pool_update = struct
   let precheck =
     call ~name:"precheck"
       ~doc:"Execute the precheck stage of the selected update on a host"
-      ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_ely
-          , "Execute the precheck stage of the selected update on a host"
-          )
-        ]
+      ~in_oss_since:None ~published:rel_ely
       ~params:
         [
           (Ref _pool_update, "self", "The update whose prechecks will be run")
@@ -1031,8 +718,7 @@ module Pool_update = struct
 
   let apply =
     call ~name:"apply" ~doc:"Apply the selected update to a host"
-      ~in_oss_since:None
-      ~lifecycle:[(Published, rel_ely, "Apply the selected update to a host")]
+      ~in_oss_since:None ~published:rel_ely
       ~params:
         [
           (Ref _pool_update, "self", "The update to apply")
@@ -1044,14 +730,7 @@ module Pool_update = struct
   let pool_apply =
     call ~name:"pool_apply"
       ~doc:"Apply the selected update to all hosts in the pool"
-      ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_ely
-          , "Apply the selected update to all hosts in the pool"
-          )
-        ]
+      ~in_oss_since:None ~published:rel_ely
       ~params:[(Ref _pool_update, "self", "The update to apply")]
       ~allowed_roles:_R_POOL_OP ()
 
@@ -1060,36 +739,20 @@ module Pool_update = struct
       ~doc:
         "Removes the update's files from all hosts in the pool, but does not \
          revert the update"
-      ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_ely
-          , "Removes the update's files from all hosts in the pool, but does \
-             not revert the update"
-          )
-        ]
+      ~in_oss_since:None ~published:rel_ely
       ~params:[(Ref _pool_update, "self", "The update to clean up")]
       ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
     call ~name:"destroy"
       ~doc:"Removes the database entry. Only works on unapplied update."
-      ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_ely
-          , "Removes the database entry. Only works on unapplied update."
-          )
-        ]
+      ~in_oss_since:None ~published:rel_ely
       ~params:[(Ref _pool_update, "self", "The update to destroy")]
       ~allowed_roles:_R_POOL_OP ()
 
   let attach =
     call ~name:"attach" ~hide_from_docs:true ~doc:"Attach the pool update VDI"
-      ~in_oss_since:None
-      ~lifecycle:[(Published, rel_ely, "Attach the pool update VDI")]
+      ~in_oss_since:None ~published:rel_ely
       ~versioned_params:
         [
           {
@@ -1112,16 +775,14 @@ module Pool_update = struct
 
   let detach =
     call ~name:"detach" ~hide_from_docs:true ~doc:"Detach the pool update VDI"
-      ~in_oss_since:None
-      ~lifecycle:[(Published, rel_ely, "Detach the pool update VDI")]
+      ~in_oss_since:None ~published:rel_ely
       ~params:[(Ref _pool_update, "self", "The update to be detached")]
       ~allowed_roles:_R_POOL_OP ()
 
   let resync_host =
     call ~name:"resync_host" ~hide_from_docs:true
       ~doc:"Resync the applied updates of the host" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_ely, "Resync the applied updates of the host")]
+      ~published:rel_ely
       ~params:[(Ref _host, "host", "The host to resync the applied updates")]
       ~allowed_roles:_R_POOL_OP ()
 
@@ -1154,56 +815,31 @@ module Pool_update = struct
         ; namespace ~name:"name"
             ~contents:(names None StaticRO ~lifecycle:[(Published, rel_rio, "")])
             ()
-        ; field
-            ~lifecycle:[(Published, rel_ely, "Update version number")]
-            ~default_value:(Some (VString "")) ~in_oss_since:None
-            ~qualifier:StaticRO ~ty:String "version" "Update version number"
-        ; field
-            ~lifecycle:[(Published, rel_ely, "Size of the update in bytes")]
-            ~default_value:(Some (VInt Int64.zero)) ~in_oss_since:None
-            ~qualifier:StaticRO ~ty:Int "installation_size"
+        ; field ~published:rel_ely ~default_value:(Some (VString ""))
+            ~in_oss_since:None ~qualifier:StaticRO ~ty:String "version"
+            "Update version number"
+        ; field ~published:rel_ely ~default_value:(Some (VInt Int64.zero))
+            ~in_oss_since:None ~qualifier:StaticRO ~ty:Int "installation_size"
             "Size of the update in bytes"
-        ; field
-            ~lifecycle:[(Published, rel_ely, "GPG key of the update")]
-            ~default_value:(Some (VString "")) ~in_oss_since:None
-            ~qualifier:StaticRO ~ty:String "key" "GPG key of the update"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_ely
-                , "What the client should do after this update has been \
-                   applied."
-                )
-              ]
-            ~default_value:(Some (VSet [])) ~in_oss_since:None
-            ~qualifier:StaticRO ~ty:(Set after_apply_guidance)
-            "after_apply_guidance"
+        ; field ~published:rel_ely ~default_value:(Some (VString ""))
+            ~in_oss_since:None ~qualifier:StaticRO ~ty:String "key"
+            "GPG key of the update"
+        ; field ~published:rel_ely ~default_value:(Some (VSet []))
+            ~in_oss_since:None ~qualifier:StaticRO
+            ~ty:(Set after_apply_guidance) "after_apply_guidance"
             "What the client should do after this update has been applied."
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "VDI the update was uploaded to")]
-            ~qualifier:StaticRO ~ty:(Ref _vdi) "vdi"
-            "VDI the update was uploaded to"
-        ; field
-            ~lifecycle:
-              [(Published, rel_ely, "The hosts that have applied this update.")]
-            ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host))
-            "hosts" "The hosts that have applied this update."
-        ; field
-            ~lifecycle:[(Published, rel_inverness, "additional configuration")]
-            ~default_value:(Some (VMap [])) ~in_oss_since:None
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:StaticRO
+            ~ty:(Ref _vdi) "vdi" "VDI the update was uploaded to"
+        ; field ~published:rel_ely ~in_oss_since:None ~qualifier:DynamicRO
+            ~ty:(Set (Ref _host)) "hosts"
+            "The hosts that have applied this update."
+        ; field ~published:rel_inverness ~default_value:(Some (VMap []))
+            ~in_oss_since:None
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_inverness
-                , "Flag - if true, all hosts in a pool must apply this update"
-                )
-              ]
-            ~default_value:(Some (VBool false)) ~in_oss_since:None
-            ~qualifier:StaticRO ~ty:Bool "enforce_homogeneity"
+        ; field ~published:rel_inverness ~default_value:(Some (VBool false))
+            ~in_oss_since:None ~qualifier:StaticRO ~ty:Bool
+            "enforce_homogeneity"
             "Flag - if true, all hosts in a pool must apply this update"
         ]
       ()
@@ -1377,61 +1013,30 @@ module Pool_patch = struct
         ; namespace ~name:"name"
             ~contents:(names None StaticRO ~lifecycle:[(Published, rel_rio, "")])
             ()
-        ; field
-            ~lifecycle:[(Published, rel_miami, "Patch version number")]
-            ~default_value:(Some (VString "")) ~in_oss_since:None
-            ~qualifier:StaticRO ~ty:String "version" "Patch version number"
-        ; field
-            ~lifecycle:[(Published, rel_miami, "Filename of the patch")]
-            ~default_value:(Some (VString "")) ~in_oss_since:None
-            ~internal_only:true ~qualifier:DynamicRO ~ty:String "filename"
-            "Filename of the patch"
-        ; field
-            ~lifecycle:[(Published, rel_miami, "Size of the patch")]
-            ~default_value:(Some (VInt Int64.zero)) ~in_oss_since:None
-            ~qualifier:DynamicRO ~ty:Int "size" "Size of the patch"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_miami
-                , "This patch should be applied across the entire pool"
-                )
-              ]
-            ~default_value:(Some (VBool false)) ~in_oss_since:None
-            ~qualifier:DynamicRO ~ty:Bool "pool_applied"
+        ; field ~published:rel_miami ~default_value:(Some (VString ""))
+            ~in_oss_since:None ~qualifier:StaticRO ~ty:String "version"
+            "Patch version number"
+        ; field ~published:rel_miami ~default_value:(Some (VString ""))
+            ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO
+            ~ty:String "filename" "Filename of the patch"
+        ; field ~published:rel_miami ~default_value:(Some (VInt Int64.zero))
+            ~in_oss_since:None ~qualifier:DynamicRO ~ty:Int "size"
+            "Size of the patch"
+        ; field ~published:rel_miami ~default_value:(Some (VBool false))
+            ~in_oss_since:None ~qualifier:DynamicRO ~ty:Bool "pool_applied"
             "This patch should be applied across the entire pool"
-        ; field
-            ~lifecycle:
-              [(Published, rel_miami, "This hosts this patch is applied to.")]
-            ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host_patch))
-            "host_patches" "This hosts this patch is applied to."
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_miami
-                , "What the client should do after this patch has been applied."
-                )
-              ]
-            ~default_value:(Some (VSet [])) ~in_oss_since:None
-            ~qualifier:DynamicRO ~ty:(Set after_apply_guidance)
-            "after_apply_guidance"
+        ; field ~published:rel_miami ~in_oss_since:None ~qualifier:DynamicRO
+            ~ty:(Set (Ref _host_patch)) "host_patches"
+            "This hosts this patch is applied to."
+        ; field ~published:rel_miami ~default_value:(Some (VSet []))
+            ~in_oss_since:None ~qualifier:DynamicRO
+            ~ty:(Set after_apply_guidance) "after_apply_guidance"
             "What the client should do after this patch has been applied."
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_ely
-                , "A reference to the associated pool_update object"
-                )
-              ]
-            ~default_value:(Some (VRef null_ref)) ~in_oss_since:None
-            ~qualifier:StaticRO ~ty:(Ref _pool_update) "pool_update"
-            "A reference to the associated pool_update object"
-        ; field
-            ~lifecycle:[(Published, rel_miami, "additional configuration")]
-            ~default_value:(Some (VMap [])) ~in_oss_since:None
+        ; field ~published:rel_ely ~default_value:(Some (VRef null_ref))
+            ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _pool_update)
+            "pool_update" "A reference to the associated pool_update object"
+        ; field ~published:rel_miami ~default_value:(Some (VMap []))
+            ~in_oss_since:None
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ]
@@ -1492,36 +1097,23 @@ module Host_patch = struct
         ; namespace ~name:"name"
             ~contents:(names None StaticRO ~lifecycle:[(Published, rel_rio, "")])
             ()
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Patch version number")]
-            ~qualifier:StaticRO ~ty:String "version" "Patch version number"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Host the patch relates to")]
-            ~qualifier:StaticRO ~ty:(Ref _host) "host"
-            "Host the patch relates to"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Filename of the patch")]
-            ~internal_only:true ~qualifier:DynamicRO ~ty:String "filename"
-            "Filename of the patch"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [(Published, rel_rio, "True if the patch has been applied")]
-            ~qualifier:DynamicRO ~ty:Bool "applied"
-            "True if the patch has been applied"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Time the patch was applied")]
-            ~qualifier:DynamicRO ~ty:DateTime "timestamp_applied"
-            "Time the patch was applied"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Size of the patch")]
-            ~qualifier:DynamicRO ~ty:Int "size" "Size of the patch"
-        ; field
-            ~lifecycle:[(Published, rel_miami, "The patch applied")]
-            ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _pool_patch)
-            ~default_value:(Some (VRef "")) "pool_patch" "The patch applied"
-        ; field
-            ~lifecycle:[(Published, rel_miami, "additional configuration")]
-            ~default_value:(Some (VMap [])) ~in_oss_since:None
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:StaticRO
+            ~ty:String "version" "Patch version number"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:StaticRO
+            ~ty:(Ref _host) "host" "Host the patch relates to"
+        ; field ~in_oss_since:None ~published:rel_rio ~internal_only:true
+            ~qualifier:DynamicRO ~ty:String "filename" "Filename of the patch"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
+            ~ty:Bool "applied" "True if the patch has been applied"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
+            ~ty:DateTime "timestamp_applied" "Time the patch was applied"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
+            ~ty:Int "size" "Size of the patch"
+        ; field ~published:rel_miami ~in_oss_since:None ~qualifier:StaticRO
+            ~ty:(Ref _pool_patch) ~default_value:(Some (VRef "")) "pool_patch"
+            "The patch applied"
+        ; field ~published:rel_miami ~default_value:(Some (VMap []))
+            ~in_oss_since:None
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ]
@@ -1532,9 +1124,8 @@ module Host_metrics = struct
   let host_metrics_memory =
     let field = field ~ty:Int in
     [
-      field ~qualifier:DynamicRO
-        ~lifecycle:[(Published, rel_rio, "Total host memory (bytes)")]
-        "total" "Total host memory (bytes)" ~doc_tags:[Memory]
+      field ~qualifier:DynamicRO ~published:rel_rio "total"
+        "Total host memory (bytes)" ~doc_tags:[Memory]
     ; field "free" "Free host memory (bytes)" ~default_value:(Some (VInt 0L))
         ~lifecycle:
           [
@@ -1560,23 +1151,10 @@ module Host_metrics = struct
             _host_metrics
         ; namespace ~name:"memory" ~contents:host_metrics_memory ()
         ; field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "live"
-            ~lifecycle:
-              [
-                (Published, rel_rio, "Pool coordinator thinks this host is live")
-              ]
-            "Pool coordinator thinks this host is live"
-        ; field ~qualifier:DynamicRO ~ty:DateTime
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Time at which this information was last updated"
-                )
-              ]
+            ~published:rel_rio "Pool coordinator thinks this host is live"
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~published:rel_rio
             "last_updated" "Time at which this information was last updated"
-        ; field
-            ~lifecycle:[(Published, rel_orlando, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~published:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ]
@@ -1605,61 +1183,30 @@ module Host_cpu = struct
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
             _hostcpu
-        ; field ~qualifier:DynamicRO ~ty:(Ref _host)
-            ~lifecycle:[(Published, rel_rio, "the host the CPU is in")]
-            "host" "the host the CPU is in"
-        ; field ~qualifier:DynamicRO ~ty:Int
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "the number of the physical CPU within the host"
-                )
-              ]
-            "number" "the number of the physical CPU within the host"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:[(Published, rel_rio, "the vendor of the physical CPU")]
-            "vendor" "the vendor of the physical CPU"
-        ; field ~qualifier:DynamicRO ~ty:Int
-            ~lifecycle:[(Published, rel_rio, "the speed of the physical CPU")]
-            "speed" "the speed of the physical CPU"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:
-              [(Published, rel_rio, "the model name of the physical CPU")]
-            "modelname" "the model name of the physical CPU"
-        ; field ~qualifier:DynamicRO ~ty:Int
-            ~lifecycle:
-              [(Published, rel_rio, "the family (number) of the physical CPU")]
-            "family" "the family (number) of the physical CPU"
-        ; field ~qualifier:DynamicRO ~ty:Int
-            ~lifecycle:
-              [(Published, rel_rio, "the model number of the physical CPU")]
-            "model" "the model number of the physical CPU"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:
-              [(Published, rel_rio, "the stepping of the physical CPU")]
-            "stepping" "the stepping of the physical CPU"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "the flags of the physical CPU (a decoded version of the \
-                   features field)"
-                )
-              ]
-            "flags"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _host) ~published:rel_rio "host"
+            "the host the CPU is in"
+        ; field ~qualifier:DynamicRO ~ty:Int ~published:rel_rio "number"
+            "the number of the physical CPU within the host"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "vendor"
+            "the vendor of the physical CPU"
+        ; field ~qualifier:DynamicRO ~ty:Int ~published:rel_rio "speed"
+            "the speed of the physical CPU"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "modelname"
+            "the model name of the physical CPU"
+        ; field ~qualifier:DynamicRO ~ty:Int ~published:rel_rio "family"
+            "the family (number) of the physical CPU"
+        ; field ~qualifier:DynamicRO ~ty:Int ~published:rel_rio "model"
+            "the model number of the physical CPU"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "stepping"
+            "the stepping of the physical CPU"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "flags"
             "the flags of the physical CPU (a decoded version of the features \
              field)"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:[(Published, rel_rio, "the physical CPU feature bitmap")]
-            "features" "the physical CPU feature bitmap"
-        ; field ~qualifier:DynamicRO ~persist:false ~ty:Float
-            ~lifecycle:[(Published, rel_rio, "the current CPU utilisation")]
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "features"
+            "the physical CPU feature bitmap"
+        ; field ~qualifier:DynamicRO ~persist:false ~ty:Float ~published:rel_rio
             "utilisation" "the current CPU utilisation"
-        ; field
-            ~lifecycle:[(Published, rel_orlando, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~published:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ]
@@ -1669,13 +1216,11 @@ end
 (** Disk and network interfaces are associated with QoS parameters: *)
 let qos devtype =
   [
-    field
-      ~lifecycle:[(Published, rel_rio, "QoS algorithm to use")]
-      "algorithm_type" "QoS algorithm to use"
+    field ~published:rel_rio "algorithm_type" "QoS algorithm to use"
   ; field
       ~ty:(Map (String, String))
-      ~lifecycle:[(Published, rel_rio, "parameters for chosen QoS algorithm")]
-      "algorithm_params" "parameters for chosen QoS algorithm"
+      ~published:rel_rio "algorithm_params"
+      "parameters for chosen QoS algorithm"
   ; field ~qualifier:DynamicRO ~ty:(Set String)
       ~lifecycle:
         [(Published, rel_rio, "supported QoS algorithms for this " ^ devtype)]
@@ -1716,14 +1261,7 @@ module Network = struct
           )
         ; (Ref _host, "host", "physical machine to which this PIF is connected")
         ]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_miami
-          , "Makes the network immediately available on a particular host"
-          )
-        ]
-      ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
+      ~published:rel_miami ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
 
   let purpose =
     Enum
@@ -1794,29 +1332,14 @@ module Network = struct
 
   (* network pool introduce is used to copy network records on pool join -- it's the network analogue of VDI/PIF.pool_introduce *)
   let pool_introduce =
-    call ~name:"pool_introduce" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Create a new network record in the database only"
-          )
-        ]
+    call ~name:"pool_introduce" ~in_oss_since:None ~published:rel_rio
       ~versioned_params:(introduce_params miami_release)
       ~doc:"Create a new network record in the database only"
       ~result:(Ref _network, "The ref of the newly created network record.")
       ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
 
   let create_new_blob =
-    call ~name:"create_new_blob"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_orlando
-          , "Create a placeholder for a named binary blob of data that is \
-             associated with this pool"
-          )
-        ]
+    call ~name:"create_new_blob" ~published:rel_orlando
       ~doc:
         "Create a placeholder for a named binary blob of data that is \
          associated with this pool"
@@ -1858,14 +1381,7 @@ module Network = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let set_default_locking_mode =
-    call ~name:"set_default_locking_mode"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_tampa
-          , "Set the default locking mode for VIFs attached to this network"
-          )
-        ]
+    call ~name:"set_default_locking_mode" ~published:rel_tampa
       ~doc:"Set the default locking mode for VIFs attached to this network"
       ~params:
         [
@@ -1888,14 +1404,8 @@ module Network = struct
           )
         ; (Ref _vm, "vm", "The virtual machine")
         ]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_tampa
-          , "Attaches all networks needed by a given VM on a particular host"
-          )
-        ]
-      ~hide_from_docs:true ~allowed_roles:_R_VM_POWER_ADMIN ()
+      ~published:rel_tampa ~hide_from_docs:true ~allowed_roles:_R_VM_POWER_ADMIN
+      ()
 
   let detach_for_vm =
     call ~name:"detach_for_vm"
@@ -1908,14 +1418,8 @@ module Network = struct
           )
         ; (Ref _vm, "vm", "The virtual machine")
         ]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_tampa
-          , "Detaches all networks of a given VM from a particular host"
-          )
-        ]
-      ~hide_from_docs:true ~allowed_roles:_R_VM_POWER_ADMIN ()
+      ~published:rel_tampa ~hide_from_docs:true ~allowed_roles:_R_VM_POWER_ADMIN
+      ()
 
   let add_purpose =
     call ~name:"add_purpose"
@@ -1926,14 +1430,7 @@ module Network = struct
         ; (purpose, "value", "The purpose to add")
         ]
       ~errs:[Api_errors.network_incompatible_purposes]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_inverness
-          , "Give a network a new purpose (if not present already)"
-          )
-        ]
-      ~allowed_roles:_R_POOL_ADMIN ()
+      ~published:rel_inverness ~allowed_roles:_R_POOL_ADMIN ()
 
   let remove_purpose =
     call ~name:"remove_purpose"
@@ -1943,14 +1440,7 @@ module Network = struct
           (Ref _network, "self", "The network")
         ; (purpose, "value", "The purpose to remove")
         ]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_inverness
-          , "Remove a purpose from a network (if present)"
-          )
-        ]
-      ~allowed_roles:_R_POOL_ADMIN ()
+      ~published:rel_inverness ~allowed_roles:_R_POOL_ADMIN ()
 
   (** A virtual network *)
   let t =
@@ -1989,15 +1479,12 @@ module Network = struct
          ]
         @ allowed_and_current_operations ~writer_roles:_R_POOL_OP operations
         @ [
-            field ~qualifier:DynamicRO ~ty:(Set (Ref _vif))
-              ~lifecycle:[(Published, rel_rio, "list of connected vifs")]
+            field ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) ~published:rel_rio
               "VIFs" "list of connected vifs"
-          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pif))
-              ~lifecycle:[(Published, rel_rio, "list of connected pifs")]
+          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) ~published:rel_rio
               "PIFs" "list of connected pifs"
           ; field ~qualifier:RW ~ty:Int ~default_value:(Some (VInt 1500L))
-              ~lifecycle:[(Published, rel_midnight_ride, "MTU in octets")]
-              "MTU" "MTU in octets"
+              ~published:rel_midnight_ride "MTU" "MTU in octets"
           ; field ~writer_roles:_R_POOL_OP
               ~ty:(Map (String, String))
               "other_config" "additional configuration"
@@ -2007,7 +1494,7 @@ module Network = struct
                 ; ("XenCenter.CustomFields.*", _R_VM_OP)
                 ; ("XenCenterCreateInProgress", _R_VM_OP)
                 ]
-              ~lifecycle:[(Published, rel_rio, "additional configuration")]
+              ~published:rel_rio
           ; field
               ~lifecycle:
                 [
@@ -2025,62 +1512,25 @@ module Network = struct
               ~lifecycle:[(Published, rel_falcon, "")]
               ~qualifier:StaticRO ~ty:Bool ~default_value:(Some (VBool true))
               "managed" "true if the bridge is managed by xapi"
-          ; field ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_orlando
-                  , "Binary blobs associated with this network"
-                  )
-                ]
+          ; field ~qualifier:DynamicRO ~published:rel_orlando
               ~ty:(Map (String, Ref _blob))
               ~default_value:(Some (VMap [])) "blobs"
               "Binary blobs associated with this network"
-          ; field ~writer_roles:_R_VM_OP
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_orlando
-                  , "user-specified tags for categorization purposes"
-                  )
-                ]
+          ; field ~writer_roles:_R_VM_OP ~published:rel_orlando
               ~default_value:(Some (VSet [])) ~ty:(Set String) "tags"
               "user-specified tags for categorization purposes"
-          ; field ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_tampa
-                  , "The network will use this value to determine the \
-                     behaviour of all VIFs where locking_mode = default"
-                  )
-                ]
+          ; field ~qualifier:DynamicRO ~published:rel_tampa
               ~default_value:(Some (VEnum "unlocked")) ~ty:default_locking_mode
               "default_locking_mode"
               "The network will use this value to determine the behaviour of \
                all VIFs where locking_mode = default"
-          ; field ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_creedence
-                  , "The IP addresses assigned to VIFs on networks that have \
-                     active xapi-managed DHCP"
-                  )
-                ]
+          ; field ~qualifier:DynamicRO ~published:rel_creedence
               ~default_value:(Some (VMap []))
               ~ty:(Map (Ref _vif, String))
               "assigned_ips"
               "The IP addresses assigned to VIFs on networks that have active \
                xapi-managed DHCP"
-          ; field ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_inverness
-                  , "Set of purposes for which the server will use this network"
-                  )
-                ]
+          ; field ~qualifier:DynamicRO ~published:rel_inverness
               ~default_value:(Some (VSet [])) ~ty:(Set purpose) "purpose"
               "Set of purposes for which the server will use this network"
           ]
@@ -2139,18 +1589,14 @@ module PIF = struct
   let plug =
     call ~name:"plug" ~doc:"Attempt to bring up a physical interface"
       ~params:[(Ref _pif, "self", "the PIF object to plug")]
-      ~lifecycle:
-        [(Published, rel_miami, "Attempt to bring up a physical interface")]
-      ~allowed_roles:_R_POOL_OP
+      ~published:rel_miami ~allowed_roles:_R_POOL_OP
       ~errs:[Api_errors.transport_pif_not_configured]
       ()
 
   let unplug =
     call ~name:"unplug" ~doc:"Attempt to bring down a physical interface"
       ~params:[(Ref _pif, "self", "the PIF object to unplug")]
-      ~lifecycle:
-        [(Published, rel_miami, "Attempt to bring down a physical interface")]
-      ~allowed_roles:_R_POOL_OP
+      ~published:rel_miami ~allowed_roles:_R_POOL_OP
       ~errs:
         [
           Api_errors.ha_operation_would_break_failover_plan
@@ -2163,9 +1609,7 @@ module PIF = struct
   let set_disallow_unplug =
     call ~name:"set_disallow_unplug"
       ~doc:"Set whether unplugging the PIF is allowed" ~hide_from_docs:false
-      ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_orlando, "Set whether unplugging the PIF is allowed")]
+      ~in_oss_since:None ~published:rel_orlando
       ~params:
         [
           (Ref _pif, "self", "Reference to the object")
@@ -2200,14 +1644,7 @@ module PIF = struct
         ; (String, "gateway", "the new gateway")
         ; (String, "DNS", "the new DNS settings")
         ]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_miami
-          , "Reconfigure the IP address settings for this interface"
-          )
-        ]
-      ~allowed_roles:_R_POOL_OP
+      ~published:rel_miami ~allowed_roles:_R_POOL_OP
       ~errs:Api_errors.[clustering_enabled]
       ()
 
@@ -2273,15 +1710,7 @@ module PIF = struct
         "Scan for physical interfaces on a host and create PIF objects to \
          represent them"
       ~params:[(Ref _host, "host", "The host on which to scan")]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_miami
-          , "Scan for physical interfaces on a host and create PIF objects to \
-             represent them"
-          )
-        ]
-      ~allowed_roles:_R_POOL_OP ()
+      ~published:rel_miami ~allowed_roles:_R_POOL_OP ()
 
   let introduce_params =
     [
@@ -2320,14 +1749,7 @@ module PIF = struct
   let introduce =
     call ~name:"introduce"
       ~doc:"Create a PIF object matching a particular network interface"
-      ~versioned_params:introduce_params
-      ~lifecycle:
-        [
-          ( Published
-          , rel_miami
-          , "Create a PIF object matching a particular network interface"
-          )
-        ]
+      ~versioned_params:introduce_params ~published:rel_miami
       ~result:(Ref _pif, "The reference of the created PIF object")
       ~allowed_roles:_R_POOL_OP ()
 
@@ -2335,14 +1757,7 @@ module PIF = struct
     call ~name:"forget"
       ~doc:"Destroy the PIF object matching a particular network interface"
       ~params:[(Ref _pif, "self", "The PIF object to destroy")]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_miami
-          , "Destroy the PIF object matching a particular network interface"
-          )
-        ]
-      ~allowed_roles:_R_POOL_OP
+      ~published:rel_miami ~allowed_roles:_R_POOL_OP
       ~errs:Api_errors.[pif_tunnel_still_exists; clustering_enabled]
       ()
 
@@ -2513,31 +1928,21 @@ module PIF = struct
 
   (* PIF pool introduce is used to copy PIF records on pool join -- it's the PIF analogue of VDI.pool_introduce *)
   let pool_introduce =
-    call ~name:"pool_introduce" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_rio, "Create a new PIF record in the database only")]
+    call ~name:"pool_introduce" ~in_oss_since:None ~published:rel_rio
       ~versioned_params:(pool_introduce_params miami_release)
       ~doc:"Create a new PIF record in the database only"
       ~result:(Ref _pif, "The ref of the newly created PIF record.")
       ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
 
   let db_introduce =
-    call ~name:"db_introduce" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_orlando
-          , "Create a new PIF record in the database only"
-          )
-        ]
+    call ~name:"db_introduce" ~in_oss_since:None ~published:rel_orlando
       ~versioned_params:(pool_introduce_params orlando_release)
       ~doc:"Create a new PIF record in the database only"
       ~result:(Ref _pif, "The ref of the newly created PIF record.")
       ~hide_from_docs:false ~allowed_roles:_R_POOL_OP ()
 
   let db_forget =
-    call ~name:"db_forget" ~in_oss_since:None
-      ~lifecycle:[(Published, rel_orlando, "Destroy a PIF database record.")]
+    call ~name:"db_forget" ~in_oss_since:None ~published:rel_orlando
       ~params:
         [
           ( Ref _pif
@@ -2618,213 +2023,81 @@ module PIF = struct
               [(Published, rel_rio, "Unique identifier/object reference")]
             _pif
         ; (* qualifier changed RW -> StaticRO in Miami *)
-          field ~qualifier:StaticRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "machine-readable name of the interface (for example, eth0)"
-                )
-              ]
-            "device"
+          field ~qualifier:StaticRO ~published:rel_rio "device"
             "machine-readable name of the interface (for example, eth0)"
-        ; field ~qualifier:StaticRO ~ty:(Ref _network)
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "virtual network to which this pif is connected"
-                )
-              ]
+        ; field ~qualifier:StaticRO ~ty:(Ref _network) ~published:rel_rio
             "network" "virtual network to which this pif is connected"
-        ; field ~qualifier:StaticRO ~ty:(Ref _host)
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "physical machine to which this pif is connected"
-                )
-              ]
-            "host" "physical machine to which this pif is connected"
+        ; field ~qualifier:StaticRO ~ty:(Ref _host) ~published:rel_rio "host"
+            "physical machine to which this pif is connected"
         ; (* qualifier changed RW -> StaticRO in Miami *)
-          field ~qualifier:StaticRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "ethernet MAC address of physical interface"
-                )
-              ]
-            "MAC" "ethernet MAC address of physical interface"
+          field ~qualifier:StaticRO ~published:rel_rio "MAC"
+            "ethernet MAC address of physical interface"
         ; (* qualifier changed RW -> StaticRO in Miami *)
-          field ~qualifier:StaticRO ~ty:Int
-            ~lifecycle:[(Published, rel_rio, "MTU in octets")]
-            "MTU" "MTU in octets"
+          field ~qualifier:StaticRO ~ty:Int ~published:rel_rio "MTU"
+            "MTU in octets"
         ; (* qualifier changed RW -> StaticRO in Miami *)
-          field ~qualifier:StaticRO ~ty:Int
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "VLAN tag for all traffic passing through this interface"
-                )
-              ]
-            "VLAN" "VLAN tag for all traffic passing through this interface"
-        ; field ~in_oss_since:None ~internal_only:true
-            ~lifecycle:[(Published, rel_rio, "actual dom0 device name")]
+          field ~qualifier:StaticRO ~ty:Int ~published:rel_rio "VLAN"
+            "VLAN tag for all traffic passing through this interface"
+        ; field ~in_oss_since:None ~internal_only:true ~published:rel_rio
             "device_name" "actual dom0 device name"
-        ; field ~qualifier:DynamicRO ~ty:(Ref _pif_metrics)
-            ~lifecycle:
-              [(Published, rel_rio, "metrics associated with this PIF")]
+        ; field ~qualifier:DynamicRO ~ty:(Ref _pif_metrics) ~published:rel_rio
             "metrics" "metrics associated with this PIF"
-        ; field ~in_oss_since:None ~ty:Bool
-            ~lifecycle:
-              [
-                ( Published
-                , rel_miami
-                , "true if this represents a physical network interface"
-                )
-              ]
+        ; field ~in_oss_since:None ~ty:Bool ~published:rel_miami
             ~qualifier:DynamicRO "physical"
             "true if this represents a physical network interface"
             ~default_value:(Some (VBool false))
-        ; field ~in_oss_since:None ~ty:Bool
-            ~lifecycle:
-              [(Published, rel_miami, "true if this interface is online")]
+        ; field ~in_oss_since:None ~ty:Bool ~published:rel_miami
             ~qualifier:DynamicRO "currently_attached"
             "true if this interface is online" ~default_value:(Some (VBool true))
         ; field ~in_oss_since:None ~ty:ip_configuration_mode
-            ~lifecycle:
-              [
-                ( Published
-                , rel_miami
-                , "Sets if and how this interface gets an IP address"
-                )
-              ]
-            ~qualifier:DynamicRO "ip_configuration_mode"
+            ~published:rel_miami ~qualifier:DynamicRO "ip_configuration_mode"
             "Sets if and how this interface gets an IP address"
             ~default_value:(Some (VEnum "None"))
-        ; field ~in_oss_since:None ~ty:String
-            ~lifecycle:[(Published, rel_miami, "IP address")]
+        ; field ~in_oss_since:None ~ty:String ~published:rel_miami
             ~qualifier:DynamicRO "IP" "IP address"
             ~default_value:(Some (VString ""))
-        ; field ~in_oss_since:None ~ty:String
-            ~lifecycle:[(Published, rel_miami, "IP netmask")]
+        ; field ~in_oss_since:None ~ty:String ~published:rel_miami
             ~qualifier:DynamicRO "netmask" "IP netmask"
             ~default_value:(Some (VString ""))
-        ; field ~in_oss_since:None ~ty:String
-            ~lifecycle:[(Published, rel_miami, "IP gateway")]
+        ; field ~in_oss_since:None ~ty:String ~published:rel_miami
             ~qualifier:DynamicRO "gateway" "IP gateway"
             ~default_value:(Some (VString ""))
-        ; field ~in_oss_since:None ~ty:String
-            ~lifecycle:
-              [
-                ( Published
-                , rel_miami
-                , "Comma separated list of the IP addresses of the DNS servers \
-                   to use"
-                )
-              ]
+        ; field ~in_oss_since:None ~ty:String ~published:rel_miami
             ~qualifier:DynamicRO "DNS"
             "Comma separated list of the IP addresses of the DNS servers to use"
             ~default_value:(Some (VString ""))
-        ; field ~in_oss_since:None ~ty:(Ref _bond)
-            ~lifecycle:
-              [
-                ( Published
-                , rel_miami
-                , "Indicates which bond this interface is part of"
-                )
-              ]
+        ; field ~in_oss_since:None ~ty:(Ref _bond) ~published:rel_miami
             ~qualifier:DynamicRO "bond_slave_of"
             "Indicates which bond this interface is part of"
             ~default_value:(Some (VRef ""))
-        ; field ~in_oss_since:None ~ty:(Set (Ref _bond))
-            ~lifecycle:
-              [
-                ( Published
-                , rel_miami
-                , "Indicates this PIF represents the results of a bond"
-                )
-              ]
+        ; field ~in_oss_since:None ~ty:(Set (Ref _bond)) ~published:rel_miami
             ~qualifier:DynamicRO "bond_master_of"
             "Indicates this PIF represents the results of a bond"
-        ; field ~in_oss_since:None ~ty:(Ref _vlan)
-            ~lifecycle:
-              [
-                ( Published
-                , rel_miami
-                , "Indicates which VLAN this interface receives untagged \
-                   traffic from"
-                )
-              ]
+        ; field ~in_oss_since:None ~ty:(Ref _vlan) ~published:rel_miami
             ~qualifier:DynamicRO "VLAN_master_of"
             "Indicates which VLAN this interface receives untagged traffic from"
             ~default_value:(Some (VRef ""))
-        ; field ~in_oss_since:None ~ty:(Set (Ref _vlan))
-            ~lifecycle:
-              [
-                ( Published
-                , rel_miami
-                , "Indicates which VLANs this interface transmits tagged \
-                   traffic to"
-                )
-              ]
+        ; field ~in_oss_since:None ~ty:(Set (Ref _vlan)) ~published:rel_miami
             ~qualifier:DynamicRO "VLAN_slave_of"
             "Indicates which VLANs this interface transmits tagged traffic to"
-        ; field ~in_oss_since:None ~ty:Bool
-            ~lifecycle:
-              [
-                ( Published
-                , rel_miami
-                , "Indicates whether the control software is listening for \
-                   connections on this interface"
-                )
-              ]
+        ; field ~in_oss_since:None ~ty:Bool ~published:rel_miami
             ~qualifier:DynamicRO "management"
             "Indicates whether the control software is listening for \
              connections on this interface"
             ~default_value:(Some (VBool false))
-        ; field
-            ~lifecycle:[(Published, rel_miami, "Additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~published:rel_miami ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "Additional configuration"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "Prevent this PIF from being unplugged; set this to notify \
-                   the management tool-stack that the PIF has a special use \
-                   and should not be unplugged under any circumstances (for \
-                   example, because you're running storage traffic over it)"
-                )
-              ]
-            ~qualifier:DynamicRO ~default_value:(Some (VBool false)) ~ty:Bool
-            "disallow_unplug"
+        ; field ~published:rel_orlando ~qualifier:DynamicRO
+            ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug"
             "Prevent this PIF from being unplugged; set this to notify the \
              management tool-stack that the PIF has a special use and should \
              not be unplugged under any circumstances (for example, because \
              you're running storage traffic over it)"
-        ; field ~in_oss_since:None ~ty:(Set (Ref _tunnel))
-            ~lifecycle:
-              [
-                ( Published
-                , rel_cowley
-                , "Indicates to which tunnel this PIF gives access"
-                )
-              ]
+        ; field ~in_oss_since:None ~ty:(Set (Ref _tunnel)) ~published:rel_cowley
             ~qualifier:DynamicRO "tunnel_access_PIF_of"
             "Indicates to which tunnel this PIF gives access"
-        ; field ~in_oss_since:None ~ty:(Set (Ref _tunnel))
-            ~lifecycle:
-              [
-                ( Published
-                , rel_cowley
-                , "Indicates to which tunnel this PIF provides transport"
-                )
-              ]
+        ; field ~in_oss_since:None ~ty:(Set (Ref _tunnel)) ~published:rel_cowley
             ~qualifier:DynamicRO "tunnel_transport_PIF_of"
             "Indicates to which tunnel this PIF provides transport"
         ; field ~in_oss_since:None ~ty:ipv6_configuration_mode
@@ -2870,24 +2143,10 @@ module PIF = struct
             ~default_value:(Some (VEnum "unknown")) "igmp_snooping_status"
             "The IGMP snooping status of the corresponding network bridge"
         ; field ~in_oss_since:None ~ty:(Set (Ref _network_sriov))
-            ~lifecycle:
-              [
-                ( Published
-                , rel_kolkata
-                , "Indicates which network_sriov this interface is physical of"
-                )
-              ]
-            ~qualifier:DynamicRO "sriov_physical_PIF_of"
+            ~published:rel_kolkata ~qualifier:DynamicRO "sriov_physical_PIF_of"
             "Indicates which network_sriov this interface is physical of"
         ; field ~in_oss_since:None ~ty:(Set (Ref _network_sriov))
-            ~lifecycle:
-              [
-                ( Published
-                , rel_kolkata
-                , "Indicates which network_sriov this interface is logical of"
-                )
-              ]
-            ~qualifier:DynamicRO "sriov_logical_PIF_of"
+            ~published:rel_kolkata ~qualifier:DynamicRO "sriov_logical_PIF_of"
             "Indicates which network_sriov this interface is logical of"
         ; field ~qualifier:DynamicRO ~ty:(Ref _pci)
             ~lifecycle:[(Published, rel_kolkata, "")]
@@ -2920,56 +2179,25 @@ module PIF_metrics = struct
               [(Published, rel_rio, "Unique identifier/object reference")]
             _pif_metrics
         ; namespace ~name:"io" ~contents:iobandwidth ()
-        ; field ~qualifier:DynamicRO ~ty:Bool
-            ~lifecycle:
-              [(Published, rel_rio, "Report if the PIF got a carrier or not")]
-            "carrier" "Report if the PIF got a carrier or not"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:[(Published, rel_rio, "Report vendor ID")]
-            "vendor_id" "Report vendor ID"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:[(Published, rel_rio, "Report vendor name")]
-            "vendor_name" "Report vendor name"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:[(Published, rel_rio, "Report device ID")]
-            "device_id" "Report device ID"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:[(Published, rel_rio, "Report device name")]
-            "device_name" "Report device name"
-        ; field ~qualifier:DynamicRO ~ty:Int
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Speed of the link in Mbit/s (if available)"
-                )
-              ]
-            "speed" "Speed of the link in Mbit/s (if available)"
-        ; field ~qualifier:DynamicRO ~ty:Bool
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Full duplex capability of the link (if available)"
-                )
-              ]
-            "duplex" "Full duplex capability of the link (if available)"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:
-              [(Published, rel_rio, "PCI bus path of the pif (if available)")]
+        ; field ~qualifier:DynamicRO ~ty:Bool ~published:rel_rio "carrier"
+            "Report if the PIF got a carrier or not"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "vendor_id"
+            "Report vendor ID"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "vendor_name"
+            "Report vendor name"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "device_id"
+            "Report device ID"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "device_name"
+            "Report device name"
+        ; field ~qualifier:DynamicRO ~ty:Int ~published:rel_rio "speed"
+            "Speed of the link in Mbit/s (if available)"
+        ; field ~qualifier:DynamicRO ~ty:Bool ~published:rel_rio "duplex"
+            "Full duplex capability of the link (if available)"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio
             "pci_bus_path" "PCI bus path of the pif (if available)"
-        ; field ~qualifier:DynamicRO ~ty:DateTime
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Time at which this information was last updated"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~published:rel_rio
             "last_updated" "Time at which this information was last updated"
-        ; field
-            ~lifecycle:[(Published, rel_orlando, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~published:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ]
@@ -3034,14 +2262,12 @@ module Bond = struct
           }
         ]
       ~result:(Ref _bond, "The reference of the created Bond object")
-      ~lifecycle:[(Published, rel_miami, "Create an interface bond")]
-      ~allowed_roles:_R_POOL_OP ()
+      ~published:rel_miami ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
     call ~name:"destroy" ~doc:"Destroy an interface bond"
       ~params:[(Ref _bond, "self", "Bond to destroy")]
-      ~lifecycle:[(Published, rel_miami, "Destroy an interface bond")]
-      ~allowed_roles:_R_POOL_OP ()
+      ~published:rel_miami ~allowed_roles:_R_POOL_OP ()
 
   let set_mode =
     call ~name:"set_mode" ~doc:"Change the bond mode"
@@ -3058,9 +2284,7 @@ module Bond = struct
         ; (String, "name", "The property name")
         ; (String, "value", "The property value")
         ]
-      ~lifecycle:
-        [(Published, rel_tampa, "Set the value of a property of the bond")]
-      ~allowed_roles:_R_POOL_OP ()
+      ~published:rel_tampa ~allowed_roles:_R_POOL_OP ()
 
   let t =
     create_obj ~in_db:true
@@ -3086,23 +2310,13 @@ module Bond = struct
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
             _bond
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_miami, "The bonded interface")]
-            ~qualifier:StaticRO ~ty:(Ref _pif) "master" "The bonded interface"
+        ; field ~in_oss_since:None ~published:rel_miami ~qualifier:StaticRO
+            ~ty:(Ref _pif) "master" "The bonded interface"
             ~default_value:(Some (VRef ""))
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_miami
-                , "The interfaces which are part of this bond"
-                )
-              ]
-            ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) "slaves"
+        ; field ~in_oss_since:None ~published:rel_miami ~qualifier:DynamicRO
+            ~ty:(Set (Ref _pif)) "slaves"
             "The interfaces which are part of this bond"
-        ; field
-            ~lifecycle:[(Published, rel_miami, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~published:rel_miami ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ; field
@@ -3117,24 +2331,13 @@ module Bond = struct
             ~qualifier:DynamicRO ~default_value:(Some (VEnum "balance-slb"))
             ~ty:mode "mode"
             "The algorithm used to distribute traffic among the bonded NICs"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_tampa
-                , "Additional configuration properties specific to the bond \
-                   mode."
-                )
-              ]
-            ~qualifier:DynamicRO
+        ; field ~in_oss_since:None ~published:rel_tampa ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "properties"
             "Additional configuration properties specific to the bond mode."
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [(Published, rel_tampa, "Number of links up in this bond")]
-            ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L))
-            "links_up" "Number of links up in this bond"
+        ; field ~in_oss_since:None ~published:rel_tampa ~qualifier:DynamicRO
+            ~ty:Int ~default_value:(Some (VInt 0L)) "links_up"
+            "Number of links up in this bond"
         ; field
             ~lifecycle:[(Published, rel_quebec, "")]
             ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool true))
@@ -3180,14 +2383,7 @@ module VLAN = struct
 
   (* vlan pool introduce is used to copy management vlan record on pool join -- it's the vlan analogue of VDI/PIF.pool_introduce *)
   let pool_introduce =
-    call ~name:"pool_introduce" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_inverness
-          , "Create a new vlan record in the database only"
-          )
-        ]
+    call ~name:"pool_introduce" ~in_oss_since:None ~published:rel_inverness
       ~versioned_params:(introduce_params inverness_release)
       ~doc:"Create a new vlan record in the database only"
       ~result:(Ref _vlan, "The reference of the created VLAN object")
@@ -3202,14 +2398,12 @@ module VLAN = struct
         ; (Ref _network, "network", "Network to receive the untagged traffic")
         ]
       ~result:(Ref _vlan, "The reference of the created VLAN object")
-      ~lifecycle:[(Published, rel_miami, "Create a VLAN mux/demuxer")]
-      ~allowed_roles:_R_POOL_OP ()
+      ~published:rel_miami ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
     call ~name:"destroy" ~doc:"Destroy a VLAN mux/demuxer"
       ~params:[(Ref _vlan, "self", "VLAN mux/demuxer to destroy")]
-      ~lifecycle:[(Published, rel_miami, "Destroy a VLAN mux/demuxer")]
-      ~allowed_roles:_R_POOL_OP ()
+      ~published:rel_miami ~allowed_roles:_R_POOL_OP ()
 
   let t =
     create_obj ~in_db:true
@@ -3225,22 +2419,15 @@ module VLAN = struct
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
             _vlan
-        ; field ~qualifier:StaticRO ~ty:(Ref _pif)
-            ~lifecycle:
-              [(Published, rel_miami, "interface on which traffic is tagged")]
+        ; field ~qualifier:StaticRO ~ty:(Ref _pif) ~published:rel_miami
             "tagged_PIF" "interface on which traffic is tagged"
             ~default_value:(Some (VRef ""))
-        ; field ~qualifier:DynamicRO ~ty:(Ref _pif)
-            ~lifecycle:
-              [(Published, rel_miami, "interface on which traffic is untagged")]
+        ; field ~qualifier:DynamicRO ~ty:(Ref _pif) ~published:rel_miami
             "untagged_PIF" "interface on which traffic is untagged"
             ~default_value:(Some (VRef ""))
-        ; field ~qualifier:StaticRO ~ty:Int
-            ~lifecycle:[(Published, rel_miami, "VLAN tag in use")]
-            "tag" "VLAN tag in use" ~default_value:(Some (VInt (-1L)))
-        ; field
-            ~lifecycle:[(Published, rel_miami, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~qualifier:StaticRO ~ty:Int ~published:rel_miami "tag"
+            "VLAN tag in use" ~default_value:(Some (VInt (-1L)))
+        ; field ~published:rel_miami ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ]
@@ -3279,8 +2466,7 @@ module Tunnel = struct
           }
         ]
       ~result:(Ref _tunnel, "The reference of the created tunnel object")
-      ~lifecycle:[(Published, rel_cowley, "Create a tunnel")]
-      ~allowed_roles:_R_POOL_OP
+      ~published:rel_cowley ~allowed_roles:_R_POOL_OP
       ~errs:
         [
           Api_errors.openvswitch_not_active
@@ -3292,8 +2478,7 @@ module Tunnel = struct
   let destroy =
     call ~name:"destroy" ~doc:"Destroy a tunnel"
       ~params:[(Ref _tunnel, "self", "tunnel to destroy")]
-      ~lifecycle:[(Published, rel_cowley, "Destroy a tunnel")]
-      ~allowed_roles:_R_POOL_OP ()
+      ~published:rel_cowley ~allowed_roles:_R_POOL_OP ()
 
   let t =
     create_obj ~in_db:true
@@ -3308,30 +2493,17 @@ module Tunnel = struct
           uid _tunnel
             ~lifecycle:
               [(Published, rel_cowley, "Unique identifier/object reference")]
-        ; field ~qualifier:StaticRO ~ty:(Ref _pif)
-            ~lifecycle:
-              [
-                ( Published
-                , rel_cowley
-                , "The interface through which the tunnel is accessed"
-                )
-              ]
+        ; field ~qualifier:StaticRO ~ty:(Ref _pif) ~published:rel_cowley
             "access_PIF" "The interface through which the tunnel is accessed"
             ~default_value:(Some (VRef ""))
-        ; field ~qualifier:StaticRO ~ty:(Ref _pif)
-            ~lifecycle:
-              [(Published, rel_cowley, "The interface used by the tunnel")]
+        ; field ~qualifier:StaticRO ~ty:(Ref _pif) ~published:rel_cowley
             "transport_PIF" "The interface used by the tunnel"
             ~default_value:(Some (VRef ""))
         ; field
             ~ty:(Map (String, String))
-            ~lifecycle:
-              [(Published, rel_cowley, "Status information about the tunnel")]
-            "status" "Status information about the tunnel"
+            ~published:rel_cowley "status" "Status information about the tunnel"
             ~default_value:(Some (VMap [(VString "active", VString "false")]))
-        ; field
-            ~lifecycle:[(Published, rel_cowley, "Additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~published:rel_cowley ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "Additional configuration"
         ; field ~ty:tunnel_protocol ~default_value:(Some (VEnum "gre"))
@@ -3343,15 +2515,7 @@ end
 
 module PBD = struct
   let plug =
-    call ~name:"plug" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Activate the specified PBD, causing the referenced SR to be \
-             attached and scanned"
-          )
-        ]
+    call ~name:"plug" ~in_oss_since:None ~published:rel_rio
       ~doc:
         "Activate the specified PBD, causing the referenced SR to be attached \
          and scanned"
@@ -3360,15 +2524,7 @@ module PBD = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let unplug =
-    call ~name:"unplug" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Deactivate the specified PBD, causing the referenced SR to be \
-             detached and no longer scanned"
-          )
-        ]
+    call ~name:"unplug" ~in_oss_since:None ~published:rel_rio
       ~doc:
         "Deactivate the specified PBD, causing the referenced SR to be \
          detached and no longer scanned"
@@ -3376,8 +2532,7 @@ module PBD = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let set_device_config =
-    call ~name:"set_device_config" ~in_oss_since:None
-      ~lifecycle:[(Published, rel_miami, "Sets the PBD's device_config field")]
+    call ~name:"set_device_config" ~in_oss_since:None ~published:rel_miami
       ~params:
         [
           (Ref _pbd, "self", "The PBD to modify")
@@ -3409,49 +2564,18 @@ module PBD = struct
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
             _pbd
-        ; field ~qualifier:StaticRO ~ty:(Ref _host)
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "physical machine on which the pbd is available"
-                )
-              ]
-            "host" "physical machine on which the pbd is available"
-        ; field ~qualifier:StaticRO ~ty:(Ref _sr)
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "the storage repository that the pbd realises"
-                )
-              ]
-            "SR" "the storage repository that the pbd realises"
+        ; field ~qualifier:StaticRO ~ty:(Ref _host) ~published:rel_rio "host"
+            "physical machine on which the pbd is available"
+        ; field ~qualifier:StaticRO ~ty:(Ref _sr) ~published:rel_rio "SR"
+            "the storage repository that the pbd realises"
         ; field
             ~ty:(Map (String, String))
-            ~qualifier:StaticRO "device_config"
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "a config string to string map that is provided to the \
-                   host's SR-backend-driver"
-                )
-              ]
+            ~qualifier:StaticRO "device_config" ~published:rel_rio
             "a config string to string map that is provided to the host's \
              SR-backend-driver"
-        ; field ~ty:Bool ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "is the SR currently attached on this host?"
-                )
-              ]
+        ; field ~ty:Bool ~qualifier:DynamicRO ~published:rel_rio
             "currently_attached" "is the SR currently attached on this host?"
-        ; field
-            ~lifecycle:[(Published, rel_miami, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~published:rel_miami ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ]
@@ -3472,35 +2596,16 @@ let device_status_fields =
           )
         ]
       "currently_attached" "is the device currently attached (erased on reboot)"
-  ; field ~ty:Int ~qualifier:DynamicRO
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "error/success code associated with last attach-operation (erased \
-             on reboot)"
-          )
-        ]
-      "status_code"
+  ; field ~ty:Int ~qualifier:DynamicRO ~published:rel_rio "status_code"
       "error/success code associated with last attach-operation (erased on \
        reboot)"
-  ; field ~ty:String ~qualifier:DynamicRO
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "error/success information associated with last attach-operation \
-             status (erased on reboot)"
-          )
-        ]
-      "status_detail"
+  ; field ~ty:String ~qualifier:DynamicRO ~published:rel_rio "status_detail"
       "error/success information associated with last attach-operation status \
        (erased on reboot)"
   ; field
       ~ty:(Map (String, String))
-      ~qualifier:DynamicRO
-      ~lifecycle:[(Published, rel_rio, "Device runtime properties")]
-      "runtime_properties" "Device runtime properties"
+      ~qualifier:DynamicRO ~published:rel_rio "runtime_properties"
+      "Device runtime properties"
   ]
 
 module VIF = struct
@@ -3533,30 +2638,14 @@ module VIF = struct
       )
 
   let plug =
-    call ~name:"plug"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Hotplug the specified VIF, dynamically attaching it to the \
-             running VM"
-          )
-        ]
+    call ~name:"plug" ~published:rel_rio
       ~doc:
         "Hotplug the specified VIF, dynamically attaching it to the running VM"
       ~params:[(Ref _vif, "self", "The VIF to hotplug")]
       ~allowed_roles:_R_VM_ADMIN ()
 
   let unplug =
-    call ~name:"unplug"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Hot-unplug the specified VIF, dynamically unattaching it from the \
-             running VM"
-          )
-        ]
+    call ~name:"unplug" ~published:rel_rio
       ~doc:
         "Hot-unplug the specified VIF, dynamically unattaching it from the \
          running VM"
@@ -3564,22 +2653,13 @@ module VIF = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let unplug_force =
-    call ~name:"unplug_force"
-      ~lifecycle:[(Published, rel_boston, "Forcibly unplug the specified VIF")]
+    call ~name:"unplug_force" ~published:rel_boston
       ~doc:"Forcibly unplug the specified VIF"
       ~params:[(Ref _vif, "self", "The VIF to forcibly unplug")]
       ~allowed_roles:_R_VM_ADMIN ()
 
   let move =
-    call ~name:"move"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_ely
-          , "Move the specified VIF to the specified network, even while the \
-             VM is running"
-          )
-        ]
+    call ~name:"move" ~published:rel_ely
       ~doc:
         "Move the specified VIF to the specified network, even while the VM is \
          running"
@@ -3617,8 +2697,7 @@ module VIF = struct
       )
 
   let set_locking_mode =
-    call ~name:"set_locking_mode"
-      ~lifecycle:[(Published, rel_tampa, "Set the locking mode for this VIF")]
+    call ~name:"set_locking_mode" ~published:rel_tampa
       ~doc:"Set the locking mode for this VIF"
       ~params:
         [
@@ -3628,15 +2707,7 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let set_ipv4_allowed =
-    call ~name:"set_ipv4_allowed"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_tampa
-          , "Set the IPv4 addresses to which traffic on this VIF can be \
-             restricted"
-          )
-        ]
+    call ~name:"set_ipv4_allowed" ~published:rel_tampa
       ~doc:
         "Set the IPv4 addresses to which traffic on this VIF can be restricted"
       ~params:
@@ -3653,9 +2724,7 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let add_ipv4_allowed =
-    call ~name:"add_ipv4_allowed"
-      ~lifecycle:
-        [(Published, rel_tampa, "Associates an IPv4 address with this VIF")]
+    call ~name:"add_ipv4_allowed" ~published:rel_tampa
       ~doc:"Associates an IPv4 address with this VIF"
       ~params:
         [
@@ -3671,9 +2740,7 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let remove_ipv4_allowed =
-    call ~name:"remove_ipv4_allowed"
-      ~lifecycle:
-        [(Published, rel_tampa, "Removes an IPv4 address from this VIF")]
+    call ~name:"remove_ipv4_allowed" ~published:rel_tampa
       ~doc:"Removes an IPv4 address from this VIF"
       ~params:
         [
@@ -3683,15 +2750,7 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let set_ipv6_allowed =
-    call ~name:"set_ipv6_allowed"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_tampa
-          , "Set the IPv6 addresses to which traffic on this VIF can be \
-             restricted"
-          )
-        ]
+    call ~name:"set_ipv6_allowed" ~published:rel_tampa
       ~doc:
         "Set the IPv6 addresses to which traffic on this VIF can be restricted"
       ~params:
@@ -3708,9 +2767,7 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let add_ipv6_allowed =
-    call ~name:"add_ipv6_allowed"
-      ~lifecycle:
-        [(Published, rel_tampa, "Associates an IPv6 address with this VIF")]
+    call ~name:"add_ipv6_allowed" ~published:rel_tampa
       ~doc:"Associates an IPv6 address with this VIF"
       ~params:
         [
@@ -3726,9 +2783,7 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let remove_ipv6_allowed =
-    call ~name:"remove_ipv6_allowed"
-      ~lifecycle:
-        [(Published, rel_tampa, "Removes an IPv6 address from this VIF")]
+    call ~name:"remove_ipv6_allowed" ~published:rel_tampa
       ~doc:"Removes an IPv6 address from this VIF"
       ~params:
         [
@@ -3922,52 +2977,20 @@ module VIF = struct
               "device"
               "order in which VIF backends are created by xapi. Guaranteed to \
                be an unsigned decimal integer."
-          ; field ~qualifier:StaticRO ~ty:(Ref _network)
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "virtual network to which this vif is connected"
-                  )
-                ]
+          ; field ~qualifier:StaticRO ~ty:(Ref _network) ~published:rel_rio
               "network" "virtual network to which this vif is connected"
-          ; field ~qualifier:StaticRO ~ty:(Ref _vm)
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "virtual machine to which this vif is connected"
-                  )
-                ]
-              "VM" "virtual machine to which this vif is connected"
-          ; field ~qualifier:StaticRO ~ty:String
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "ethernet MAC address of virtual interface, as exposed to \
-                     guest"
-                  )
-                ]
-              "MAC"
+          ; field ~qualifier:StaticRO ~ty:(Ref _vm) ~published:rel_rio "VM"
+              "virtual machine to which this vif is connected"
+          ; field ~qualifier:StaticRO ~ty:String ~published:rel_rio "MAC"
               "ethernet MAC address of virtual interface, as exposed to guest"
-          ; field ~qualifier:StaticRO ~ty:Int
-              ~lifecycle:[(Published, rel_rio, "MTU in octets")]
-              "MTU" "MTU in octets"
-          ; field ~in_oss_since:None
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "true if the VIF is reserved pending a reboot/migrate"
-                  )
-                ]
-              ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "reserved"
+          ; field ~qualifier:StaticRO ~ty:Int ~published:rel_rio "MTU"
+              "MTU in octets"
+          ; field ~in_oss_since:None ~published:rel_rio ~internal_only:true
+              ~qualifier:DynamicRO ~ty:Bool "reserved"
               "true if the VIF is reserved pending a reboot/migrate"
           ; field
               ~ty:(Map (String, String))
-              ~lifecycle:[(Published, rel_rio, "additional configuration")]
-              "other_config" "additional configuration"
+              ~published:rel_rio "other_config" "additional configuration"
           ]
         @ device_status_fields
         @ [namespace ~name:"qos" ~contents:(qos "VIF") ()]
@@ -3981,114 +3004,45 @@ module VIF = struct
                 ; (Removed, rel_tampa, "Disabled in favour of RRDs")
                 ]
               "metrics" "metrics associated with this VIF"
-          ; field ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_george
-                  , "true if the MAC was autogenerated; false indicates it was \
-                     set manually"
-                  )
-                ]
+          ; field ~qualifier:DynamicRO ~published:rel_george
               ~default_value:(Some (VBool false)) ~ty:Bool "MAC_autogenerated"
               "true if the MAC was autogenerated; false indicates it was set \
                manually"
-          ; field ~qualifier:StaticRO
-              ~lifecycle:
-                [(Published, rel_tampa, "current locking mode of the VIF")]
+          ; field ~qualifier:StaticRO ~published:rel_tampa
               ~default_value:(Some (VEnum "network_default")) ~ty:locking_mode
               "locking_mode" "current locking mode of the VIF"
-          ; field ~qualifier:StaticRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_tampa
-                  , "A list of IPv4 addresses which can be used to filter \
-                     traffic passing through this VIF"
-                  )
-                ]
+          ; field ~qualifier:StaticRO ~published:rel_tampa
               ~default_value:(Some (VSet [])) ~ty:(Set String) "ipv4_allowed"
               "A list of IPv4 addresses which can be used to filter traffic \
                passing through this VIF"
-          ; field ~qualifier:StaticRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_tampa
-                  , "A list of IPv6 addresses which can be used to filter \
-                     traffic passing through this VIF"
-                  )
-                ]
+          ; field ~qualifier:StaticRO ~published:rel_tampa
               ~default_value:(Some (VSet [])) ~ty:(Set String) "ipv6_allowed"
               "A list of IPv6 addresses which can be used to filter traffic \
                passing through this VIF"
-          ; field ~ty:ipv4_configuration_mode
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_dundee
-                  , "Determines whether IPv4 addresses are configured on the \
-                     VIF"
-                  )
-                ]
+          ; field ~ty:ipv4_configuration_mode ~published:rel_dundee
               ~qualifier:DynamicRO "ipv4_configuration_mode"
               "Determines whether IPv4 addresses are configured on the VIF"
               ~default_value:(Some (VEnum "None"))
-          ; field ~ty:(Set String)
-              ~lifecycle:
-                [(Published, rel_dundee, "IPv4 addresses in CIDR format")]
-              ~qualifier:DynamicRO "ipv4_addresses"
-              "IPv4 addresses in CIDR format" ~default_value:(Some (VSet []))
-          ; field ~ty:String
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_dundee
-                  , "IPv4 gateway (the empty string means that no gateway is \
-                     set)"
-                  )
-                ]
-              ~qualifier:DynamicRO "ipv4_gateway"
+          ; field ~ty:(Set String) ~published:rel_dundee ~qualifier:DynamicRO
+              "ipv4_addresses" "IPv4 addresses in CIDR format"
+              ~default_value:(Some (VSet []))
+          ; field ~ty:String ~published:rel_dundee ~qualifier:DynamicRO
+              "ipv4_gateway"
               "IPv4 gateway (the empty string means that no gateway is set)"
               ~default_value:(Some (VString ""))
-          ; field ~ty:ipv6_configuration_mode
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_dundee
-                  , "Determines whether IPv6 addresses are configured on the \
-                     VIF"
-                  )
-                ]
+          ; field ~ty:ipv6_configuration_mode ~published:rel_dundee
               ~qualifier:DynamicRO "ipv6_configuration_mode"
               "Determines whether IPv6 addresses are configured on the VIF"
               ~default_value:(Some (VEnum "None"))
-          ; field ~ty:(Set String)
-              ~lifecycle:
-                [(Published, rel_dundee, "IPv6 addresses in CIDR format")]
-              ~qualifier:DynamicRO "ipv6_addresses"
-              "IPv6 addresses in CIDR format" ~default_value:(Some (VSet []))
-          ; field ~ty:String
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_dundee
-                  , "IPv6 gateway (the empty string means that no gateway is \
-                     set)"
-                  )
-                ]
-              ~qualifier:DynamicRO "ipv6_gateway"
+          ; field ~ty:(Set String) ~published:rel_dundee ~qualifier:DynamicRO
+              "ipv6_addresses" "IPv6 addresses in CIDR format"
+              ~default_value:(Some (VSet []))
+          ; field ~ty:String ~published:rel_dundee ~qualifier:DynamicRO
+              "ipv6_gateway"
               "IPv6 gateway (the empty string means that no gateway is set)"
               ~default_value:(Some (VString ""))
-          ; field ~ty:(Ref _pci)
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_kolkata
-                  , "pci of network SR-IOV VF which is reserved for this vif"
-                  )
-                ]
-              ~internal_only:true ~qualifier:DynamicRO "reserved_pci"
+          ; field ~ty:(Ref _pci) ~published:rel_kolkata ~internal_only:true
+              ~qualifier:DynamicRO "reserved_pci"
               "pci of network SR-IOV VF which is reserved for this vif"
               ~default_value:(Some (VRef null_ref))
           ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:(Set Int)
@@ -4125,18 +3079,9 @@ module VIF_metrics = struct
               [(Published, rel_rio, "Unique identifier/object reference")]
             _vif_metrics
         ; namespace ~name:"io" ~contents:iobandwidth ()
-        ; field ~qualifier:DynamicRO ~ty:DateTime
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Time at which this information was last updated"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~published:rel_rio
             "last_updated" "Time at which this information was last updated"
-        ; field
-            ~lifecycle:[(Published, rel_orlando, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~published:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ]
@@ -4159,37 +3104,19 @@ module Data_source = struct
                  ~lifecycle:[(Published, rel_rio, "")]
               )
             ()
-        ; field ~qualifier:DynamicRO ~ty:Bool
-            ~lifecycle:
-              [(Published, rel_rio, "true if the data source is being logged")]
-            "enabled" "true if the data source is being logged"
-        ; field ~qualifier:DynamicRO ~ty:Bool
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "true if the data source is enabled by default. Non-default \
-                   data sources cannot be disabled"
-                )
-              ]
-            "standard"
+        ; field ~qualifier:DynamicRO ~ty:Bool ~published:rel_rio "enabled"
+            "true if the data source is being logged"
+        ; field ~qualifier:DynamicRO ~ty:Bool ~published:rel_rio "standard"
             "true if the data source is enabled by default. Non-default data \
              sources cannot be disabled"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:[(Published, rel_rio, "the units of the value")]
-            "units" "the units of the value"
-        ; field ~qualifier:DynamicRO ~ty:Float
-            ~lifecycle:
-              [(Published, rel_rio, "the minimum value of the data source")]
-            "min" "the minimum value of the data source"
-        ; field ~qualifier:DynamicRO ~ty:Float
-            ~lifecycle:
-              [(Published, rel_rio, "the maximum value of the data source")]
-            "max" "the maximum value of the data source"
-        ; field ~qualifier:DynamicRO ~ty:Float
-            ~lifecycle:
-              [(Published, rel_rio, "current value of the data source")]
-            "value" "current value of the data source"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "units"
+            "the units of the value"
+        ; field ~qualifier:DynamicRO ~ty:Float ~published:rel_rio "min"
+            "the minimum value of the data source"
+        ; field ~qualifier:DynamicRO ~ty:Float ~published:rel_rio "max"
+            "the maximum value of the data source"
+        ; field ~qualifier:DynamicRO ~ty:Float ~published:rel_rio "value"
+            "current value of the data source"
         ]
       ()
 end
@@ -4413,16 +3340,7 @@ module SR = struct
     }
 
   let create =
-    call ~name:"create" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Create a new Storage Repository and introduce it into the managed \
-             system, creating both SR record and PBD record to attach it to \
-             current host (with specified device_config parameters)"
-          )
-        ]
+    call ~name:"create" ~in_oss_since:None ~published:rel_rio
       ~versioned_params:
         (host_param
         :: dev_config_param
@@ -4440,17 +3358,7 @@ module SR = struct
   let destroy_self_param = (Ref _sr, "sr", "The SR to destroy")
 
   let destroy =
-    call ~name:"destroy" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Destroy specified SR, removing SR-record from database and remove \
-             SR from disk. (In order to affect this operation the appropriate \
-             device_config is read from the specified SR's PBD on current \
-             host)"
-          )
-        ]
+    call ~name:"destroy" ~in_oss_since:None ~published:rel_rio
       ~doc:
         "Destroy specified SR, removing SR-record from database and remove SR \
          from disk. (In order to affect this operation the appropriate \
@@ -4459,15 +3367,7 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let forget =
-    call ~name:"forget" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Removing specified SR-record from database, without attempting to \
-             remove SR from disk"
-          )
-        ]
+    call ~name:"forget" ~in_oss_since:None ~published:rel_rio
       ~doc:
         "Removing specified SR-record from database, without attempting to \
          remove SR from disk"
@@ -4475,14 +3375,7 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let introduce =
-    call ~name:"introduce" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Introduce a new Storage Repository into the managed system"
-          )
-        ]
+    call ~name:"introduce" ~in_oss_since:None ~published:rel_rio
       ~versioned_params:
         ({
            param_type= String
@@ -4499,19 +3392,7 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let probe =
-    call ~name:"probe" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_miami
-          , "Perform a backend-specific scan, using the given device_config.  \
-             If the device_config is complete, then this will return a list of \
-             the SRs present of this type on the device, if any.  If the \
-             device_config is partial, then a backend-specific scan will be \
-             performed, returning results that will guide the user in \
-             improving the device_config."
-          )
-        ]
+    call ~name:"probe" ~in_oss_since:None ~published:rel_miami
       ~versioned_params:
         [
           host_param
@@ -4588,44 +3469,27 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let get_supported_types =
-    call ~name:"get_supported_types"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Return a set of all the SR types supported by the system"
-          )
-        ]
-      ~flags:[`Session]
+    call ~name:"get_supported_types" ~published:rel_rio ~flags:[`Session]
       ~doc:"Return a set of all the SR types supported by the system" ~params:[]
       ~result:(Set String, "the supported SR types")
       ~allowed_roles:_R_READ_ONLY ()
 
   let scan =
-    call ~name:"scan"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Refreshes the list of VDIs associated with an SR"
-          )
-        ]
+    call ~name:"scan" ~published:rel_rio
       ~doc:"Refreshes the list of VDIs associated with an SR"
       ~params:[(Ref _sr, "sr", "The SR to scan")]
       ~allowed_roles:_R_VM_POWER_ADMIN ()
 
   (* Nb, although this is a new explicit call, it's actually been in the API since rio - just autogenerated. So no setting of rel_miami. *)
   let set_shared =
-    call ~name:"set_shared"
-      ~lifecycle:[(Published, rel_rio, "Sets the shared flag on the SR")]
+    call ~name:"set_shared" ~published:rel_rio
       ~doc:"Sets the shared flag on the SR"
       ~params:
         [(Ref _sr, "sr", "The SR"); (Bool, "value", "True if the SR is shared")]
       ~allowed_roles:_R_POOL_OP ()
 
   let set_name_label =
-    call ~name:"set_name_label"
-      ~lifecycle:[(Published, rel_rio, "Set the name label of the SR")]
+    call ~name:"set_name_label" ~published:rel_rio
       ~doc:"Set the name label of the SR"
       ~params:
         [
@@ -4635,8 +3499,7 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let set_name_description =
-    call ~name:"set_name_description"
-      ~lifecycle:[(Published, rel_rio, "Set the name description of the SR")]
+    call ~name:"set_name_description" ~published:rel_rio
       ~doc:"Set the name description of the SR"
       ~params:
         [
@@ -4646,15 +3509,7 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let create_new_blob =
-    call ~name:"create_new_blob"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_orlando
-          , "Create a placeholder for a named binary blob of data that is \
-             associated with this SR"
-          )
-        ]
+    call ~name:"create_new_blob" ~published:rel_orlando
       ~doc:
         "Create a placeholder for a named binary blob of data that is \
          associated with this SR"
@@ -4704,9 +3559,7 @@ module SR = struct
       ~errs:[] ~flags:[`Session] ~allowed_roles:_R_READ_ONLY ()
 
   let record_data_source =
-    call ~name:"record_data_source" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_dundee, "Start recording the specified data source")]
+    call ~name:"record_data_source" ~in_oss_since:None ~published:rel_dundee
       ~doc:"Start recording the specified data source"
       ~params:
         [
@@ -4716,14 +3569,7 @@ module SR = struct
       ~errs:[] ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
 
   let query_data_source =
-    call ~name:"query_data_source" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_dundee
-          , "Query the latest value of the specified data source"
-          )
-        ]
+    call ~name:"query_data_source" ~in_oss_since:None ~published:rel_dundee
       ~doc:"Query the latest value of the specified data source"
       ~params:
         [
@@ -4735,14 +3581,7 @@ module SR = struct
 
   let forget_data_source_archives =
     call ~name:"forget_data_source_archives" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_dundee
-          , "Forget the recorded statistics related to the specified data \
-             source"
-          )
-        ]
+      ~published:rel_dundee
       ~doc:"Forget the recorded statistics related to the specified data source"
       ~params:
         [
@@ -4755,9 +3594,7 @@ module SR = struct
       ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
 
   let set_virtual_allocation =
-    call ~name:"set_virtual_allocation" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_miami, "Sets the SR's virtual_allocation field")]
+    call ~name:"set_virtual_allocation" ~in_oss_since:None ~published:rel_miami
       ~params:
         [
           (Ref _sr, "self", "The SR to modify")
@@ -4767,8 +3604,7 @@ module SR = struct
       ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let set_physical_size =
-    call ~name:"set_physical_size" ~in_oss_since:None
-      ~lifecycle:[(Published, rel_miami, "Sets the SR's physical_size field")]
+    call ~name:"set_physical_size" ~in_oss_since:None ~published:rel_miami
       ~params:
         [
           (Ref _sr, "self", "The SR to modify")
@@ -4779,9 +3615,7 @@ module SR = struct
 
   let set_physical_utilisation =
     call ~name:"set_physical_utilisation" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_miami, "Sets the SR's physical_utilisation field")]
-      ~flags:[`Session]
+      ~published:rel_miami ~flags:[`Session]
       ~params:
         [
           (Ref _sr, "self", "The SR to modify")
@@ -4791,21 +3625,13 @@ module SR = struct
       ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let update =
-    call ~name:"update" ~in_oss_since:None
-      ~lifecycle:[(Published, rel_symc, "Refresh the fields on the SR object")]
+    call ~name:"update" ~in_oss_since:None ~published:rel_symc
       ~params:[(Ref _sr, "sr", "The SR whose fields should be refreshed")]
       ~doc:"Refresh the fields on the SR object" ~allowed_roles:_R_POOL_OP ()
 
   let assert_can_host_ha_statefile =
     call ~name:"assert_can_host_ha_statefile" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_orlando
-          , "Returns successfully if the given SR can host an HA statefile. \
-             Otherwise returns an error to explain why not"
-          )
-        ]
+      ~published:rel_orlando
       ~params:[(Ref _sr, "sr", "The SR to query")]
       ~doc:
         "Returns successfully if the given SR can host an HA statefile. \
@@ -4814,14 +3640,7 @@ module SR = struct
 
   let assert_supports_database_replication =
     call ~name:"assert_supports_database_replication" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_boston
-          , "Returns successfully if the given SR supports database \
-             replication. Otherwise returns an error to explain why not."
-          )
-        ]
+      ~published:rel_boston
       ~params:[(Ref _sr, "sr", "The SR to query")]
       ~doc:
         "Returns successfully if the given SR supports database replication. \
@@ -4847,9 +3666,7 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let get_live_hosts =
-    call ~in_oss_since:None ~name:"get_live_hosts"
-      ~lifecycle:
-        [(Published, rel_stockholm, "Get all live hosts attached to this SR")]
+    call ~in_oss_since:None ~name:"get_live_hosts" ~published:rel_stockholm
       ~doc:"Get all live hosts attached to this SR"
       ~params:[(Ref _sr, "sr", "The SR from which to query attached hosts")]
       ~allowed_roles:_R_POOL_OP ~hide_from_docs:true
@@ -4908,85 +3725,27 @@ module SR = struct
          ]
         @ allowed_and_current_operations operations
         @ [
-            field ~ty:(Set (Ref _vdi)) ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "all virtual disks known to this storage repository"
-                  )
-                ]
+            field ~ty:(Set (Ref _vdi)) ~qualifier:DynamicRO ~published:rel_rio
               "VDIs" "all virtual disks known to this storage repository"
-          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd))
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "describes how particular hosts can see this storage \
-                     repository"
-                  )
-                ]
+          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd)) ~published:rel_rio
               "PBDs"
               "describes how particular hosts can see this storage repository"
-          ; field ~ty:Int ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "sum of virtual_sizes of all VDIs in this storage \
-                     repository (in bytes)"
-                  )
-                ]
+          ; field ~ty:Int ~qualifier:DynamicRO ~published:rel_rio
               "virtual_allocation"
               "sum of virtual_sizes of all VDIs in this storage repository (in \
                bytes)"
-          ; field ~ty:Int ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "physical space currently utilised on this storage \
-                     repository (in bytes). Note that for sparse disk formats, \
-                     physical_utilisation may be less than virtual_allocation"
-                  )
-                ]
+          ; field ~ty:Int ~qualifier:DynamicRO ~published:rel_rio
               "physical_utilisation"
               "physical space currently utilised on this storage repository \
                (in bytes). Note that for sparse disk formats, \
                physical_utilisation may be less than virtual_allocation"
-          ; field ~ty:Int ~qualifier:StaticRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "total physical size of the repository (in bytes)"
-                  )
-                ]
-              "physical_size" "total physical size of the repository (in bytes)"
-          ; field ~qualifier:StaticRO
-              ~lifecycle:
-                [(Published, rel_rio, "type of the storage repository")]
-              "type" "type of the storage repository"
-          ; field ~qualifier:StaticRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "the type of the SR's content, if required (for example, \
-                     ISOs)"
-                  )
-                ]
-              "content_type"
+          ; field ~ty:Int ~qualifier:StaticRO ~published:rel_rio "physical_size"
+              "total physical size of the repository (in bytes)"
+          ; field ~qualifier:StaticRO ~published:rel_rio "type"
+              "type of the storage repository"
+          ; field ~qualifier:StaticRO ~published:rel_rio "content_type"
               "the type of the SR's content, if required (for example, ISOs)"
-          ; field ~qualifier:DynamicRO "shared" ~ty:Bool
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "true if this SR is (capable of being) shared between \
-                     multiple hosts"
-                  )
-                ]
+          ; field ~qualifier:DynamicRO "shared" ~ty:Bool ~published:rel_rio
               "true if this SR is (capable of being) shared between multiple \
                hosts"
           ; field
@@ -4994,57 +3753,25 @@ module SR = struct
               "other_config" "additional configuration"
               ~map_keys_roles:
                 [("folder", _R_VM_OP); ("XenCenter.CustomFields.*", _R_VM_OP)]
-              ~lifecycle:[(Published, rel_rio, "additional configuration")]
-          ; field ~writer_roles:_R_VM_OP
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_orlando
-                  , "user-specified tags for categorization purposes"
-                  )
-                ]
+              ~published:rel_rio
+          ; field ~writer_roles:_R_VM_OP ~published:rel_orlando
               ~default_value:(Some (VSet [])) ~ty:(Set String) "tags"
               "user-specified tags for categorization purposes"
           ; field ~ty:Bool ~qualifier:DynamicRO ~in_oss_since:None
-              ~lifecycle:[(Published, rel_rio, "")]
-              ~internal_only:true "default_vdi_visibility" ""
+              ~published:rel_rio ~internal_only:true "default_vdi_visibility" ""
           ; field ~in_oss_since:None
               ~ty:(Map (String, String))
-              ~lifecycle:[(Published, rel_miami, "SM dependent data")]
-              ~qualifier:RW "sm_config" "SM dependent data"
+              ~published:rel_miami ~qualifier:RW "sm_config" "SM dependent data"
               ~default_value:(Some (VMap []))
-          ; field ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_orlando
-                  , "Binary blobs associated with this SR"
-                  )
-                ]
+          ; field ~qualifier:DynamicRO ~published:rel_orlando
               ~ty:(Map (String, Ref _blob))
               ~default_value:(Some (VMap [])) "blobs"
               "Binary blobs associated with this SR"
-          ; field ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_cowley
-                  , "True if this SR is assigned to be the local cache for its \
-                     host"
-                  )
-                ]
-              ~ty:Bool ~default_value:(Some (VBool false)) "local_cache_enabled"
+          ; field ~qualifier:DynamicRO ~published:rel_cowley ~ty:Bool
+              ~default_value:(Some (VBool false)) "local_cache_enabled"
               "True if this SR is assigned to be the local cache for its host"
-          ; field ~qualifier:DynamicRO
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_boston
-                  , "The disaster recovery task which introduced this SR"
-                  )
-                ]
-              ~ty:(Ref _dr_task) ~default_value:(Some (VRef null_ref))
-              "introduced_by"
+          ; field ~qualifier:DynamicRO ~published:rel_boston ~ty:(Ref _dr_task)
+              ~default_value:(Some (VRef null_ref)) "introduced_by"
               "The disaster recovery task which introduced this SR"
           ; field ~qualifier:DynamicRO
               ~lifecycle:[(Published, rel_dundee, "")]
@@ -5073,9 +3800,7 @@ module SM = struct
 
   (** XXX: just make this a field and be done with it. Cowardly refusing to change the schema for now. *)
   let get_driver_filename =
-    call ~name:"get_driver_filename" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_orlando, "Gets the SM's driver_filename field")]
+    call ~name:"get_driver_filename" ~in_oss_since:None ~published:rel_orlando
       ~params:[(Ref _sm, "self", "The SM to query")]
       ~result:(String, "The SM's driver_filename field")
       ~doc:"Gets the SM's driver_filename field" ()
@@ -5097,44 +3822,18 @@ module SM = struct
             ~contents:
               (names None DynamicRO ~lifecycle:[(Published, rel_rio, "")])
             ()
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "SR.type")]
-            ~qualifier:DynamicRO "type" "SR.type"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Vendor who created this plugin")]
-            ~qualifier:DynamicRO "vendor" "Vendor who created this plugin"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Entity which owns the copyright of this plugin"
-                )
-              ]
-            ~qualifier:DynamicRO "copyright"
-            "Entity which owns the copyright of this plugin"
-        ; field ~in_oss_since:None
-            ~lifecycle:[(Published, rel_rio, "Version of the plugin")]
-            ~qualifier:DynamicRO "version" "Version of the plugin"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Minimum SM API version required on the server"
-                )
-              ]
-            ~qualifier:DynamicRO "required_api_version"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
+            "type" "SR.type"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
+            "vendor" "Vendor who created this plugin"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
+            "copyright" "Entity which owns the copyright of this plugin"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
+            "version" "Version of the plugin"
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
+            "required_api_version"
             "Minimum SM API version required on the server"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "names and descriptions of device config keys"
-                )
-              ]
-            ~qualifier:DynamicRO
+        ; field ~in_oss_since:None ~published:rel_rio ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             "configuration" "names and descriptions of device config keys"
         ; field ~in_oss_since:None ~qualifier:DynamicRO
@@ -5168,27 +3867,15 @@ module SM = struct
             ~internal_only:true "host_pending_features"
             "SM features that are waiting to be declared per host."
             ~default_value:(Some (VMap []))
-        ; field
-            ~lifecycle:[(Published, rel_miami, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~published:rel_miami ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
-        ; field
-            ~lifecycle:
-              [(Published, rel_orlando, "filename of the storage driver")]
-            ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String
-            "driver_filename" "filename of the storage driver"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_dundee
-                , "The storage plugin requires that one of these cluster \
-                   stacks is configured and running."
-                )
-              ]
-            ~qualifier:DynamicRO ~default_value:(Some (VSet []))
-            ~ty:(Set String) "required_cluster_stack"
+        ; field ~published:rel_orlando ~qualifier:DynamicRO
+            ~default_value:(Some (VString "")) ~ty:String "driver_filename"
+            "filename of the storage driver"
+        ; field ~published:rel_dundee ~qualifier:DynamicRO
+            ~default_value:(Some (VSet [])) ~ty:(Set String)
+            "required_cluster_stack"
             "The storage plugin requires that one of these cluster stacks is \
              configured and running."
         ; field ~lifecycle:[] ~qualifier:DynamicRO
@@ -5202,17 +3889,7 @@ end
 module LVHD = struct
   let enable_thin_provisioning =
     call ~name:"enable_thin_provisioning" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_dundee
-          , "Upgrades an LVHD SR to enable thin-provisioning. Future VDIs \
-             created in this SR will be thinly-provisioned, although existing \
-             VDIs will be left alone. Note that the SR must be attached to the \
-             SRmaster for upgrade to work."
-          )
-        ]
-      ~allowed_roles:_R_POOL_ADMIN
+      ~published:rel_dundee ~allowed_roles:_R_POOL_ADMIN
       ~params:
         [
           ( Ref _host
@@ -5318,18 +3995,7 @@ module VDI = struct
       )
 
   let snapshot =
-    call ~name:"snapshot" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Take a read-only snapshot of the VDI, returning a reference to \
-             the snapshot. If any driver_params are specified then these are \
-             passed through to the storage-specific substrate driver that \
-             takes the snapshot. NB the snapshot lives in the same Storage \
-             Repository as its parent."
-          )
-        ]
+    call ~name:"snapshot" ~in_oss_since:None ~published:rel_rio
       ~versioned_params:
         [
           {
@@ -5360,18 +4026,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ~doc_tags:[Snapshots] ()
 
   let clone =
-    call ~name:"clone" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Take an exact copy of the VDI and return a reference to the new \
-             disk. If any driver_params are specified then these are passed \
-             through to the storage-specific substrate driver that implements \
-             the clone operation. NB the clone lives in the same Storage \
-             Repository as its parent."
-          )
-        ]
+    call ~name:"clone" ~in_oss_since:None ~published:rel_rio
       ~params:[(Ref _vdi, "vdi", "The VDI to clone")]
       ~versioned_params:
         [
@@ -5402,9 +4057,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ~doc_tags:[Snapshots] ()
 
   let resize =
-    call ~name:"resize"
-      ~lifecycle:[(Published, rel_rio, "Resize the VDI.")]
-      ~in_oss_since:None
+    call ~name:"resize" ~published:rel_rio ~in_oss_since:None
       ~params:
         [
           (Ref _vdi, "vdi", "The VDI to resize")
@@ -5507,15 +4160,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let pool_migrate =
-    call ~name:"pool_migrate" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_tampa
-          , "Migrate a VDI, which may be attached to a running guest, to a \
-             different SR. The destination SR must be visible to the guest."
-          )
-        ]
+    call ~name:"pool_migrate" ~in_oss_since:None ~published:rel_tampa
       ~params:
         [
           (Ref _vdi, "vdi", "The VDI to migrate")
@@ -5676,9 +4321,7 @@ module VDI = struct
 
   (* This used to be called VDI.introduce but it was always an internal call *)
   let pool_introduce =
-    call ~name:"pool_introduce" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_rio, "Create a new VDI record in the database only")]
+    call ~name:"pool_introduce" ~in_oss_since:None ~published:rel_rio
       ~versioned_params:
         (introduce_params miami_release
         @ [
@@ -5707,9 +4350,7 @@ module VDI = struct
     call ~name:"db_forget" ~in_oss_since:None
       ~params:[(Ref _vdi, "vdi", "The VDI to forget about")]
       ~doc:"Removes a VDI record from the database" ~hide_from_docs:true
-      ~lifecycle:
-        [(Published, rel_miami, "Removes a VDI record from the database")]
-      ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
+      ~published:rel_miami ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let introduce =
     call ~name:"introduce" ~in_oss_since:None
@@ -5717,14 +4358,10 @@ module VDI = struct
       ~doc:"Create a new VDI record in the database only"
       ~result:(Ref _vdi, "The ref of the newly created VDI record.")
       ~errs:[Api_errors.sr_operation_not_supported]
-      ~lifecycle:
-        [(Published, rel_miami, "Create a new VDI record in the database only")]
-      ~allowed_roles:_R_VM_ADMIN ()
+      ~published:rel_miami ~allowed_roles:_R_VM_ADMIN ()
 
   let forget =
-    call ~name:"forget" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_rio, "Removes a VDI record from the database")]
+    call ~name:"forget" ~in_oss_since:None ~published:rel_rio
       ~params:[(Ref _vdi, "vdi", "The VDI to forget about")]
       ~doc:"Removes a VDI record from the database" ~allowed_roles:_R_VM_ADMIN
       ()
@@ -5752,14 +4389,7 @@ module VDI = struct
         [(Ref _vdi, "vdi", "The VDI whose stats (eg size) should be updated")]
       ~doc:"Ask the storage backend to refresh the fields in the VDI object"
       ~errs:[Api_errors.sr_operation_not_supported]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_symc
-          , "Ask the storage backend to refresh the fields in the VDI object"
-          )
-        ]
-      ~allowed_roles:_R_VM_ADMIN ()
+      ~published:rel_symc ~allowed_roles:_R_VM_ADMIN ()
 
   let operations =
     Enum
@@ -5790,8 +4420,7 @@ module VDI = struct
       )
 
   let set_missing =
-    call ~name:"set_missing" ~in_oss_since:None
-      ~lifecycle:[(Published, rel_miami, "Sets the VDI's missing field")]
+    call ~name:"set_missing" ~in_oss_since:None ~published:rel_miami
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -5801,8 +4430,7 @@ module VDI = struct
       ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let set_read_only =
-    call ~name:"set_read_only" ~in_oss_since:None
-      ~lifecycle:[(Published, rel_rio, "Sets the VDI's read_only field")]
+    call ~name:"set_read_only" ~in_oss_since:None ~published:rel_rio
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -5812,8 +4440,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let set_sharable =
-    call ~name:"set_sharable" ~in_oss_since:None
-      ~lifecycle:[(Published, rel_george, "Sets the VDI's sharable field")]
+    call ~name:"set_sharable" ~in_oss_since:None ~published:rel_george
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -5823,8 +4450,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let set_managed =
-    call ~name:"set_managed" ~in_oss_since:None
-      ~lifecycle:[(Published, rel_rio, "Sets the VDI's managed field")]
+    call ~name:"set_managed" ~in_oss_since:None ~published:rel_rio
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -5834,8 +4460,7 @@ module VDI = struct
       ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let set_virtual_size =
-    call ~name:"set_virtual_size" ~in_oss_since:None
-      ~lifecycle:[(Published, rel_miami, "Sets the VDI's virtual_size field")]
+    call ~name:"set_virtual_size" ~in_oss_since:None ~published:rel_miami
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -5846,8 +4471,7 @@ module VDI = struct
 
   let set_physical_utilisation =
     call ~name:"set_physical_utilisation" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_miami, "Sets the VDI's physical_utilisation field")]
+      ~published:rel_miami
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -5857,9 +4481,7 @@ module VDI = struct
       ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let set_is_a_snapshot =
-    call ~name:"set_is_a_snapshot" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_boston, "Sets whether this VDI is a snapshot")]
+    call ~name:"set_is_a_snapshot" ~in_oss_since:None ~published:rel_boston
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -5872,11 +4494,7 @@ module VDI = struct
       ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let set_snapshot_of =
-    call ~name:"set_snapshot_of" ~in_oss_since:None
-      ~lifecycle:
-        [
-          (Published, rel_boston, "Sets the VDI of which this VDI is a snapshot")
-        ]
+    call ~name:"set_snapshot_of" ~in_oss_since:None ~published:rel_boston
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -5886,9 +4504,7 @@ module VDI = struct
       ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let set_snapshot_time =
-    call ~name:"set_snapshot_time" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_boston, "Sets the snapshot time of this VDI.")]
+    call ~name:"set_snapshot_time" ~in_oss_since:None ~published:rel_boston
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -5902,14 +4518,7 @@ module VDI = struct
       ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let set_metadata_of_pool =
-    call ~name:"set_metadata_of_pool" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_boston
-          , "Records the pool whose metadata is contained by this VDI."
-          )
-        ]
+    call ~name:"set_metadata_of_pool" ~in_oss_since:None ~published:rel_boston
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -5924,9 +4533,7 @@ module VDI = struct
 
   (** An API call for debugging and testing only *)
   let generate_config =
-    call ~name:"generate_config" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_orlando, "Internal function for debugging only")]
+    call ~name:"generate_config" ~in_oss_since:None ~published:rel_orlando
       ~params:
         [
           (Ref _host, "host", "The host on which to generate the configuration")
@@ -5949,15 +4556,7 @@ module VDI = struct
       )
 
   let set_on_boot =
-    call ~name:"set_on_boot" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_cowley
-          , "Set the value of the on_boot parameter. This value can only be \
-             changed when the VDI is not attached to a running VM."
-          )
-        ]
+    call ~name:"set_on_boot" ~in_oss_since:None ~published:rel_cowley
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -5969,19 +4568,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let set_allow_caching =
-    call ~name:"set_allow_caching" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_cowley
-          , "Set the value of the allow_caching parameter. This value can only \
-             be changed when the VDI is not attached to a running VM. The \
-             caching behaviour is only affected by this flag for VHD-based \
-             VDIs that have one parent and no child VHDs. Moreover, caching \
-             only takes place when the host running the VM containing this VDI \
-             has a nominated SR for local caching."
-          )
-        ]
+    call ~name:"set_allow_caching" ~in_oss_since:None ~published:rel_cowley
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -5997,15 +4584,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let set_name_label =
-    call ~name:"set_name_label" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Set the name label of the VDI. This can only happen when then its \
-             SR is currently attached."
-          )
-        ]
+    call ~name:"set_name_label" ~in_oss_since:None ~published:rel_rio
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -6017,15 +4596,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let set_name_description =
-    call ~name:"set_name_description" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Set the name description of the VDI. This can only happen when \
-             its SR is currently attached."
-          )
-        ]
+    call ~name:"set_name_description" ~in_oss_since:None ~published:rel_rio
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -6037,15 +4608,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let open_database =
-    call ~name:"open_database" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_boston
-          , "Load the metadata found on the supplied VDI and return a session \
-             reference which can be used in API calls to query its contents."
-          )
-        ]
+    call ~name:"open_database" ~in_oss_since:None ~published:rel_boston
       ~params:
         [(Ref _vdi, "self", "The VDI which contains the database to open")]
       ~result:(Ref _session, "A session which can be used to query the database")
@@ -6055,14 +4618,7 @@ module VDI = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let checksum =
-    call ~name:"checksum" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_boston
-          , "Internal function to calculate VDI checksum and return a string"
-          )
-        ]
+    call ~name:"checksum" ~in_oss_since:None ~published:rel_boston
       ~params:[(Ref _vdi, "self", "The VDI to checksum")]
       ~result:(String, "The md5sum of the vdi")
       ~doc:"Internal function to calculate VDI checksum and return a string"
@@ -6075,29 +4631,14 @@ module VDI = struct
 
   let read_database_pool_uuid =
     call ~name:"read_database_pool_uuid" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_boston
-          , "Check the VDI cache for the pool UUID of the database on this VDI."
-          )
-        ]
+      ~published:rel_boston
       ~params:[(Ref _vdi, "self", "The metadata VDI to look up in the cache.")]
       ~result:(String, "The cached pool UUID of the database on the VDI.")
       ~doc:"Check the VDI cache for the pool UUID of the database on this VDI."
       ~allowed_roles:_R_READ_ONLY ()
 
   let enable_cbt =
-    call ~name:"enable_cbt" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_inverness
-          , "Enable changed block tracking for the VDI. This call is \
-             idempotent - enabling CBT for a VDI for which CBT is already \
-             enabled results in a no-op, and no error will be thrown."
-          )
-        ]
+    call ~name:"enable_cbt" ~in_oss_since:None ~published:rel_inverness
       ~params:[(Ref _vdi, "self", "The VDI for which CBT should be enabled")]
       ~errs:
         [
@@ -6116,17 +4657,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let disable_cbt =
-    call ~name:"disable_cbt" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_inverness
-          , "Disable changed block tracking for the VDI. This call is only \
-             allowed on VDIs that support enabling CBT. It is an idempotent \
-             operation - disabling CBT for a VDI for which CBT is not enabled \
-             results in a no-op, and no error will be thrown."
-          )
-        ]
+    call ~name:"disable_cbt" ~in_oss_since:None ~published:rel_inverness
       ~params:[(Ref _vdi, "self", "The VDI for which CBT should be disabled")]
       ~errs:
         [
@@ -6160,18 +4691,7 @@ module VDI = struct
       ~errs:[] ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let data_destroy =
-    call ~name:"data_destroy" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_inverness
-          , "Delete the data of the snapshot VDI, but keep its changed block \
-             tracking metadata. When successful, this call changes the type of \
-             the VDI to cbt_metadata. This operation is idempotent: calling it \
-             on a VDI of type cbt_metadata results in a no-op, and no error \
-             will be thrown."
-          )
-        ]
+    call ~name:"data_destroy" ~in_oss_since:None ~published:rel_inverness
       ~params:[(Ref _vdi, "self", "The VDI whose data should be deleted.")]
       ~errs:
         [
@@ -6194,16 +4714,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let list_changed_blocks =
-    call ~name:"list_changed_blocks" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_inverness
-          , "Compare two VDIs in 64k block increments and report which blocks \
-             differ. This operation is not allowed when vdi_to is attached to \
-             a VM."
-          )
-        ]
+    call ~name:"list_changed_blocks" ~in_oss_since:None ~published:rel_inverness
       ~params:
         [
           (Ref _vdi, "vdi_from", "The first VDI.")
@@ -6229,25 +4740,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_OP ()
 
   let get_nbd_info =
-    call ~name:"get_nbd_info" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_inverness
-          , "Get details specifying how to access this VDI via a Network Block \
-             Device server. For each of a set of NBD server addresses on which \
-             the VDI is available, the return value set contains a \
-             vdi_nbd_server_info object that contains an exportname to request \
-             once the NBD connection is established, and connection details \
-             for the address. An empty list is returned if there is no network \
-             that has a PIF on a host with access to the relevant SR, or if no \
-             such network has been assigned an NBD-related purpose in its \
-             purpose field. To access the given VDI, any of the \
-             vdi_nbd_server_info objects can be used to make a connection to a \
-             server, and then the VDI will be available by requesting the \
-             exportname."
-          )
-        ]
+    call ~name:"get_nbd_info" ~in_oss_since:None ~published:rel_inverness
       ~params:
         [
           ( Ref _vdi
@@ -6341,103 +4834,43 @@ module VDI = struct
          ]
         @ allowed_and_current_operations operations
         @ [
-            field ~qualifier:StaticRO ~ty:(Ref _sr)
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "storage repository in which the VDI resides"
-                  )
-                ]
-              "SR" "storage repository in which the VDI resides"
-          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd))
-              ~lifecycle:
-                [(Published, rel_rio, "list of vbds that refer to this disk")]
+            field ~qualifier:StaticRO ~ty:(Ref _sr) ~published:rel_rio "SR"
+              "storage repository in which the VDI resides"
+          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) ~published:rel_rio
               "VBDs" "list of vbds that refer to this disk"
           ; field ~qualifier:DynamicRO ~ty:(Set (Ref _crashdump))
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "list of crash dumps that refer to this disk"
-                  )
-                ]
-              "crash_dumps" "list of crash dumps that refer to this disk"
-          ; field ~qualifier:StaticRO ~ty:Int
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "size of disk as presented to the guest (in bytes). Note \
-                     that, depending on storage backend type, requested size \
-                     may not be respected exactly"
-                  )
-                ]
-              "virtual_size"
+              ~published:rel_rio "crash_dumps"
+              "list of crash dumps that refer to this disk"
+          ; field ~qualifier:StaticRO ~ty:Int ~published:rel_rio "virtual_size"
               "size of disk as presented to the guest (in bytes). Note that, \
                depending on storage backend type, requested size may not be \
                respected exactly"
-          ; field ~qualifier:DynamicRO ~ty:Int
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "amount of physical space that the disk image is currently \
-                     taking up on the storage repository (in bytes)"
-                  )
-                ]
+          ; field ~qualifier:DynamicRO ~ty:Int ~published:rel_rio
               "physical_utilisation"
               "amount of physical space that the disk image is currently \
                taking up on the storage repository (in bytes)"
-          ; field ~qualifier:StaticRO ~ty:type'
-              ~lifecycle:[(Published, rel_rio, "type of the VDI")]
-              "type" "type of the VDI"
-          ; field ~qualifier:StaticRO ~ty:Bool
-              ~lifecycle:
-                [(Published, rel_rio, "true if this disk may be shared")]
-              "sharable" "true if this disk may be shared"
-          ; field ~qualifier:StaticRO ~ty:Bool
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "true if this disk may ONLY be mounted read-only"
-                  )
-                ]
-              "read_only" "true if this disk may ONLY be mounted read-only"
+          ; field ~qualifier:StaticRO ~ty:type' ~published:rel_rio "type"
+              "type of the VDI"
+          ; field ~qualifier:StaticRO ~ty:Bool ~published:rel_rio "sharable"
+              "true if this disk may be shared"
+          ; field ~qualifier:StaticRO ~ty:Bool ~published:rel_rio "read_only"
+              "true if this disk may ONLY be mounted read-only"
           ; field
               ~ty:(Map (String, String))
-              ~lifecycle:[(Published, rel_rio, "additional configuration")]
-              "other_config" "additional configuration"
+              ~published:rel_rio "other_config" "additional configuration"
               ~map_keys_roles:
                 [("folder", _R_VM_OP); ("XenCenter.CustomFields.*", _R_VM_OP)]
           ; field ~qualifier:DynamicRO ~ty:Bool "storage_lock"
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "true if this disk is locked at the storage level"
-                  )
-                ]
+              ~published:rel_rio
               "true if this disk is locked at the storage level"
           ; (* XXX: location field was in the database in rio, now API in miami *)
-            field ~in_oss_since:None
-              ~lifecycle:[(Published, rel_miami, "location information")]
-              ~ty:String ~qualifier:DynamicRO ~default_value:(Some (VString ""))
-              "location" "location information"
-          ; field ~in_oss_since:None
-              ~lifecycle:[(Published, rel_rio, "")]
-              ~ty:Bool ~qualifier:DynamicRO "managed" ""
-          ; field ~in_oss_since:None
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "true if SR scan operation reported this VDI as not \
-                     present on disk"
-                  )
-                ]
-              ~ty:Bool ~qualifier:DynamicRO "missing"
+            field ~in_oss_since:None ~published:rel_miami ~ty:String
+              ~qualifier:DynamicRO ~default_value:(Some (VString "")) "location"
+              "location information"
+          ; field ~in_oss_since:None ~published:rel_rio ~ty:Bool
+              ~qualifier:DynamicRO "managed" ""
+          ; field ~in_oss_since:None ~published:rel_rio ~ty:Bool
+              ~qualifier:DynamicRO "missing"
               "true if SR scan operation reported this VDI as not present on \
                disk"
           ; field ~in_oss_since:None ~ty:(Ref _vdi) ~qualifier:DynamicRO
@@ -6449,17 +4882,7 @@ module VDI = struct
               "parent" "This field is always null. Deprecated"
           ; field ~in_oss_since:None
               ~ty:(Map (String, String))
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_miami
-                  , "data to be inserted into the xenstore tree \
-                     (/local/domain/0/backend/vbd/<domid>/<device-id>/sm-data) \
-                     after the VDI is attached. This is generally set by the \
-                     SM backends on vdi_attach."
-                  )
-                ]
-              ~qualifier:RW "xenstore_data"
+              ~published:rel_miami ~qualifier:RW "xenstore_data"
               "data to be inserted into the xenstore tree \
                (/local/domain/0/backend/vbd/<domid>/<device-id>/sm-data) after \
                the VDI is attached. This is generally set by the SM backends \
@@ -6467,101 +4890,35 @@ module VDI = struct
               ~default_value:(Some (VMap []))
           ; field ~in_oss_since:None
               ~ty:(Map (String, String))
-              ~lifecycle:[(Published, rel_miami, "SM dependent data")]
-              ~qualifier:RW "sm_config" "SM dependent data"
+              ~published:rel_miami ~qualifier:RW "sm_config" "SM dependent data"
               ~default_value:(Some (VMap []))
-          ; field
-              ~lifecycle:
-                [(Published, rel_orlando, "true if this is a snapshot.")]
-              ~default_value:(Some (VBool false)) ~qualifier:DynamicRO ~ty:Bool
-              ~doc_tags:[Snapshots] "is_a_snapshot"
-              "true if this is a snapshot."
-          ; field
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_orlando
-                  , "Ref pointing to the VDI this snapshot is of."
-                  )
-                ]
-              ~default_value:(Some (VRef "")) ~qualifier:DynamicRO
-              ~ty:(Ref _vdi) ~doc_tags:[Snapshots] "snapshot_of"
-              "Ref pointing to the VDI this snapshot is of."
-          ; field
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_orlando
-                  , "List pointing to all the VDIs snapshots."
-                  )
-                ]
-              ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) ~doc_tags:[Snapshots]
-              "snapshots" "List pointing to all the VDIs snapshots."
-          ; field
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_orlando
-                  , "Date/time when this snapshot was created."
-                  )
-                ]
+          ; field ~published:rel_orlando ~default_value:(Some (VBool false))
+              ~qualifier:DynamicRO ~ty:Bool ~doc_tags:[Snapshots]
+              "is_a_snapshot" "true if this is a snapshot."
+          ; field ~published:rel_orlando ~default_value:(Some (VRef ""))
+              ~qualifier:DynamicRO ~ty:(Ref _vdi) ~doc_tags:[Snapshots]
+              "snapshot_of" "Ref pointing to the VDI this snapshot is of."
+          ; field ~published:rel_orlando ~qualifier:DynamicRO
+              ~ty:(Set (Ref _vdi)) ~doc_tags:[Snapshots] "snapshots"
+              "List pointing to all the VDIs snapshots."
+          ; field ~published:rel_orlando
               ~default_value:(Some (VDateTime Date.epoch)) ~qualifier:DynamicRO
               ~ty:DateTime ~doc_tags:[Snapshots] "snapshot_time"
               "Date/time when this snapshot was created."
-          ; field ~writer_roles:_R_VM_OP
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_orlando
-                  , "user-specified tags for categorization purposes"
-                  )
-                ]
+          ; field ~writer_roles:_R_VM_OP ~published:rel_orlando
               ~default_value:(Some (VSet [])) ~ty:(Set String) "tags"
               "user-specified tags for categorization purposes"
-          ; field
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_cowley
-                  , "true if this VDI is to be cached in the local cache SR"
-                  )
-                ]
-              ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false))
-              "allow_caching"
+          ; field ~published:rel_cowley ~qualifier:DynamicRO ~ty:Bool
+              ~default_value:(Some (VBool false)) "allow_caching"
               "true if this VDI is to be cached in the local cache SR"
-          ; field
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_cowley
-                  , "The behaviour of this VDI on a VM boot"
-                  )
-                ]
-              ~qualifier:DynamicRO ~ty:on_boot
+          ; field ~published:rel_cowley ~qualifier:DynamicRO ~ty:on_boot
               ~default_value:(Some (VEnum "persist")) "on_boot"
               "The behaviour of this VDI on a VM boot"
-          ; field
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_boston
-                  , "The pool whose metadata is contained in this VDI"
-                  )
-                ]
-              ~qualifier:DynamicRO ~ty:(Ref _pool)
+          ; field ~published:rel_boston ~qualifier:DynamicRO ~ty:(Ref _pool)
               ~default_value:(Some (VRef null_ref)) "metadata_of_pool"
               "The pool whose metadata is contained in this VDI"
-          ; field
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_boston
-                  , "Whether this VDI contains the latest known accessible \
-                     metadata for the pool"
-                  )
-                ]
-              ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false))
-              "metadata_latest"
+          ; field ~published:rel_boston ~qualifier:DynamicRO ~ty:Bool
+              ~default_value:(Some (VBool false)) "metadata_latest"
               "Whether this VDI contains the latest known accessible metadata \
                for the pool"
           ; field
@@ -6615,22 +4972,14 @@ module VBD = struct
       )
 
   let eject =
-    call ~name:"eject"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Remove the media from the device and leave it empty"
-          )
-        ]
+    call ~name:"eject" ~published:rel_rio
       ~doc:"Remove the media from the device and leave it empty"
       ~params:[(Ref _vbd, "vbd", "The vbd representing the CDROM-like device")]
       ~errs:[Api_errors.vbd_not_removable_media; Api_errors.vbd_is_empty]
       ~allowed_roles:_R_VM_OP ()
 
   let insert =
-    call ~name:"insert"
-      ~lifecycle:[(Published, rel_rio, "Insert new media into the device")]
+    call ~name:"insert" ~published:rel_rio
       ~doc:"Insert new media into the device"
       ~params:
         [
@@ -6641,30 +4990,14 @@ module VBD = struct
       ~allowed_roles:_R_VM_OP ()
 
   let plug =
-    call ~name:"plug"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Hotplug the specified VBD, dynamically attaching it to the \
-             running VM"
-          )
-        ]
+    call ~name:"plug" ~published:rel_rio
       ~doc:
         "Hotplug the specified VBD, dynamically attaching it to the running VM"
       ~params:[(Ref _vbd, "self", "The VBD to hotplug")]
       ~allowed_roles:_R_VM_ADMIN ()
 
   let unplug =
-    call ~name:"unplug"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Hot-unplug the specified VBD, dynamically unattaching it from the \
-             running VM"
-          )
-        ]
+    call ~name:"unplug" ~published:rel_rio
       ~doc:
         "Hot-unplug the specified VBD, dynamically unattaching it from the \
          running VM"
@@ -6674,8 +5007,7 @@ module VBD = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let unplug_force =
-    call ~name:"unplug_force"
-      ~lifecycle:[(Published, rel_rio, "Forcibly unplug the specified VBD")]
+    call ~name:"unplug_force" ~published:rel_rio
       ~doc:"Forcibly unplug the specified VBD"
       ~params:[(Ref _vbd, "self", "The VBD to forcibly unplug")]
       ~allowed_roles:_R_VM_ADMIN ()
@@ -6717,15 +5049,7 @@ module VBD = struct
         "Stop the backend device servicing requests so that an operation can \
          be performed on the disk (eg live resize, snapshot)"
       ~params:[(Ref _vbd, "self", "The VBD to pause")]
-      ~hide_from_docs:true
-      ~lifecycle:
-        [
-          ( Published
-          , rel_symc
-          , "Stop the backend device servicing requests so that an operation \
-             can be performed on the disk (eg live resize, snapshot)"
-          )
-        ]
+      ~hide_from_docs:true ~published:rel_symc
       ~result:
         ( String
         , "Token to uniquely identify this pause instance, used to match the \
@@ -6756,27 +5080,10 @@ module VBD = struct
           ; param_default= Some (VString "")
           }
         ]
-      ~hide_from_docs:true
-      ~lifecycle:
-        [
-          ( Published
-          , rel_symc
-          , "Restart the backend device after it was paused while an operation \
-             was performed on the disk (eg live resize, snapshot)"
-          )
-        ]
-      ~allowed_roles:_R_VM_ADMIN ()
+      ~hide_from_docs:true ~published:rel_symc ~allowed_roles:_R_VM_ADMIN ()
 
   let assert_attachable =
-    call ~name:"assert_attachable"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Throws an error if this VBD could not be attached to this VM if \
-             the VM were running. Intended for debugging."
-          )
-        ]
+    call ~name:"assert_attachable" ~published:rel_rio
       ~doc:
         "Throws an error if this VBD could not be attached to this VM if the \
          VM were running. Intended for debugging."
@@ -6784,15 +5091,7 @@ module VBD = struct
       ~in_oss_since:None ~allowed_roles:_R_VM_ADMIN ()
 
   let set_mode =
-    call ~name:"set_mode"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Sets the mode of the VBD. The power_state of the VM must be \
-             halted."
-          )
-        ]
+    call ~name:"set_mode" ~published:rel_rio
       ~doc:"Sets the mode of the VBD. The power_state of the VM must be halted."
       ~params:
         [
@@ -6831,12 +5130,10 @@ module VBD = struct
          ]
         @ allowed_and_current_operations operations
         @ [
-            field ~qualifier:StaticRO ~ty:(Ref _vm)
-              ~lifecycle:[(Published, rel_rio, "the virtual machine")]
-              "VM" "the virtual machine"
-          ; field ~qualifier:StaticRO ~ty:(Ref _vdi)
-              ~lifecycle:[(Published, rel_rio, "the virtual disk")]
-              "VDI" "the virtual disk"
+            field ~qualifier:StaticRO ~ty:(Ref _vm) ~published:rel_rio "VM"
+              "the virtual machine"
+          ; field ~qualifier:StaticRO ~ty:(Ref _vdi) ~published:rel_rio "VDI"
+              "the virtual disk"
           ; field ~qualifier:StaticRO ~ty:String
               ~default_value:(Some (VString ""))
               ~lifecycle:
@@ -6849,74 +5146,27 @@ module VBD = struct
                   )
                 ]
               "device" "device seen by the guest, for example, hda1"
-          ; field
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "user-friendly device name, for example, 0, 1, 2, etc."
-                  )
-                ]
-              "userdevice"
+          ; field ~published:rel_rio "userdevice"
               "user-friendly device name, for example, 0, 1, 2, etc."
-          ; field ~ty:Bool
-              ~lifecycle:[(Published, rel_rio, "true if this VBD is bootable")]
-              "bootable" "true if this VBD is bootable"
-          ; field ~qualifier:StaticRO ~ty:mode
-              ~lifecycle:
-                [
-                  (Published, rel_rio, "the mode the VBD should be mounted with")
-                ]
-              "mode" "the mode the VBD should be mounted with"
-          ; field ~ty:type'
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "how the VBD will appear to the guest (for example, disk \
-                     or CD)"
-                  )
-                ]
-              "type"
+          ; field ~ty:Bool ~published:rel_rio "bootable"
+              "true if this VBD is bootable"
+          ; field ~qualifier:StaticRO ~ty:mode ~published:rel_rio "mode"
+              "the mode the VBD should be mounted with"
+          ; field ~ty:type' ~published:rel_rio "type"
               "how the VBD will appear to the guest (for example, disk or CD)"
-          ; field ~in_oss_since:None
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_miami
-                  , "true if this VBD will support hot-unplug"
-                  )
-                ]
-              ~ty:Bool ~default_value:(Some (VBool true)) "unpluggable"
+          ; field ~in_oss_since:None ~published:rel_miami ~ty:Bool
+              ~default_value:(Some (VBool true)) "unpluggable"
               "true if this VBD will support hot-unplug"
-          ; field ~qualifier:DynamicRO ~ty:Bool
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "true if a storage level lock was acquired"
-                  )
-                ]
+          ; field ~qualifier:DynamicRO ~ty:Bool ~published:rel_rio
               "storage_lock" "true if a storage level lock was acquired"
-          ; field ~qualifier:StaticRO ~ty:Bool
-              ~lifecycle:
-                [(Published, rel_rio, "if true this represents an empty drive")]
-              "empty" "if true this represents an empty drive"
-          ; field ~in_oss_since:None
-              ~lifecycle:
-                [
-                  ( Published
-                  , rel_rio
-                  , "true if the VBD is reserved pending a reboot/migrate"
-                  )
-                ]
-              ~internal_only:true ~qualifier:DynamicRO ~ty:Bool
-              ~default_value:(Some (VBool false)) "reserved"
-              "true if the VBD is reserved pending a reboot/migrate"
+          ; field ~qualifier:StaticRO ~ty:Bool ~published:rel_rio "empty"
+              "if true this represents an empty drive"
+          ; field ~in_oss_since:None ~published:rel_rio ~internal_only:true
+              ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false))
+              "reserved" "true if the VBD is reserved pending a reboot/migrate"
           ; field
               ~ty:(Map (String, String))
-              ~lifecycle:[(Published, rel_rio, "additional configuration")]
-              "other_config" "additional configuration"
+              ~published:rel_rio "other_config" "additional configuration"
           ]
         @ device_status_fields
         @ [namespace ~name:"qos" ~contents:(qos "VBD") ()]
@@ -6984,8 +5234,7 @@ end
 
 module Crashdump = struct
   let destroy =
-    call ~name:"destroy"
-      ~lifecycle:[(Published, rel_rio, "Destroy the specified crashdump")]
+    call ~name:"destroy" ~published:rel_rio
       ~doc:"Destroy the specified crashdump"
       ~params:[(Ref _crashdump, "self", "The crashdump to destroy")]
       ~allowed_roles:_R_POOL_OP ()
@@ -7007,15 +5256,11 @@ module Crashdump = struct
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
             _crashdump
-        ; field ~qualifier:StaticRO ~ty:(Ref _vm)
-            ~lifecycle:[(Published, rel_rio, "the virtual machine")]
-            "VM" "the virtual machine"
-        ; field ~qualifier:StaticRO ~ty:(Ref _vdi)
-            ~lifecycle:[(Published, rel_rio, "the virtual disk")]
-            "VDI" "the virtual disk"
-        ; field
-            ~lifecycle:[(Published, rel_miami, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~qualifier:StaticRO ~ty:(Ref _vm) ~published:rel_rio "VM"
+            "the virtual machine"
+        ; field ~qualifier:StaticRO ~ty:(Ref _vdi) ~published:rel_rio "VDI"
+            "the virtual disk"
+        ; field ~published:rel_miami ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ]
@@ -7026,15 +5271,7 @@ module Auth = struct
   (** Auth class *)
   let get_subject_identifier =
     call ~flags:[`Session] ~name:"get_subject_identifier" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_george
-          , "This call queries the external directory service to obtain the \
-             subject_identifier as a string from the human-readable \
-             subject_name"
-          )
-        ]
+      ~published:rel_george
       ~params:
         [
           (*Ref _auth, "auth", "???";*)
@@ -7054,16 +5291,7 @@ module Auth = struct
 
   let get_subject_information_from_identifier =
     call ~flags:[`Session] ~name:"get_subject_information_from_identifier"
-      ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_george
-          , "This call queries the external directory service to obtain the \
-             user information (for example, username, organization etc.) from \
-             the specified subject_identifier"
-          )
-        ]
+      ~in_oss_since:None ~published:rel_george
       ~params:
         [
           ( String
@@ -7084,15 +5312,7 @@ module Auth = struct
 
   let get_group_membership =
     call ~flags:[`Session] ~name:"get_group_membership" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_george
-          , "This call queries the external directory service to obtain the \
-             transitively-closed set of groups that the subject_identifier is \
-             a member of."
-          )
-        ]
+      ~published:rel_george
       ~params:
         [
           ( String
@@ -7136,13 +5356,7 @@ module Subject = struct
   (** Subject class *)
   let add_to_roles =
     call ~flags:[`Session] ~name:"add_to_roles" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_midnight_ride
-          , "This call adds a new role to a subject"
-          )
-        ]
+      ~published:rel_midnight_ride
       ~params:
         [
           (Ref _subject, "self", "The subject who we want to add the role to")
@@ -7153,13 +5367,7 @@ module Subject = struct
 
   let remove_from_roles =
     call ~flags:[`Session] ~name:"remove_from_roles" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_midnight_ride
-          , "This call removes a role from a subject"
-          )
-        ]
+      ~published:rel_midnight_ride
       ~params:
         [
           ( Ref _subject
@@ -7176,13 +5384,7 @@ module Subject = struct
 
   let get_permissions_name_label =
     call ~flags:[`Session] ~name:"get_permissions_name_label" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_midnight_ride
-          , "This call returns a list of permission names given a subject"
-          )
-        ]
+      ~published:rel_midnight_ride
       ~params:
         [
           ( Ref _subject
@@ -7210,32 +5412,15 @@ module Subject = struct
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
             ~in_oss_since:None _subject
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_george
-                , "the subject identifier, unique in the external directory \
-                   service"
-                )
-              ]
-            ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String
-            "subject_identifier"
+        ; field ~published:rel_george ~default_value:(Some (VString ""))
+            ~qualifier:StaticRO ~ty:String "subject_identifier"
             "the subject identifier, unique in the external directory service"
-        ; field
-            ~lifecycle:[(Published, rel_george, "additional configuration")]
-            ~default_value:(Some (VMap [])) ~qualifier:StaticRO
+        ; field ~published:rel_george ~default_value:(Some (VMap []))
+            ~qualifier:StaticRO
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ; (* DynamicRO fields do not show up in the constructor, as it should be because a subject must be created without receiving any roles as a parameter *)
-          field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "the roles associated with this subject"
-                )
-              ]
+          field ~published:rel_midnight_ride
             ~default_value:
               (Some (VSet [VRef ("OpaqueRef:" ^ Constants.rbac_pool_admin_uuid)])
             )
@@ -7250,13 +5435,7 @@ module Role = struct
   (** Role class *)
   let get_permissions =
     call ~flags:[`Session] ~name:"get_permissions" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_midnight_ride
-          , "This call returns a list of permissions given a role"
-          )
-        ]
+      ~published:rel_midnight_ride
       ~params:[(Ref _role, "self", "a reference to a role")]
       ~result:(Set (Ref _role), "a list of permissions")
       ~doc:"This call returns a list of permissions given a role"
@@ -7264,13 +5443,7 @@ module Role = struct
 
   let get_permissions_name_label =
     call ~flags:[`Session] ~name:"get_permissions_name_label" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_midnight_ride
-          , "This call returns a list of permission names given a role"
-          )
-        ]
+      ~published:rel_midnight_ride
       ~params:[(Ref _role, "self", "a reference to a role")]
       ~result:(Set String, "a list of permission names")
       ~doc:"This call returns a list of permission names given a role"
@@ -7278,13 +5451,7 @@ module Role = struct
 
   let get_by_permission =
     call ~flags:[`Session] ~name:"get_by_permission" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_midnight_ride
-          , "This call returns a list of roles given a permission"
-          )
-        ]
+      ~published:rel_midnight_ride
       ~params:[(Ref _role, "permission", "a reference to a permission")]
       ~result:(Set (Ref _role), "a list of references to roles")
       ~doc:"This call returns a list of roles given a permission"
@@ -7292,14 +5459,7 @@ module Role = struct
 
   let get_by_permission_name_label =
     call ~flags:[`Session] ~name:"get_by_permission_name_label"
-      ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_midnight_ride
-          , "This call returns a list of roles given a permission name"
-          )
-        ]
+      ~in_oss_since:None ~published:rel_midnight_ride
       ~params:[(String, "label", "The short friendly name of the role")]
       ~result:(Set (Ref _role), "a list of references to roles")
       ~doc:"This call returns a list of roles given a permission name"
@@ -7342,45 +5502,19 @@ module Role = struct
         ; namespace ~name:"name"
             ~contents:
               [
-                field
-                  ~lifecycle:
-                    [
-                      ( Published
-                      , rel_midnight_ride
-                      , "a short user-friendly name for the role"
-                      )
-                    ]
+                field ~published:rel_midnight_ride
                   ~default_value:(Some (VString "")) ~qualifier:StaticRO
                   ~ty:String "label" "a short user-friendly name for the role"
-              ; field
-                  ~lifecycle:
-                    [(Published, rel_midnight_ride, "what this role is for")]
+              ; field ~published:rel_midnight_ride
                   ~default_value:(Some (VString "")) ~qualifier:StaticRO
                   ~ty:String "description" "what this role is for"
               ]
             ()
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_midnight_ride
-                , "a list of pointers to other roles or permissions"
-                )
-              ]
-            ~default_value:(Some (VSet [])) ~ignore_foreign_key:true
-            ~qualifier:StaticRO ~ty:(Set (Ref _role)) "subroles"
-            "a list of pointers to other roles or permissions"
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , "22.5.0"
-                , "Indicates whether the role is only to be assigned \
-                   internally by xapi, or can be used by clients"
-                )
-              ]
-            ~default_value:(Some (VBool false)) ~qualifier:DynamicRO ~ty:Bool
-            "is_internal"
+        ; field ~published:rel_midnight_ride ~default_value:(Some (VSet []))
+            ~ignore_foreign_key:true ~qualifier:StaticRO ~ty:(Set (Ref _role))
+            "subroles" "a list of pointers to other roles or permissions"
+        ; field ~published:"22.5.0" ~default_value:(Some (VBool false))
+            ~qualifier:DynamicRO ~ty:Bool "is_internal"
             "Indicates whether the role is only to be assigned internally by \
              xapi, or can be used by clients"
           (*RBAC2: field ~in_product_since:rel_midnight_ride ~default_value:(Some (VBool false)) ~qualifier:StaticRO ~ty:Bool "is_complete" "if this is a complete role, meant to be used by the end-user";*)
@@ -7414,30 +5548,17 @@ module Console = struct
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
             _console
-        ; field ~qualifier:DynamicRO ~ty:protocol
-            ~lifecycle:
-              [(Published, rel_rio, "the protocol used by this console")]
-            "protocol" "the protocol used by this console"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:[(Published, rel_rio, "URI for the console service")]
-            "location" "URI for the console service"
-        ; field ~qualifier:DynamicRO ~ty:(Ref _vm)
-            ~lifecycle:
-              [(Published, rel_rio, "VM to which this console is attached")]
-            "VM" "VM to which this console is attached"
+        ; field ~qualifier:DynamicRO ~ty:protocol ~published:rel_rio "protocol"
+            "the protocol used by this console"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "location"
+            "URI for the console service"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _vm) ~published:rel_rio "VM"
+            "VM to which this console is attached"
         ; field
             ~ty:(Map (String, String))
-            ~lifecycle:[(Published, rel_rio, "additional configuration")]
-            "other_config" "additional configuration"
-        ; field ~in_oss_since:None
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "port in dom0 on which the console server is listening"
-                )
-              ]
-            ~internal_only:true ~ty:Int "port"
+            ~published:rel_rio "other_config" "additional configuration"
+        ; field ~in_oss_since:None ~published:rel_rio ~internal_only:true
+            ~ty:Int "port"
             "port in dom0 on which the console server is listening"
         ]
       ()
@@ -7446,16 +5567,14 @@ end
 module VM_metrics = struct
   let vm_memory_metrics =
     [
-      field ~qualifier:DynamicRO ~ty:Int
-        ~lifecycle:[(Published, rel_rio, "Guest's actual memory (bytes)")]
-        "actual" "Guest's actual memory (bytes)" ~persist:false
+      field ~qualifier:DynamicRO ~ty:Int ~published:rel_rio "actual"
+        "Guest's actual memory (bytes)" ~persist:false
     ]
 
   let vm_vcpu_metrics =
     [
-      field ~qualifier:DynamicRO ~ty:Int
-        ~lifecycle:[(Published, rel_rio, "Current number of VCPUs")]
-        "number" "Current number of VCPUs" ~persist:true
+      field ~qualifier:DynamicRO ~ty:Int ~published:rel_rio "number"
+        "Current number of VCPUs" ~persist:true
     ; field ~qualifier:DynamicRO
         ~ty:(Map (Int, Float))
         ~persist:false "utilisation"
@@ -7469,17 +5588,15 @@ module VM_metrics = struct
           ]
     ; field ~qualifier:DynamicRO
         ~ty:(Map (Int, Int))
-        ~lifecycle:[(Published, rel_rio, "VCPU to PCPU map")]
-        "CPU" "VCPU to PCPU map" ~persist:false
+        ~published:rel_rio "CPU" "VCPU to PCPU map" ~persist:false
     ; field ~qualifier:DynamicRO
         ~ty:(Map (String, String))
-        ~lifecycle:
-          [(Published, rel_rio, "The live equivalent to VM.VCPUs_params")]
-        "params" "The live equivalent to VM.VCPUs_params" ~persist:false
+        ~published:rel_rio "params" "The live equivalent to VM.VCPUs_params"
+        ~persist:false
     ; field ~qualifier:DynamicRO
         ~ty:(Map (Int, Set String))
-        ~lifecycle:[(Published, rel_rio, "CPU flags (blocked,online,running)")]
-        "flags" "CPU flags (blocked,online,running)" ~persist:false
+        ~published:rel_rio "flags" "CPU flags (blocked,online,running)"
+        ~persist:false
     ]
 
   let t =
@@ -7497,59 +5614,27 @@ module VM_metrics = struct
             _vm_metrics
         ; namespace ~name:"memory" ~contents:vm_memory_metrics ()
         ; namespace ~name:"VCPUs" ~contents:vm_vcpu_metrics ()
-        ; field ~qualifier:DynamicRO ~ty:(Set String)
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "The state of the guest, eg blocked, dying etc"
-                )
-              ]
-            "state" "The state of the guest, eg blocked, dying etc"
-            ~persist:false
-        ; field ~qualifier:DynamicRO ~ty:DateTime
-            ~lifecycle:
-              [(Published, rel_rio, "Time at which this VM was last booted")]
+        ; field ~qualifier:DynamicRO ~ty:(Set String) ~published:rel_rio "state"
+            "The state of the guest, eg blocked, dying etc" ~persist:false
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~published:rel_rio
             "start_time" "Time at which this VM was last booted"
         ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:DateTime
-            ~lifecycle:
-              [(Published, rel_rio, "Time at which the VM was installed")]
-            "install_time" "Time at which the VM was installed"
-        ; field ~qualifier:DynamicRO ~ty:DateTime
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Time at which this information was last updated"
-                )
-              ]
+            ~published:rel_rio "install_time"
+            "Time at which the VM was installed"
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~published:rel_rio
             "last_updated" "Time at which this information was last updated"
             ~persist:false
-        ; field
-            ~lifecycle:[(Published, rel_orlando, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~published:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration" ~persist:false
-        ; field
-            ~lifecycle:[(Published, rel_ely, "hardware virtual machine")]
-            ~default_value:(Some (VBool false)) ~ty:Bool ~qualifier:DynamicRO
-            "hvm" "hardware virtual machine" ~persist:false
-        ; field
-            ~lifecycle:
-              [(Published, rel_ely, "VM supports nested virtualisation")]
-            ~default_value:(Some (VBool false)) ~ty:Bool ~qualifier:DynamicRO
-            "nested_virt" "VM supports nested virtualisation" ~persist:false
-        ; field
-            ~lifecycle:
-              [
-                ( Published
-                , rel_ely
-                , "VM is immobile and can't migrate between hosts"
-                )
-              ]
-            ~default_value:(Some (VBool false)) ~ty:Bool ~qualifier:DynamicRO
-            "nomigrate" "VM is immobile and can't migrate between hosts"
-            ~persist:false
+        ; field ~published:rel_ely ~default_value:(Some (VBool false)) ~ty:Bool
+            ~qualifier:DynamicRO "hvm" "hardware virtual machine" ~persist:false
+        ; field ~published:rel_ely ~default_value:(Some (VBool false)) ~ty:Bool
+            ~qualifier:DynamicRO "nested_virt"
+            "VM supports nested virtualisation" ~persist:false
+        ; field ~published:rel_ely ~default_value:(Some (VBool false)) ~ty:Bool
+            ~qualifier:DynamicRO "nomigrate"
+            "VM is immobile and can't migrate between hosts" ~persist:false
         ; field
             ~lifecycle:
               [
@@ -7613,16 +5698,14 @@ module VM_guest_metrics = struct
             _vm_guest_metrics
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
-            ~lifecycle:[(Published, rel_rio, "version of the OS")]
-            "os_version" "version of the OS"
+            ~published:rel_rio "os_version" "version of the OS"
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             ~lifecycle:[] "netbios_name" "The NETBIOS name of the machine"
             ~default_value:(Some (VMap []))
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
-            ~lifecycle:[(Published, rel_rio, "version of the PV drivers")]
-            "PV_drivers_version" "version of the PV drivers"
+            ~published:rel_rio "PV_drivers_version" "version of the PV drivers"
         ; field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
             ~lifecycle:
               [
@@ -7665,35 +5748,16 @@ module VM_guest_metrics = struct
             "disks" "This field exists but has no data."
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
-            ~lifecycle:[(Published, rel_rio, "network configuration")]
-            "networks" "network configuration"
+            ~published:rel_rio "networks" "network configuration"
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
-            ~lifecycle:[(Published, rel_rio, "anything else")]
-            "other" "anything else"
-        ; field ~qualifier:DynamicRO ~ty:DateTime
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Time at which this information was last updated"
-                )
-              ]
+            ~published:rel_rio "other" "anything else"
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~published:rel_rio
             "last_updated" "Time at which this information was last updated"
-        ; field
-            ~lifecycle:[(Published, rel_orlando, "additional configuration")]
-            ~default_value:(Some (VMap []))
+        ; field ~published:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
-        ; field ~qualifier:DynamicRO
-            ~lifecycle:
-              [
-                ( Published
-                , rel_orlando
-                , "True if the guest is sending heartbeat messages via the \
-                   guest agent"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~published:rel_orlando
             ~default_value:(Some (VBool false)) ~ty:Bool "live"
             "True if the guest is sending heartbeat messages via the guest \
              agent"
@@ -8182,13 +6246,7 @@ module VMSS = struct
   (* VM schedule snapshot *)
   let snapshot_now =
     call ~flags:[`Session] ~name:"snapshot_now" ~in_oss_since:None
-      ~lifecycle:
-        [
-          ( Published
-          , rel_falcon
-          , "This call executes the snapshot schedule immediately"
-          )
-        ]
+      ~published:rel_falcon
       ~params:[(Ref _vmss, "vmss", "Snapshot Schedule to execute")]
       ~doc:"This call executes the snapshot schedule immediately"
       ~allowed_roles:_R_POOL_OP
@@ -8234,8 +6292,7 @@ module VMSS = struct
 
   let set_frequency =
     call ~flags:[`Session] ~name:"set_frequency" ~in_oss_since:None
-      ~lifecycle:
-        [(Published, rel_falcon, "Set the value of the frequency field")]
+      ~published:rel_falcon
       ~params:
         [
           (Ref _vmss, "self", "The snapshot schedule")
@@ -8329,61 +6386,27 @@ module VMSS = struct
         ; namespace ~name:"name"
             ~contents:(names None RW ~lifecycle:[(Published, rel_rio, "")])
             ()
-        ; field ~qualifier:RW ~ty:Bool
-            ~lifecycle:
-              [(Published, rel_rio, "enable or disable this snapshot schedule")]
-            "enabled" "enable or disable this snapshot schedule"
+        ; field ~qualifier:RW ~ty:Bool ~published:rel_rio "enabled"
+            "enable or disable this snapshot schedule"
             ~default_value:(Some (VBool true))
-        ; field ~qualifier:StaticRO ~ty:type'
-            ~lifecycle:[(Published, rel_rio, "type of the snapshot schedule")]
-            "type" "type of the snapshot schedule"
-        ; field ~qualifier:StaticRO ~ty:Int
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "maximum number of snapshots that should be stored at any \
-                   time"
-                )
-              ]
+        ; field ~qualifier:StaticRO ~ty:type' ~published:rel_rio "type"
+            "type of the snapshot schedule"
+        ; field ~qualifier:StaticRO ~ty:Int ~published:rel_rio
             "retained_snapshots"
             "maximum number of snapshots that should be stored at any time"
             ~default_value:(Some (VInt 7L))
-        ; field ~qualifier:StaticRO ~ty:frequency
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "frequency of taking snapshot from snapshot schedule"
-                )
-              ]
-            "frequency" "frequency of taking snapshot from snapshot schedule"
+        ; field ~qualifier:StaticRO ~ty:frequency ~published:rel_rio "frequency"
+            "frequency of taking snapshot from snapshot schedule"
         ; field ~qualifier:StaticRO
             ~ty:(Map (String, String))
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "schedule of the snapshot containing 'hour', 'min', 'days'. \
-                   Date/time-related information is in Local Timezone"
-                )
-              ]
-            "schedule"
+            ~published:rel_rio "schedule"
             "schedule of the snapshot containing 'hour', 'min', 'days'. \
              Date/time-related information is in Local Timezone"
             ~default_value:(Some (VMap []))
-        ; field ~qualifier:DynamicRO ~ty:DateTime
-            ~lifecycle:[(Published, rel_rio, "time of the last snapshot")]
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~published:rel_rio
             "last_run_time" "time of the last snapshot"
             ~default_value:(Some (VDateTime Date.epoch))
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm))
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "all VMs attached to this snapshot schedule"
-                )
-              ]
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) ~published:rel_rio
             "VMs" "all VMs attached to this snapshot schedule"
         ]
       ()
@@ -8403,8 +6426,7 @@ module VM_appliance = struct
       )
 
   let start =
-    call ~name:"start"
-      ~lifecycle:[(Published, rel_boston, "Start all VMs in the appliance")]
+    call ~name:"start" ~published:rel_boston
       ~params:
         [
           (Ref _vm_appliance, "self", "The VM appliance")
@@ -8418,43 +6440,21 @@ module VM_appliance = struct
       ~doc:"Start all VMs in the appliance" ~allowed_roles:_R_POOL_OP ()
 
   let clean_shutdown =
-    call ~name:"clean_shutdown"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_boston
-          , "Perform a clean shutdown of all the VMs in the appliance"
-          )
-        ]
+    call ~name:"clean_shutdown" ~published:rel_boston
       ~params:[(Ref _vm_appliance, "self", "The VM appliance")]
       ~errs:[Api_errors.operation_partially_failed]
       ~doc:"Perform a clean shutdown of all the VMs in the appliance"
       ~allowed_roles:_R_POOL_OP ()
 
   let hard_shutdown =
-    call ~name:"hard_shutdown"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_boston
-          , "Perform a hard shutdown of all the VMs in the appliance"
-          )
-        ]
+    call ~name:"hard_shutdown" ~published:rel_boston
       ~params:[(Ref _vm_appliance, "self", "The VM appliance")]
       ~errs:[Api_errors.operation_partially_failed]
       ~doc:"Perform a hard shutdown of all the VMs in the appliance"
       ~allowed_roles:_R_POOL_OP ()
 
   let shutdown =
-    call ~name:"shutdown"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_boston
-          , "For each VM in the appliance, try to shut it down cleanly. If \
-             this fails, perform a hard shutdown of the VM."
-          )
-        ]
+    call ~name:"shutdown" ~published:rel_boston
       ~params:[(Ref _vm_appliance, "self", "The VM appliance")]
       ~errs:[Api_errors.operation_partially_failed]
       ~doc:
@@ -8463,15 +6463,7 @@ module VM_appliance = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let assert_can_be_recovered =
-    call ~name:"assert_can_be_recovered"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_boston
-          , "Assert whether all SRs required to recover this VM appliance are \
-             available."
-          )
-        ]
+    call ~name:"assert_can_be_recovered" ~published:rel_boston
       ~params:
         [
           (Ref _vm_appliance, "self", "The VM appliance to recover")
@@ -8487,14 +6479,7 @@ module VM_appliance = struct
       ~allowed_roles:_R_READ_ONLY ()
 
   let get_SRs_required_for_recovery =
-    call ~name:"get_SRs_required_for_recovery"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_creedence
-          , "Get the list of SRs required by the VM appliance to recover."
-          )
-        ]
+    call ~name:"get_SRs_required_for_recovery" ~published:rel_creedence
       ~params:
         [
           ( Ref _vm_appliance
@@ -8513,8 +6498,7 @@ module VM_appliance = struct
       ~allowed_roles:_R_READ_ONLY ()
 
   let recover =
-    call ~name:"recover"
-      ~lifecycle:[(Published, rel_boston, "Recover the VM appliance")]
+    call ~name:"recover" ~published:rel_boston
       ~params:
         [
           (Ref _vm_appliance, "self", "The VM appliance to recover")
@@ -8559,8 +6543,7 @@ module VM_appliance = struct
          ]
         @ allowed_and_current_operations operations
         @ [
-            field ~qualifier:DynamicRO ~ty:(Set (Ref _vm))
-              ~lifecycle:[(Published, rel_rio, "all VMs in this appliance")]
+            field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) ~published:rel_rio
               "VMs" "all VMs in this appliance"
           ]
         )
@@ -8570,15 +6553,7 @@ end
 module DR_task = struct
   (* DR_task *)
   let create =
-    call ~name:"create"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_boston
-          , "Create a disaster recovery task which will query the supplied \
-             list of devices"
-          )
-        ]
+    call ~name:"create" ~published:rel_boston
       ~params:
         [
           (String, "type", "The SR driver type of the SRs to introduce")
@@ -8595,15 +6570,7 @@ module DR_task = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
-    call ~name:"destroy"
-      ~lifecycle:
-        [
-          ( Published
-          , rel_boston
-          , "Destroy the disaster recovery task, detaching and forgetting any \
-             SRs introduced which are no longer required"
-          )
-        ]
+    call ~name:"destroy" ~published:rel_boston
       ~params:[(Ref _dr_task, "self", "The disaster recovery task to destroy")]
       ~doc:
         "Destroy the disaster recovery task, detaching and forgetting any SRs \
@@ -8623,9 +6590,7 @@ module DR_task = struct
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
             _dr_task
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _sr))
-            ~lifecycle:
-              [(Published, rel_rio, "All SRs introduced by this appliance")]
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _sr)) ~published:rel_rio
             "introduced_SRs" "All SRs introduced by this appliance"
         ]
       ()
@@ -8772,14 +6737,7 @@ module Event = struct
       ~allowed_roles:_R_ALL ()
 
   let get_current_id =
-    call ~name:"get_current_id" ~params:[]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_rio
-          , "Return the ID of the next event to be generated by the system"
-          )
-        ]
+    call ~name:"get_current_id" ~params:[] ~published:rel_rio
       ~doc:"Return the ID of the next event to be generated by the system"
       ~flags:[`Session] ~result:(Int, "the event ID") ~allowed_roles:_R_ALL ()
 
@@ -8790,20 +6748,7 @@ module Event = struct
           (String, "class", "class of the object")
         ; (String, "ref", "A reference to the object that will be changed.")
         ]
-      ~lifecycle:
-        [
-          ( Published
-          , rel_tampa
-          , "Injects an artificial event on the given object and returns the \
-             corresponding ID in the form of a token, which can be used as a \
-             point of reference for database events. For example, to check \
-             whether an object has reached the right state before attempting \
-             an operation, one can inject an artificial event on the object \
-             and wait until the token returned by consecutive event.from calls \
-             is lexicographically greater than the one returned by \
-             event.inject."
-          )
-        ]
+      ~published:rel_tampa
       ~doc:
         "Injects an artificial event on the given object and returns the \
          corresponding ID in the form of a token, which can be used as a point \
@@ -8835,15 +6780,7 @@ module Event = struct
     ; contents=
         [
           field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:Int
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "An ID, monotonically increasing, and local to the current \
-                   session"
-                )
-              ]
-            "id"
+            ~published:rel_rio "id"
             "An ID, monotonically increasing, and local to the current session"
         ; field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:DateTime
             ~lifecycle:
@@ -8853,22 +6790,12 @@ module Event = struct
               ]
             "timestamp" "The time at which the event occurred"
         ; field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "The name of the class of the object that changed"
-                )
-              ]
-            "class" "The name of the class of the object that changed"
+            ~published:rel_rio "class"
+            "The name of the class of the object that changed"
         ; field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:operation
-            ~lifecycle:
-              [(Published, rel_rio, "The operation that was performed")]
-            "operation" "The operation that was performed"
+            ~published:rel_rio "operation" "The operation that was performed"
         ; field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String
-            ~lifecycle:
-              [(Published, rel_rio, "A reference to the object that changed")]
-            "ref" "A reference to the object that changed"
+            ~published:rel_rio "ref" "A reference to the object that changed"
         ; field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String
             ~lifecycle:
               [
@@ -8894,9 +6821,7 @@ end
 
 module Blob = struct
   let create =
-    call ~name:"create"
-      ~lifecycle:
-        [(Published, rel_orlando, "Create a placeholder for a binary blob")]
+    call ~name:"create" ~published:rel_orlando
       ~versioned_params:
         [
           {
@@ -8943,36 +6868,14 @@ module Blob = struct
             ~contents:
               (names oss_since_303 RW ~lifecycle:[(Published, rel_rio, "")])
             ()
-        ; field ~qualifier:DynamicRO ~ty:Int
-            ~lifecycle:
-              [(Published, rel_rio, "Size of the binary data, in bytes")]
-            "size" "Size of the binary data, in bytes"
-        ; field ~writer_roles:_R_POOL_OP ~qualifier:RW
-            ~lifecycle:
-              [
-                (Published, rel_tampa, "True if the blob is publicly accessible")
-              ]
+        ; field ~qualifier:DynamicRO ~ty:Int ~published:rel_rio "size"
+            "Size of the binary data, in bytes"
+        ; field ~writer_roles:_R_POOL_OP ~qualifier:RW ~published:rel_tampa
             ~default_value:(Some (VBool false)) ~ty:Bool "public"
             "True if the blob is publicly accessible"
-        ; field ~qualifier:StaticRO ~ty:DateTime
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "Time at which the data in the blob was last updated"
-                )
-              ]
+        ; field ~qualifier:StaticRO ~ty:DateTime ~published:rel_rio
             "last_updated" "Time at which the data in the blob was last updated"
-        ; field ~qualifier:StaticRO ~ty:String
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "The mime type associated with this object. Defaults to \
-                   'application/octet-stream' if the empty string is supplied"
-                )
-              ]
-            "mime_type"
+        ; field ~qualifier:StaticRO ~ty:String ~published:rel_rio "mime_type"
             "The mime type associated with this object. Defaults to \
              'application/octet-stream' if the empty string is supplied"
         ]
@@ -9144,18 +7047,10 @@ module Message = struct
             ~lifecycle:
               [(Published, rel_rio, "Unique identifier/object reference")]
             _message
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:[(Published, rel_rio, "The name of the message")]
-            "name" "The name of the message"
-        ; field ~qualifier:DynamicRO ~ty:Int
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "The message priority, 0 being low priority"
-                )
-              ]
-            "priority" "The message priority, 0 being low priority"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "name"
+            "The name of the message"
+        ; field ~qualifier:DynamicRO ~ty:Int ~published:rel_rio "priority"
+            "The message priority, 0 being low priority"
         ; field ~qualifier:DynamicRO ~ty:cls
             ~lifecycle:
               [
@@ -9163,24 +7058,12 @@ module Message = struct
               ; (Extended, "1.313.0", "Added Certificate class")
               ]
             "cls" "The class of the object this message is associated with"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:
-              [
-                ( Published
-                , rel_rio
-                , "The uuid of the object this message is associated with"
-                )
-              ]
-            "obj_uuid" "The uuid of the object this message is associated with"
-        ; field ~qualifier:DynamicRO ~ty:DateTime
-            ~lifecycle:
-              [
-                (Published, rel_rio, "The time at which the message was created")
-              ]
-            "timestamp" "The time at which the message was created"
-        ; field ~qualifier:DynamicRO ~ty:String
-            ~lifecycle:[(Published, rel_rio, "The body of the message")]
-            "body" "The body of the message"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "obj_uuid"
+            "The uuid of the object this message is associated with"
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~published:rel_rio "timestamp"
+            "The time at which the message was created"
+        ; field ~qualifier:DynamicRO ~ty:String ~published:rel_rio "body"
+            "The body of the message"
         ]
       ()
 end
@@ -9231,12 +7114,11 @@ module Secret = struct
               [(Published, rel_rio, "Unique identifier/object reference")]
             ~reader_roles:_R_POOL_OP _secret
         ; field ~reader_roles:_R_POOL_OP ~qualifier:RW ~ty:String
-            ~lifecycle:[(Published, rel_rio, "the secret")]
-            "value" "the secret"
+            ~published:rel_rio "value" "the secret"
         ; field ~qualifier:RW
             ~ty:(Map (String, String))
-            ~lifecycle:[(Published, rel_rio, "other_config")]
-            "other_config" "other_config" ~default_value:(Some (VMap []))
+            ~published:rel_rio "other_config" "other_config"
+            ~default_value:(Some (VMap []))
         ]
       ()
 end
@@ -10573,9 +8455,7 @@ module VUSB = struct
               ~ty:(Map (String, String))
               ~lifecycle "other_config" "Additional configuration"
               ~default_value:(Some (VMap []))
-          ; field ~qualifier:DynamicRO ~ty:Bool
-              ~lifecycle:
-                [(Published, rel_rio, "is the device currently attached")]
+          ; field ~qualifier:DynamicRO ~ty:Bool ~published:rel_rio
               "currently_attached" "is the device currently attached"
               ~default_value:(Some (VBool false))
           ]
