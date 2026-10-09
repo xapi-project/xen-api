@@ -95,9 +95,41 @@ and pp_key_value_list ppf = Fmt.(list ~sep:comma pp_key_value) ppf
 
 let pp_body = Fmt.option pp_any_value
 
+(* The width of the terminal, asked to tput only when stdout is a terminal
+   and TERM is set: without them, the question makes no sense *)
+let cols () =
+  let term_set =
+    match Sys.getenv_opt "TERM" with None | Some "" -> false | Some _ -> true
+  in
+  if not (Unix.isatty Unix.stdout && term_set) then
+    None
+  else
+    try
+      let ch = Unix.open_process_args_in "tput" [|"tput"; "cols"|] in
+      let finally () =
+        let (_ : Unix.process_status) = Unix.close_process_in ch in
+        ()
+      in
+      Option.map int_of_string
+      @@ Fun.protect ~finally
+      @@ fun () -> In_channel.input_line ch
+    with _ -> None
+
+(* Set the pretty printer margin according to the actual terminal width, if
+   known. Lazy, because it runs tput, which must not happen when the program
+   starts, before its arguments are parsed *)
+let set_margin =
+  lazy
+    (cols ()
+    |> Option.iter @@ fun margin ->
+       Format.pp_set_margin Fmt.stdout margin ;
+       Format.pp_set_margin Fmt.stderr margin
+    )
+
 let create_backend
     ?(severity = Opentelemetry_proto.Logs.Severity_number_unspecified)
     ?(formatter = Fmt.stderr) () =
+  Lazy.force set_margin ;
   (module struct
     open Opentelemetry_proto.Logs
 
@@ -293,25 +325,6 @@ let () =
   let m = Mutex.create () in
   let lock () = Mutex.lock m and unlock () = Mutex.unlock m in
   Opentelemetry.Lock.set_mutex ~lock ~unlock
-
-let cols () =
-  try
-    let ch = Unix.open_process_args_in "tput" [|"tput"; "cols"|] in
-    let finally () =
-      let (_ : Unix.process_status) = Unix.close_process_in ch in
-      ()
-    in
-    Option.map int_of_string
-    @@ Fun.protect ~finally
-    @@ fun () -> In_channel.input_line ch
-  with _ -> None
-
-let () =
-  (* set pretty printer margin according to actual terminal width, if known *)
-  cols ()
-  |> Option.iter @@ fun margin ->
-     Format.pp_set_margin Fmt.stdout margin ;
-     Format.pp_set_margin Fmt.stderr margin
 
 let with_setup ?severity ?formatter ?enable () f =
   let backend = create_backend ?severity ?formatter () in

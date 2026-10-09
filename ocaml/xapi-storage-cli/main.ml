@@ -970,7 +970,8 @@ let () =
   in
   let doc = "interact with an XCP storage management service" in
   let info =
-    Cmd.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man:help
+    Cmd.info "sm-cli" ~version:Xapi_version.version ~sdocs:_common_options ~doc
+      ~man:help
   in
   let cmd = Cmd.group ~default info cmds in
   exit (Cmd.eval cmd)

@@ -105,7 +105,7 @@ let bind () =
 let _ =
   Debug.set_facility Syslog.Local5 ;
   debug "squeezed version %s starting" Xapi_version.version ;
-  configure ~options () ;
+  configure ~options ~version:Xapi_version.version () ;
   bind () ;
   let server =
     Xcp_service.make ~path:Memory_interface.xml_path

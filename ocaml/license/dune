@@ -15,11 +15,15 @@
 (executable
   (modes exe)
   (name daily_license_check_main)
+  ; belong to the package, so that dune-build-info reports its version
+  (public_name -)
+  (package xapi)
   (modules daily_license_check_main)
   (libraries
     daily_license_check
     http_lib
     xapi-client
+    xapi-consts.xapi_version
     xapi-types
     clock
     xapi-stdext-pervasives

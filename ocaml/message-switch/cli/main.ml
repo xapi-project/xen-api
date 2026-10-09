@@ -775,7 +775,8 @@ let () =
   in
   let info =
     let doc = "interact with an XCP message switch" in
-    Cmd.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man:help
+    Cmd.info "m-cli" ~version:Xapi_version.version ~sdocs:_common_options ~doc
+      ~man:help
   in
   let cmd = Cmd.group ~default info cmds in
   exit (Cmd.eval cmd)

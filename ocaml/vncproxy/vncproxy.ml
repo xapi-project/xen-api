@@ -33,6 +33,7 @@ let _ =
       , Arg.Set_string ip
       , Printf.sprintf "IP address to listen on (default %s)" !ip
       )
+    ; Xapi_version.arg_spec
     ]
     (fun x -> Printf.fprintf stderr "Ignoring: %s\n" x)
     "Proxy VNC traffic" ;

@@ -1,6 +1,9 @@
 (executable
  (modes exe)
  (name fe_main)
+ ; belong to the package, so that dune-build-info reports its version
+ (public_name -)
+ (package xapi-forkexecd)
  (libraries
    astring
    fd-send-recv

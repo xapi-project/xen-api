@@ -38,7 +38,9 @@ let filter_by_tags =
         None
   )
 
-let qchecks =
+(* A function: turning the tests into Alcotest ones draws and prints the
+   qcheck seed, which must not happen before the arguments are parsed *)
+let qchecks () =
   [("unixext", Unixext_test.tests); ("Timer", Test_timer.tests)]
   |> List.map @@ fun (name, test) ->
      (name, List.map QCheck_alcotest.(to_alcotest ~long:true) test)
@@ -114,7 +116,7 @@ let () =
           )
         @
         if not !skip_stress then
-          List.map (fun (name, tests) -> Suite.make name tests) qchecks
+          List.map (fun (name, tests) -> Suite.make name tests) (qchecks ())
         else
           []
       in

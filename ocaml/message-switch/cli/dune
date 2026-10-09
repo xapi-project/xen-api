@@ -1,6 +1,9 @@
 (executable
   (modes exe)
   (name main)
+  ; belong to the package, so that dune-build-info reports its version
+  (public_name -)
+  (package message-switch-cli)
   (libraries
     cmdliner
     message-switch-core
@@ -10,6 +13,7 @@
     rpclib.json
     threads.posix
     unix
+    xapi-consts.xapi_version
   )
   (preprocess (pps ppx_deriving_rpc))
 )

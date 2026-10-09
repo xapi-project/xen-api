@@ -22,6 +22,9 @@
 
 (executable
   (name main)
+  ; belong to the package, so that dune-build-info reports its version
+  (public_name -)
+  (package xapi-storage-script)
   (modules main)
   (libraries
     base
