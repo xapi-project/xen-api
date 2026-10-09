@@ -577,12 +577,11 @@ let main backend =
       ~queue_name:!Xenops_interface.queue_name
       ~rpc_fn ()
   in
-  (* we need to catch this to make sure at_exit handlers are triggered. In
-     particular, triggers for the bisect_ppx coverage profiling *)
-  let signal_handler n =
-    debug "caught signal %a" Debug.Pp.signal n ;
-    exit 0
-  in
+  (* We catch this so at_exit handlers run. OCaml runs the handler on whichever
+     thread reaches a poll point first, so taking a lock here can deadlock.
+     Record the exit signal and let the main loop do the exit. *)
+  let exit_signal = Atomic.make None in
+  let signal_handler n = Atomic.set exit_signal (Some n) in
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore ;
   Sys.set_signal Sys.sigterm (Sys.Signal_handle signal_handler) ;
   Xenops_utils.set_fs_backend
@@ -608,10 +607,19 @@ let main backend =
     )
     () ;
   Xenops_server.WorkerPool.start !worker_pool_size ;
-  while true do
-    try Thread.delay 60.
-    with e -> debug "Thread.delay caught: %s" (Printexc.to_string e)
-  done
+  let rec wait_for_signal () =
+    match Atomic.get exit_signal with
+    | Some n ->
+        n
+    | None ->
+        ( try Thread.delay 1.
+          with e -> debug "Thread.delay caught: %s" (Printexc.to_string e)
+        ) ;
+        wait_for_signal ()
+  in
+  let n = wait_for_signal () in
+  debug "caught signal %a" Debug.Pp.signal n ;
+  exit 0
 
 (* Verify the signature matches *)
 module S : Xenops_server_plugin.S = Xenops_server_skeleton
