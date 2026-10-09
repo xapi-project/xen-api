@@ -154,6 +154,7 @@
   fmt
   forkexec
   gencertlib
+  gpu
   gzip
   hex
   http_lib

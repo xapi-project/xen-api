@@ -17,6 +17,7 @@
     cstruct
     digestif
     fmt
+    gpu
     http_lib
     httpsvr
     ipaddr

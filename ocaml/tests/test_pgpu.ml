@@ -249,4 +249,40 @@ let test_set_GPU_group =
     )
   ]
 
-let test = test_can_run_vgpu @ test_remaining_capacity @ test_set_GPU_group
+(*--- Xapi_pgpu.update_partition_mode tests ---*)
+
+let test_update_partition_mode () =
+  let open Gpu.Partition_mode in
+  let __context = T.make_test_database () in
+  let self = T.make_pgpu ~__context () in
+  let check msg expected =
+    Alcotest.(check string)
+      msg
+      (API.partition_mode_to_string expected)
+      (API.partition_mode_to_string
+         (Db.PGPU.get_partition_mode ~__context ~self)
+      )
+  in
+  check "a new PGPU has not been read" `unknown ;
+  List.iter
+    (fun (msg, axes, expected) ->
+      Xapi_pgpu.update_partition_mode ~__context ~self axes ;
+      check msg expected
+    )
+    [
+      ("no axes", [], `not_supported)
+    ; ("one axis, not partitioned", [Some Disabled], `disabled)
+    ; ("one of two axes partitioned", [Some Enabled; Some Disabled], `enabled)
+    ; ("one of two axes unread", [Some Enabled; None], `unknown)
+    ; ("one axis, pending", [Some Enable_on_reboot], `enable_on_reboot)
+    ; ("one axis unread", [None], `unknown)
+    ]
+
+let test_partition_mode =
+  [("test_update_partition_mode", `Quick, test_update_partition_mode)]
+
+let test =
+  test_can_run_vgpu
+  @ test_remaining_capacity
+  @ test_set_GPU_group
+  @ test_partition_mode

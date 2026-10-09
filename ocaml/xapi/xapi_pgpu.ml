@@ -474,3 +474,7 @@ let nvidia_vf_setup ~__context ~pf ~enable =
   activate_vfs pci ;
   debug "nvidia_vf_setup_mutex - exit" ;
   Xapi_pci.update_pcis ~__context
+
+let update_partition_mode ~__context ~self axes =
+  let value = Gpu.Partition_mode.(to_api (of_observations axes)) in
+  Db.PGPU.set_partition_mode ~__context ~self ~value
