@@ -197,7 +197,10 @@ let create_bond ~__context bond mtu persistent =
       and lacp_timeout = get_prop_assoc_if_mode `lacp "lacp-time"
       and lacp_aggregation_key =
         get_prop_assoc_if_mode `lacp "lacp-aggregation-key"
-      and lacp_fallback_ab = get_prop_assoc_if_mode `lacp "lacp-fallback-ab" in
+      and lacp_fallback_ab = get_prop_assoc_if_mode `lacp "lacp-fallback-ab"
+      and multicast_members_active =
+        get_prop_assoc_if_mode `balanceslb "multicast-members-active"
+      in
       let props =
         [
           ("mode", Record_util.bond_mode_to_string mode)
@@ -211,6 +214,7 @@ let create_bond ~__context bond mtu persistent =
         @ lacp_timeout
         @ lacp_aggregation_key
         @ lacp_fallback_ab
+        @ multicast_members_active
       in
       let overrides =
         List.filter_map
