@@ -658,11 +658,16 @@ module Stats_value = struct
           else
             stat
         in
+        (* the kernel reports these tick counters in ms, but the latency
+           datasources are declared in us *)
+        let stats_diff_get_usecs n = Int64.mul 1000L (stats_diff_get n) in
         {
           rd_bytes= stats_diff_get 13
         ; wr_bytes= stats_diff_get 14
-        ; rd_latency= Latency.{ticks= stats_diff_get 3; reqs= stats_diff_get 0}
-        ; wr_latency= Latency.{ticks= stats_diff_get 7; reqs= stats_diff_get 4}
+        ; rd_latency=
+            Latency.{ticks= stats_diff_get_usecs 3; reqs= stats_diff_get 0}
+        ; wr_latency=
+            Latency.{ticks= stats_diff_get_usecs 7; reqs= stats_diff_get 4}
         ; io_throughput_read_mb= to_float (stats_diff_get 13) /. 1048576.
         ; io_throughput_write_mb= to_float (stats_diff_get 14) /. 1048576.
         ; iops_read= stats_diff_get 0
@@ -869,7 +874,8 @@ module Iostats_value = struct
     match (stats_blktap3, iostats) with
     | None, Some iostats ->
         let iostats_get = List.nth iostats in
-        {latency= iostats_get 9; avgqu_sz= iostats_get 7}
+        (* iostat reports await in ms, but the datasource is declared in us *)
+        {latency= iostats_get 9 *. 1000.; avgqu_sz= iostats_get 7}
     | Some s3, _ ->
         let last_s3 = last_stats_blktap3 in
         let opt f x = match x with None -> 0L | Some x' -> f x' in
