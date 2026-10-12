@@ -1,7 +1,29 @@
+; Its own library so that the generator and the test suite can both link it,
+; and the examples can be checked without building the PowerShell module.
+(library
+ (name curated_examples)
+ (modules curated_examples))
+
 (executable
  (modes exe)
  (name gen_powershell_binding)
- (libraries astring CommonFunctions mustache xapi-datamodel))
+ (modules gen_powershell_binding gen_powershell_help common_functions)
+ (libraries astring CommonFunctions curated_examples mustache xapi-datamodel))
+
+(test
+ (name test_gen_powershell)
+ (package xapi-sdk)
+ (modules test_gen_powershell)
+ (libraries
+  CommonFunctions
+  alcotest
+  curated_examples
+  fmt
+  mustache
+  xapi-test-utils)
+ (deps
+  (source_tree test_data)
+  (source_tree templates)))
 
 (rule
  (alias generate)
@@ -20,7 +42,7 @@
    (bash "rm autogen-out/.gitignore")
    (bash "%{sh} autogen-out/"))))
 
-(data_only_dirs templates)
+(data_only_dirs test_data templates)
 
 (install
  (package xapi-sdk)

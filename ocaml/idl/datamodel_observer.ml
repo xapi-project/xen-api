@@ -18,7 +18,7 @@ open Datamodel_roles
 
 let register =
   call ~name:"register" ~in_oss_since:None ~lifecycle:[] ~hide_from_docs:true
-    ~doc:"Register a observer on a particular host"
+    ~doc:"Register an observer on a particular host"
     ~params:
       [
         (Ref _observer, "self", "The observer")
@@ -28,7 +28,7 @@ let register =
 
 let unregister =
   call ~name:"unregister" ~in_oss_since:None ~lifecycle:[] ~hide_from_docs:true
-    ~doc:"Unegister a observer on a particular host"
+    ~doc:"Unregister an observer on a particular host"
     ~params:
       [
         (Ref _observer, "self", "The observer")
