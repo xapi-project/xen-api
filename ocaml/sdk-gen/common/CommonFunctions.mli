@@ -73,6 +73,16 @@ val get_minimum_allowed_role : Datamodel_types.message -> string
     @param message Input message.
     @return string the name of the RBAC role if a matching one is found, "Not Applicable" otherwise. *)
 
+val group_params_per_release :
+  Datamodel_types.param list -> Datamodel_types.param list list
+(** [group_params_per_release params] Groups parameters that were published in
+    the same release. Groups appear in the order their release is first seen in
+    [params]; the releases are not compared for order, only for equality, so
+    the oldest release comes first exactly when [params] is in publication
+    order. The datamodel appends new parameters, so in practice it is.
+    @param params - List of parameters.
+    @return List of parameter groups, one group per release. *)
+
 val gen_param_groups :
      Datamodel_types.message
   -> Datamodel_types.param list

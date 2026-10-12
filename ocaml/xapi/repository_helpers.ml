@@ -1288,19 +1288,25 @@ let retrieve_livepatches_from_updateinfo ~updates_info ~updates =
           None
   )
 
-let merge_livepatches ~livepatches =
-  let get_accumulative_upd_ids acc_lps =
-    List.fold_left
-      (fun acc (_, u) -> UpdateIdSet.add u.UpdateInfo.id acc)
-      UpdateIdSet.empty acc_lps
-  in
+(* For each live patch component, i.e. Xen or Kernel, it's a latest live patch
+   with a list of accumulative live patches for that component.
+   This function merges for all live patch components to return a set of update
+   IDs introducing the live patches and a set of accumulative live patches themselves. *)
+let merge_livepatches
+    ~(livepatches : (LivePatch.t * (LivePatch.t * UpdateInfo.t) list) list) :
+    UpdateIdSet.t * LivePatchSet.t =
   livepatches
   |> List.fold_left
-       (fun (acc_upd_ids, acc_latest_lps) (latest_lp, acc_lps) ->
-         let upd_ids = get_accumulative_upd_ids acc_lps in
-         (UpdateIdSet.union upd_ids acc_upd_ids, latest_lp :: acc_latest_lps)
+       (fun (acc_upd_ids, acc_lps) (_latest_lp, lps) ->
+         List.fold_left
+           (fun (acc1, acc2) (lp, upd_info) ->
+             ( UpdateIdSet.add upd_info.UpdateInfo.id acc1
+             , LivePatchSet.add lp acc2
+             )
+           )
+           (acc_upd_ids, acc_lps) lps
        )
-       (UpdateIdSet.empty, [])
+       (UpdateIdSet.empty, LivePatchSet.empty)
 
 let reduce_guidance ~updates_info ~updates ~livepatches =
   let open Guidance in
@@ -1343,11 +1349,11 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
   let ids_of_updates, updates =
     merge_updates ~repository_name ~updates:updates_of_host
   in
-  (* Find out applicable latest livepatches and the info of accumulative updates
-   * introduced them. These accumulative updates will not be evaluated for guidance.
-   * They are only to be returned in the update list.
-   *)
-  let livepatches =
+  (* Find out applicable live patches and the info of accumulative updates
+   * introduced them. These accumulative updates will not be evaluated for
+   * guidance, as the live patch guidance will take effect.
+   * The updates are only to be returned in the update list. *)
+  let livepatches : (LivePatch.t * (LivePatch.t * UpdateInfo.t) list) list =
     if can_avoid_live_patching ~updates_info ~updates then
       []
     else
@@ -1364,7 +1370,7 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
       ; guidance
       ; rpms
       ; update_ids= UpdateIdSet.elements upd_ids
-      ; livepatches= lps
+      ; livepatches= LivePatchSet.elements lps
       }
   in
   (host_updates, upd_ids)

@@ -967,14 +967,25 @@ module VDI : HandlerTools = struct
           )
           (Client.SR.get_all ~rpc ~session_id)
       in
+      let iso_sr_expr =
+        match iso_srs with
+        | [] ->
+            (* An empty disjunction would leave "and ()" in the expression,
+               which the filter parser rejects *)
+            "false"
+        | srs ->
+            srs
+            |> List.map (fun sr ->
+                Printf.sprintf {|field "SR"="%s"|} (Ref.string_of sr)
+            )
+            |> String.concat " or "
+      in
+      let expr =
+        Printf.sprintf {|field "location"="%s" and (%s)|}
+          vdi_record.API.vDI_location iso_sr_expr
+      in
       match
-        List.filter
-          (fun (_, vdir) ->
-            vdir.API.vDI_location = vdi_record.API.vDI_location
-            && List.mem vdir.API.vDI_SR iso_srs
-          )
-          (Client.VDI.get_all_records ~rpc ~session_id)
-        |> choose_one
+        Client.VDI.get_all_records_where ~rpc ~session_id ~expr |> choose_one
       with
       | Some (vdi, _) ->
           Found_iso vdi
@@ -999,18 +1010,23 @@ module VDI : HandlerTools = struct
             else
               None
           in
-          let vdi_records = Client.VDI.get_all_records ~rpc ~session_id in
+          (* Only the SCSIid lookup below needs every VDI record: it matches on
+             a key of sm_config, which the database cannot filter on. *)
+          let all_vdi_records =
+            lazy (Client.VDI.get_all_records ~rpc ~session_id)
+          in
           let find_by_sr_and_location sr location =
-            vdi_records
-            |> List.filter (fun (_, vdir) ->
-                vdir.API.vDI_location = location && vdir.API.vDI_SR = sr
-            )
+            let expr =
+              Printf.sprintf {|field "location"="%s" and field "SR"="%s"|}
+                location (Ref.string_of sr)
+            in
+            Client.VDI.get_all_records_where ~rpc ~session_id ~expr
             |> choose_one
             |> Option.map fst
           in
           let find_by_uuid uuid =
-            vdi_records
-            |> List.filter (fun (_, vdir) -> vdir.API.vDI_uuid = uuid)
+            let expr = Printf.sprintf {|field "uuid"="%s"|} uuid in
+            Client.VDI.get_all_records_where ~rpc ~session_id ~expr
             |> choose_one
             |> Option.map fst
           in
@@ -1022,7 +1038,7 @@ module VDI : HandlerTools = struct
               None
           in
           let find_by_scsiid x =
-            vdi_records
+            Lazy.force all_vdi_records
             |> List.filter_map (fun (rf, vdir) ->
                 if scsiid_of vdir = Some x then
                   Some (rf, vdir)

@@ -2064,7 +2064,11 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xs ~domain_type
       let rec wait_for_message () =
         debug "VM = %s; domid = %d; waiting for emu-manager..."
           (Uuidx.to_string uuid) domid ;
-        let message = non_debug_receive ~debug_callback:callback cnx in
+        let message =
+          Emu_manager.with_quiet_watchdog cnx (fun () ->
+              non_debug_receive ~debug_callback:callback cnx
+          )
+        in
         debug "VM = %s; domid = %d; message from emu-manager: %s"
           (Uuidx.to_string uuid) domid
           (string_of_message message) ;

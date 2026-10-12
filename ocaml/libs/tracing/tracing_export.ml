@@ -230,26 +230,33 @@ module Destination = struct
             let request =
               Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers url
             in
-            (* `with_open_uri` already closes the `fd`. And therefore
-               according to the documentation of `in_channel_of_descr` and
-               `out_channel_of_descr` we should not close the channels on top of
-               `fd`. *)
-            let ic = Unix.in_channel_of_descr fd in
-            let oc = Unix.out_channel_of_descr fd in
+            (* `with_open_uri` owns `fd`, so the channels take duplicates: a
+               leaked channel flushes into whatever reuses the descriptor. *)
+            let ic = Unix.in_channel_of_descr (Unix.dup ~cloexec:true fd) in
+            Fun.protect ~finally:(fun () -> close_in_noerr ic) @@ fun () ->
+            let oc = Unix.out_channel_of_descr (Unix.dup ~cloexec:true fd) in
+            Fun.protect ~finally:(fun () -> close_out_noerr oc) @@ fun () ->
             Request.write
               (fun writer -> Request.write_body writer body)
               request oc ;
-            (* We flush instead of closing the sending stream as nginx responds to a TCP
-               half-shutdown with a full shutdown of both directions of the HTTP request *)
+            (* Flush rather than shut down the write side: nginx answers a TCP
+               half-shutdown by tearing down both directions before the reply
+               arrives. The `close_out_noerr` above drops only this duplicate,
+               so the socket stays open until `with_open_uri` closes `fd`. *)
             flush oc ;
             match try Response.read ic with _ -> `Eof with
             | `Eof ->
                 Ok ()
             | `Invalid x ->
                 Error (Failure ("invalid read: " ^ x))
+            (* Anything but 2xx means the spans were not accepted. `is_error`
+               covers only 4xx and 5xx, so a collector answering 3xx used to
+               be counted as a success and the batch silently discarded. *)
             | `Ok response
-              when Cohttp.Code.(response.status |> code_of_status |> is_error)
-              ->
+              when not
+                     Cohttp.Code.(
+                       response.status |> code_of_status |> is_success
+                     ) ->
                 Error (Failure (Cohttp.Code.string_of_status response.status))
             | `Ok _ ->
                 Ok ()

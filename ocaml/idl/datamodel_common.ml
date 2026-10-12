@@ -586,17 +586,24 @@ let call ~name ?(doc = "") ?(in_oss_since = Some "3.0.3") ?result
     ?(errs = []) ?(custom_marshaller = false) ?(db_only = false)
     ?(no_current_operations = false) ?(secret = false) ?(hide_from_docs = false)
     ?(pool_internal = false) ~allowed_roles ?(map_keys_roles = [])
-    ?(params = []) ?versioned_params ?lifecycle ?(doc_tags = []) ?forward_to ()
-    =
+    ?(params = []) ?versioned_params ?lifecycle ?published ?(doc_tags = [])
+    ?forward_to () =
   (* if you specify versioned_params then these get put in the params field of the message record;
      	 * otherwise params go in with no default values and param_release=call_release...
   *)
   let lifecycle =
-    match lifecycle with
-    | None ->
-        failwith ("Lifecycle for message '" ^ name ^ "' not specified")
-    | Some l ->
+    match (lifecycle, published) with
+    | Some l, None ->
         l
+    | None, Some _ when doc = "" ->
+        failwith ("Message '" ^ name ^ "' uses ~published without ~doc")
+    | None, Some rel ->
+        [(Published, rel, doc)]
+    | None, None ->
+        failwith ("Lifecycle for message '" ^ name ^ "' not specified")
+    | Some _, Some _ ->
+        failwith
+          ("Message '" ^ name ^ "' specifies both ~lifecycle and ~published")
   in
   let call_release =
     {
@@ -666,13 +673,18 @@ let field ?(in_oss_since = Some "3.0.3") ?(internal_only = false)
     ?(qualifier = RW) ?(ty = String) ?(has_effect = false)
     ?(default_value = None) ?(persist = true) ?(map_keys_roles = [])
     ?(* list of (key_name,(writer_roles)) for a map field *)
-     lifecycle ?(doc_tags = []) name desc =
+     lifecycle ?published ?(doc_tags = []) name desc =
   let lifecycle =
-    match lifecycle with
-    | None ->
-        failwith ("Lifecycle for field '" ^ name ^ "' not specified")
-    | Some l ->
+    match (lifecycle, published) with
+    | Some l, None ->
         l
+    | None, Some rel ->
+        [(Published, rel, desc)]
+    | None, None ->
+        failwith ("Lifecycle for field '" ^ name ^ "' not specified")
+    | Some _, Some _ ->
+        failwith
+          ("Field '" ^ name ^ "' specifies both ~lifecycle and ~published")
   in
   let release =
     {

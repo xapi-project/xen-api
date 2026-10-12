@@ -2062,6 +2062,46 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
       ; title= ""
       }
 
+  (* Two updates ship a Xen live patch built off the same base build.
+     Only the newer one is applied, but it rolls up the older one, so both must
+     be reported against the host. *)
+  let lp_xen_base_build_id = "c934cce56202fa8b9592bb83d6ecc23c"
+
+  let lp_xen_rolled_up =
+    LivePatch.
+      {
+        component= Xen
+      ; base_build_id= lp_xen_base_build_id
+      ; base_version= "4.21.1"
+      ; base_release= "6.xs9"
+      ; to_version= "4.21.1"
+      ; to_release= "9.xs9"
+      }
+
+  let lp_xen_latest =
+    LivePatch.
+      {
+        component= Xen
+      ; base_build_id= lp_xen_base_build_id
+      ; base_version= "4.21.1"
+      ; base_release= "6.xs9"
+      ; to_version= "4.21.2"
+      ; to_release= "3.xs9"
+      }
+
+  let lp_kernel_base_build_id = "9f2a1c7e4b8d3056a1fe27c9b4d80e3f"
+
+  let lp_kernel =
+    LivePatch.
+      {
+        component= Kernel
+      ; base_build_id= lp_kernel_base_build_id
+      ; base_version= "6.6.138"
+      ; base_release= "1.xs9"
+      ; to_version= "6.6.138"
+      ; to_release= "3.xs9"
+      }
+
   let updates_info =
     let open Guidance in
     [
@@ -2117,6 +2157,15 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
             ]
         }
       )
+    ; ( "UPDATE-0004"
+      , {updateinfo with id= "UPDATE-0004"; livepatches= [lp_xen_rolled_up]}
+      )
+    ; ( "UPDATE-0005"
+      , {updateinfo with id= "UPDATE-0005"; livepatches= [lp_xen_latest]}
+      )
+    ; ( "UPDATE-0006"
+      , {updateinfo with id= "UPDATE-0006"; livepatches= [lp_kernel]}
+      )
     ]
 
   let host = "string_of_host_ref"
@@ -2124,7 +2173,11 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
   let transform updates =
     consolidate_updates_of_host ~repository_name:"regular" ~updates_info host
       (Yojson.Basic.from_string updates)
-    |> fun (x, y) -> (HostUpdates.to_json x, y)
+    (* Rebuild the update ID set from its elements: the test framework compares
+       with structural equality, and a set built by UpdateIdSet.union is
+       balanced differently from the UpdateIdSet.of_list in the expected
+       output, even when both hold the same IDs. *)
+    |> fun (x, y) -> (HostUpdates.to_json x, UpdateIdSet.(of_list (elements y)))
 
   let tests =
     `QuickAndAutoDocumented
@@ -2667,6 +2720,300 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
               ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0001"; "UPDATE-0002"; "UPDATE-0003"]
+          )
+        )
+      ; (* Two updates carry a Xen live patch off the running base build.
+           Only the newer one is applied, but it rolls up the older one,
+           so both must appear for the host report. *)
+        ( {|
+            {
+              "updates":
+              [
+                {
+                  "name": "xen-hypervisor",
+                  "arch": "x86_64",
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.2",
+                    "release": "3.xs9"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                }
+              ],
+
+              "accumulative_updates":
+              [
+                {
+                  "name": "xen-hypervisor",
+                  "arch": "x86_64",
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.1",
+                    "release": "6.xs9"
+                  },
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.1",
+                    "release": "9.xs9"
+                  },
+                  "updateId": "UPDATE-0004",
+                  "repository": "regular"
+                },
+                {
+                  "name": "xen-hypervisor",
+                  "arch": "x86_64",
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.1",
+                    "release": "6.xs9"
+                  },
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.2",
+                    "release": "3.xs9"
+                  },
+                  "updateId": "UPDATE-0005",
+                  "repository": "regular"
+                }
+              ],
+
+              "applied_livepatches":
+              [
+                {
+                  "component": "xen",
+                  "base_build_id": "c934cce56202fa8b9592bb83d6ecc23c",
+                  "to_version": null,
+                  "to_release": null
+                }
+              ]
+            }
+          |}
+        , ( `Assoc
+              [
+                ("ref", `String host)
+              ; ( "guidance"
+                , `Assoc
+                    [
+                      ("mandatory", `List [])
+                    ; ("recommended", `List [])
+                    ; ("full", `List [])
+                    ]
+                )
+              ; ( "RPMS"
+                , `List [`String "xen-hypervisor-4.21.2-3.xs9.x86_64.rpm"]
+                )
+              ; ("updates", `List [`String "UPDATE-0004"; `String "UPDATE-0005"])
+              ; ( "livepatches"
+                , `List
+                    [
+                      LivePatch.to_json lp_xen_rolled_up
+                    ; LivePatch.to_json lp_xen_latest
+                    ]
+                )
+              ]
+          , UpdateIdSet.of_list ["UPDATE-0004"; "UPDATE-0005"]
+          )
+        )
+      ; (* The running base build is not the one the latest live patch was built
+           against, so live patches are not applicable for this host and no live
+           patches should be reported. *)
+        ( {|
+            {
+              "updates":
+              [
+                {
+                  "name": "xen-hypervisor",
+                  "arch": "x86_64",
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.2",
+                    "release": "3.xs9"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                }
+              ],
+
+              "accumulative_updates":
+              [
+                {
+                  "name": "xen-hypervisor",
+                  "arch": "x86_64",
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.1",
+                    "release": "6.xs9"
+                  },
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.1",
+                    "release": "9.xs9"
+                  },
+                  "updateId": "UPDATE-0004",
+                  "repository": "regular"
+                },
+                {
+                  "name": "xen-hypervisor",
+                  "arch": "x86_64",
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.1",
+                    "release": "6.xs9"
+                  },
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.2",
+                    "release": "3.xs9"
+                  },
+                  "updateId": "UPDATE-0005",
+                  "repository": "regular"
+                }
+              ],
+
+              "applied_livepatches":
+              [
+                {
+                  "component": "xen",
+                  "base_build_id": "0000000000000000000000000000000000000000",
+                  "to_version": null,
+                  "to_release": null
+                }
+              ]
+            }
+          |}
+        , ( `Assoc
+              [
+                ("ref", `String host)
+              ; ( "guidance"
+                , `Assoc
+                    [
+                      ("mandatory", `List [])
+                    ; ("recommended", `List [])
+                    ; ("full", `List [])
+                    ]
+                )
+              ; ( "RPMS"
+                , `List [`String "xen-hypervisor-4.21.2-3.xs9.x86_64.rpm"]
+                )
+              ; ("updates", `List [`String "UPDATE-0004"; `String "UPDATE-0005"])
+              ; ("livepatches", `List [])
+              ]
+          , UpdateIdSet.of_list ["UPDATE-0004"; "UPDATE-0005"]
+          )
+        )
+      ; (* Xen and Kernel are live patched at the same time. A live patch is
+           already running for Xen, so only the one newer than it is
+           accumulated. *)
+        ( {|
+            {
+              "updates":
+              [
+                {
+                  "name": "xen-hypervisor",
+                  "arch": "x86_64",
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.2",
+                    "release": "3.xs9"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                },
+                {
+                  "name": "kernel",
+                  "arch": "x86_64",
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "6.6.138",
+                    "release": "3.xs9"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                }
+              ],
+
+              "accumulative_updates":
+              [
+                {
+                  "name": "xen-hypervisor",
+                  "arch": "x86_64",
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.1",
+                    "release": "6.xs9"
+                  },
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "4.21.2",
+                    "release": "3.xs9"
+                  },
+                  "updateId": "UPDATE-0005",
+                  "repository": "regular"
+                },
+                {
+                  "name": "kernel",
+                  "arch": "x86_64",
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "6.6.138",
+                    "release": "1.xs9"
+                  },
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "6.6.138",
+                    "release": "3.xs9"
+                  },
+                  "updateId": "UPDATE-0006",
+                  "repository": "regular"
+                }
+              ],
+
+              "applied_livepatches":
+              [
+                {
+                  "component": "xen",
+                  "base_build_id": "c934cce56202fa8b9592bb83d6ecc23c",
+                  "to_version": "4.21.1",
+                  "to_release": "9.xs9"
+                },
+                {
+                  "component": "kernel",
+                  "base_build_id": "9f2a1c7e4b8d3056a1fe27c9b4d80e3f",
+                  "to_version": null,
+                  "to_release": null
+                }
+              ]
+            }
+          |}
+        , ( `Assoc
+              [
+                ("ref", `String host)
+              ; ( "guidance"
+                , `Assoc
+                    [
+                      ("mandatory", `List [])
+                    ; ("recommended", `List [])
+                    ; ("full", `List [])
+                    ]
+                )
+              ; ( "RPMS"
+                , `List
+                    [
+                      `String "xen-hypervisor-4.21.2-3.xs9.x86_64.rpm"
+                    ; `String "kernel-6.6.138-3.xs9.x86_64.rpm"
+                    ]
+                )
+              ; ("updates", `List [`String "UPDATE-0005"; `String "UPDATE-0006"])
+              ; ( "livepatches"
+                , `List
+                    [
+                      LivePatch.to_json lp_xen_latest
+                    ; LivePatch.to_json lp_kernel
+                    ]
+                )
+              ]
+          , UpdateIdSet.of_list ["UPDATE-0005"; "UPDATE-0006"]
           )
         )
       ]

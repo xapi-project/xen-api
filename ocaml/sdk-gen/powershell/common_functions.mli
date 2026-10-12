@@ -96,3 +96,49 @@ val lower_and_underscore_first : string -> string
 (** Converts a string to lowercase and adds an underscore at the beginning.
     @param s - Input string.
     @return String in lowercase with an underscore at the beginning. *)
+
+(* ------------------------------------------------------------------ *)
+(* Shared by gen_powershell_binding and gen_powershell_help.           *)
+(* ------------------------------------------------------------------ *)
+
+val destdir : string
+(** Directory the generated SDK files are written to. *)
+
+val templdir : string
+(** Directory holding the mustache templates. *)
+
+val api : Dm_api.api
+(** The datamodel filtered down to what the PowerShell SDK exposes. *)
+
+val classes_with_records : string list
+(** Names of the classes that have a get_all_records message. *)
+
+val classes : Datamodel_types.obj list
+(** The classes of [api]. *)
+
+val generated : Datamodel_types.obj -> bool
+(** Whether cmdlets are generated for a class.
+    @param obj - Class to test.
+    @return false for the classes the SDK handles by hand. *)
+
+val is_class : Datamodel_types.param -> string -> bool
+(** Whether a parameter is the class the message belongs to.
+    @param param - Parameter to test.
+    @param classname - Class owning the message. *)
+
+val http_arg_name : Datamodel.action_arg -> string
+(** The C# property name for an HTTP action argument. *)
+
+val http_arg_type : Datamodel.action_arg -> string
+(** The C# type for an HTTP action argument. *)
+
+val is_message_with_dynamic_params : string -> Datamodel_types.message -> bool
+(** Whether a message contributes dynamic parameters to its Invoke cmdlet.
+    @param classname - Class owning the message.
+    @param message - Message to test. *)
+
+val get_message_type : Datamodel_types.message -> string -> string -> string
+(** The C# return type of the call a cmdlet makes for a message.
+    @param message - Message being called.
+    @param classname - Class owning the message.
+    @param commonVerb - Cmdlet verb. *)

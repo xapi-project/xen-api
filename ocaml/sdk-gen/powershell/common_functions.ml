@@ -5,6 +5,7 @@
 open Printf
 open Datamodel
 open Datamodel_types
+open Dm_api
 open CommonFunctions
 module DU = Datamodel_utils
 
@@ -207,3 +208,149 @@ and trim_http_action_stem x =
       false
   | _ ->
       true
+
+(* ------------------------------------------------------------------ *)
+(* Shared by gen_powershell_binding and gen_powershell_help.          *)
+(* ------------------------------------------------------------------ *)
+
+let destdir = "autogen-out"
+
+let templdir = "templates"
+
+let api =
+  Datamodel_utils.named_self := true ;
+  let field_filter field =
+    (not field.internal_only) && List.mem "closed" field.release.internal
+  in
+  let message_filter msg =
+    Datamodel_utils.on_client_side msg
+    && (not msg.msg_hide_from_docs)
+    && (not
+          (List.mem msg.msg_name
+             [
+               "get_by_name_label"
+             ; "get_by_uuid"
+             ; "get"
+             ; "get_all"
+             ; "get_all_records"
+             ; "get_all_records_where"
+             ; "get_record"
+             ]
+          )
+       )
+    && msg.msg_tag <> FromObject GetAllRecords
+    && List.mem "closed" msg.msg_release.internal
+  in
+  let filter api = filter_by ~field:field_filter ~message:message_filter api in
+  Datamodel.all_api
+  |> filter
+  |> Datamodel_utils.add_implicit_messages ~document_order:false
+  |> filter
+
+let classes_with_records =
+  Datamodel_utils.add_implicit_messages ~document_order:false Datamodel.all_api
+  |> objects_of_api
+  |> List.filter (fun x ->
+      List.exists (fun y -> y.msg_name = "get_all_records") x.messages
+  )
+  |> List.map (fun x -> x.name)
+
+let classes = objects_of_api api
+
+let generated x =
+  not (List.mem x.name ["blob"; "session"; "debug"; "event"; "vtpm"])
+
+let is_class param classname =
+  String.lowercase_ascii param.param_name = "self"
+  || String.lowercase_ascii param.param_name = String.lowercase_ascii classname
+
+let http_arg_name = function
+  | String_query_arg x | Int64_query_arg x ->
+      pascal_case_rec x
+  | Bool_query_arg x ->
+      if String.lowercase_ascii x = "host" then
+        "IsHost"
+      else
+        pascal_case_rec x
+  | Varargs_query_arg ->
+      "Args"
+
+let http_arg_type = function
+  | String_query_arg _ ->
+      "string"
+  | Int64_query_arg _ ->
+      "long?"
+  | Bool_query_arg _ ->
+      "bool?"
+  | Varargs_query_arg ->
+      "string[]"
+
+let is_message_with_dynamic_params classname message =
+  let nonClassParams =
+    List.filter (fun x -> not (is_class x classname)) message.msg_params
+  in
+  if nonClassParams <> [] || message.msg_async then
+    true
+  else
+    false
+
+let get_message_type message classname commonVerb =
+  let messageParams =
+    List.filter (fun x -> not (is_class x classname)) message.msg_params
+  in
+  match commonVerb with
+  | "Remove" -> (
+    match messageParams with
+    | [x] ->
+        obj_internal_type x.param_type
+    | _ ->
+        Printf.eprintf "%s" message.msg_name ;
+        assert false
+  )
+  | "Add" -> (
+    match messageParams with
+    | [x] ->
+        obj_internal_type x.param_type
+    | [x; y] ->
+        sprintf "KeyValuePair<%s, %s>"
+          (obj_internal_type x.param_type)
+          (obj_internal_type y.param_type)
+    | _ ->
+        Printf.eprintf "%s" message.msg_name ;
+        assert false
+  )
+  | "Set" -> (
+    match messageParams with
+    | [x] ->
+        obj_internal_type x.param_type
+    | [x; y]
+      when not (obj_internal_type x.param_type = obj_internal_type y.param_type)
+      ->
+        sprintf "KeyValuePair<%s, %s>"
+          (obj_internal_type x.param_type)
+          (obj_internal_type y.param_type)
+    | hd :: tl ->
+        let hdtype = obj_internal_type hd.param_type in
+        if List.for_all (fun x -> hdtype = obj_internal_type x.param_type) tl
+        then
+          sprintf "%s[]" hdtype
+        else (
+          Printf.eprintf "%s" message.msg_name ;
+          assert false
+        )
+    | _ ->
+        Printf.eprintf "%s" message.msg_name ;
+        assert false
+  )
+  | "Get" -> (
+    match messageParams with
+    | [] ->
+        "SwitchParameter"
+    | [x] ->
+        obj_internal_type x.param_type
+    | _ ->
+        Printf.eprintf "%s" message.msg_name ;
+        assert false
+  )
+  | _ ->
+      ""
