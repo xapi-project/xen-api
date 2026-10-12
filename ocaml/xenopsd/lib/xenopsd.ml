@@ -64,7 +64,7 @@ let additional_ballooning_timeout = ref 120.
 
 let vif_ready_for_igmp_query_timeout = ref 120
 
-let feature_flags_path = ref "/etc/xenserver/features.d"
+let feature_flags_path = Xenops_server.feature_flags_path
 
 let pvinpvh_xen_cmdline = ref "pv-shim console=xen"
 
@@ -347,12 +347,14 @@ let options =
             Migrate_connect.Migration_tls.of_string s
         )
     , (fun () ->
-        Migrate_connect.Migration_tls.to_string !Migrate_connect.migration_tls
+        Option.fold ~none:"" ~some:Migrate_connect.Migration_tls.to_string
+          !Migrate_connect.migration_tls
       )
-    , "TLS transport for VM migration: 'stunnel' (default) uses the stunnel \
-       client subprocess; 'ktls' uses the ktls-helper to install kTLS on the \
+    , "TLS transport for VM migration: 'stunnel' uses the stunnel client \
+       subprocess; 'ktls' uses the ktls-helper to install kTLS on the \
        migration socket. On any failure the 'ktls' path logs a warning and \
-       falls back to stunnel."
+       falls back to stunnel. If unset, uses 'ktls' when the experimental \
+       feature flag migration_ktls is on, otherwise 'stunnel'."
     )
   ]
 

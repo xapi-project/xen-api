@@ -14,7 +14,7 @@
 
 (* TLS transport for the VM-migration data connections in [Xenops_server].
 
-   When [migration-tls = "ktls"] is set in xenopsd.conf and the migration URI
+   When the transport is [Ktls] (see [transport]) and the migration URI
    uses https, this module spawns the external [ktls-helper] binary to
    perform the TLS handshake and install a kTLS-enabled socket in the kernel,
    then receives the resulting socket fd via SCM_RIGHTS and passes it to the
@@ -30,30 +30,78 @@
 
 module D = Debug.Make (struct let name = "migrate_connect" end)
 
-(* Transport selected by the xenopsd.conf [migration-tls] option. Empty or
-   unknown values mean the default stunnel path (the historical behaviour). *)
+(* Transport selected by the xenopsd.conf [migration-tls] option. *)
 module Migration_tls = struct
   type t = Stunnel | Ktls
 
   let to_string = function Stunnel -> "stunnel" | Ktls -> "ktls"
 
-  (* Parse a conf value, defaulting unknown/empty to [Stunnel] with a warning.
-     Config parsing must never crash xenopsd, so this does not raise (mirrors
-     the [Xenops_server.compressor] convention). *)
+  (* Parse a conf value. Empty means unset ([None]): the [migration_ktls]
+     feature flag then decides. An unknown value means [Stunnel] with a
+     warning, and the flag does not override it. Config parsing must never
+     crash xenopsd, so this does not raise (mirrors the
+     [Xenops_server.compressor] convention). *)
   let of_string s =
     match String.lowercase_ascii (String.trim s) with
-    | "" | "stunnel" ->
-        Stunnel
+    | "" ->
+        None
+    | "stunnel" ->
+        Some Stunnel
     | "ktls" ->
-        Ktls
+        Some Ktls
     | other ->
         D.warn "unknown migration-tls value %S; using stunnel" other ;
-        Stunnel
+        Some Stunnel
 end
 
-let migration_tls = ref Migration_tls.Stunnel
+let migration_tls = ref None
 
-let ktls_enabled () = !migration_tls = Migration_tls.Ktls
+let ktls_enabled tls = tls = Migration_tls.Ktls
+
+(* Parse a feature flag file the way v6d does, so that the flag's state shown
+   by xapi matches the one used here *)
+let flag_is_on content =
+  match
+    String.(concat "" (split_on_char '\n' content) |> trim |> lowercase_ascii)
+  with
+  | "1" | "true" ->
+      Some true
+  | "0" | "false" ->
+      Some false
+  | _ ->
+      None
+
+let transport ~feature_flags_path =
+  let tls, source =
+    match !migration_tls with
+    | Some tls ->
+        (tls, "xenopsd.conf migration-tls")
+    | None -> (
+        let path = Filename.concat feature_flags_path "migration_ktls" in
+        match
+          Xapi_stdext_unix.Unixext.read_small_regular_file ~max_bytes:4096 path
+        with
+        | Ok None ->
+            (Migration_tls.Stunnel, path ^ " (absent)")
+        | Ok (Some content) -> (
+          match flag_is_on content with
+          | Some true ->
+              (Migration_tls.Ktls, path)
+          | Some false ->
+              (Migration_tls.Stunnel, path)
+          | None ->
+              D.warn "%s: unrecognised value %S; using stunnel" path content ;
+              (Migration_tls.Stunnel, path ^ " (unrecognised)")
+        )
+        | Error reason ->
+            D.warn "%s: %s; using stunnel" path reason ;
+            (Migration_tls.Stunnel, path ^ " (unusable)")
+      )
+  in
+  (* Not licence-gated. A licence check, if one is added, belongs here: after
+     the choice above, falling back to stunnel when the licence denies kTLS. *)
+  D.info "migration-tls: %s (from %s)" (Migration_tls.to_string tls) source ;
+  tls
 
 (* Path to the helper binary. Registered as an Xcp_service resource
    ("xenopsd-tls-helper") so it is access-checked at startup and overridable in
@@ -199,15 +247,15 @@ let connect_via_ktls_helper ~host ~port ~verify_cert =
 
 (** Drop-in replacement for [Open_uri.with_open_uri] on the migration paths.
 
-    - When [migration-tls = "ktls"] and the URI is https, spawn the helper,
+    - When [tls] is [Ktls] and the URI is https, spawn the helper,
       receive the kTLS-enabled fd via SCM_RIGHTS, and pass it to [f]. On any
       failure to produce the fd, log a [warn] and fall back to
       [Open_uri.with_open_uri].
     - Otherwise behave exactly as [Open_uri.with_open_uri]. *)
-let with_open_uri ?verify_cert uri f =
+let with_open_uri ?verify_cert tls uri f =
   let fallback () = Open_uri.with_open_uri ?verify_cert uri f in
   let is_https = Uri.scheme uri = Some "https" in
-  if not (is_https && ktls_enabled ()) then
+  if not (is_https && ktls_enabled tls) then
     fallback ()
   else
     match Uri.host uri with
