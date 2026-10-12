@@ -37,3 +37,10 @@
 (cram
  (package xapi-stdext-unix)
  (deps test_systemd.exe))
+
+(test
+ (modes exe)
+ (name test_read_small)
+ (package xapi-stdext-unix)
+ (modules test_read_small)
+ (libraries alcotest xapi-stdext-unix unix))
