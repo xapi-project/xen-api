@@ -593,11 +593,29 @@ module Blktap3_stats_wrapper = struct
 end
 
 module Stats_value = struct
+  module Latency = struct
+    (* a 'tick' is the time spent waiting on one request, in usec. Summing
+       ticks and reqs separately is what lets an SR-level total be divided
+       into a request-weighted mean rather than a sum of per-VDI means. *)
+    type t = {ticks: int64; reqs: int64}
+
+    let zero = {ticks= 0L; reqs= 0L}
+
+    let add a b =
+      {ticks= Int64.add a.ticks b.ticks; reqs= Int64.add a.reqs b.reqs}
+
+    let mean_usecs {ticks; reqs} =
+      if reqs = 0L then
+        0L
+      else
+        Int64.div ticks reqs
+  end
+
   type t = {
       rd_bytes: int64
     ; wr_bytes: int64
-    ; rd_avg_usecs: int64
-    ; wr_avg_usecs: int64
+    ; rd_latency: Latency.t
+    ; wr_latency: Latency.t
     ; io_throughput_read_mb: float
     ; io_throughput_write_mb: float
     ; iops_read: int64
@@ -610,8 +628,8 @@ module Stats_value = struct
     {
       rd_bytes= 0L
     ; wr_bytes= 0L
-    ; rd_avg_usecs= 0L
-    ; wr_avg_usecs= 0L
+    ; rd_latency= Latency.zero
+    ; wr_latency= Latency.zero
     ; io_throughput_read_mb= 0.
     ; io_throughput_write_mb= 0.
     ; iops_read= 0L
@@ -643,18 +661,8 @@ module Stats_value = struct
         {
           rd_bytes= stats_diff_get 13
         ; wr_bytes= stats_diff_get 14
-        ; rd_avg_usecs=
-            ( if stats_diff_get 0 > 0L then
-                Int64.div (stats_diff_get 3) (stats_diff_get 0)
-              else
-                0L
-            )
-        ; wr_avg_usecs=
-            ( if stats_diff_get 4 > 0L then
-                Int64.div (stats_diff_get 7) (stats_diff_get 4)
-              else
-                0L
-            )
+        ; rd_latency= Latency.{ticks= stats_diff_get 3; reqs= stats_diff_get 0}
+        ; wr_latency= Latency.{ticks= stats_diff_get 7; reqs= stats_diff_get 4}
         ; io_throughput_read_mb= to_float (stats_diff_get 13) /. 1048576.
         ; io_throughput_write_mb= to_float (stats_diff_get 14) /. 1048576.
         ; iops_read= stats_diff_get 0
@@ -666,42 +674,44 @@ module Stats_value = struct
         let last_s3 = last_stats_blktap3 in
         let opt f = Option.fold ~none:0L ~some:f in
         let open Blktap3_stats in
-        let avg_reqs_completed_last_five_secs get_reqs_completed get_total_ticks
-            =
+        let latency_in_last_five_secs get_reqs_completed get_total_ticks =
           last_s3
           |> Option.fold
-               ~none:0L (* we don't have data from 5 secs ago, so give up *)
+               ~none:Latency.zero
+                 (* we don't have data from 5 secs ago, so give up *)
                ~some:(fun last_s3 ->
-                 (* a 'tick' is the time spent waiting on reads (or writes, dep on context), in usec *)
                  let num_reqs_in_last_five_secs =
                    let now = get_reqs_completed s3 in
                    let last = get_reqs_completed last_s3 in
                    if now < last then (
                      D.error
-                       "Stats_value.make: read_reqs_completed has decreased: \
-                        now: %Li, last: %Li"
+                       "Stats_value.make: reqs_completed has decreased: now: \
+                        %Li, last: %Li"
                        now last ;
                      0L
                    ) else
                      now -- last
                  in
-                 let num_ticks_in_last_5_secs =
-                   get_total_ticks s3 -- get_total_ticks last_s3
-                 in
+                 (* no requests means no tick delta to attribute: contributing
+                    ticks with a zero weight would skew the SR-level mean *)
                  if num_reqs_in_last_five_secs = 0L then
-                   0L
+                   Latency.zero
                  else
-                   Int64.div num_ticks_in_last_5_secs num_reqs_in_last_five_secs
+                   Latency.
+                     {
+                       ticks= get_total_ticks s3 -- get_total_ticks last_s3
+                     ; reqs= num_reqs_in_last_five_secs
+                     }
              )
         in
         {
           rd_bytes= Int64.mul (get_stats_read_sectors s3) 512L
         ; wr_bytes= Int64.mul (get_stats_write_sectors s3) 512L
-        ; rd_avg_usecs=
-            avg_reqs_completed_last_five_secs get_stats_read_reqs_completed
+        ; rd_latency=
+            latency_in_last_five_secs get_stats_read_reqs_completed
               get_stats_read_total_ticks
-        ; wr_avg_usecs=
-            avg_reqs_completed_last_five_secs get_stats_write_reqs_completed
+        ; wr_latency=
+            latency_in_last_five_secs get_stats_write_reqs_completed
               get_stats_write_total_ticks
         ; io_throughput_read_mb=
             to_float
@@ -744,9 +754,9 @@ module Stats_value = struct
       (fun acc v ->
         {
           rd_bytes= acc.rd_bytes ++ v.rd_bytes
-        ; rd_avg_usecs= acc.rd_avg_usecs ++ v.rd_avg_usecs
+        ; rd_latency= Latency.add acc.rd_latency v.rd_latency
         ; wr_bytes= acc.wr_bytes ++ v.wr_bytes
-        ; wr_avg_usecs= acc.wr_avg_usecs ++ v.wr_avg_usecs
+        ; wr_latency= Latency.add acc.wr_latency v.wr_latency
         ; io_throughput_read_mb=
             acc.io_throughput_read_mb +. v.io_throughput_read_mb
         ; io_throughput_write_mb=
@@ -778,16 +788,16 @@ module Stats_value = struct
       , ds_make
           ~name:(key_format "read_latency")
           ~description:("Read latency from device " ^ name ^ ", in microseconds")
-          ~value:(Rrd.VT_Int64 value.rd_avg_usecs) ~ty:Rrd.Gauge ~units:"μs"
-          ~min:0.0 ()
+          ~value:(Rrd.VT_Int64 (Latency.mean_usecs value.rd_latency))
+          ~ty:Rrd.Gauge ~units:"μs" ~min:0.0 ()
       )
     ; ( owner
       , ds_make
           ~name:(key_format "write_latency")
           ~description:
             ("Write latency from device " ^ name ^ ", in microseconds")
-          ~value:(Rrd.VT_Int64 value.wr_avg_usecs) ~ty:Rrd.Gauge ~units:"μs"
-          ~min:0.0 ()
+          ~value:(Rrd.VT_Int64 (Latency.mean_usecs value.wr_latency))
+          ~ty:Rrd.Gauge ~units:"μs" ~min:0.0 ()
       )
     ; ( owner
       , ds_make
