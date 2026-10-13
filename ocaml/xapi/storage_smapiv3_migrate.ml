@@ -174,12 +174,11 @@ let create_destination_snapshot ~dbg ~dest_sr ~dest_url ~verify_dest
 
 let mirror_snapshot_into_existing_dest ~dbg ~task ~sr ~snapshot_vdi_uuid
     ~dest_sr ~dest_url ~verify_dest ~copy_vm ~image_format ~dest_vdi_info
-    ~nbd_uri =
+    ~nbd_uri ~dp =
   SXM.info "%s mirroring snapshot %s into VDI %s" __FUNCTION__ snapshot_vdi_uuid
     (s_of_vdi dest_vdi_info.vdi) ;
 
   let snapshot_vdi = Vdi.of_string snapshot_vdi_uuid in
-  let dp = Uuidx.(to_string (make ())) in
 
   (* Capture content_id before attach: update_snapshot_info_dest asserts src
      and dest content_ids match. *)
@@ -359,7 +358,27 @@ module Copy = struct
         prepare_destination_vdi ~dbg ~dest_sr:dest ~url ~verify_dest ~src_vm
           ~dest_vm ~local_vdi ~dest_base
       in
-      Fun.protect ~finally:cleanup (fun () ->
+      let src_dp = Uuidx.(to_string (make ())) in
+      let copy_id = State.copy_id_of (sr, vdi) in
+      State.add copy_id
+        State.(
+          Copy_op
+            Copy_state.
+              {
+                (* v1 reads a base to copy differentially; v3 mirrors the
+                   current layer only, so there is no base datapath. *)
+                base_dp= ""
+              ; leaf_dp= src_dp
+              ; remote_dp= dp
+              ; dest_sr= dest
+              ; copy_vdi= head.vdi
+              ; remote_url= url
+              ; verify_dest
+              }
+        ) ;
+      Fun.protect
+        ~finally:(fun () -> cleanup () ; State.remove_copy copy_id)
+        (fun () ->
           with_nbd_proxy ~url ~mirror_vm:src_vm ~dest_vm ~dest_sr:dest
             ~mirror_vdi:head ~mirror_datapath:dp ~verify_dest
           @@ fun () ->
@@ -367,10 +386,10 @@ module Copy = struct
             mirror_snapshot_into_existing_dest ~dbg ~task:(Some task) ~sr
               ~snapshot_vdi_uuid:(s_of_vdi vdi) ~dest_sr:dest ~dest_url:url
               ~verify_dest ~copy_vm:src_vm ~image_format ~dest_vdi_info:head
-              ~nbd_uri
+              ~nbd_uri ~dp:src_dp
           in
           Some (Vdi_info dest_snapshot)
-      )
+        )
     with
     | Storage_error (Backend_error (code, params))
     | Api_errors.Server_error (code, params) ->
