@@ -172,6 +172,8 @@ module Vm = struct
     ; pci_power_mgmt: bool
     ; has_vendor_device: bool [@default false]
     ; generation_id: string option
+    ; pxe_dhcp_ipv4_allowed: bool [@default true]
+    ; pxe_dhcp_ipv6_allowed: bool [@default true]
   }
   [@@deriving rpcty, sexp]
 
