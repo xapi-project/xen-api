@@ -338,7 +338,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~ext_auth_cache_expiry:300L ~update_sync_frequency ~update_sync_day
     ~update_sync_enabled ~recommendations ~license_server
     ~ha_reboot_vm_on_internal_shutdown ~limit_console_sessions
-    ~vm_console_idle_timeout ~auto_update_vm_secureboot_certificates ;
+    ~vm_console_idle_timeout ~auto_update_vm_secureboot_certificates
+    ~lldp_enabled:false ~lldp_multicast_address:`nearestbridge ;
   pool_ref
 
 let default_sm_features =

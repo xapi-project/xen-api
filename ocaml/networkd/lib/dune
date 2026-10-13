@@ -17,6 +17,7 @@
   threads.posix
   unix
   uri
+  uutf
   xapi-stdext-pervasives
   xapi-stdext-std
   xapi-stdext-threads

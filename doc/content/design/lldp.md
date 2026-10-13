@@ -22,7 +22,7 @@ The following are introduced by this design:
 The implementation uses XAPI for configuration, networkd for per-host application of configuration, and [`lldpd`](https://github.com/lldpd/lldpd) as the LLDP agent in dom0 user space.
 XAPI stores LLDP configuration in the database and exposes LLDP neighbor data through XenAPI.
 networkd configures the LLDP agent to apply LLDP configuration for individual physical NICs and queries the LLDP agent for received LLDP TLVs.
-`lldpd` runs as a daemon process in dom0 user space. It receives and sends LLDPDUs via PF_PACKET + SOCK_RAW sockets. It is actively maintained by upstream as the time being.
+`lldpd` runs as a daemon process in dom0 user space. It receives and sends LLDPDUs via PF_PACKET + SOCK_RAW sockets. It is actively maintained by upstream for the time being.
 
 ## XAPI database changes
 
@@ -37,7 +37,7 @@ When `false`, LLDP is disabled on the NIC associated with each managed physical 
 
 This setting does not apply to other types of PIFs, such as non-managed PIFs, bond PIFs, VLAN PIFs, tunnel PIFs, or SR-IOV PIFs.
 
-`PIF.lldp_mode` determines the final effective state on individul PIF.
+`PIF.lldp_mode` determines the final effective state on individual PIF.
 
 LLDP receiving and advertising are always enabled or disabled together.
 
@@ -51,15 +51,15 @@ Type: `enum pif_lldp_mode`
 
 Values:
 
-- `default`: follow `pool.lldp_enabled`;
+- `inherited`: follow `pool.lldp_enabled`;
 - `enabled`: LLDP is enabled on the NIC associated with the managed physical PIF;
 - `disabled`: LLDP is disabled on the NIC associated with the managed physical PIF.
 
 This setting does not apply to other types of PIFs, such as non-managed PIFs, bond PIFs, VLAN PIFs, tunnel PIFs, or SR-IOV PIFs.
 
-Default after update/RPU from a version/release without LLDP support to a version/release with LLDP support: `default`.
+Default after update/RPU from a version/release without LLDP support to a version/release with LLDP support: `inherited`.
 
-Default after fresh install: `default`.
+Default after fresh install: `inherited`.
 
 ### `pool.lldp_multicast_address`
 
@@ -72,7 +72,7 @@ Values:
 - `nearestcustomerbridge`: `01:80:C2:00:00:00`
 
 This value controls the multicast MAC address used for LLDP transmission.
-After a change, it is applied when `pool.set_lldp_enabled` or `PIF.set_lldp_mode` is called with `force=true`.
+After a change, it is applied when `pool.set_lldp_enabled` or `PIF.set_lldp_mode` is called (can apply with `force=true` if enabled or mode is not changed).
 This value is not considered to change often. Changing it does not trigger any application action for simplicity.
 
 Default after update/RPU from a version/release without LLDP support to a version/release with LLDP support: `nearestbridge`.
@@ -83,9 +83,12 @@ Default after fresh install: `nearestbridge`.
 
 Type: `map(string, string)`
 
-Stores the received LLDP TLVs from the corresponding PIF.
+Stores the effective LLDP information for the physical NIC of the corresponding PIF:
 
-Default: empty
+- `state`: the effective LLDP state of the NIC, one of `enabled`, `disabled` or `blocked` (`blocked` means the NIC driver is in the blocking list). Always present for a managed physical NIC.
+- `system_name`, `port_id`, `port_description`: the TLVs received from the neighbour, present only when a neighbour is seen.
+
+Default: empty (also empty for PIFs that are not managed physical NICs).
 
 ## XenAPI changes
 
@@ -103,26 +106,27 @@ Behavior:
 
 - if `force=false` and `value = pool.lldp_enabled`, do nothing;
 - otherwise, set `pool.lldp_enabled` to `value`, apply LLDP configuration to every physical PIF in the pool by calling `PIF.plug` to each host;
-- return a map of failed PIFs and error strings.
+- every affected PIF is attempted; if any fail to re-plug, raise `LLDP_PIF_REPLUG_FAILED` with the list of PIFs that failed (so the caller learns which PIFs did not get the new setting).
 
 ### `PIF.set_lldp_mode`
 
 Parameters:
 
 - `self`: the PIF reference;
-- `value`: `default`, `enabled`, or `disabled`;
+- `value`: `inherited`, `enabled`, or `disabled`;
 - `force`: `bool`, default `false`.
 
 Behavior:
 
 - if `force=false` and `value= PIF.lldp_mode`, do nothing;
-- otherwise set `PIF.lldp_mode` to `value`, apply LLDP configuration to the physical NIC represented by the PIF by calling `PIF.plug` to the host.
+- otherwise set `PIF.lldp_mode` to `value`, apply LLDP configuration to the physical NIC represented by the PIF by calling `PIF.plug` to the host;
+- if the re-plug fails, raise `LLDP_PIF_REPLUG_FAILED` for the PIF.
 
 
 ## The networkd database
 
 The `interface_config_t` record in the networkd database is extended with LLDP configuration. networkd can configure LLDP independently using its own database when XAPI is unavailable, for example during host boot.
-The default enabled setting is `false` to minimize impact without high-level configuration from XAPI or the user. This database can be updated as XAPI pushes configurtions to networkd through networkd calls.
+The default enabled setting is `false` to minimize impact without high-level configuration from XAPI or the user. This database can be updated as XAPI pushes configurations to networkd through networkd calls.
 
 ```ocaml
 type lldp_multicast_address =
@@ -136,8 +140,8 @@ type lldp = {
 ; chassis_id: string [@default ""]
 ; system_name: string [@default ""]
 ; system_description: string [@default ""]
-; enabled: bool [@default false];
-; address: lldp_multicast_address list [@default [Nearestbridge]];
+; enabled: bool [@default false]
+; address: lldp_multicast_address list [@default [Nearestbridge]]
 }
 [@@deriving rpcty]
 
@@ -172,9 +176,9 @@ The effective LLDP state on a NIC is determined by `pool.lldp_enabled`, `PIF.lld
 
 | `pool.lldp_enabled` | `PIF.lldp_mode` | parameter passed to networkd | NIC driver in blocking list | effective LLDP state |
 | --- | --- | --- | --- | --- |
-| `true` | `default` | `true` | `no` | `enabled` |
-| `true` | `default` | `true` | `yes` | `disabled` |
-| `false` | `default` | `false` | `*` | `disabled` |
+| `true` | `inherited` | `true` | `no` | `enabled` |
+| `true` | `inherited` | `true` | `yes` | `disabled` |
+| `false` | `inherited` | `false` | `*` | `disabled` |
 | `*` | `enabled` | `true` | `*` | `enabled` |
 | `*` | `disabled` | `false` | `*` | `disabled` |
 
@@ -200,19 +204,26 @@ Some advertised values follow the default behavior of `lldpd`, while others are 
 networkd periodically queries statistics for individual NICs and writes them to the in-memory file `/dev/shm/network_stats`. The file format is defined in `ocaml/xapi-idl/network/network_stats.ml` and is extended with a new field, `lldp_neighbor`.
 
 ```ocaml
-type lldp_rx = {
+type lldp_state = Enabled | Disabled | Blocked
+
+type lldp_neighbor = {
   system_name: string option;
   port_id: string option;
   port_description: string option;
+}
+
+type lldp_rx = {
+  state: lldp_state;
+  neighbor: lldp_neighbor option;
 }
 [@@deriving rpcty]
 
 type iface_stats = {
   ...
-  lldp_neighbor: lldp_rx option;
+  lldp_rx: lldp_rx option;
 }
 ```
-networkd queries `lldpd` for the LLDP TLVs recevied on individual NICs and writes them into `/dev/shm/network_stats`.
+networkd derives the `state` from `lldpcli show interfaces` (a NIC reporting `RX and TX` is `Enabled`; otherwise it is `Blocked` when its driver is in the blocking list, else `Disabled`) and queries `lldpd` for the LLDP TLVs received on individual NICs, writing both into `/dev/shm/network_stats`.
 Monitor_dbcalls.monitor_dbcall_thread in XAPI reads the in-memory file `/dev/shm/network_stats` periodically, and exposes the data through `PIF_metrics.lldp_neighbor` by storing them in XenAPI map form.
 
 ## Scenarios

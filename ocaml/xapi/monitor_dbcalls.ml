@@ -22,6 +22,22 @@ module D = Debug.Make (struct let name = "monitor_dbcalls" end)
 
 open D
 
+let lldp_map_of_rx (rx : Network_stats.lldp_rx) : (string * string) list =
+  ("state", Network_stats.string_of_lldp_state rx.Network_stats.state)
+  ::
+  ( match rx.Network_stats.neighbor with
+  | None ->
+      []
+  | Some n ->
+      List.filter_map
+        (fun (k, v) -> Option.map (fun x -> (k, x)) v)
+        [
+          ("system_name", n.Network_stats.system_name)
+        ; ("port_id", n.Network_stats.port_id)
+        ; ("port_description", n.Network_stats.port_description)
+        ]
+  )
+
 let get_pif_and_bond_changes () =
   (* Read fresh PIF information from networkd. *)
   let open Network_stats in
@@ -40,6 +56,13 @@ let get_pif_and_bond_changes () =
           ; pif_pci_bus_path= stat.pci_bus_path
           ; pif_vendor_id= stat.vendor_id
           ; pif_device_id= stat.device_id
+          ; pif_lldp_neighbor=
+              ( match stat.lldp_rx with
+              | Some rx ->
+                  lldp_map_of_rx rx
+              | None ->
+                  []
+              )
           }
         in
         Hashtbl.add pifs_tmp pif.pif_name pif
