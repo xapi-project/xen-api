@@ -102,14 +102,16 @@ let create' ~__context ~vM ~gPU_group ~device ~other_config ~_type
       ) ;
   debug "Creating vGPU %s with metadata: [%s]" (Ref.string_of vgpu)
     (List.map fst compatibility_metadata |> String.concat ":") ;
+  let resident_on_partition, scheduled_to_be_resident_on_partition =
+    Xapi_gpu_partition.initial_refs
+  in
   Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
       let device_id = get_valid_device ~__context ~device ~vM ~vGPUs:existing in
       Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device:device_id
         ~currently_attached:false ~other_config ~_type ~resident_on:Ref.null
         ~scheduled_to_be_resident_on:Ref.null ~compatibility_metadata
-        ~extra_args:"" ~pCI:Ref.null ~resident_on_partition:Ref.null
-        ~scheduled_to_be_resident_on_partition:Ref.null
-        ~partition_layout_generation:0L
+        ~extra_args:"" ~pCI:Ref.null ~resident_on_partition
+        ~scheduled_to_be_resident_on_partition ~partition_layout_generation:0L
   ) ;
   debug "VGPU ref='%s' created (VM = '%s', type = '%s')" (Ref.string_of vgpu)
     (Ref.string_of vM) (Ref.string_of _type) ;
@@ -138,14 +140,19 @@ let destroy ~__context ~self =
 
 let atomic_set_resident_on ~__context ~self:_ ~value:_ = assert false
 
-let copy ~__context ~vm vgpu =
+let copy ~__context ?(preserve_compatibility_metadata = true) ~vm vgpu =
   let all = Db.VGPU.get_record ~__context ~self:vgpu in
+  let compatibility_metadata =
+    if preserve_compatibility_metadata then
+      all.API.vGPU_compatibility_metadata
+    else
+      []
+  in
   let vgpu =
     create' ~__context ~device:all.API.vGPU_device
       ~gPU_group:all.API.vGPU_GPU_group ~vM:vm
       ~other_config:all.API.vGPU_other_config ~_type:all.API.vGPU_type
-      ~powerstate_check:false
-      ~compatibility_metadata:all.API.vGPU_compatibility_metadata
+      ~powerstate_check:false ~compatibility_metadata
   in
   if all.API.vGPU_currently_attached then
     Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:true ;

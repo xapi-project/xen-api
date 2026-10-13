@@ -1531,7 +1531,9 @@ functor
         Db.VM.get_VGPUs ~__context ~self:vm
         |> List.iter (fun vgpu ->
             Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
-              ~value:Ref.null
+              ~value:Ref.null ;
+            Xapi_gpu_partition.apply_nolock ~__context ~self:vgpu
+              Gpu.Gpu_partition_lifecycle.Abort
         ) ;
         (* pcis *)
         Db.PCI.get_refs_where ~__context
@@ -6296,7 +6298,9 @@ functor
         Helpers.with_global_lock (fun () ->
             Db.VGPU.set_resident_on ~__context ~self ~value ;
             Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self
-              ~value:Ref.null
+              ~value:Ref.null ;
+            Xapi_gpu_partition.apply_nolock ~__context ~self
+              Gpu.Gpu_partition_lifecycle.Confirm
         )
     end
 

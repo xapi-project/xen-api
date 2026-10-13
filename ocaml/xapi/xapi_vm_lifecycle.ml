@@ -931,7 +931,13 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
         Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null ;
         Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
           ~value:Ref.null ;
-        Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null
+        Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null ;
+        (* Both Halted and Suspended reach here today, so both give the
+           partition up. Splitting them, so that a suspended VM keeps its
+           partition, is the single deliberate divergence from card-level
+           behaviour, and is made separately. *)
+        Xapi_gpu_partition.apply ~__context ~self:vgpu
+          Gpu.Gpu_partition_lifecycle.Release_halted
     ) ;
     Db.VM.get_attached_PCIs ~__context ~self
     |> List.iter (fun pci ->

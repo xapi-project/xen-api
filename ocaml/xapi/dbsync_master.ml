@@ -173,7 +173,9 @@ let release_locks ~__context =
   ) ;
   Db.VGPU.get_all ~__context
   |> List.iter (fun self ->
-      Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self ~value
+      Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self ~value ;
+      Xapi_gpu_partition.apply ~__context ~self
+        Gpu.Gpu_partition_lifecycle.Restart_sweep
   )
 
 let create_tools_sr __context name_label name_description sr_introduce
