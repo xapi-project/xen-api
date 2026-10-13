@@ -66,14 +66,20 @@ let known_unregistered = unregistered_and_unraised @ unregistered_but_raised
 
 let known_unregistered_set = StringSet.of_list known_unregistered
 
-(* Pinning the length is what stops the baseline being used as an escape
-   hatch: discharging a code means deleting its line and lowering this
-   number, and no edit that adds one still passes. *)
+(* Written out by hand rather than taken from the list above, and that is
+   the point. [StringSet.cardinal known_unregistered_set] would compare
+   the list against itself and hold for every possible list, including one
+   with a line just added to it -- the edit being guarded against.
+
+   This literal is a second, independent record of the length, so the two
+   disagree the moment either changes on its own. Discharging a code means
+   deleting its line and lowering this number together; adding a line to
+   silence a new disagreement does not pass. *)
 let max_known_unregistered = 13
 
 (* Each check is a name and the verdict it reached. Collecting them rather
-   than running them in sequence makes the total a [List.length] instead of
-   a counter, which is what [min_checks] tests. *)
+   than running them in sequence keeps the total a [List.length] instead of
+   a counter, and lets every failure be printed together. *)
 let checks =
   let describe = Printf.sprintf in
   List.concat
