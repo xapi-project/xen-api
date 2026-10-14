@@ -1408,6 +1408,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vdi_format_map ~vif_map
      We look at the VDIs of the VM, the VDIs of all of the snapshots, and any
      suspend-image VDIs. *)
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+  let has_domain = Db.VM.get_domid ~__context ~self:vm <> -1L in
   let vbds = Db.VM.get_VBDs ~__context ~self:vm in
   let vifs = Db.VM.get_VIFs ~__context ~self:vm in
   let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
@@ -1854,7 +1855,11 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vdi_format_map ~vif_map
           if mirror_record.mr_mirrored then
             match mirror_record.mr_dp with
             | Some dp ->
-                SMAPI.DP.destroy dbg dp false
+                SMAPI.DP.destroy dbg dp false ;
+                if not has_domain then
+                  Storage_migrate.post_deactivate_hook
+                    ~sr:mirror_record.mr_local_sr
+                    ~vdi:mirror_record.mr_local_vdi ~dp
             | None ->
                 ()
         )
