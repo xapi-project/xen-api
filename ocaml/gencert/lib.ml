@@ -93,7 +93,7 @@ let validate_pem_chain ~pem_leaf ~pem_chain now private_key =
   in
   let ensure_signature_algorithm certificate =
     match X509.Certificate.signature_algorithm certificate with
-    | Some (_, (`SHA256 | `SHA512)) ->
+    | Some (_, (`SHA256 | `SHA384 | `SHA512)) ->
         Ok certificate
     | _ ->
         Error (`Msg (server_certificate_signature_not_supported, []))
