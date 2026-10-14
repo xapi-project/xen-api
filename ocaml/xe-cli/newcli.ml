@@ -85,6 +85,8 @@ let usage () =
     [ --debug ]                Enable debug output
     [ --debug-on-fail ]        Enable debug output only on failure
     [ --traceparent <value> ]  Distributed tracing context
+    [ report-ignored-params=off|warn ]
+                               Report parameters the command ignored (on stderr)
     [ <other arguments> ... ]  Command-specific options
 
 A full list of commands can be obtained by running
