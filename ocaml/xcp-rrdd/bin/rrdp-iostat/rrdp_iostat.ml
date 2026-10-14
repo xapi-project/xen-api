@@ -592,25 +592,25 @@ module Blktap3_stats_wrapper = struct
     stats
 end
 
+module Latency = struct
+  (* a 'tick' is the time spent waiting on one request, in usec. Summing ticks
+     and reqs separately is what lets an SR-level total be divided into a
+     request-weighted mean rather than a sum of per-VDI means. *)
+  type t = {ticks: int64; reqs: int64}
+
+  let zero = {ticks= 0L; reqs= 0L}
+
+  let add a b =
+    {ticks= Int64.add a.ticks b.ticks; reqs= Int64.add a.reqs b.reqs}
+
+  let mean_usecs {ticks; reqs} =
+    if reqs = 0L then
+      0L
+    else
+      Int64.div ticks reqs
+end
+
 module Stats_value = struct
-  module Latency = struct
-    (* a 'tick' is the time spent waiting on one request, in usec. Summing
-       ticks and reqs separately is what lets an SR-level total be divided
-       into a request-weighted mean rather than a sum of per-VDI means. *)
-    type t = {ticks: int64; reqs: int64}
-
-    let zero = {ticks= 0L; reqs= 0L}
-
-    let add a b =
-      {ticks= Int64.add a.ticks b.ticks; reqs= Int64.add a.reqs b.reqs}
-
-    let mean_usecs {ticks; reqs} =
-      if reqs = 0L then
-        0L
-      else
-        Int64.div ticks reqs
-  end
-
   type t = {
       rd_bytes: int64
     ; wr_bytes: int64
@@ -862,9 +862,11 @@ module Stats_value = struct
 end
 
 module Iostats_value = struct
-  type t = {latency: float; avgqu_sz: float}
+  type t = {latency: Latency.t; avgqu_sz: float}
 
-  let empty = {latency= 0.; avgqu_sz= 0.}
+  let empty = {latency= Latency.zero; avgqu_sz= 0.}
+
+  let interval_secs = 5.
 
   let make iostats _last_iostats stats_blktap3 last_stats_blktap3 : t =
     let ( ++ ) = Int64.add
@@ -874,66 +876,83 @@ module Iostats_value = struct
     match (stats_blktap3, iostats) with
     | None, Some iostats ->
         let iostats_get = List.nth iostats in
+        (* iostat -x fields, after the device name: rrqm/s wrqm/s r/s w/s
+           rsec/s wsec/s avgrq-sz avgqu-sz await *)
+        let reqs =
+          Int64.of_float ((iostats_get 2 +. iostats_get 3) *. interval_secs)
+        in
         (* iostat reports await in ms, but the datasource is declared in us *)
-        {latency= iostats_get 9 *. 1000.; avgqu_sz= iostats_get 7}
-    | Some s3, _ ->
-        let last_s3 = last_stats_blktap3 in
-        let opt f x = match x with None -> 0L | Some x' -> f x' in
-        let s3_usecs =
-          get_stats_read_total_ticks s3
-          ++ get_stats_write_total_ticks s3
-          -- (opt get_stats_read_total_ticks last_s3
-             ++ opt get_stats_write_total_ticks last_s3
-             )
-        in
-        let s3_count =
-          get_stats_read_reqs_completed s3
-          ++ get_stats_write_reqs_completed s3
-          -- (opt get_stats_read_reqs_completed last_s3
-             ++ opt get_stats_write_reqs_completed last_s3
-             )
-        in
-        let s3_latency_average =
-          if s3_count = 0L then
-            0.
-          else
-            to_float s3_usecs /. to_float s3_count
-        in
-        (* refer to https://github.com/xenserver/xsiostat for the calculation below *)
-        let avgqu_sz =
-          to_float
-            (get_stats_read_total_ticks s3
-            ++ get_stats_write_total_ticks s3
-            -- (opt get_stats_read_total_ticks last_s3
-               ++ opt get_stats_write_total_ticks last_s3
-               )
-            )
-          /. 1000_000.0
-        in
+        let await_usecs = iostats_get 8 *. 1000. in
         {
-          latency= s3_latency_average
-        ; (* divide by the interval as the ds-type is Gauge *)
-          avgqu_sz= avgqu_sz /. 5.
+          latency=
+            Latency.{ticks= Int64.of_float (await_usecs *. to_float reqs); reqs}
+        ; avgqu_sz= iostats_get 7
         }
+    | Some s3, _ ->
+        last_stats_blktap3
+        |> Option.fold
+             ~none:empty (* we don't have data from 5 secs ago, so give up *)
+             ~some:(fun last_s3 ->
+               let reqs =
+                 let now =
+                   get_stats_read_reqs_completed s3
+                   ++ get_stats_write_reqs_completed s3
+                 and last =
+                   get_stats_read_reqs_completed last_s3
+                   ++ get_stats_write_reqs_completed last_s3
+                 in
+                 if now < last then (
+                   D.error
+                     "Iostats_value.make: reqs_completed has decreased: now: \
+                      %Li, last: %Li"
+                     now last ;
+                   0L
+                 ) else
+                   now -- last
+               in
+               let usecs =
+                 get_stats_read_total_ticks s3
+                 ++ get_stats_write_total_ticks s3
+                 -- (get_stats_read_total_ticks last_s3
+                    ++ get_stats_write_total_ticks last_s3
+                    )
+               in
+               {
+                 latency=
+                   ( if reqs = 0L then
+                       (* no requests means no tick delta to attribute:
+                          contributing ticks with a zero weight would skew the
+                          SR-level mean *)
+                       Latency.zero
+                     else
+                       Latency.{ticks= usecs; reqs}
+                   )
+               ; (* refer to https://github.com/xenserver/xsiostat for the
+                    calculation below; divide by the interval as the ds-type is
+                    Gauge *)
+                 avgqu_sz= to_float usecs /. 1000_000.0 /. interval_secs
+               }
+           )
     | None, None ->
         D.warn "No iostats found" ; empty
 
   let accumulate (values : t list) : t =
-    let max acc v =
+    let combine acc v =
       {
-        latency= Float.max acc.latency v.latency
+        latency= Latency.add acc.latency v.latency
       ; avgqu_sz= Float.max acc.avgqu_sz v.avgqu_sz
       }
     in
-    List.fold_left max empty values
+    List.fold_left combine empty values
 
   let[@warning "-27"] make_ds ~owner ~name ~key_format (value : t) =
     let ds_make = Ds.ds_make ~default:true in
     [
       ( owner
       , ds_make ~name:(key_format "latency") ~description:"Average I/O latency"
-          ~value:(Rrd.VT_Float value.latency) ~ty:Rrd.Gauge ~units:"μs" ~min:0.
-          ()
+          ~value:
+            (Rrd.VT_Float (Int64.to_float (Latency.mean_usecs value.latency)))
+          ~ty:Rrd.Gauge ~units:"μs" ~min:0. ()
       )
     ; ( owner
       , ds_make ~name:(key_format "avgqu_sz")
