@@ -152,7 +152,9 @@ module Mux = struct
         let rpc = of_sr sr
       end)) in
       C.DP.destroy2 (Debug_info.to_string di) dp sr vdi vm allow_leak ;
-      DP_info.delete dp
+      DP_info.delete dp ;
+      if smapi_version_of_sr sr = SMAPIv3 then
+        Storage_migrate.post_deactivate_hook ~sr ~vdi ~dp
 
     let destroy _context ~dbg ~dp ~allow_leak =
       with_dbg ~name:"DP.destroy" ~dbg @@ fun di ->
