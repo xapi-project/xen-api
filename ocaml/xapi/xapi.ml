@@ -175,7 +175,8 @@ let init_args () =
   (* Immediately register callback functions *)
   register_callback_fns () ;
   Xcp_service.configure ~options:Xapi_globs.all_options
-    ~resources:Xapi_globs.Resources.xcp_resources () ;
+    ~resources:Xapi_globs.Resources.xcp_resources ~version:Xapi_version.version
+    () ;
   if not !Xcp_client.use_switch then (
     debug "Xcp_client.use_switch=false: resetting list of xenopsds" ;
     Xapi_globs.xenopsd_queues := ["xenopsd"]
@@ -444,8 +445,7 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
             Some Permanent
         | `ok ->
             let xapi_version_higher version =
-              version |> Xapi_version.compare_version Xapi_version.version
-              |> fun r -> r > 0
+              Xapi_version.compare_to_local version > 0
             in
             if
               xapi_version_higher

@@ -1,6 +1,9 @@
 (executables
   (modes exe)
   (names main sparse_dd get_vhd_vsize)
+  ; belong to the package, so that dune-build-info reports its version
+  (public_names - - -)
+  (package vhd-tool)
   (libraries
     astring
 
@@ -17,6 +20,7 @@
     uri
     vhd-format
     vhd-format-lwt
+    xapi-consts.xapi_version
     xapi-idl
     xapi-log
     xapi-stdext-unix
