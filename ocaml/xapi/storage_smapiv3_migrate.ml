@@ -454,7 +454,7 @@ let assert_migratable ~__context ~vm_uuid ~active_vdis ~snapshot_vdis =
 module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
 
-  let send_start _ctx ~dbg ~task_id:_ ~dp ~sr ~vdi ~image_format ~mirror_vm
+  let send_start _ctx ~dbg ~task_id ~dp ~sr ~vdi ~image_format ~mirror_vm
       ~mirror_id ~local_vdi:_ ~copy_vm:_ ~live_vm ~url ~remote_mirror ~dest_sr
       ~verify_dest =
     D.debug
@@ -509,9 +509,8 @@ module MIRROR : SMAPIv2_MIRROR = struct
           State.add mirror_id (State.Send_op alm) ;
           D.debug "%s Updated mirror_id %s in the active local mirror"
             __FUNCTION__ mirror_id ;
-          (* [send_start] is given a task id rather than a handle, so the
-             leaf mirror is not cancellable from here. *)
-          wait_for_mirror ~dbg ~task:None ~sr ~vdi ~vm:live_vm ~mirror_id
+          let task = Storage_task.(handle_of_id tasks) task_id in
+          wait_for_mirror ~dbg ~task:(Some task) ~sr ~vdi ~vm:live_vm ~mirror_id
             ~error_msg:"Leaf VDI mirror failed during syncing" mk
         with
         | Storage_interface.Storage_error _ as e ->
