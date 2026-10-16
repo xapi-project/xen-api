@@ -278,48 +278,27 @@ let on_xapi_start ~__context =
     )
     (StringSet.inter running_smapiv2_drivers existing_types) ;
 
-  (* Warn in logs when there are still duplicates *)
-  let add_to_dups (last, dups) (_, curr) =
-    match (last.API.sM_type = curr.API.sM_type, dups) with
-    | false, _ ->
-        (curr, dups)
-    | true, x :: _ when x = last ->
-        (curr, curr :: dups)
-    | true, _ ->
-        (curr, curr :: last :: dups)
-  in
-  let find_all_duplicates lst =
-    lst
-    |> List.sort (fun (_, a_rc) (_, b_rc) ->
-        Stdlib.compare a_rc.API.sM_type b_rc.API.sM_type
+  (* Remove duplicate SM records.
+     Several hosts might be running this function at the same time, they need
+     to agree on which SM plugins to remove, so sort them by reference *)
+  let remove_duplicates () =
+    Db.SM.get_all_records ~__context
+    |> List.sort (fun (a_ref, _) (b_ref, _) ->
+        Stdlib.compare (Ref.string_of a_ref) (Ref.string_of b_ref)
     )
-    |> function
-    | [] ->
-        []
-    | head :: rest ->
-        List.fold_left add_to_dups (snd head, []) rest |> snd
+    |> List.fold_left
+         (fun seen (ref, rc) ->
+           if StringSet.mem rc.API.sM_type seen then (
+             let reason = "it's a duplicate of another SM of the same type" in
+             log_and_unregister ~__context ~reason __FUNCTION__ (ref, rc) ;
+             seen
+           ) else
+             StringSet.add rc.API.sM_type seen
+         )
+         StringSet.empty
   in
-
-  let features_to_string feats =
-    Fmt.(to_to_string (Dump.list (Dump.pair string int64)) feats)
-  in
-  let plugin_to_string plugin =
-    Printf.sprintf "{ type:%s; name:%s; UUID:%s; features:%s; }"
-      plugin.API.sM_type plugin.API.sM_name_label plugin.API.sM_uuid
-      (features_to_string plugin.API.sM_features)
-  in
-  let log_plugins = function
-    | [] ->
-        ()
-    | duplicates ->
-        let duplicates =
-          String.concat "\n; " (List.map plugin_to_string duplicates)
-        in
-        warn "%s: found duplicate SM plugins for the same type: [\n  %s\n]"
-          __FUN duplicates
-  in
-
-  Db.SM.get_all_records ~__context |> find_all_duplicates |> log_plugins
+  let _ = remove_duplicates () in
+  ()
 
 let bind ~__context ~pbd =
   let dbg = Context.string_of_task __context in
