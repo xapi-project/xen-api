@@ -37,6 +37,8 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let domain_shutdown_ack_timeout = ref 60.
 
+let vif_ip_configuration_timeout = ref 60.
+
 let xenopsd_vbd_plug_unplug_legacy = ref true
 
 type context = {

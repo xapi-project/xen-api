@@ -5263,62 +5263,112 @@ module VIF = struct
                 )
     )
 
-  let set_ip_unspecified_or_autoconf xs xenstore_path suffix enabled_mode =
-    Xs.transaction xs (fun t ->
-        let ip_setting_enabled =
-          Printf.sprintf "%s/%s%s" xenstore_path "enabled" suffix
-        in
-        t.Xst.write ip_setting_enabled enabled_mode ;
-        let ip_setting_address =
-          Printf.sprintf "%s/%s%s" xenstore_path "address" suffix
-        in
-        t.Xst.rm ip_setting_address ;
-        let ip_setting_gateway =
-          Printf.sprintf "%s/%s%s" xenstore_path "gateway" suffix
-        in
-        t.Xst.rm ip_setting_gateway ;
-        let ip_setting_dns =
-          Printf.sprintf "%s/%s%s" xenstore_path "dns" suffix
-        in
-        t.Xst.rm ip_setting_dns
-    )
+  let clear_ip_configuration_response t xenstore_path =
+    t.Xst.rm (xenstore_path ^ "/error-code") ;
+    t.Xst.rm (xenstore_path ^ "/error-msg")
 
-  let set_ip_static xs xenstore_path suffix address gateway dns =
-    Xs.transaction xs (fun t ->
-        let ip_setting_enabled =
-          Printf.sprintf "%s/%s%s" xenstore_path "enabled" suffix
-        in
-        t.Xst.write ip_setting_enabled "1" ;
-        let ip_setting_address =
-          Printf.sprintf "%s/%s%s" xenstore_path "address" suffix
-        in
-        t.Xst.write ip_setting_address address ;
-        let ip_setting_gateway =
-          Printf.sprintf "%s/%s%s" xenstore_path "gateway" suffix
-        in
-        ( match gateway with
-        | None ->
-            t.Xst.rm ip_setting_gateway
-        | Some value ->
-            debug "xenstore-write %s <- %s" ip_setting_gateway value ;
-            t.Xst.write ip_setting_gateway value
-        ) ;
-        (* If there's an existing dns key, we must remove it to avoid it
-           changing the interpretation of unconfigured DNS. If XAPI ever needs
-           to configure VIF DNS to an empty list, it should do so explicitly. *)
-        let ip_setting_dns =
-          Printf.sprintf "%s/%s%s" xenstore_path "dns" suffix
-        in
-        t.Xst.rm ip_setting_dns ;
-        List.iteri
-          (fun i value ->
-            let ip_setting_dns_one = Printf.sprintf "%s/%d" ip_setting_dns i in
-            t.Xst.write ip_setting_dns_one value
+  let set_ip_unspecified_or_autoconf t xenstore_path suffix enabled_mode =
+    clear_ip_configuration_response t xenstore_path ;
+    let ip_setting_enabled =
+      Printf.sprintf "%s/%s%s" xenstore_path "enabled" suffix
+    in
+    t.Xst.write ip_setting_enabled enabled_mode ;
+    let ip_setting_address =
+      Printf.sprintf "%s/%s%s" xenstore_path "address" suffix
+    in
+    t.Xst.rm ip_setting_address ;
+    let ip_setting_gateway =
+      Printf.sprintf "%s/%s%s" xenstore_path "gateway" suffix
+    in
+    t.Xst.rm ip_setting_gateway ;
+    let ip_setting_dns = Printf.sprintf "%s/%s%s" xenstore_path "dns" suffix in
+    t.Xst.rm ip_setting_dns
+
+  let set_ip_static t xenstore_path suffix address gateway dns =
+    clear_ip_configuration_response t xenstore_path ;
+    let ip_setting_enabled =
+      Printf.sprintf "%s/%s%s" xenstore_path "enabled" suffix
+    in
+    t.Xst.write ip_setting_enabled "1" ;
+    let ip_setting_address =
+      Printf.sprintf "%s/%s%s" xenstore_path "address" suffix
+    in
+    t.Xst.write ip_setting_address address ;
+    let ip_setting_gateway =
+      Printf.sprintf "%s/%s%s" xenstore_path "gateway" suffix
+    in
+    ( match gateway with
+    | None ->
+        t.Xst.rm ip_setting_gateway
+    | Some value ->
+        debug "xenstore-write %s <- %s" ip_setting_gateway value ;
+        t.Xst.write ip_setting_gateway value
+    ) ;
+    (* If there's an existing dns key, we must remove it to avoid it
+       changing the interpretation of unconfigured DNS. If XAPI ever needs
+       to configure VIF DNS to an empty list, it should do so explicitly. *)
+    let ip_setting_dns = Printf.sprintf "%s/%s%s" xenstore_path "dns" suffix in
+    t.Xst.rm ip_setting_dns ;
+    List.iteri
+      (fun i value ->
+        let ip_setting_dns_one = Printf.sprintf "%s/%d" ip_setting_dns i in
+        t.Xst.write ip_setting_dns_one value
+      )
+      dns
+
+  let read_ip_configuration_response xs xenstore_path =
+    let code =
+      try xs.Xs.read (xenstore_path ^ "/error-code")
+      with Xs_protocol.Enoent _ ->
+        internal_error
+          "Guest completed VIF IP configuration without an error code at %s"
+          xenstore_path
+    in
+    let msg =
+      if code = "0" then
+        ""
+      else
+        try xs.Xs.read (xenstore_path ^ "/error-msg")
+        with Xs_protocol.Enoent _ -> ""
+    in
+    (code, msg)
+
+  let check_ip_configuration_response (vm, vif) suffix = function
+    | "0", _ ->
+        ()
+    | code, msg ->
+        internal_error
+          "VIF %s.%s: guest failed to configure IPv%s (error %s): %s" vm vif
+          ( if suffix = "" then
+              "4"
+            else
+              "6"
           )
-          dns
-    )
+          code msg
 
-  let set_ipv4_configuration _task vm vif ipv4_configuration =
+  let wait_for_ip_configuration task xs device vif xenstore_path suffix =
+    let completed =
+      Watch.key_to_disappear (xenstore_path ^ "/enabled" ^ suffix)
+    in
+    ( try
+        cancellable_watch (Device device) [completed] [] task ~xs
+          ~timeout:!Xenops_server.vif_ip_configuration_timeout
+          ()
+        |> ignore
+      with Watch.Timeout _ ->
+        internal_error
+          "VIF %s.%s: timed out waiting for guest IPv%s configuration"
+          (fst vif.id) (snd vif.id)
+          ( if suffix = "" then
+              "4"
+            else
+              "6"
+          )
+    ) ;
+    read_ip_configuration_response xs xenstore_path
+    |> check_ip_configuration_response vif.id suffix
+
+  let set_ipv4_configuration task vm vif ipv4_configuration =
     with_xc_and_xs (fun xc xs ->
         let device = device_by_id xc xs vm (device_kind_of vif) (id_of vif) in
         let xenstore_path =
@@ -5326,19 +5376,23 @@ module VIF = struct
             (Device_common.extra_xenserver_path_of_device ~xs device)
             _static_ip_setting
         in
-        match ipv4_configuration with
-        | Unspecified4 ->
-            set_ip_unspecified_or_autoconf xs xenstore_path "" "0"
-        | Static4 (address :: _, gateway, dns) ->
-            set_ip_static xs xenstore_path "" address gateway dns
-        | Static4 ([], _, _) ->
-            internal_error
-              "Static IPv4 configuration selected, but no address specified."
-        | DHCP4 ->
-            set_ip_unspecified_or_autoconf xs xenstore_path "" "2"
+        Xs.transaction xs (fun t ->
+            match ipv4_configuration with
+            | Unspecified4 ->
+                set_ip_unspecified_or_autoconf t xenstore_path "" "0"
+            | Static4 (address :: _, gateway, dns) ->
+                set_ip_static t xenstore_path "" address gateway dns
+            | Static4 ([], _, _) ->
+                internal_error
+                  "Static IPv4 configuration selected, but no address \
+                   specified."
+            | DHCP4 ->
+                set_ip_unspecified_or_autoconf t xenstore_path "" "2"
+        ) ;
+        wait_for_ip_configuration task xs device vif xenstore_path ""
     )
 
-  let set_ipv6_configuration _task vm vif ipv6_configuration =
+  let set_ipv6_configuration task vm vif ipv6_configuration =
     with_xc_and_xs (fun xc xs ->
         let device = device_by_id xc xs vm (device_kind_of vif) (id_of vif) in
         let xenstore_path =
@@ -5346,16 +5400,20 @@ module VIF = struct
             (Device_common.extra_xenserver_path_of_device ~xs device)
             _static_ip_setting
         in
-        match ipv6_configuration with
-        | Unspecified6 ->
-            set_ip_unspecified_or_autoconf xs xenstore_path "6" "0"
-        | Static6 (address :: _, gateway, dns) ->
-            set_ip_static xs xenstore_path "6" address gateway dns
-        | Static6 ([], _, _) ->
-            internal_error
-              "Static IPv6 configuration selected, but no address specified."
-        | Autoconf6 ->
-            set_ip_unspecified_or_autoconf xs xenstore_path "6" "2"
+        Xs.transaction xs (fun t ->
+            match ipv6_configuration with
+            | Unspecified6 ->
+                set_ip_unspecified_or_autoconf t xenstore_path "6" "0"
+            | Static6 (address :: _, gateway, dns) ->
+                set_ip_static t xenstore_path "6" address gateway dns
+            | Static6 ([], _, _) ->
+                internal_error
+                  "Static IPv6 configuration selected, but no address \
+                   specified."
+            | Autoconf6 ->
+                set_ip_unspecified_or_autoconf t xenstore_path "6" "2"
+        ) ;
+        wait_for_ip_configuration task xs device vif xenstore_path "6"
     )
 
   let set_pvs_proxy _task vm vif proxy =
