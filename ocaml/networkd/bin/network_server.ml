@@ -475,6 +475,17 @@ module Interface = struct
       )
       ()
 
+  let config_to_dhcp_options config =
+    let gateway =
+      Option.fold ~none:[]
+        ~some:(fun n -> [`gateway n])
+        config.gateway_interface
+    in
+    let dns =
+      Option.fold ~none:[] ~some:(fun n -> [`dns n]) config.dns_interface
+    in
+    gateway @ dns
+
   let get_ipv4_addr dbg name =
     Debug.with_thread_associated dbg (fun () -> Ip.get_ipv4 name) ()
 
@@ -483,31 +494,16 @@ module Interface = struct
       (fun () ->
         debug "Configuring IPv4 address for %s: %s" name
           (conf |> Rpcmarshal.marshal typ_of_ipv4 |> Jsonrpc.to_string) ;
-        update_config name {(get_config name) with ipv4_conf= conf} ;
-        match conf with
+
+        ( match conf with
         | None4 ->
-            if List.mem name (Sysfs.list ()) then (
-              Dhclient.stop name ; Ip.flush_ip_addr name
-            )
+            Dhclient.stop name ; Ip.flush_ip_addr name
         | DHCP4 ->
-            let gateway =
-              Option.fold ~none:[]
-                ~some:(fun n -> [`gateway n])
-                !config.gateway_interface
-            in
-            let dns =
-              Option.fold ~none:[]
-                ~some:(fun n -> [`dns n])
-                !config.dns_interface
-            in
             if not (Dhclient.is_running name) then (* Remove any static IPs *)
               Ip.flush_ip_addr name ;
-            let options = gateway @ dns in
-            Dhclient.ensure_running name options
+            Dhclient.ensure_running name (config_to_dhcp_options !config)
         | Static4 addrs ->
-            if Dhclient.is_running name then (
-              Dhclient.stop name ; Ip.flush_ip_addr name
-            ) ;
+            Dhclient.stop name ;
             (* the function is meant to be idempotent and we want to avoid
                CA-239919 *)
             let cur_addrs = Ip.get_ipv4 name in
@@ -519,6 +515,9 @@ module Interface = struct
             in
             List.iter (Ip.del_ip_addr name) rm_addrs ;
             List.iter (Ip.set_ip_addr name) add_addrs
+        ) ;
+
+        update_config name {(get_config name) with ipv4_conf= conf}
       )
       ()
 
@@ -568,38 +567,24 @@ module Interface = struct
         else (
           debug "Configuring IPv6 address for %s: %s" name
             (conf |> Rpcmarshal.marshal typ_of_ipv6 |> Jsonrpc.to_string) ;
-          update_config name {(get_config name) with ipv6_conf= conf} ;
-          match conf with
+
+          ( match conf with
           | None6 ->
-              if List.mem name (Sysfs.list ()) then (
-                Dhclient.stop ~ipv6:true name ;
-                Sysctl.set_ipv6_autoconf name false ;
-                Ip.flush_ip_addr ~ipv6:true name
-              )
+              Dhclient.stop ~ipv6:true name ;
+              Sysctl.set_ipv6_autoconf name false ;
+              Ip.flush_ip_addr ~ipv6:true name
           | Linklocal6 ->
-              if List.mem name (Sysfs.list ()) then (
-                Dhclient.stop ~ipv6:true name ;
-                Sysctl.set_ipv6_autoconf name false ;
-                Ip.flush_ip_addr ~ipv6:true name ;
-                Ip.set_ipv6_link_local_addr name
-              )
+              Dhclient.stop ~ipv6:true name ;
+              Sysctl.set_ipv6_autoconf name false ;
+              Ip.flush_ip_addr ~ipv6:true name ;
+              Ip.set_ipv6_link_local_addr name
           | DHCP6 ->
-              let gateway =
-                Option.fold ~none:[]
-                  ~some:(fun n -> [`gateway n])
-                  !config.gateway_interface
-              in
-              let dns =
-                Option.fold ~none:[]
-                  ~some:(fun n -> [`dns n])
-                  !config.dns_interface
-              in
               Dhclient.stop ~ipv6:true name ;
               Sysctl.set_ipv6_autoconf name false ;
               Ip.flush_ip_addr ~ipv6:true name ;
               Ip.set_ipv6_link_local_addr name ;
-              let options = gateway @ dns in
-              Dhclient.ensure_running ~ipv6:true name options
+              Dhclient.ensure_running ~ipv6:true name
+                (config_to_dhcp_options !config)
           | Autoconf6 ->
               Dhclient.stop ~ipv6:true name ;
               Ip.flush_ip_addr ~ipv6:true name ;
@@ -630,6 +615,9 @@ module Interface = struct
               in
               List.iter (Ip.del_ip_addr name) rm_addrs ;
               List.iter (Ip.set_ip_addr name) add_addrs
+          ) ;
+
+          update_config name {(get_config name) with ipv6_conf= conf}
         )
       )
       ()
@@ -803,7 +791,8 @@ module Interface = struct
     Debug.with_thread_associated dbg
       (fun () ->
         debug "Configuring LLDP for %s" name ;
-        Lldp.set_conf name params
+        Lldp.set_conf name params ;
+        update_config name {(get_config name) with lldp= params}
       )
       ()
 
@@ -912,21 +901,20 @@ module Interface = struct
         List.iter
           (function
             | ( name
-              , ( {
-                    ipv4_conf
-                  ; ipv4_gateway
-                  ; ipv6_conf
-                  ; ipv6_gateway
-                  ; ipv4_routes
-                  ; dns
-                  ; mtu
-                  ; ethtool_settings
-                  ; ethtool_offload
-                  ; lldp
-                  ; _
-                  } as c
-                ) ) ->
-                update_config name c ;
+              , {
+                  ipv4_conf
+                ; ipv4_gateway
+                ; ipv6_conf
+                ; ipv6_gateway
+                ; ipv4_routes
+                ; dns
+                ; mtu
+                ; ethtool_settings
+                ; ethtool_offload
+                ; lldp
+                ; persistent_i
+                } ) ->
+                exec (fun () -> set_persistent dbg name persistent_i) ;
                 exec (fun () ->
                     match dns with
                     | None ->
