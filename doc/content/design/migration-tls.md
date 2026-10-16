@@ -76,7 +76,8 @@ stunnel receiver on the destination. Benefits:
 * R1. Admin configuration:
     * R1.1.1. Host-level: `xe-enable-experimental-feature migration_ktls` sets
       `/etc/xenserver/features.d/migration_ktls` to 1 on the host, enabling the
-      option there.
+      option for the migrations that host sends. An explicit `migration-tls`
+      in the host's `xenopsd.conf` takes precedence over the flag.
     * R1.1.2. Pool-level: when every host has the entry, the matching
       `restrict_migration_ktls` shown by `xe pool-list params=restrictions`
       reads `false`.
@@ -90,18 +91,18 @@ stunnel receiver on the destination. Benefits:
 * R3. Future: once kTLS is the default, a XenAPI field
   `pool.migration_transport` could expose `ktls` (default) or `stunnel`.
 
-Implementation note: R1.1.1 describes the intended activation. The current
-implementation does not yet read `features.d/migration_ktls`; it selects the
-transport per host from `xenopsd.conf` instead:
+Implementation note: xenopsd decides the transport once per migration, and
+logs the result and what decided it:
 
 ```
-migration-tls = "ktls"      # use the helper
-migration-tls = "stunnel"   # explicit default
-migration-tls = ""          # currently defaults to "stunnel"
+migration-tls = "ktls"      # use the helper, whatever the flag says
+migration-tls = "stunnel"   # use stunnel, whatever the flag says
+migration-tls = ""          # unset (default): use the helper if
+                            # features.d/migration_ktls is 1 (or true),
+                            # otherwise stunnel
 ```
 
-Wiring `xe-enable-experimental-feature migration_ktls` to this `xenopsd.conf`
-option (so the host flag drives R1.1.1/R1.1.2) is outstanding.
+An unknown `migration-tls` value means stunnel.
 
 ## Design
 
@@ -216,8 +217,8 @@ The sender path is in xenopsd. Outside the helper itself, the change is small:
   Makefile and README. It is built on its own (`make`) and deployed to
   `/usr/libexec/xapi/ktls-helper`.
 * `ocaml/xenopsd/lib/migrate_connect.ml` — a drop-in replacement for
-  `Open_uri.with_open_uri` that spawns the helper when `migration-tls = "ktls"`
-  and falls back to `Open_uri` otherwise.
+  `Open_uri.with_open_uri` that spawns the helper when the migration's
+  transport is kTLS and falls back to `Open_uri` otherwise.
 * `ocaml/xenopsd/lib/xenops_server.ml` — the three migration fd call sites
   (vm, mem, vgpu) in the `VM_migrate` branch go through `Migrate_connect`.
 * `ocaml/xenopsd/lib/xenopsd.ml`, `ocaml/xenopsd/xc/xc_resources.ml`,

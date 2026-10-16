@@ -501,6 +501,36 @@ let try_read_string ?limit fd =
   done ;
   Buffer.contents buf
 
+let read_small_regular_file ~max_bytes path =
+  let is_regular st = st.Unix.st_kind = Unix.S_REG in
+  try
+    (* Checked before opening, so that a FIFO or a device is never opened *)
+    let st = Unix.stat path in
+    if not (is_regular st) then
+      Error "not a regular file"
+    else
+      with_file path
+        Unix.[O_RDONLY; O_NONBLOCK; O_NOCTTY; O_CLOEXEC]
+        0
+        (fun fd ->
+          (* Check the file that was actually opened *)
+          if not (is_regular (Unix.fstat fd)) then
+            Error "not a regular file"
+          else
+            (* The fd stays non-blocking, so a read never blocks either *)
+            (* One extra byte tells a file of max_bytes from a longer one *)
+            let content = try_read_string ~limit:(max_bytes + 1) fd in
+            if String.length content > max_bytes then
+              Error "too large"
+            else
+              Ok (Some content)
+        )
+  with
+  | Unix.Unix_error ((Unix.ENOENT | Unix.ENOTDIR), _, _) ->
+      Ok None
+  | e ->
+      Error (Printexc.to_string e)
+
 (* From https://ocaml.github.io/ocamlunix/ocamlunix.html#sec118
    The function write of the Unix module iterates the system call write until
    all the requested bytes are effectively written.
