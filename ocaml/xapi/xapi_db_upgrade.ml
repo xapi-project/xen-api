@@ -1053,7 +1053,7 @@ let maybe_upgrade ~__context =
     warn
       "Database schema version %s is more recent than binary %s: downgrade is \
        unsupported."
-      previous_string previous_string
+      previous_string latest_string
   else if previous_vsn < latest_vsn then (
     apply_upgrade_rules ~__context rules previous_vsn ;
     debug "Upgrade rules applied, bumping schema version to %d.%d"
