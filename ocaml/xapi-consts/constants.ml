@@ -479,3 +479,5 @@ let trusted_certs_by_purpose_dir = "/etc/trusted-certs"
 let trusted_certs_root_prefix = "ca-bundle"
 
 let trusted_certs_pinned_prefix = "pinned-bundle"
+
+let ntp_system_layout_version = "ntp_system_layout_version"
