@@ -136,9 +136,9 @@ let prototyped_of_field = function
   | "SM", "host_pending_features" ->
       Some "24.37.0"
   | "PIF_metrics", "lldp_neighbor" ->
-      Some "26.20.0-next"
+      Some "26.21.1"
   | "PIF", "lldp_mode" ->
-      Some "26.20.0-next"
+      Some "26.21.1"
   | "VIF", "trunks" ->
       Some "26.17.0"
   | "host", "timezone" ->
@@ -200,9 +200,9 @@ let prototyped_of_field = function
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "lldp_multicast_address" ->
-      Some "26.20.0-next"
+      Some "26.21.1"
   | "pool", "lldp_enabled" ->
-      Some "26.20.0-next"
+      Some "26.21.1"
   | "pool", "auto_update_vm_secureboot_certificates" ->
       Some "26.16.1"
   | "pool", "vm_console_idle_timeout" ->
@@ -322,7 +322,7 @@ let prototyped_of_message = function
   | "VDI", "revert" ->
       Some "26.16.0"
   | "PIF", "set_lldp_mode" ->
-      Some "26.20.0-next"
+      Some "26.21.1"
   | "VIF", "set_trunks" ->
       Some "26.17.0"
   | "VIF", "remove_trunks" ->
@@ -428,7 +428,7 @@ let prototyped_of_message = function
   | "pool", "set_custom_uefi_certificates" ->
       Some "24.0.0"
   | "pool", "set_lldp_enabled" ->
-      Some "26.20.0-next"
+      Some "26.21.1"
   | "task", "set_other_config" ->
       Some "25.8.0"
   | "task", "remove_from_other_config" ->
