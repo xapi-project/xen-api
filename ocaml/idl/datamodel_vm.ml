@@ -491,7 +491,8 @@ let provision =
        creates VDIs and VBDs and then executes any applicable post-install \
        script."
     ~params:[(Ref _vm, "vm", "The VM to be provisioned")]
-    ~in_oss_since:None ~published:rel_rio ~errs:(errnames_of_call clone)
+    ~in_oss_since:None ~published:rel_rio
+    ~errs:(errnames_of_call clone @ [Api_errors.default_sr_not_found])
     ~allowed_roles:_R_VM_ADMIN ()
 
 (* VM.Start *)
