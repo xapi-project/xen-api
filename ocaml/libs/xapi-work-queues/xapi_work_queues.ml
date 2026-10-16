@@ -198,6 +198,8 @@ module type S = sig
 
     val start : int -> unit
 
+    val start_default : int -> unit
+
     val set_size : int -> unit
   end
 end
@@ -546,6 +548,11 @@ module Make (W : Work) = struct
         incr Redirector.parallel_queues ;
         incr Redirector.nested_parallel_queues ;
         incr Redirector.receive_memory_queues
+      done
+
+    let start_default size =
+      for _i = 1 to size do
+        incr Redirector.default
       done
 
     let set_size size =
