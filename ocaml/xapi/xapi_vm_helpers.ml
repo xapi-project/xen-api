@@ -1093,8 +1093,8 @@ let rec select_host_from_ranked_lists ~vm ~host_selector ~ranked_host_lists =
           ~ranked_host_lists:less_optimal_groups_of_hosts
     )
 
-let choose_host_for_vm_no_wlb ?(fall_back_to_ignoring_memory = true) ~__context
-    ~vm ~snapshot () =
+let choose_host_for_vm_no_wlb ?(fall_back_to_ignoring_memory = true) ?claims
+    ~__context ~vm ~snapshot () =
   let validate_host =
     vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:true
   in
@@ -1133,7 +1133,11 @@ let choose_host_for_vm_no_wlb ?(fall_back_to_ignoring_memory = true) ~__context
             )
   in
   let host_selector =
-    Xapi_vm_placement.select_host __context vm validate_host
+    match claims with
+    | None ->
+        Xapi_vm_placement.select_host __context vm validate_host
+    | Some claims ->
+        Xapi_vm_placement.select_host_claiming claims __context vm validate_host
   in
   try
     select_host_from_ranked_lists ~vm ~host_selector
@@ -1165,11 +1169,11 @@ let choose_host_uses_wlb ~__context =
           )
        )
 
-let choose_host_for_vm ?fall_back_to_ignoring_memory ~__context ~vm ~snapshot ()
-    =
+let choose_host_for_vm ?fall_back_to_ignoring_memory ?claims ~__context ~vm
+    ~snapshot () =
   let choose_without_wlb () =
-    choose_host_for_vm_no_wlb ?fall_back_to_ignoring_memory ~__context ~vm
-      ~snapshot ()
+    choose_host_for_vm_no_wlb ?fall_back_to_ignoring_memory ?claims ~__context
+      ~vm ~snapshot ()
   in
   if choose_host_uses_wlb ~__context then
     let wlb_choice =
@@ -1269,9 +1273,14 @@ let unlocked_host_choice_attempts = 3
 (** Recheck suitability and reserve under the same global lock. *)
 let choose_host_and_reserve ~__context ~vm ~snapshot ~reserve
     ?(attempts = unlocked_host_choice_attempts)
+    ?(claims =
+      if !Xapi_globs.placement_pending_aware then
+        Some Placement_claims.coordinator
+      else
+        None)
     ?(choose =
-      fun ~fall_back_to_ignoring_memory ->
-        choose_host_for_vm ~fall_back_to_ignoring_memory ~__context ~vm
+      fun ~claims ~fall_back_to_ignoring_memory ->
+        choose_host_for_vm ~fall_back_to_ignoring_memory ?claims ~__context ~vm
           ~snapshot ())
     ?(still_suitable =
       vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:true) () =
@@ -1284,9 +1293,31 @@ let choose_host_and_reserve ~__context ~vm ~snapshot ~reserve
         if host <> Ref.null then
           host
         else
-          let host = choose ~fall_back_to_ignoring_memory:true in
+          let host = choose ~claims:None ~fall_back_to_ignoring_memory:true in
           reserve host ; host
     )
+  in
+  let release_claim () =
+    Option.iter (fun claims -> Placement_claims.release claims ~vm) claims
+  in
+  let choose_unlocked_and_reserve () =
+    Fun.protect ~finally:release_claim @@ fun () ->
+    match choose ~claims ~fall_back_to_ignoring_memory:false with
+    | exception e ->
+        Error e
+    | host ->
+        Ok
+          ( host
+          , Helpers.with_global_lock (fun () ->
+                let scheduled = scheduled_host () in
+                if scheduled <> Ref.null then
+                  Some scheduled
+                else if still_suitable host then (
+                  reserve host ; Some host
+                ) else
+                  None
+            )
+          )
   in
   let rec choose_and_reserve attempt =
     if attempt > attempts then (
@@ -1296,37 +1327,23 @@ let choose_host_and_reserve ~__context ~vm ~snapshot ~reserve
         __FUNCTION__ (Ref.string_of vm) attempts ;
       choose_and_reserve_locked ()
     ) else
-      match choose ~fall_back_to_ignoring_memory:false with
-      | exception e ->
+      match choose_unlocked_and_reserve () with
+      | Error e ->
           debug
             "%s: choosing a host for VM %s without the global lock failed \
              (%s); choosing with the lock held"
             __FUNCTION__ (Ref.string_of vm)
             (ExnHelper.string_of_exn e) ;
           choose_and_reserve_locked ()
-      | host -> (
-          let reserved =
-            Helpers.with_global_lock (fun () ->
-                let scheduled = scheduled_host () in
-                if scheduled <> Ref.null then
-                  Some scheduled
-                else if still_suitable host then (
-                  reserve host ; Some host
-                ) else
-                  None
-            )
-          in
-          match reserved with
-          | Some host ->
-              host
-          | None ->
-              info
-                "%s: host %s chosen without the global lock is no longer \
-                 suitable for VM %s (attempt %d of %d)"
-                __FUNCTION__ (Ref.string_of host) (Ref.string_of vm) attempt
-                attempts ;
-              choose_and_reserve (attempt + 1)
-        )
+      | Ok (_, Some host) ->
+          host
+      | Ok (host, None) ->
+          info
+            "%s: host %s chosen without the global lock is no longer suitable \
+             for VM %s (attempt %d of %d)"
+            __FUNCTION__ (Ref.string_of host) (Ref.string_of vm) attempt
+            attempts ;
+          choose_and_reserve (attempt + 1)
   in
   if
     scheduled_host () <> Ref.null

@@ -1456,6 +1456,8 @@ let rate_limit_enabled = ref false
     day. *)
 let call_costs_file = ref "/etc/xensource/call-costs.conf"
 
+let placement_pending_aware = ref true
+
 let other_options =
   [
     gen_list_option "sm-plugins"
@@ -2010,6 +2012,13 @@ let other_options =
     , Arg.Set rate_limit_enabled
     , (fun () -> string_of_bool !rate_limit_enabled)
     , "Enable per-caller rate limiting (Caller / Rate_limit datamodel)."
+    )
+  ; ( "placement-pending-aware"
+    , Arg.Bool (fun b -> placement_pending_aware := b)
+    , (fun () -> string_of_bool !placement_pending_aware)
+    , "When choosing hosts for VMs started at the same time, account for the \
+       hosts already chosen for the other VMs whose resources are not reserved \
+       yet (default: true)"
     )
   ]
 

@@ -1109,8 +1109,12 @@ module ChooseHostAndReserve = struct
   let run ?attempts ~__context ~vm ~choices ~suitable () =
     let chosen = ref [] and checked = ref [] and reserved = ref [] in
     let choices = ref choices in
-    let choose ~fall_back_to_ignoring_memory =
+    let choose ~claims ~fall_back_to_ignoring_memory =
       chosen := (fall_back_to_ignoring_memory, global_lock_held ()) :: !chosen ;
+      Alcotest.(check bool)
+        "claims only used without the lock"
+        (not (global_lock_held ()))
+        (Option.is_some claims) ;
       match !choices with
       | [] ->
           Alcotest.fail "choose called too many times"
@@ -1127,9 +1131,10 @@ module ChooseHostAndReserve = struct
       Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:host
     in
     let snapshot = Db.VM.get_record ~__context ~self:vm in
+    let claims = Placement_claims.create () in
     let result =
       Xapi_vm_helpers.choose_host_and_reserve ~__context ~vm ~snapshot ~reserve
-        ?attempts ~choose ~still_suitable ()
+        ?attempts ~claims:(Some claims) ~choose ~still_suitable ()
     in
     Alcotest.(check bool) "global lock released" false (global_lock_held ()) ;
     Alcotest.check host "VM scheduled on the returned host" result
@@ -1270,7 +1275,7 @@ module ChooseHostAndReserve = struct
       (fun () ->
         Xapi_vm_helpers.choose_host_and_reserve ~__context ~vm ~snapshot
           ~reserve
-          ~choose:(fun ~fall_back_to_ignoring_memory:_ -> h2)
+          ~choose:(fun ~claims:_ ~fall_back_to_ignoring_memory:_ -> h2)
           ~still_suitable:(fun _ -> true)
           ()
         |> ignore
@@ -1329,7 +1334,7 @@ module ChooseHostAndReserve = struct
         ; (fun () -> h3)
         ]
     in
-    let choose ~fall_back_to_ignoring_memory =
+    let choose ~claims:_ ~fall_back_to_ignoring_memory =
       Alcotest.(check bool)
         "chosen without the lock" false fall_back_to_ignoring_memory ;
       match !choices with
@@ -1375,6 +1380,421 @@ module ChooseHostAndReserve = struct
     ; ("test_reserve_fails", `Quick, test_reserve_fails)
     ; ("test_memory_taken_concurrently", `Quick, test_memory_taken_concurrently)
     ; ("test_default_chooser", `Quick, test_default_chooser)
+    ]
+end
+
+module PlacementClaims = struct
+  open ChooseHostAndReserve
+
+  let claims_count = Alcotest.int
+
+  let required_memory ~__context ~vm =
+    let snapshot = Db.VM.get_record ~__context ~self:vm in
+    let main, shadow =
+      Memory_check.vm_compute_start_memory ~__context
+        ~policy:Memory_check.Dynamic_min snapshot
+    in
+    Int64.add main shadow
+
+  let enable_host ~__context ~memory_total self =
+    Db.Host.set_enabled ~__context ~self ~value:true ;
+    Db.Host.set_capabilities ~__context ~self ~value:["hvm-3.0-x86_64"] ;
+    Db.Host.remove_from_cpu_info ~__context ~self ~key:"cpu_count" ;
+    Db.Host.add_to_cpu_info ~__context ~self ~key:"cpu_count" ~value:"4" ;
+    let metrics = Db.Host.get_metrics ~__context ~self in
+    Db.Host_metrics.set_live ~__context ~self:metrics ~value:true ;
+    Db.Host_metrics.set_memory_total ~__context ~self:metrics
+      ~value:memory_total
+
+  let with_large_pool ?(coordinator_bias = false) n f =
+    let __context = T.make_test_database () in
+    let h1 = Helpers.get_localhost ~__context in
+    let h2 = T.make_host ~__context () in
+    let h3 = T.make_host ~__context () in
+    let vms = List.init n (fun _ -> T.make_vm ~__context ()) in
+    let required =
+      match vms with
+      | vm :: _ ->
+          required_memory ~__context ~vm
+      | [] ->
+          Alcotest.fail "expected VMs"
+    in
+    let memory_total = Int64.(mul required (of_int (2 * (n + 1)))) in
+    List.iter (enable_host ~__context ~memory_total) [h1; h2; h3] ;
+    Db.Pool.set_coordinator_bias ~__context
+      ~self:(Helpers.get_pool ~__context)
+      ~value:coordinator_bias ;
+    f ~__context ~vms [h1; h2; h3]
+
+  let validate_host ~__context ~vm =
+    let snapshot = Db.VM.get_record ~__context ~self:vm in
+    Xapi_vm_helpers.vm_can_run_on_host ~__context ~vm ~snapshot
+      ~do_memory_check:true
+
+  let uuid ~__context host = Db.Host.get_uuid ~__context ~self:host
+
+  let distribution ~__context hosts vms =
+    let scheduled =
+      List.map
+        (fun self -> Db.VM.get_scheduled_to_be_resident_on ~__context ~self)
+        vms
+    in
+    List.map
+      (fun h -> List.length (List.filter (fun h' -> h' = h) scheduled))
+      hosts
+
+  let pp_distribution = Fmt.(brackets (list ~sep:semi int))
+
+  let unschedule ~__context vms =
+    List.iter
+      (fun self ->
+        Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null
+      )
+      vms
+
+  let place ?choose ~__context ~claims vm =
+    let snapshot = Db.VM.get_record ~__context ~self:vm in
+    Xapi_vm_helpers.choose_host_and_reserve ~__context ~vm ~snapshot
+      ~reserve:(reserve_on ~__context ~vm)
+      ~claims ?choose ()
+
+  let place_one_by_one ~__context vms =
+    List.iter (fun vm -> place ~__context ~claims:None vm |> ignore) vms
+
+  let place_at_the_same_time ~__context ~claims vms =
+    let n = List.length vms in
+    let m = Mutex.create () and all_chosen = Condition.create () in
+    let chosen = ref 0 in
+    let wait_for_all_choices () =
+      Mutex.lock m ;
+      incr chosen ;
+      Condition.broadcast all_chosen ;
+      while !chosen < n do
+        Condition.wait all_chosen m
+      done ;
+      Mutex.unlock m
+    in
+    let place vm =
+      let snapshot = Db.VM.get_record ~__context ~self:vm in
+      let first = ref true in
+      let choose ~claims ~fall_back_to_ignoring_memory =
+        Fun.protect
+          ~finally:(fun () ->
+            if !first then (
+              first := false ;
+              wait_for_all_choices ()
+            )
+          )
+          (fun () ->
+            Xapi_vm_helpers.choose_host_for_vm ~fall_back_to_ignoring_memory
+              ?claims ~__context ~vm ~snapshot ()
+          )
+      in
+      place ~choose ~__context ~claims vm
+    in
+    let results = Array.make n None in
+    List.mapi
+      (fun i vm ->
+        Thread.create
+          (fun () -> results.(i) <- Some (try Ok (place vm) with e -> Error e))
+          ()
+      )
+      vms
+    |> List.iter Thread.join ;
+    Array.iter
+      (function
+        | Some (Ok _) ->
+            ()
+        | Some (Error e) ->
+            Alcotest.failf "placing a VM failed: %s" (Printexc.to_string e)
+        | None ->
+            Alcotest.fail "a VM was not placed"
+        )
+      results
+
+  let test_same_host_without_claims () =
+    with_large_pool ~coordinator_bias:true 8 @@ fun ~__context ~vms hosts ->
+    match (vms, hosts) with
+    | vm :: others, [h1; h2; h3] ->
+        List.iteri
+          (fun i vm' ->
+            reserve_on ~__context ~vm:vm'
+              ( if i < 4 then
+                  h1
+                else
+                  h2
+              )
+          )
+          others ;
+        let check_same ~validate_host seed =
+          let claims = Placement_claims.create () in
+          Random.init seed ;
+          let expected =
+            Xapi_vm_placement.select_host __context vm validate_host hosts
+          in
+          Random.init seed ;
+          let actual =
+            Xapi_vm_placement.select_host_claiming claims __context vm
+              validate_host hosts
+          in
+          Alcotest.check host (Printf.sprintf "seed %d" seed) expected actual ;
+          Alcotest.(check (list (pair string string)))
+            "claim recorded for the host chosen"
+            [(Ref.string_of vm, uuid ~__context actual)]
+            (Placement_claims.claims claims
+            |> List.map (fun (vm, c) ->
+                (Ref.string_of vm, c.Placement_claims.host)
+            )
+            )
+        in
+        let validate_host = validate_host ~__context ~vm in
+        List.iter (check_same ~validate_host) (List.init 20 Fun.id) ;
+        let validate_host h = h <> h3 && validate_host h in
+        List.iter (check_same ~validate_host) (List.init 20 Fun.id)
+    | _ ->
+        Alcotest.fail "unexpected pool"
+
+  let test_single_start_same_host () =
+    with_large_pool ~coordinator_bias:true 4 @@ fun ~__context ~vms hosts ->
+    match (vms, hosts) with
+    | vm :: others, [h1; _; _] ->
+        List.iter (fun vm' -> reserve_on ~__context ~vm:vm' h1) others ;
+        List.iter
+          (fun seed ->
+            Random.init seed ;
+            let without = place ~__context ~claims:None vm in
+            unschedule ~__context [vm] ;
+            Random.init seed ;
+            let claims = Placement_claims.create () in
+            let with_claims = place ~__context ~claims:(Some claims) vm in
+            unschedule ~__context [vm] ;
+            Alcotest.check host
+              (Printf.sprintf "seed %d" seed)
+              without with_claims ;
+            Alcotest.check claims_count "claim released" 0
+              (Placement_claims.count claims)
+          )
+          (List.init 20 Fun.id)
+    | _ ->
+        Alcotest.fail "unexpected pool"
+
+  let claim_of ~__context ~vm host =
+    {
+      Placement_claims.host= uuid ~__context host
+    ; guest= Xapi_vm_placement.create_guest_snapshot __context vm
+    }
+
+  let add_claim claims ~__context ~vm host =
+    Placement_claims.claim claims ~vm (fun _ ->
+        Some (claim_of ~__context ~vm host)
+    )
+    |> ignore
+
+  let test_claims_count_as_reservations () =
+    with_pool_fitting_one_vm_per_host @@ fun ~__context ~vms h2 h3 ->
+    match vms with
+    | [vm_a; vm_b; _] ->
+        let validate_host = validate_host ~__context ~vm:vm_b in
+        let choose ~claims seed =
+          Random.init seed ;
+          Xapi_vm_placement.select_host_claiming claims __context vm_b
+            validate_host
+            (Db.Host.get_all ~__context)
+        in
+        let chosen_without_claims =
+          List.init 20 (fun seed ->
+              choose ~claims:(Placement_claims.create ()) seed
+          )
+        in
+        Alcotest.(check bool)
+          "h2 chosen for some seeds without claims" true
+          (List.mem h2 chosen_without_claims) ;
+        List.iter
+          (fun seed ->
+            let claims = Placement_claims.create () in
+            add_claim claims ~__context ~vm:vm_a h2 ;
+            Alcotest.check host
+              (Printf.sprintf "seed %d: h2 claimed" seed)
+              h3 (choose ~claims seed)
+          )
+          (List.init 20 Fun.id)
+    | _ ->
+        Alcotest.fail "expected three VMs"
+
+  let test_claims_of_scheduled_vms_ignored () =
+    with_pool_fitting_one_vm_per_host @@ fun ~__context ~vms h2 h3 ->
+    match vms with
+    | [vm_a; vm_b; vm_c] ->
+        reserve_on ~__context ~vm:vm_a h3 ;
+        let choose claims =
+          Xapi_vm_placement.select_host_claiming claims __context vm_b
+            (validate_host ~__context ~vm:vm_b)
+            (Db.Host.get_all ~__context)
+        in
+        let claims = Placement_claims.create () in
+        add_claim claims ~__context ~vm:vm_a h2 ;
+        Alcotest.check host "stale claim ignored" h2 (choose claims) ;
+        let claims = Placement_claims.create () in
+        add_claim claims ~__context ~vm:vm_c h2 ;
+        Alcotest.check_raises "no host available"
+          Api_errors.(Server_error (no_hosts_available, []))
+          (fun () -> choose claims |> ignore) ;
+        Alcotest.check claims_count "no claim recorded for vm_b" 1
+          (Placement_claims.count claims)
+    | _ ->
+        Alcotest.fail "expected three VMs"
+
+  let test_claim_released () =
+    with_large_pool 1 @@ fun ~__context ~vms _ ->
+    let vm = match vms with [vm] -> vm | _ -> Alcotest.fail "one VM" in
+    let claims = Placement_claims.create () in
+    let check_released name =
+      Alcotest.check claims_count
+        (name ^ ": claim released")
+        0
+        (Placement_claims.count claims) ;
+      unschedule ~__context [vm]
+    in
+    let claimed_host () =
+      match Placement_claims.claims claims with
+      | [(vm', c)] when vm' = vm ->
+          Some c.Placement_claims.host
+      | _ ->
+          None
+    in
+    let still_suitable_checks_claim ~suitable host =
+      Alcotest.(check (option string))
+        "claim held while checking the host"
+        (Some (uuid ~__context host))
+        (claimed_host ()) ;
+      suitable host
+    in
+    let place ?choose ?(suitable = fun _ -> true) ?reserve () =
+      let snapshot = Db.VM.get_record ~__context ~self:vm in
+      Xapi_vm_helpers.choose_host_and_reserve ~__context ~vm ~snapshot
+        ~reserve:(Option.value reserve ~default:(reserve_on ~__context ~vm))
+        ~claims:(Some claims) ?choose
+        ~still_suitable:(still_suitable_checks_claim ~suitable)
+        ()
+    in
+    place () |> ignore ;
+    check_released "reserved" ;
+    let first = ref true in
+    let suitable _ =
+      let s = not !first in
+      first := false ;
+      s
+    in
+    place ~suitable () |> ignore ;
+    check_released "retried" ;
+    let snapshot = Db.VM.get_record ~__context ~self:vm in
+    Xapi_vm_helpers.choose_host_and_reserve ~__context ~vm ~snapshot
+      ~reserve:(reserve_on ~__context ~vm)
+      ~claims:(Some claims)
+      ~still_suitable:(fun _ -> false)
+      ()
+    |> ignore ;
+    check_released "chosen with the lock" ;
+    let reserve _ = raise Api_errors.(Server_error (internal_error, [])) in
+    Alcotest.check_raises "reserve fails"
+      Api_errors.(Server_error (internal_error, []))
+      (fun () -> place ~reserve () |> ignore) ;
+    check_released "reserve failed" ;
+    let choose ~claims ~fall_back_to_ignoring_memory =
+      let host =
+        Xapi_vm_helpers.choose_host_for_vm ~fall_back_to_ignoring_memory ?claims
+          ~__context ~vm ~snapshot ()
+      in
+      if Option.is_some claims then
+        failwith "choose"
+      else
+        host
+    in
+    place ~choose () |> ignore ;
+    check_released "choose failed" ;
+    Alcotest.(check bool) "global lock released" false (global_lock_held ())
+
+  let check_balanced ~name ~n ~hosts distribution =
+    let max_per_host = List.fold_left max 0 distribution in
+    let even = (n + hosts - 1) / hosts in
+    if max_per_host > even + 4 then
+      Alcotest.failf "%s: %a is not balanced (max %d > %d + 4)" name
+        pp_distribution distribution max_per_host even
+
+  let test_balance_at_the_same_time () =
+    let n = 90 in
+    with_large_pool n @@ fun ~__context ~vms hosts ->
+    let distribution () = distribution ~__context hosts vms in
+    Random.init 42 ;
+    place_one_by_one ~__context vms ;
+    let one_by_one = distribution () in
+    unschedule ~__context vms ;
+    Random.init 42 ;
+    place_at_the_same_time ~__context ~claims:None vms ;
+    let without_claims = distribution () in
+    unschedule ~__context vms ;
+    let claims = Placement_claims.create () in
+    Random.init 42 ;
+    place_at_the_same_time ~__context ~claims:(Some claims) vms ;
+    let with_claims = distribution () in
+    Printf.printf
+      "%d VMs on 3 hosts: one by one %s; at the same time without claims %s, \
+       with claims %s\n"
+      n
+      (Fmt.to_to_string pp_distribution one_by_one)
+      (Fmt.to_to_string pp_distribution without_claims)
+      (Fmt.to_to_string pp_distribution with_claims) ;
+    check_balanced ~name:"one by one" ~n ~hosts:3 one_by_one ;
+    check_balanced ~name:"with claims" ~n ~hosts:3 with_claims ;
+    Alcotest.(check bool)
+      "unbalanced without claims" true
+      (List.fold_left max 0 without_claims > (n / 3) + 4) ;
+    Alcotest.check claims_count "all claims released" 0
+      (Placement_claims.count claims)
+
+  let test_coordinator_bias_at_the_same_time () =
+    let n = 90 in
+    with_large_pool ~coordinator_bias:true n @@ fun ~__context ~vms hosts ->
+    let distribution () = distribution ~__context hosts vms in
+    Random.init 7 ;
+    place_one_by_one ~__context vms ;
+    let one_by_one = distribution () in
+    unschedule ~__context vms ;
+    let claims = Placement_claims.create () in
+    Random.init 7 ;
+    place_at_the_same_time ~__context ~claims:(Some claims) vms ;
+    let with_claims = distribution () in
+    unschedule ~__context vms ;
+    Random.init 7 ;
+    place_at_the_same_time ~__context ~claims:None vms ;
+    let without_claims = distribution () in
+    Printf.printf
+      "%d VMs on 3 hosts with coordinator bias (coordinator first): one by one \
+       %s; at the same time without claims %s, with claims %s\n"
+      n
+      (Fmt.to_to_string pp_distribution one_by_one)
+      (Fmt.to_to_string pp_distribution without_claims)
+      (Fmt.to_to_string pp_distribution with_claims) ;
+    Alcotest.(check (list int)) "same placement" one_by_one with_claims
+
+  let tests =
+    [
+      ("test_same_host_without_claims", `Quick, test_same_host_without_claims)
+    ; ("test_single_start_same_host", `Quick, test_single_start_same_host)
+    ; ( "test_claims_count_as_reservations"
+      , `Quick
+      , test_claims_count_as_reservations
+      )
+    ; ( "test_claims_of_scheduled_vms_ignored"
+      , `Quick
+      , test_claims_of_scheduled_vms_ignored
+      )
+    ; ("test_claim_released", `Quick, test_claim_released)
+    ; ("test_balance_at_the_same_time", `Quick, test_balance_at_the_same_time)
+    ; ( "test_coordinator_bias_at_the_same_time"
+      , `Quick
+      , test_coordinator_bias_at_the_same_time
+      )
     ]
 end
 
@@ -1440,4 +1860,5 @@ let () =
     [
       ("Test_vm_helpers", test @ VMAntiAffinityRankedGrpTest.tests)
     ; ("Choose_host_and_reserve", ChooseHostAndReserve.tests)
+    ; ("Placement_claims", PlacementClaims.tests)
     ]
