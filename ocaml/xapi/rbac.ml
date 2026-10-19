@@ -141,14 +141,14 @@ let permission_of_action ?args ~keys _action =
           get_keyERR_permission_name action "DENY_NOVALUE"
     )
 
-let is_permission_in_session ~session_id ~permission ~session =
+let is_permission_in_session ~session_id ~permission ~rbac_permissions =
   let find_linear elem set = List.exists (fun e -> e = elem) set in
   let find_log elem set = Permission_set.mem elem set in
   let permission_tree =
     match Hashtbl.find_opt session_permissions_tbl session_id with
     | None ->
         create_session_permissions_tbl ~session_id
-          ~rbac_permissions:session.API.session_rbac_permissions
+          ~rbac_permissions:(rbac_permissions ())
     | x ->
         x
   in
@@ -156,31 +156,36 @@ let is_permission_in_session ~session_id ~permission ~session =
   | Some permission_tree ->
       find_log permission permission_tree
   | None ->
-      find_linear permission session.API.session_rbac_permissions
+      find_linear permission (rbac_permissions ())
 
 open Db_actions
 
-(* Given a list of permissions, determine if the given session is
-   permitted to perform the related actions. If not, stop and return the
-   first disallowed permission. This stops us doing redundant checks
-   but also is consistent with the current RBAC error reporting, where
-   a single action is usually reported. *)
+(* Checking session existence must not depend on a permission-cache hit. *)
 let find_first_disallowed_permission ~__context ~session_id ~permissions =
-  let is_local_session () =
-    Session_check.is_local_session __context session_id
-  in
-  let doesn't_have_permission session permission =
-    is_permission_in_session ~session_id ~permission ~session = false
+  let first_disallowed ~rbac_permissions =
+    let doesn't_have_permission permission =
+      not (is_permission_in_session ~session_id ~permission ~rbac_permissions)
+    in
+    List.find_opt doesn't_have_permission permissions
   in
   (* Test session properties before querying permission sets. *)
-  if is_local_session () then
+  if Session_check.is_local_session __context session_id then
     None
+  else if Pool_role.is_master () then
+    if DB_Action.Session.get_is_local_superuser ~__context ~self:session_id then
+      None
+    else
+      first_disallowed ~rbac_permissions:(fun () ->
+          DB_Action.Session.get_rbac_permissions ~__context ~self:session_id
+      )
   else
     let session = DB_Action.Session.get_record ~__context ~self:session_id in
     if session.API.session_is_local_superuser then
       None
     else
-      List.find_opt (doesn't_have_permission session) permissions
+      first_disallowed ~rbac_permissions:(fun () ->
+          session.API.session_rbac_permissions
+      )
 
 (* Determine if session has a given permission. *)
 let is_access_allowed ~__context ~session_id ~permission =
