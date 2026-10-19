@@ -47,6 +47,10 @@ val read_http_request_header :
 
 val read_http_response_header : bytes -> Unix.file_descr -> int
 
+val peek : Unix.file_descr -> bytes -> int -> int -> int option
+(** Like [Unix.read] without consuming bytes. [None] means peeking is
+    unsupported; [Some 0] means end of file. *)
+
 module Accept : sig
   type t = {ty: (string * string option) option  (** None means '*' *); q: int}
 

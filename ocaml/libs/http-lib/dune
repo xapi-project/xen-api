@@ -73,7 +73,7 @@
  (modes
   (best exe))
  (modules http_test radix_tree_test)
- (libraries alcotest fmt http_lib unix))
+ (libraries alcotest fmt http_lib threads.posix unix))
 
 (executable
  (modes exe)

@@ -41,11 +41,7 @@ let http_rpc_send_query fd request =
    connection is closed *)
 exception Http_header_truncated of string
 
-(* Tediously read an HTTP header byte-by-byte. At some point we need to add buffering
-   but we'll need to encapsulate our file descriptor into more of a channel-like object
-   to make that work. *)
-let input_line_fd (fd : Unix.file_descr) =
-  let buf = Buffer.create 20 in
+let input_line_fd_byte_at_a_time fd buf =
   let finished = ref false in
   while not !finished do
     let buffer = Bytes.make 1 ' ' in
@@ -62,11 +58,37 @@ let input_line_fd (fd : Unix.file_descr) =
   done ;
   Buffer.contents buf
 
+let input_line_fd ?(chunk = Bytes.create 1024) (fd : Unix.file_descr) =
+  let buf = Buffer.create 128 in
+  let rec loop () =
+    match Http.peek fd chunk 0 (Bytes.length chunk) with
+    | None ->
+        input_line_fd_byte_at_a_time fd buf
+    | Some 0 ->
+        if Buffer.length buf = 0 then
+          ""
+        else
+          raise (Http_header_truncated (Buffer.contents buf))
+    | Some n -> (
+      match Bytes.index_opt chunk '\n' with
+      | Some i when i < n ->
+          Xapi_stdext_unix.Unixext.really_read fd chunk 0 (i + 1) ;
+          Buffer.add_subbytes buf chunk 0 i ;
+          Buffer.contents buf
+      | _ ->
+          Xapi_stdext_unix.Unixext.really_read fd chunk 0 n ;
+          Buffer.add_subbytes buf chunk 0 n ;
+          loop ()
+    )
+  in
+  loop ()
+
 let response_of_fd_exn_slow fd =
   let task_id = ref None in
   let content_length = ref None in
+  let chunk = Bytes.create 1024 in
   (* Initial line has the response code on it *)
-  let line = input_line_fd fd in
+  let line = input_line_fd ~chunk fd in
   let bits = Astring.String.fields ~empty:false line in
   (* We just ignore the initial "FRAME xxxxx" *)
   let bits = match bits with "FRAME" :: bits -> bits | _ -> bits in
@@ -86,7 +108,7 @@ let response_of_fd_exn_slow fd =
       let end_of_headers = ref false in
       let headers = ref [] in
       while not !end_of_headers do
-        let line = input_line_fd fd in
+        let line = input_line_fd ~chunk fd in
         (* NB input_line removes the final '\n'.
            RFC1945 says to expect a '\r\n' (- '\n' = '\r') *)
         match line with
