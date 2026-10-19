@@ -224,6 +224,36 @@ let check_fold_over_recent () =
   in
   loop 1L Table.empty
 
+let check_cached_value_marshalling () =
+  let values =
+    [
+      Schema.Value.String "a string"
+    ; Schema.Value.Set []
+    ; Schema.Value.Set
+        ["OpaqueRef:1"; "OpaqueRef:2"; "with \"quotes\" (and parens)"]
+    ; Schema.Value.Pairs [("k", "v"); ("k2", "")]
+    ]
+  in
+  List.iter
+    (fun value ->
+      let cached = Schema.CachedValue.v value in
+      let expected = Schema.Value.marshal value in
+      for _ = 1 to 2 do
+        Alcotest.(check string)
+          "string_of is Value.marshal" expected
+          (Schema.CachedValue.string_of cached)
+      done ;
+      Alcotest.(check bool)
+        "value_of is the value" true
+        (Schema.CachedValue.value_of cached = value)
+    )
+    values ;
+  match Schema.CachedValue.v (Schema.Value.Pairs [("", "v")]) with
+  | exception Db_exn.Empty_key_in_map ->
+      ()
+  | _ ->
+      Alcotest.fail "a map with an empty key must be rejected when written"
+
 let () =
   Alcotest.run "Database cache"
     [
@@ -233,6 +263,7 @@ let () =
         ; ("row_count", `Quick, check_row_count)
         ; ("fold_order", `Quick, check_fold_order)
         ; ("fold_over_recent", `Quick, check_fold_over_recent)
+        ; ("cached_value", `Quick, check_cached_value_marshalling)
         ]
       )
     ]
