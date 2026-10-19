@@ -173,6 +173,57 @@ let check_fold_order () =
   let visited = Table.fold (fun k _ _ acc -> k :: acc) table [] |> List.rev in
   Alcotest.(check (list string)) "Table.fold order" ["r1"; "r2"; "r3"] visited
 
+let check_fold_over_recent () =
+  let rand = Random.State.make [|314451|] in
+  let keys = Array.init 20 (Printf.sprintf "row:%02d") in
+  let row g =
+    Row.add g "f" (Schema.Value.string (Int64.to_string g)) Row.empty
+  in
+  let naive since t =
+    Table.fold
+      (fun k stat _ acc ->
+        if stat.Stat.modified > since then
+          (k, stat) :: acc
+        else
+          acc
+      )
+      t []
+  in
+  let indexed since t =
+    Table.fold_over_recent since (fun k stat _ acc -> (k, stat) :: acc) t []
+  in
+  let check g t =
+    for since = -1 to Int64.to_int g + 1 do
+      let since = Int64.of_int since in
+      let expected = naive since t and actual = indexed since t in
+      if expected <> actual then
+        Alcotest.failf
+          "fold_over_recent %Ld at generation %Ld: %d rows, expected %d" since g
+          (List.length actual) (List.length expected)
+    done
+  in
+  let rec loop g t =
+    if g <= 400L then (
+      let key = keys.(Random.State.int rand (Array.length keys)) in
+      let t =
+        match (Random.State.int rand 4, Table.mem key t) with
+        | 0, _ ->
+            Table.add g key (row g) t
+        | 1, _ ->
+            Table.update g key Row.empty (fun _ -> row g) t
+        | 2, _ ->
+            Table.touch g key Row.empty t
+        | _, true ->
+            Table.remove g key t
+        | _, false ->
+            t
+      in
+      check g t ;
+      loop (Int64.succ g) t
+    )
+  in
+  loop 1L Table.empty
+
 let () =
   Alcotest.run "Database cache"
     [
@@ -181,6 +232,7 @@ let () =
           ("many_to_many", `Quick, check_many_to_many)
         ; ("row_count", `Quick, check_row_count)
         ; ("fold_order", `Quick, check_fold_order)
+        ; ("fold_over_recent", `Quick, check_fold_over_recent)
         ]
       )
     ]

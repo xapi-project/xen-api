@@ -214,6 +214,9 @@ module Row = struct
       t schema.Schema.Table.columns
 end
 
+module TimeMap = Map.Make (Int64)
+module StringSet = Set.Make (String)
+
 module Table = struct
   module StringRowMap = Make (Row)
 
@@ -222,18 +225,51 @@ module Table = struct
     ; deleted_len: int
     ; deleted: (Time.t * Time.t * string) list
     ; count: int  (** number of live rows, maintained incrementally *)
+    ; by_modified: StringSet.t TimeMap.t
   }
 
   type value = Row.t
 
-  let add g key value t =
-    let count =
-      if StringRowMap.mem key t.rows then
-        t.count
-      else
-        t.count + 1
-    in
-    {t with rows= StringRowMap.add g key value t.rows; count}
+  let index_add gen key idx =
+    TimeMap.update gen
+      (function
+        | Some keys ->
+            Some (StringSet.add key keys)
+        | None ->
+            Some (StringSet.singleton key)
+        )
+      idx
+
+  let index_remove gen key idx =
+    TimeMap.update gen
+      (function
+        | Some keys ->
+            let keys = StringSet.remove key keys in
+            if StringSet.is_empty keys then
+              None
+            else
+              Some keys
+        | None ->
+            None
+        )
+      idx
+
+  let with_rows g key t rows =
+    match StringMap.find_opt key t.rows with
+    | Some {StringRowMap.stat= {Stat.modified; _}; _} ->
+        let by_modified =
+          t.by_modified |> index_remove modified key |> index_add g key
+        in
+        {t with rows; by_modified}
+    | None ->
+        {
+          t with
+          rows
+        ; count= t.count + 1
+        ; by_modified= index_add g key t.by_modified
+        }
+
+  let add g key value t = with_rows g key t (StringRowMap.add g key value t.rows)
 
   let empty =
     {
@@ -241,6 +277,7 @@ module Table = struct
     ; deleted_len= 1
     ; deleted= [(0L, 0L, "")]
     ; count= 0
+    ; by_modified= TimeMap.empty
     }
 
   let count t = t.count
@@ -256,8 +293,8 @@ module Table = struct
   let remove g key t =
     let upper_length_deleted_queue = 512 in
     let lower_length_deleted_queue = 256 in
-    let created = (StringMap.find key t.rows).StringRowMap.stat.Stat.created in
-    let new_element = (created, g, key) in
+    let stat = (StringMap.find key t.rows).StringRowMap.stat in
+    let new_element = (stat.Stat.created, g, key) in
     let new_len, new_deleted =
       if t.deleted_len + 1 < upper_length_deleted_queue then
         (t.deleted_len + 1, new_element :: t.deleted)
@@ -273,28 +310,34 @@ module Table = struct
     ; deleted_len= new_len
     ; deleted= new_deleted
     ; count= t.count - 1
+    ; by_modified= index_remove stat.Stat.modified key t.by_modified
     }
 
   let touch g key default t =
-    let count =
-      if StringRowMap.mem key t.rows then
-        t.count
-      else
-        t.count + 1
-    in
-    {t with rows= StringRowMap.touch g key default t.rows; count}
+    with_rows g key t (StringRowMap.touch g key default t.rows)
 
   let update g key default f t =
-    let count =
-      if StringRowMap.mem key t.rows then
-        t.count
-      else
-        t.count + 1
-    in
-    {t with rows= StringRowMap.update g key default f t.rows; count}
+    with_rows g key t (StringRowMap.update g key default f t.rows)
 
   let fold_over_recent since f t acc =
-    StringRowMap.fold_over_recent since f t.rows acc
+    match TimeMap.min_binding_opt t.by_modified with
+    | None ->
+        acc
+    | Some (oldest, _) when oldest > since ->
+        StringRowMap.fold f t.rows acc
+    | Some _ ->
+        let _, _, recent = TimeMap.split since t.by_modified in
+        let keys =
+          TimeMap.fold
+            (fun _ keys acc -> StringSet.union keys acc)
+            recent StringSet.empty
+        in
+        StringSet.fold
+          (fun key acc ->
+            let x = StringMap.find key t.rows in
+            f key x.StringRowMap.stat x.StringRowMap.v acc
+          )
+          keys acc
 
   let fold_over_deleted since f t acc =
     let rec loop xs acc =
