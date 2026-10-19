@@ -1172,87 +1172,95 @@ let choose_host_uses_wlb ~__context =
     priority to an affinity host if one is present. WARNING: called
     while holding the global lock from the message forwarding layer. *)
 let choose_host_for_vm ~__context ~vm ~snapshot =
-  if choose_host_uses_wlb ~__context then (
-    try
-      let possible_rec (host, recommendation) =
-        match recommendation with
-        | Recommendation {id; score; _} ->
-            Some (host, score, id)
-        | _ ->
-            None
-      in
-      let cmp_descending (_, s, _) (_, s', _) = Float.compare s' s in
-      let all_hosts =
-        retrieve_wlb_recommendations ~__context ~vm ~snapshot
-        |> List.filter_map possible_rec
-        |> List.sort cmp_descending
-      in
-      let pp_host (host, score, _) =
-        let hostname = Db.Host.get_name_label ~__context ~self:host in
-        Printf.sprintf "%s %f" hostname score
-      in
-      debug "Hosts sorted by priority: %s"
-        (all_hosts |> List.map pp_host |> String.concat "; ") ;
-      match all_hosts with
-      | (h, _, r) :: _ ->
-          debug "Wlb has recommended host %s"
-            (Db.Host.get_name_label ~__context ~self:h) ;
-          let action =
-            Db.Task.get_name_label ~__context
-              ~self:(Context.get_task_id __context)
-          in
-          let oc =
-            Db.Pool.get_other_config ~__context
-              ~self:(Helpers.get_pool ~__context)
-          in
-          Db.Task.set_other_config ~__context
-            ~self:(Context.get_task_id __context)
-            ~value:
-              ([
-                 ("wlb_advised", r)
-               ; ("wlb_action", action)
-               ; ("wlb_action_obj_type", "VM")
-               ; ("wlb_action_obj_ref", Ref.string_of vm)
-               ]
-              @ oc
-              ) ;
-          h
-      | _ ->
-          debug "Wlb has no recommendations. Using original algorithm" ;
-          choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-    with
-    | Api_errors.Server_error (error_type, error_detail) ->
-        debug
-          "Encountered error when using wlb for choosing host \"%s: %s\". \
-           Using original algorithm"
-          error_type
-          (String.concat "" error_detail) ;
-        ( try
-            let uuid = Db.VM.get_uuid ~__context ~self:vm in
-            let message_body =
-              Printf.sprintf
-                "Wlb consultation for VM '%s' failed (pool uuid: %s)"
-                (Db.VM.get_name_label ~__context ~self:vm)
-                (Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context))
+  let choose_without_wlb () =
+    choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
+  in
+  if choose_host_uses_wlb ~__context then
+    let wlb_choice =
+      try
+        let possible_rec (host, recommendation) =
+          match recommendation with
+          | Recommendation {id; score; _} ->
+              Some (host, score, id)
+          | _ ->
+              None
+        in
+        let cmp_descending (_, s, _) (_, s', _) = Float.compare s' s in
+        let all_hosts =
+          retrieve_wlb_recommendations ~__context ~vm ~snapshot
+          |> List.filter_map possible_rec
+          |> List.sort cmp_descending
+        in
+        let pp_host (host, score, _) =
+          let hostname = Db.Host.get_name_label ~__context ~self:host in
+          Printf.sprintf "%s %f" hostname score
+        in
+        debug "Hosts sorted by priority: %s"
+          (all_hosts |> List.map pp_host |> String.concat "; ") ;
+        match all_hosts with
+        | (h, _, r) :: _ ->
+            debug "Wlb has recommended host %s"
+              (Db.Host.get_name_label ~__context ~self:h) ;
+            let action =
+              Db.Task.get_name_label ~__context
+                ~self:(Context.get_task_id __context)
             in
-            let name, priority = Api_messages.wlb_failed in
-            ignore
-              (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body
-              )
-          with _ -> ()
-        ) ;
-        choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-    | _ ->
-        debug
-          "Encountered an unknown error when using wlb for choosing host. \
-           Using original algorithm" ;
-        choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-  ) else (
+            let oc =
+              Db.Pool.get_other_config ~__context
+                ~self:(Helpers.get_pool ~__context)
+            in
+            Db.Task.set_other_config ~__context
+              ~self:(Context.get_task_id __context)
+              ~value:
+                ([
+                   ("wlb_advised", r)
+                 ; ("wlb_action", action)
+                 ; ("wlb_action_obj_type", "VM")
+                 ; ("wlb_action_obj_ref", Ref.string_of vm)
+                 ]
+                @ oc
+                ) ;
+            Some h
+        | _ ->
+            debug "Wlb has no recommendations. Using original algorithm" ;
+            None
+      with
+      | Api_errors.Server_error (error_type, error_detail) ->
+          debug
+            "Encountered error when using wlb for choosing host \"%s: %s\". \
+             Using original algorithm"
+            error_type
+            (String.concat "" error_detail) ;
+          ( try
+              let uuid = Db.VM.get_uuid ~__context ~self:vm in
+              let message_body =
+                Printf.sprintf
+                  "Wlb consultation for VM '%s' failed (pool uuid: %s)"
+                  (Db.VM.get_name_label ~__context ~self:vm)
+                  (Db.Pool.get_uuid ~__context
+                     ~self:(Helpers.get_pool ~__context)
+                  )
+              in
+              let name, priority = Api_messages.wlb_failed in
+              ignore
+                (Xapi_message.create ~__context ~name ~priority ~cls:`VM
+                   ~obj_uuid:uuid ~body:message_body
+                )
+            with _ -> ()
+          ) ;
+          None
+      | _ ->
+          debug
+            "Encountered an unknown error when using wlb for choosing host. \
+             Using original algorithm" ;
+          None
+    in
+    match wlb_choice with Some host -> host | None -> choose_without_wlb ()
+  else (
     debug
       "Using wlb recommendations for choosing a host has been disabled or wlb \
        is not available. Using original algorithm" ;
-    choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
+    choose_without_wlb ()
   )
 
 type set_cpus_number_fn =
