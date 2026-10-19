@@ -157,6 +157,22 @@ let check_row_count () =
   ) ;
   ()
 
+let check_fold_order () =
+  let row =
+    List.fold_left
+      (fun row k -> Row.add 0L k (Schema.Value.string k) row)
+      Row.empty ["c"; "a"; "d"; "b"]
+  in
+  let visited = Row.fold (fun k _ _ acc -> k :: acc) row [] |> List.rev in
+  Alcotest.(check (list string)) "Row.fold order" ["a"; "b"; "c"; "d"] visited ;
+  let table =
+    List.fold_left
+      (fun t k -> Table.add 0L k row t)
+      Table.empty ["r3"; "r1"; "r2"]
+  in
+  let visited = Table.fold (fun k _ _ acc -> k :: acc) table [] |> List.rev in
+  Alcotest.(check (list string)) "Table.fold order" ["r1"; "r2"; "r3"] visited
+
 let () =
   Alcotest.run "Database cache"
     [
@@ -164,6 +180,7 @@ let () =
       , [
           ("many_to_many", `Quick, check_many_to_many)
         ; ("row_count", `Quick, check_row_count)
+        ; ("fold_order", `Quick, check_fold_order)
         ]
       )
     ]

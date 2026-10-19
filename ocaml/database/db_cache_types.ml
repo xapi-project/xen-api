@@ -111,7 +111,9 @@ functor
 
     let empty = StringMap.empty
 
-    let fold f = StringMap.fold (fun key x -> f key x.stat x.v)
+    (* Keep the callback fully applied to avoid an allocation per field. *)
+    let fold f t acc =
+      StringMap.fold (fun key x acc -> f key x.stat x.v acc) t acc
 
     let add generation key v =
       let stat = Stat.make generation in
@@ -121,9 +123,9 @@ functor
 
     let mem = StringMap.mem
 
-    let iter f = StringMap.iter (fun key x -> f key x.v)
+    let iter f t = StringMap.iter (fun key x -> f key x.v) t
 
-    let remove _ = StringMap.remove
+    let remove _ key map = StringMap.remove key map
 
     let touch generation key default row =
       let default = {stat= Stat.make generation; v= default} in
