@@ -158,15 +158,16 @@ end = struct
     loop [] lst
 end
 
-(* Return a list of (ref, record) pairs for all VMs which are marked as always_run *)
+(* Keep this filter equivalent to [Helpers.vm_should_always_run]. *)
 let all_protected_vms ~__context =
-  let vms = Db.VM.get_all_records ~__context in
-  List.filter
-    (fun (_, vm_rec) ->
-      Helpers.vm_should_always_run vm_rec.API.vM_ha_always_run
-        vm_rec.API.vM_ha_restart_priority
-    )
-    vms
+  Db.VM.get_records_where ~__context
+    ~expr:
+      Xapi_database.Db_filter_types.(
+        And
+          ( Eq (Field "ha_always_run", Literal "true")
+          , Eq (Field "ha_restart_priority", Literal Constants.ha_restart)
+          )
+      )
 
 (* Comparison function which can be used to sort a list of VM ref, record by order *)
 let order_f (_, vm_rec) =
@@ -971,8 +972,9 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
   let non_agile_restart_plan =
     List.filter (fun (vm, _) -> vm_accounted_to_host vm = None) pinned
   in
-  debug "Restart plan for non-agile offline VMs: [ %s ]"
-    (string_of_plan non_agile_restart_plan) ;
+  if not (Debug.is_disabled "xapi_ha_vm_failover" Syslog.Debug) then
+    debug "Restart plan for non-agile offline VMs: [ %s ]"
+      (string_of_plan non_agile_restart_plan) ;
   (* Update the host free memory to take this plan into account. Note we don't update the VM placement because that only
      	   considers agile VMs. Non-agile VMs are treated as per-host overhead. *)
   let hosts_and_memory =
@@ -1016,15 +1018,18 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
     }
   in
   Binpack.check_configuration config ;
-  debug "Planning configuration for offline agile VMs = %s"
-    (Binpack.string_of_configuration string_of_host string_of_vm config) ;
+  if not (Debug.is_disabled "xapi_ha_vm_failover" Syslog.Debug) then
+    debug "Planning configuration for offline agile VMs = %s"
+      (Binpack.string_of_configuration string_of_host string_of_vm config) ;
   let h = Binpack.choose_heuristic config in
   (* Figure out how we could start as many of the agile VMs as possible *)
-  debug "Computing a specific plan for the failure of VMs: [ %s ]"
-    (String.concat "; " (List.map string_of_vm agile_vm_failed)) ;
+  if not (Debug.is_disabled "xapi_ha_vm_failover" Syslog.Debug) then
+    debug "Computing a specific plan for the failure of VMs: [ %s ]"
+      (String.concat "; " (List.map string_of_vm agile_vm_failed)) ;
   let agile_restart_plan = h.Binpack.get_specific_plan config agile_vm_failed in
-  debug "Restart plan for agile offline VMs: [ %s ]"
-    (string_of_plan agile_restart_plan) ;
+  if not (Debug.is_disabled "xapi_ha_vm_failover" Syslog.Debug) then
+    debug "Restart plan for agile offline VMs: [ %s ]"
+      (string_of_plan agile_restart_plan) ;
   let vms_restarted =
     List.fold_left
       (fun s (vm, _) -> VMRefSet.add vm s)
@@ -1050,8 +1055,9 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
   (* All agile VMs which were offline have all been 'restarted' provided vms_not_restarted <> []
      	   If vms_not_restarted = [] then some VMs will have been left out. *)
   Binpack.check_configuration config ;
-  debug "Planning configuration for future failures = %s"
-    (Binpack.string_of_configuration string_of_host string_of_vm config) ;
+  if not (Debug.is_disabled "xapi_ha_vm_failover" Syslog.Debug) then
+    debug "Planning configuration for future failures = %s"
+      (Binpack.string_of_configuration string_of_host string_of_vm config) ;
   ( non_agile_restart_plan @ agile_restart_plan
   , config
   , vms_not_restarted
@@ -1091,18 +1097,19 @@ let plan_for_n_failures ~__context ~all_protected_vms ?live_set
          protected VMs." ;
       No_plan_exists
     ) else (
-      debug "plan_for_n_failures config = %s"
-        (Binpack.string_of_configuration
-           (fun x ->
-             Printf.sprintf "%s (%s)" (Ref.short_string_of x)
-               (Db.Host.get_hostname ~__context ~self:x)
-           )
-           (fun x ->
-             Printf.sprintf "%s (%s)" (Ref.short_string_of x)
-               (Db.VM.get_name_label ~__context ~self:x)
-           )
-           config
-        ) ;
+      if not (Debug.is_disabled "xapi_ha_vm_failover" Syslog.Debug) then
+        debug "plan_for_n_failures config = %s"
+          (Binpack.string_of_configuration
+             (fun x ->
+               Printf.sprintf "%s (%s)" (Ref.short_string_of x)
+                 (Db.Host.get_hostname ~__context ~self:x)
+             )
+             (fun x ->
+               Printf.sprintf "%s (%s)" (Ref.short_string_of x)
+                 (Db.VM.get_name_label ~__context ~self:x)
+             )
+             config
+          ) ;
       Binpack.check_configuration config ;
       let h = Binpack.choose_heuristic config in
       match
