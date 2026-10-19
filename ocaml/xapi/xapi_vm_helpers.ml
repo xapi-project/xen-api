@@ -1093,13 +1093,8 @@ let rec select_host_from_ranked_lists ~vm ~host_selector ~ranked_host_lists =
           ~ranked_host_lists:less_optimal_groups_of_hosts
     )
 
-(* Selects a single host from the set of all hosts on which the given [vm] can boot.
-   Raises [Api_errors.no_hosts_available] if no such host exists.
-   1.Take anti-affinity, or VGPU, or Network SR-IOV as a group_key for group all hosts into host list list
-   2.helper function's order determine the priority of resources,now anti-affinity has the highest priority,
-     VGPU is the second, Network SR-IOV is the lowest
-   3.If no key found in VM,then host_lists will be [all_hosts] *)
-let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
+let choose_host_for_vm_no_wlb ?(fall_back_to_ignoring_memory = true) ~__context
+    ~vm ~snapshot () =
   let validate_host =
     vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:true
   in
@@ -1144,7 +1139,9 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
     select_host_from_ranked_lists ~vm ~host_selector
       ~ranked_host_lists:host_lists
   with
-  | Api_errors.Server_error (x, []) when x = Api_errors.no_hosts_available ->
+  | Api_errors.Server_error (x, [])
+  when x = Api_errors.no_hosts_available && fall_back_to_ignoring_memory
+  ->
     debug
       "No hosts guaranteed to satisfy VM constraints. Trying again ignoring \
        memory checks" ;
@@ -1168,12 +1165,11 @@ let choose_host_uses_wlb ~__context =
           )
        )
 
-(** Given a virtual machine, returns a host it can boot on, giving
-    priority to an affinity host if one is present. WARNING: called
-    while holding the global lock from the message forwarding layer. *)
-let choose_host_for_vm ~__context ~vm ~snapshot =
+let choose_host_for_vm ?fall_back_to_ignoring_memory ~__context ~vm ~snapshot ()
+    =
   let choose_without_wlb () =
-    choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
+    choose_host_for_vm_no_wlb ?fall_back_to_ignoring_memory ~__context ~vm
+      ~snapshot ()
   in
   if choose_host_uses_wlb ~__context then
     let wlb_choice =
@@ -1262,6 +1258,83 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
        is not available. Using original algorithm" ;
     choose_without_wlb ()
   )
+
+let placement_ranks_hosts_by_group_or_device ~__context ~vm =
+  Db.VM.get_groups ~__context ~self:vm <> []
+  || Db.VM.get_VGPUs ~__context ~self:vm <> []
+  || Xapi_network_sriov_helpers.get_sriov_networks_from_vm ~__context ~vm <> []
+
+let unlocked_host_choice_attempts = 3
+
+(** Recheck suitability and reserve under the same global lock. *)
+let choose_host_and_reserve ~__context ~vm ~snapshot ~reserve
+    ?(attempts = unlocked_host_choice_attempts)
+    ?(choose =
+      fun ~fall_back_to_ignoring_memory ->
+        choose_host_for_vm ~fall_back_to_ignoring_memory ~__context ~vm
+          ~snapshot ())
+    ?(still_suitable =
+      vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:true) () =
+  let scheduled_host () =
+    Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm
+  in
+  let choose_and_reserve_locked () =
+    Helpers.with_global_lock (fun () ->
+        let host = scheduled_host () in
+        if host <> Ref.null then
+          host
+        else
+          let host = choose ~fall_back_to_ignoring_memory:true in
+          reserve host ; host
+    )
+  in
+  let rec choose_and_reserve attempt =
+    if attempt > attempts then (
+      info
+        "%s: no host chosen without the global lock for VM %s remained \
+         suitable after %d attempts; choosing with the lock held"
+        __FUNCTION__ (Ref.string_of vm) attempts ;
+      choose_and_reserve_locked ()
+    ) else
+      match choose ~fall_back_to_ignoring_memory:false with
+      | exception e ->
+          debug
+            "%s: choosing a host for VM %s without the global lock failed \
+             (%s); choosing with the lock held"
+            __FUNCTION__ (Ref.string_of vm)
+            (ExnHelper.string_of_exn e) ;
+          choose_and_reserve_locked ()
+      | host -> (
+          let reserved =
+            Helpers.with_global_lock (fun () ->
+                let scheduled = scheduled_host () in
+                if scheduled <> Ref.null then
+                  Some scheduled
+                else if still_suitable host then (
+                  reserve host ; Some host
+                ) else
+                  None
+            )
+          in
+          match reserved with
+          | Some host ->
+              host
+          | None ->
+              info
+                "%s: host %s chosen without the global lock is no longer \
+                 suitable for VM %s (attempt %d of %d)"
+                __FUNCTION__ (Ref.string_of host) (Ref.string_of vm) attempt
+                attempts ;
+              choose_and_reserve (attempt + 1)
+        )
+  in
+  if
+    scheduled_host () <> Ref.null
+    || placement_ranks_hosts_by_group_or_device ~__context ~vm
+  then
+    choose_and_reserve_locked ()
+  else
+    choose_and_reserve 1
 
 type set_cpus_number_fn =
   __context:Context.t -> self:API.ref_VM -> int -> API.vM_t -> int64 -> unit

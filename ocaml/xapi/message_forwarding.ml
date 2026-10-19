@@ -1616,36 +1616,22 @@ functor
             ~arriving:[(host, (vm, snapshot))]
             ()
 
-      (* README: Note on locking -- forward_to_suitable_host and reserve_memory_for_vm are only
-         called in a context where the current_operations field for the VM object contains the
-         operation we're considering. Thus the global_lock in this context is _not_ used to cover
-         the period where current_operations are set, but is used to ensure that (i) choose_host_for_vm
-         is executed under mutual exclusion with other incoming operations; and (ii) that scheduled_to_be_resident_on
-         (which must not change whilst someone is calling choose_host_for_vm) only executes in exclusion with
-         choose_host_for_vm.
-      *)
+      (* The VM operation is already marked. The global lock serialises capacity
+         checks and reservations with updates to residency. *)
 
       (* Used by VM.start and VM.resume to choose a host with enough resource and to
          'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
       let forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~remote_fn
           ?host_op () =
+        let reserve host =
+          (* HA overcommit protection: we can either perform 'n' HA plans by including this in
+             the 'choose_host_for_vm' function or we can be cheapskates by doing it here: *)
+          check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host ;
+          allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ()
+        in
         let suitable_host =
-          Helpers.with_global_lock (fun () ->
-              let host =
-                Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm
-              in
-              if host <> Ref.null then
-                host
-              else
-                let host =
-                  Xapi_vm_helpers.choose_host_for_vm ~__context ~vm ~snapshot
-                in
-                (* HA overcommit protection: we can either perform 'n' HA plans by including this in
-                   the 'choose_host_for_vm' function or we can be cheapskates by doing it here: *)
-                check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host ;
-                allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op () ;
-                host
-          )
+          Xapi_vm_helpers.choose_host_and_reserve ~__context ~vm ~snapshot
+            ~reserve ()
         in
         finally
           (fun () ->
