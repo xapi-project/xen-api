@@ -14,8 +14,10 @@
 
 (* General DB utils *)
 
+type snapshot = unit -> Rpc.t option
+
 let __callback :
-    (?snapshot:Rpc.t -> string -> string -> string -> unit) option ref =
+    (?snapshot:snapshot -> string -> string -> string -> unit) option ref =
   ref None
 
 let events_register f = __callback := Some f

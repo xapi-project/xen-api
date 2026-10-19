@@ -156,71 +156,83 @@ module Next = struct
     let string = Jsonrpc.to_string rpc in
     String.length string
 
-  (* Add an event to the queue if it matches any active subscriptions *)
-  let add ev =
-    with_lock m (fun () ->
-        let matches =
-          Hashtbl.fold
-            (fun _ s acc ->
-              if Subscription.event_matches s.subs ev then
-                true
-              else
-                acc
+  (* Call [wanted] and [enqueue] with [m] held. *)
+  let wanted ty reference =
+    Hashtbl.fold
+      (fun _ s acc -> acc || Subscription.object_matches s.subs ty reference)
+      subscriptions false
+
+  let enqueue ev =
+    let size = event_size ev in
+    queue := (size, ev) :: !queue ;
+    id := Int64.add !id Int64.one ;
+    Condition.broadcast c ;
+    let total_size = List.fold_left (fun acc (sz, _) -> acc + sz) 0 !queue in
+    let too_many = total_size > max_queue_size in
+    let to_keep, to_drop =
+      if not too_many then
+        (!queue, [])
+      else
+        let sorted =
+          List.sort
+            (fun (_, a) (_, b) ->
+              compare (Int64.of_string b.id) (Int64.of_string a.id)
             )
-            subscriptions false
+            !queue
         in
-        if matches then (
-          let size = event_size ev in
-          queue := (size, ev) :: !queue ;
-          (* debug "Adding event %Ld: %s" (!id) (string_of_event ev); *)
-          id := Int64.add !id Int64.one ;
-          Condition.broadcast c
-        ) else
-          ( (* debug "Dropping event %s" (string_of_event ev) *) ) ;
-        (* GC the events in the queue *)
-        let total_size =
-          List.fold_left (fun acc (sz, _) -> acc + sz) 0 !queue
+        let _total_size_after, rev_to_keep, rev_to_drop =
+          List.fold_left
+            (fun (tot_size, keep, drop) (size, elt) ->
+              if tot_size + size < max_queue_size then
+                (tot_size + size, (size, elt) :: keep, drop)
+              else
+                (tot_size + size, keep, (size, elt) :: drop)
+            )
+            (0, [], []) sorted
         in
-        let too_many = total_size > max_queue_size in
-        let to_keep, to_drop =
-          if not too_many then
-            (!queue, [])
-          else
-            (* Reverse-sort by ID and preserve only enough events such that the total
-               			       size does not exceed 'max_queue_size' *)
-            let sorted =
-              List.sort
-                (fun (_, a) (_, b) ->
-                  compare (Int64.of_string b.id) (Int64.of_string a.id)
-                )
-                !queue
+        let to_keep = List.rev rev_to_keep in
+        let to_drop = List.rev rev_to_drop in
+        if List.length to_keep < old_max_queue_length then
+          warn
+            "Event queue length degraded. Number of events kept: %d (less than \
+             old_max_queue_length=%d)"
+            (List.length to_keep) old_max_queue_length ;
+        (to_keep, to_drop)
+    in
+    queue := to_keep ;
+    if to_drop <> [] then
+      highest_forgotten_id := Int64.of_string (snd (List.hd to_drop)).id
+
+  let add ?snapshot ty op reference =
+    let wanted = with_lock m (fun () -> wanted ty reference) in
+    if wanted then
+      (* A snapshot may re-enter the database lock. Never force it under [m]. *)
+      let dropped, snapshot =
+        match snapshot with
+        | None ->
+            (false, None)
+        | Some thunk -> (
+          match thunk () with
+          | None ->
+              (true, None)
+          | Some _ as snapshot ->
+              (false, snapshot)
+        )
+      in
+      if not dropped then
+        with_lock m (fun () ->
+            let ev =
+              {
+                id= Int64.to_string !id
+              ; ts= string_of_float (Unix.time ())
+              ; ty
+              ; op
+              ; reference
+              ; snapshot
+              }
             in
-            let _total_size_after, rev_to_keep, rev_to_drop =
-              List.fold_left
-                (fun (tot_size, keep, drop) (size, elt) ->
-                  if tot_size + size < max_queue_size then
-                    (tot_size + size, (size, elt) :: keep, drop)
-                  else
-                    (tot_size + size, keep, (size, elt) :: drop)
-                )
-                (0, [], []) sorted
-            in
-            let to_keep = List.rev rev_to_keep in
-            let to_drop = List.rev rev_to_drop in
-            if List.length to_keep < old_max_queue_length then
-              warn
-                "Event queue length degraded. Number of events kept: %d (less \
-                 than old_max_queue_length=%d)"
-                (List.length to_keep) old_max_queue_length ;
-            (to_keep, to_drop)
-        in
-        queue := to_keep ;
-        (* Remember the highest ID of the list of events to drop *)
-        if to_drop <> [] then
-          highest_forgotten_id := Int64.of_string (snd (List.hd to_drop)).id
-        (* debug "After event queue GC: keeping %d; dropping %d (highest dropped id = %Ld)"
-           			(List.length to_keep) (List.length to_drop) !highest_forgotten_id *)
-    )
+            enqueue ev
+        )
 
   let assert_subscribed session =
     with_lock m (fun () ->
@@ -358,15 +370,14 @@ module From = struct
          (Db_ref.get_database (Db_backend.make ()))
       )
 
-  (* Add an event to the queue if it matches any active subscriptions *)
-  let add ev =
+  let add ~ty ~reference =
     with_lock m (fun () ->
         let matches_per_thread =
           Hashtbl.fold
             (fun _ s acc ->
               List.fold_left
                 (fun acc s ->
-                  if Subscription.event_matches s.subs ev then (
+                  if Subscription.object_matches s.subs ty reference then (
                     s.cur_id <- get_current_event_number () ;
                     true
                   ) else
@@ -812,15 +823,12 @@ let generate_events_for =
   Hashtbl.mem table
 
 let event_add ?snapshot ty op reference =
-  let add () =
-    let id = Int64.to_string !Next.id in
-    let ts = string_of_float (Unix.time ()) in
+  if generate_events_for ty then (
     let ty = String.lowercase_ascii ty in
     let op = op_of_string op in
-    let ev = {id; ts; ty; op; reference; snapshot} in
-    From.add ev ; Next.add ev
-  in
-  if generate_events_for ty then add ()
+    From.add ~ty ~reference ;
+    Next.add ?snapshot ty op reference
+  )
 
 let register_hooks () = Xapi_database.Db_action_helper.events_register event_add
 
@@ -845,7 +853,9 @@ let heartbeat ~__context =
         | Some pool ->
             let pool_r = Db.Pool.get_record ~__context ~self:pool in
             let pool_xml = API.rpc_of_pool_t pool_r in
-            event_add ~snapshot:pool_xml "pool" "mod" (Ref.string_of pool)
+            event_add
+              ~snapshot:(fun () -> Some pool_xml)
+              "pool" "mod" (Ref.string_of pool)
         | None ->
             ()
         (* no pool object created during initial boot *)

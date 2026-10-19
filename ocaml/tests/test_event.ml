@@ -276,6 +276,37 @@ let object_level_event_test _session_id =
   ) ;
   if !failure then Alcotest.fail "failed to see object-level event change"
 
+let event_next_snapshot_distinct () =
+  let __context, _ = event_setup_common () in
+  let vm = make_vm ~__context () in
+  let vm_ref = Ref.string_of vm in
+  Xapi_event.register ~__context ~classes:[Printf.sprintf "vm/%s" vm_ref] ;
+  let n = 5 in
+  let values = List.init n (fun i -> Printf.sprintf "name-description-%d" i) in
+  List.iter
+    (fun value -> Db.VM.set_name_description ~__context ~self:vm ~value)
+    values ;
+  let name_description_of ev =
+    match ev.snapshot with
+    | Some rpc ->
+        (API.vM_t_of_rpc rpc).API.vM_name_description
+    | None ->
+        Alcotest.fail "event carried no snapshot"
+  in
+  let collected = ref [] in
+  while List.length !collected < n do
+    let events = Xapi_event.next ~__context |> Event_types.events_of_rpc in
+    let ours =
+      List.filter
+        (fun ev -> ev.ty = "vm" && ev.reference = vm_ref && ev.op = `_mod)
+        events
+    in
+    collected := !collected @ List.map name_description_of ours
+  done ;
+  let got = List.filteri (fun i _ -> i < n) !collected in
+  Alcotest.(check (list string))
+    "each event snapshot carries its own written value, in order" values got
+
 let test_short_oneshot () =
   (* don't call event_setup_common here, it'll register a dummy event and hide the bug *)
   let started = ref false in
@@ -314,6 +345,7 @@ let test =
   ; ("test_event_from_ev_rel", `Quick, test_event_from_ev_rel)
   ; ("test_event_next_unblock", `Slow, event_next_unblock)
   ; ("test_event_next", `Slow, event_next_test)
+  ; ("test_event_next_snapshot_distinct", `Quick, event_next_snapshot_distinct)
   ; ("test_event_from", `Quick, event_from_test)
   ; ("test_event_from_parallel", `Slow, event_from_parallel_test)
   ; ("test_event_object_level_event", `Slow, object_level_event_test)
