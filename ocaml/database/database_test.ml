@@ -658,6 +658,12 @@ functor
           let (_ : string) = Client.db_get_by_uuid t "VM" old_uuid in
           ()
       ) ;
+      ( match Client.db_get_by_uuid_opt t "VM" old_uuid with
+      | None ->
+          ()
+      | Some r ->
+          failwith_fmt "db_get_by_uuid_opt <old uuid>: got %s; expected None" r
+      ) ;
 
       Printf.printf "write_field <invalid table>\n" ;
       expect_missing_tbl "Vm" (fun () ->
@@ -706,6 +712,22 @@ functor
         failwith "read_record <valid table> <valid ref> 2" ;
       Printf.printf "read_record <valid table> <valid ref> foreign key\n" ;
       Client.create_row t "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref ;
+      Printf.printf "db_get_by_uuid_opt <uuid of a row in another table>\n" ;
+      ( match Client.db_get_by_uuid_opt t "VBD" vbd_uuid with
+      | Some r when r = vbd_ref ->
+          ()
+      | r ->
+          failwith_fmt "db_get_by_uuid_opt <VBD uuid>: got %s; expected %s"
+            (Option.value ~default:"None" r)
+            vbd_ref
+      ) ;
+      ( match Client.db_get_by_uuid_opt t "VM" vbd_uuid with
+      | None ->
+          ()
+      | Some r ->
+          failwith_fmt
+            "db_get_by_uuid_opt <VBD uuid in VM table>: got %s; expected None" r
+      ) ;
       let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
       if List.assoc "VBDs" fvs_list <> [vbd_ref] then (
         Printf.printf "fv_list = [ %s ] fvs_list = [ %s ]\n%!"

@@ -285,18 +285,12 @@ let db_get_by_uuid t tbl uuid_val =
       raise (Read_missing_uuid (tbl, "", uuid_val))
 
 let db_get_by_uuid_opt t tbl uuid_val =
-  match
-    read_field_where' Schema.CachedValue.string_of t
-      {
-        table= tbl
-      ; return= Db_names.ref
-      ; where_field= Db_names.uuid
-      ; where_value= uuid_val
-      }
-  with
-  | [r] ->
+  let db = get_database t in
+  match Database.lookup_uuid uuid_val db with
+  | Some (tbl', r) when String.equal tbl tbl' ->
       Some r
   | _ ->
+      (* we didn't find the UUID, or it belonged to another table *)
       None
 
 (** Return reference fields from tbl that matches specified name_label field *)
