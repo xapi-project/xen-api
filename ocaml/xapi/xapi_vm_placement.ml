@@ -21,14 +21,14 @@ open Vm_placement
 (* === Snapshot constructors ================================================ *)
 
 let create_guest_snapshot __context guest =
-  let r = Db.VM.get_record ~__context ~self:guest in
+  let self = guest in
   {
-    GS.id= r.API.vM_uuid
-  ; GS.memory_overhead= r.API.vM_memory_overhead
-  ; GS.memory_static_max= r.API.vM_memory_static_max
-  ; GS.memory_static_min= r.API.vM_memory_static_min
-  ; GS.memory_dynamic_max= r.API.vM_memory_dynamic_max
-  ; GS.memory_dynamic_min= r.API.vM_memory_dynamic_min
+    GS.id= Db.VM.get_uuid ~__context ~self
+  ; GS.memory_overhead= Db.VM.get_memory_overhead ~__context ~self
+  ; GS.memory_static_max= Db.VM.get_memory_static_max ~__context ~self
+  ; GS.memory_static_min= Db.VM.get_memory_static_min ~__context ~self
+  ; GS.memory_dynamic_max= Db.VM.get_memory_dynamic_max ~__context ~self
+  ; GS.memory_dynamic_min= Db.VM.get_memory_dynamic_min ~__context ~self
   }
 
 let create_host_snapshot __context host =

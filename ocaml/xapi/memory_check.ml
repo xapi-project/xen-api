@@ -94,15 +94,16 @@ let vm_compute_used_memory ~__context policy vm_ref =
   if Xapi_fist.disable_memory_checks () then
     0L
   else
-    let vm_record = Db.VM.get_record ~__context ~self:vm_ref in
     let memory_required =
       choose_memory_required ~policy
-        ~memory_dynamic_min:vm_record.API.vM_memory_dynamic_min
+        ~memory_dynamic_min:
+          (Db.VM.get_memory_dynamic_min ~__context ~self:vm_ref)
           (* ToDo: Is vm_main_record or vm_boot_record the right thing for dynamic_max? *)
-        ~memory_dynamic_max:vm_record.API.vM_memory_dynamic_max
-        ~memory_static_max:vm_record.API.vM_memory_static_max
+        ~memory_dynamic_max:
+          (Db.VM.get_memory_dynamic_max ~__context ~self:vm_ref)
+        ~memory_static_max:(Db.VM.get_memory_static_max ~__context ~self:vm_ref)
     in
-    memory_required +++ vm_record.API.vM_memory_overhead
+    memory_required +++ Db.VM.get_memory_overhead ~__context ~self:vm_ref
 
 (**
    	The Pool master's view of the total memory and memory consumers on a host.
