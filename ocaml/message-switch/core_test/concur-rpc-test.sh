@@ -40,4 +40,4 @@ SERVER=$!
 lwt/client_main.exe -path "${SPATH}" -secs "${SECS}"
 wait "${SERVER}"
 
-../cli/main.exe shutdown --path "${SPATH}"
+./cli_main.exe shutdown --path "${SPATH}"
