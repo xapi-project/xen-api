@@ -43,7 +43,7 @@ jobs:
       # Ensure you also update test-sdk-builds
       # when changing this value, to keep builds
       # consistent
-      XAPI_VERSION: "v0.0.0"
+      XAPI_VERSION: "v1912.6.23"
 
     steps:
       - name: Checkout code
@@ -70,9 +70,14 @@ jobs:
         run: opam exec -- make stresstest
         if: ${{ github.event_name == 'schedule' }}
 
-      - name: Make install smoketest
-        run: |
-          opam exec -- make install DESTDIR=$(mktemp -d)
+      - name: Pick a DESTDIR
+        run: echo "DESTDIR=$(mktemp -d)" >> "$GITHUB_ENV"
+
+      - name: Install into DESTDIR
+        run: opam exec -- make install
+
+      - name: Check the versions of the installed programs
+        run: opam exec -- make check-versions
 
       - name: Check disk space
         run: df -h || true

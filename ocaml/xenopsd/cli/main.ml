@@ -531,7 +531,8 @@ let default =
 let info =
   let doc = "interact with the XCP xenopsd VM management service" in
   let man = help in
-  Cmd.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+  Cmd.info "xenops-cli" ~version:Xapi_version.version ~sdocs:_common_options
+    ~doc ~man
 
 let () =
   Xcp_client.use_switch := false ;

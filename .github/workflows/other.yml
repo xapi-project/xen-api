@@ -127,4 +127,4 @@ jobs:
       # Ensure you also update ocaml-tests
       # when changing this value, to keep builds
       # consistent
-      xapi_version: "v0.0.0"
+      xapi_version: "v1912.6.23"

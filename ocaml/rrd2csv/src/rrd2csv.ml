@@ -15,8 +15,6 @@
 module Xstringext = Xapi_stdext_std.Xstringext
 open Rrd
 
-let version = "0.1.3"
-
 module Stdout = struct
   (* Options *)
   let print_debug = ref false
@@ -690,21 +688,14 @@ let _ =
         ; ( "-v"
           , Arg.Unit
               (fun () ->
-                Printf.printf "rrd2csv version %s\n(C) Citrix 2012\n" version ;
+                print_endline Xapi_version.version ;
                 exit 0
               )
           , " output version information and exit"
           )
         ; ("-n", Arg.Unit (fun () -> n := true), " show name labels")
         ; ("-u", Arg.Unit (fun () -> u := true), " show uuids with name labels")
-        ; ( "--version"
-          , Arg.Unit
-              (fun () ->
-                Printf.printf "rrd2csv version %s\n(C) Citrix 2012\n" version ;
-                exit 0
-              )
-          , " output version information and exit"
-          )
+        ; Xapi_version.arg_spec
         ; ( "-help"
           , Arg.Unit
               (fun () ->
