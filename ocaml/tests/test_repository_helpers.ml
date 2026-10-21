@@ -4373,6 +4373,12 @@ module ParseOutputOfYumUpgradeDryRun = Generic.MakeStateless (struct
   let output5 =
     Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output5"
 
+  let output6 =
+    Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output6"
+
+  let output7 =
+    Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output7"
+
   let tests =
     `QuickAndAutoDocumented
       [
@@ -4547,6 +4553,60 @@ module ParseOutputOfYumUpgradeDryRun = Generic.MakeStateless (struct
                     ; arch= "noarch"
                     }
                 , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ]
+            , None
+            )
+        )
+      ; ( output6
+        , Ok
+            ( [
+                ( Pkg.
+                    {
+                      name= "lldpd"
+                    ; epoch= None
+                    ; version= "1.0.22"
+                    ; release= "1.xs9"
+                    ; arch= "x86_64"
+                    }
+                , "local-b7a5cf8d-c433-9483-1d8f-a50af8e64400"
+                )
+              ; ( Pkg.
+                    {
+                      name= "xenopsd-xc"
+                    ; epoch= None
+                    ; version= "26.21.1"
+                    ; release= "1.xs9"
+                    ; arch= "x86_64"
+                    }
+                , "local-b7a5cf8d-c433-9483-1d8f-a50af8e64400"
+                )
+              ]
+            , None
+            )
+        )
+      ; ( output7
+        , Ok
+            ( [
+                ( Pkg.
+                    {
+                      name= "lldpd"
+                    ; epoch= None
+                    ; version= "1.0.22"
+                    ; release= "1.xs9"
+                    ; arch= "x86_64"
+                    }
+                , "local-b7a5cf8d-c433-9483-1d8f-a50af8e64400"
+                )
+              ; ( Pkg.
+                    {
+                      name= "xapi-core"
+                    ; epoch= None
+                    ; version= "26.21.1"
+                    ; release= "1.xs9"
+                    ; arch= "x86_64"
+                    }
+                , "local-b7a5cf8d-c433-9483-1d8f-a50af8e64400"
                 )
               ]
             , None

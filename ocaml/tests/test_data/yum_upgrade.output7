@@ -1,0 +1,21 @@
+Updating and loading repositories:
+Repositories loaded.
+Package                                        Arch   Version              Repository                                       Size
+Upgrading:
+ xapi-core                                     x86_64 26.21.1-1.xs9        local-b7a5cf8d-c433-9483-1d8f-a50af8e64400  30.2 MiB
+   replacing xapi-core                         x86_64 26.19.0-2.xs9        xcp:main                                    30.1 MiB
+Installing weak dependencies:
+ lldpd                                         x86_64 1.0.22-1.xs9         local-b7a5cf8d-c433-9483-1d8f-a50af8e64400 496.3 KiB
+Removing unused dependencies:
+ python3-foo                                   noarch 1.0-1.xs9            xcp:main                                     12.0 KiB
+Skipping packages with broken dependencies:
+ xenopsd-xc                                    x86_64 26.21.1-1.xs9        local-b7a5cf8d-c433-9483-1d8f-a50af8e64400  20.1 MiB
+
+Transaction Summary:
+ Installing:         1 package
+ Upgrading:          1 package
+ Replacing:          1 package
+ Removing:           1 package
+ Skipping:           1 package
+
+Operation aborted by the user.
