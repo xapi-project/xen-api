@@ -731,7 +731,7 @@ let get_pkgs_from_repoquery cmd params =
   )
   |> List.fold_left parse_line_of_repoquery []
 
-let get_updates_from_repoquery repositories =
+let get_updates_from_repoquery ~installed_pkgs repositories =
   List.iter (fun r -> clean_yum_cache r) repositories ;
   (* Use 'updates' to decrease the number of packages to apply 'is_obsoleted' *)
   let Pkg_mgr.{cmd; params} = Pkgs.repoquery_updates ~repositories in
@@ -742,6 +742,9 @@ let get_updates_from_repoquery repositories =
   let new_updates =
     get_pkgs_from_repoquery cmd params
     |> List.filter (fun x -> not (PkgSet.mem x updates_set))
+    |> List.filter (fun (pkg, _) ->
+        not (List.mem_assoc (Pkg.to_name_arch_string pkg) installed_pkgs)
+    )
     |> List.filter (fun (pkg, _) -> not (is_obsoleted pkg.Pkg.name repositories))
   in
   new_updates @ updates
