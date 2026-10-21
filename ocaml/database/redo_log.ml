@@ -824,6 +824,13 @@ let with_active_redo_logs f =
       RedoLogSet.iter f active_redo_logs
   )
 
+let any_active_redo_log () =
+  with_lock redo_log_creation_mutex (fun () ->
+      RedoLogSet.exists
+        (fun log -> is_enabled log && not log.read_only)
+        !all_redo_logs
+  )
+
 (* --------------------------------------------------------------- *)
 (* Functions which interact with the redo log on the block device. *)
 
@@ -911,59 +918,65 @@ let flush_db_to_all_active_redo_logs db =
 
 (* Write a delta to all active redo_logs *)
 let database_callback event db =
-  let to_write =
-    match event with
-    | Db_cache_types.RefreshRow (_, _) ->
-        None
-    | Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
-        R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname
-          (Schema.Value.marshal oldval)
-          (Schema.Value.marshal newval) ;
-        if
-          Schema.is_field_persistent
-            (Db_cache_types.Database.schema db)
-            tblname fldname
-        then
-          Some
-            (WriteField (tblname, objref, fldname, Schema.Value.marshal newval))
-        else
+  if any_active_redo_log () then
+    let to_write =
+      match event with
+      | Db_cache_types.RefreshRow (_, _) ->
           None
-    | Db_cache_types.PreDelete (_, _) ->
-        None
-    | Db_cache_types.Delete (tblname, objref, _) ->
-        if
-          Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname
-        then
-          Some (DeleteRow (tblname, objref))
-        else
+      | Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
+          R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname
+            (Schema.Value.marshal oldval)
+            (Schema.Value.marshal newval) ;
+          if
+            Schema.is_field_persistent
+              (Db_cache_types.Database.schema db)
+              tblname fldname
+          then
+            Some
+              (WriteField (tblname, objref, fldname, Schema.Value.marshal newval)
+              )
+          else
+            None
+      | Db_cache_types.PreDelete (_, _) ->
           None
-    | Db_cache_types.Create (tblname, objref, kvs) ->
-        if
-          Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname
-        then
-          Some
-            (CreateRow
-               ( tblname
-               , objref
-               , List.map (fun (k, v) -> (k, Schema.Value.marshal v)) kvs
-               )
-            )
-        else
-          None
-  in
-  Option.iter
-    (fun entry ->
-      with_active_redo_logs (fun log ->
-          write_delta
-            (Db_cache_types.Manifest.generation
-               (Db_cache_types.Database.manifest db)
-            )
-            entry
-            (fun () ->
-              (* the function which will be invoked if a database write is required instead of a delta *)
-              ignore (flush_db_to_redo_log db log)
-            )
-            log
+      | Db_cache_types.Delete (tblname, objref, _) ->
+          if
+            Schema.is_table_persistent
+              (Db_cache_types.Database.schema db)
+              tblname
+          then
+            Some (DeleteRow (tblname, objref))
+          else
+            None
+      | Db_cache_types.Create (tblname, objref, kvs) ->
+          if
+            Schema.is_table_persistent
+              (Db_cache_types.Database.schema db)
+              tblname
+          then
+            Some
+              (CreateRow
+                 ( tblname
+                 , objref
+                 , List.map (fun (k, v) -> (k, Schema.Value.marshal v)) kvs
+                 )
+              )
+          else
+            None
+    in
+    Option.iter
+      (fun entry ->
+        with_active_redo_logs (fun log ->
+            write_delta
+              (Db_cache_types.Manifest.generation
+                 (Db_cache_types.Database.manifest db)
+              )
+              entry
+              (fun () ->
+                (* the function which will be invoked if a database write is required instead of a delta *)
+                ignore (flush_db_to_redo_log db log)
+              )
+              log
+        )
       )
-    )
-    to_write
+      to_write
