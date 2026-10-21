@@ -16,28 +16,49 @@ module D = Debug.Make (struct let name = "xapi_pgpu_helpers" end)
 open D
 open Xapi_stdext_std
 
-let assert_VGPU_type_supported ~__context ~self ~vgpu_type =
+(* Each check_ returns the reason it refuses; the assert_ of the same name
+   raises it as an API error. *)
+
+let ( let* ) = Result.bind
+
+let raise_refusal r = raise (Vgpu_refusal.to_api_error r)
+
+let check_VGPU_type_supported ~__context ~self ~vgpu_type =
   let supported_VGPU_types =
     Db.PGPU.get_supported_VGPU_types ~__context ~self
   in
-  if not (List.mem vgpu_type supported_VGPU_types) then
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.vgpu_type_not_supported
-         , List.map Ref.string_of (vgpu_type :: supported_VGPU_types)
-         )
+  if List.mem vgpu_type supported_VGPU_types then
+    Ok ()
+  else
+    Error
+      (Vgpu_refusal.Type_not_supported
+         {
+           vgpu_type= Ref.string_of vgpu_type
+         ; supported= List.map Ref.string_of supported_VGPU_types
+         }
+      )
+
+let assert_VGPU_type_supported ~__context ~self ~vgpu_type =
+  check_VGPU_type_supported ~__context ~self ~vgpu_type
+  |> Result.iter_error raise_refusal
+
+let check_VGPU_type_enabled ~__context ~self ~vgpu_type =
+  let* () = check_VGPU_type_supported ~__context ~self ~vgpu_type in
+  let enabled_VGPU_types = Db.PGPU.get_enabled_VGPU_types ~__context ~self in
+  if List.mem vgpu_type enabled_VGPU_types then
+    Ok ()
+  else
+    Error
+      (Vgpu_refusal.Type_not_enabled
+         {
+           vgpu_type= Ref.string_of vgpu_type
+         ; enabled= List.map Ref.string_of enabled_VGPU_types
+         }
       )
 
 let assert_VGPU_type_enabled ~__context ~self ~vgpu_type =
-  assert_VGPU_type_supported ~__context ~self ~vgpu_type ;
-  let enabled_VGPU_types = Db.PGPU.get_enabled_VGPU_types ~__context ~self in
-  if not (List.mem vgpu_type enabled_VGPU_types) then
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.vgpu_type_not_enabled
-         , List.map Ref.string_of (vgpu_type :: enabled_VGPU_types)
-         )
-      )
+  check_VGPU_type_enabled ~__context ~self ~vgpu_type
+  |> Result.iter_error raise_refusal
 
 let get_scheduled_VGPUs ~__context ~self =
   let open Xapi_database.Db_filter_types in
@@ -52,8 +73,8 @@ let get_allocated_VGPUs ~__context ~self =
   let scheduled_VGPUs = get_scheduled_VGPUs ~__context ~self in
   resident_VGPUs @ scheduled_VGPUs
 
-let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
-  assert_VGPU_type_enabled ~__context ~self ~vgpu_type ;
+let check_VGPU_type_allowed ~__context ~self ~vgpu_type =
+  let* () = check_VGPU_type_enabled ~__context ~self ~vgpu_type in
   let allocated_vgpu_list = get_allocated_VGPUs ~__context ~self in
   (* Theh new vGPU must compatible with all the allocated vGPUs on the pGPU,
    * Namely, the new vGPU type must in the compatible_types_on_pgpu of all the allocated vGPUs *)
@@ -66,23 +87,28 @@ let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
   let compatible_on_pgpu =
     List.for_all compatible_with_new_vGPU_type allocated_vgpu_list
   in
-  if not compatible_on_pgpu then
+  if compatible_on_pgpu then
+    Ok ()
+  else
     let sep = ";" in
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.vgpu_type_not_compatible_with_running_type
-         , [
-             Ref.string_of self
-           ; Ref.string_of vgpu_type
-           ; List.map
+    Error
+      (Vgpu_refusal.Type_incompatible_with_running
+         {
+           pgpu= Ref.string_of self
+         ; vgpu_type= Ref.string_of vgpu_type
+         ; running=
+             List.map
                (fun self -> Db.VGPU.get_type ~__context ~self)
                allocated_vgpu_list
              |> List.sort_uniq Stdlib.compare
              |> List.map (fun vgpu_type_ref -> Ref.string_of vgpu_type_ref)
              |> String.concat sep
-           ]
-         )
+         }
       )
+
+let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
+  check_VGPU_type_allowed ~__context ~self ~vgpu_type
+  |> Result.iter_error raise_refusal
 
 let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
   let open Xapi_database.Db_filter_types in
@@ -108,19 +134,19 @@ let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
            (Api_errors.pgpu_in_use_by_vm, List.map Ref.string_of vms)
         )
 
+(* The try covers the database reads and the division too: callers treat any
+   failure here as a refusal, so it must not be narrowed. *)
 let get_remaining_capacity_internal ~__context ~self ~vgpu_type
     ~pre_allocate_list =
   try
-    assert_VGPU_type_allowed ~__context ~self ~vgpu_type ;
+    let* () = check_VGPU_type_allowed ~__context ~self ~vgpu_type in
     let convert_capacity capacity =
       if capacity > 0L then
         Ok capacity
       else
         Error
-          (Api_errors.Server_error
-             ( Api_errors.pgpu_insufficient_capacity_for_vgpu
-             , [Ref.string_of self; Ref.string_of vgpu_type]
-             )
+          (Vgpu_refusal.Insufficient_capacity
+             {pgpu= Ref.string_of self; vgpu_type= Ref.string_of vgpu_type}
           )
     in
     if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type = Some `PF
@@ -162,7 +188,7 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type
       let new_vgpu_size = Db.VGPU_type.get_size ~__context ~self:vgpu_type in
       convert_capacity
         (Int64.div (Int64.sub pgpu_size utilisation) new_vgpu_size)
-  with e -> Error e
+  with e -> Error (Vgpu_refusal.Unexpected e)
 
 let get_remaining_capacity ~__context ~self ~vgpu_type ~pre_allocate_list =
   match
@@ -175,14 +201,9 @@ let get_remaining_capacity ~__context ~self ~vgpu_type ~pre_allocate_list =
       capacity
 
 let assert_capacity_exists_for_VGPU_type ~__context ~self ~vgpu_type =
-  match
-    get_remaining_capacity_internal ~__context ~self ~vgpu_type
-      ~pre_allocate_list:[]
-  with
-  | Error e ->
-      raise e
-  | Ok _ ->
-      ()
+  get_remaining_capacity_internal ~__context ~self ~vgpu_type
+    ~pre_allocate_list:[]
+  |> Result.iter_error raise_refusal
 
 (* extract vgpu implementation *)
 let vgpu_impl ~__context vgpu =

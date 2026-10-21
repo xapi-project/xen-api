@@ -120,12 +120,11 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
      	 * capacity. If there is not then we will have an exception for each PGPU,
      	 * explaining why it cannot run a VGPU of this type. We need to look through
      	 * this list of exceptions and pick one to raise as the "overall" error. *)
-  let choose_exception = function
+  let choose_refusal = function
     | [] ->
         (* Should only ever get here if there are no PGPUs in the GPU group. *)
-        Api_errors.Server_error
-          (Api_errors.gpu_group_contains_no_pgpus, [Ref.string_of self])
-    | exceptions ->
+        Vgpu_refusal.Group_contains_no_pgpus {gpu_group= Ref.string_of self}
+    | refusals ->
         let error_code_scores =
           [
             (Api_errors.pgpu_insufficient_capacity_for_vgpu, 10)
@@ -143,33 +142,32 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
           | _ ->
               0
         in
+        let score_refusal r = score_exception (Vgpu_refusal.to_api_error r) in
         List.hd
-          (Helpers.sort_by_schwarzian ~descending:true score_exception
-             exceptions
-          )
+          (Helpers.sort_by_schwarzian ~descending:true score_refusal refusals)
   in
   (* For each PGPU in the group, if it is unable to run the specified VGPU type,
-     	 * save the exception returned. Otherwise just add its capacity
+     	 * save the refusal returned. Otherwise just add its capacity
      	 * to the total. *)
   let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
-  let capacity, exceptions =
+  let capacity, refusals =
     List.fold_left
-      (fun (capacity, exceptions) pgpu ->
+      (fun (capacity, refusals) pgpu ->
         match
           Xapi_pgpu_helpers.get_remaining_capacity_internal
             ~pre_allocate_list:[] ~__context ~self:pgpu ~vgpu_type
         with
-        | Error e ->
-            (capacity, e :: exceptions)
+        | Error r ->
+            (capacity, r :: refusals)
         | Ok n ->
-            (Int64.add n capacity, exceptions)
+            (Int64.add n capacity, refusals)
       )
       (0L, []) pgpus
   in
   if capacity > 0L then
     Ok capacity
   else
-    Error (choose_exception exceptions)
+    Error (choose_refusal refusals)
 
 let get_remaining_capacity ~__context ~self ~vgpu_type =
   match get_remaining_capacity_internal ~__context ~self ~vgpu_type with

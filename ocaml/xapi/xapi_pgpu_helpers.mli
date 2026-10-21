@@ -43,13 +43,13 @@ val assert_no_resident_VGPUs_of_type :
 (** Check that no VMs resident on this PGPU have the specified type. *)
 
 (* Return the number of VGPUs of the specified type for which capacity
- * remains on the PGPU, or an exception if the remaining capacity is zero. *)
+ * remains on the PGPU, or the reason there is none. *)
 val get_remaining_capacity_internal :
      __context:Context.t
   -> self:API.ref_PGPU
   -> vgpu_type:API.ref_VGPU_type
   -> pre_allocate_list:(API.ref_VGPU * API.ref_PGPU) list
-  -> (int64, exn) result
+  -> (int64, Vgpu_refusal.t) result
 
 (* Return the number of VGPUs of the specified type for which capacity
  * remains on the PGPU. *)
