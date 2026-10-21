@@ -431,7 +431,7 @@ let get_types_errors_json =
             `O
               [
                 ("name", `String (gen_error_field_name value))
-              ; ("index", `Float (Int.to_float (index + 1)))
+              ; ("index", `Float (Int.to_float index))
               ; ("last", `Bool (index == List.length error.err_params - 1))
               ]
           )

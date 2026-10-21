@@ -103,11 +103,13 @@ public class Types
      * Otherwise, returns the server response as passed in.
      */
     public static void checkError(JsonRpcResponseError response) throws XenAPIException, BadServerResponse {
-        var errorData = response.data;
-        if(errorData.length == 0) {
+        // A JSON-RPC error carries the error code in message and only its parameters in data,
+        // so data is empty for an error that takes none.
+        var errorName = response.message;
+        if (errorName == null || errorName.isEmpty()) {
             throw new BadServerResponse(response);
         }
-        var errorName = response.message;
+        var errorData = response.data == null ? new String[0] : response.data;
 
         {{#errors}}
         if (errorName.equals("{{{name}}}")) {
@@ -118,8 +120,11 @@ public class Types
         }
         {{/errors}}
 
-        // An unknown error occurred
-        throw new Types.XenAPIException(errorData);
+        // An unknown error occurred: describe it as the code followed by its parameters
+        var errorDescription = new String[errorData.length + 1];
+        errorDescription[0] = errorName;
+        System.arraycopy(errorData, 0, errorDescription, 1, errorData.length);
+        throw new Types.XenAPIException(errorDescription);
     }
 
     {{#enums}}
