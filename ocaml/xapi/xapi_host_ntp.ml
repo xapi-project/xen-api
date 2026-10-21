@@ -16,6 +16,11 @@ module D = Debug.Make (struct let name = "xapi_host_ntp" end)
 
 open D
 
+type parsed_ntp = {
+    server_lines: string list
+  ; other_lines: string list
+}
+
 let ( // ) = Filename.concat
 
 let ntp_dhcp_server_path interface =
@@ -91,14 +96,16 @@ let is_ntp_service_active () =
   Fe_systemctl.is_active ~service:!Xapi_globs.ntp_service
 
 let parse_ntp_conf () =
-  try
-    Xapi_stdext_unix.Unixext.read_lines ~path:!Xapi_globs.ntp_conf
-    |> List.partition (String.starts_with ~prefix:"server ")
-  with Sys_error _ -> ([], [])
+  let server_lines, other_lines =
+    try
+      Xapi_stdext_unix.Unixext.read_lines ~path:!Xapi_globs.ntp_conf
+      |> List.partition (String.starts_with ~prefix:"server ")
+    with Sys_error _ -> ([], [])
+  in
+  {server_lines; other_lines}
 
-let write_ntp_conf other servers =
-  let lines = List.map (fun s -> Printf.sprintf "server %s iburst" s) servers in
-  let all_lines = other @ lines in
+let write_ntp_conf {server_lines; other_lines} =
+  let all_lines = other_lines @ server_lines in
   let write_lines fname lines =
     Xapi_stdext_unix.Unixext.write_string_to_file fname
       (String.concat "\n" lines ^ "\n")
@@ -106,18 +113,19 @@ let write_ntp_conf other servers =
   write_lines !Xapi_globs.ntp_conf all_lines
 
 let set_servers_in_conf servers =
-  let _, other = parse_ntp_conf () in
-  write_ntp_conf other servers
+  let server_lines = List.map (fun s -> Printf.sprintf "server %s iburst" s) servers in
+  let parsed = parse_ntp_conf () in
+  write_ntp_conf {parsed with server_lines}
 
 let clear_servers_in_conf () = set_servers_in_conf []
 
 let get_servers_from_conf () =
-  let servers, _ = parse_ntp_conf () in
+  let {server_lines; _} = parse_ntp_conf () in
   List.filter_map
     (fun line ->
       try Scanf.sscanf line "server %s@ iburst%!" Option.some with _ -> None
     )
-    servers
+    server_lines
 
 let is_ntp_dhcp_enabled () =
   (* check ntp_dhcp_script exec permission *)
