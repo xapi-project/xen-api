@@ -1652,7 +1652,9 @@ let _ =
     () ;
 
   (* Pool errors *)
-  error Api_errors.host_is_slave ["Coordinator IP address"]
+  (* The Java SDK names the HostIsSlave field after this parameter
+     (masterIPAddress), so renaming it is a breaking change. *)
+  error Api_errors.host_is_slave ["Master IP address"]
     ~doc:
       "You cannot make regular API calls directly on a supporter. Please pass \
        API calls via the coordinator host."
