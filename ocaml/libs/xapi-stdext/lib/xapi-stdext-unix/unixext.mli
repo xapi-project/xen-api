@@ -147,6 +147,14 @@ val really_write_string : Unix.file_descr -> string -> unit
 
 val try_read_string : ?limit:int -> Unix.file_descr -> string
 
+val read_small_regular_file :
+  max_bytes:int -> string -> (string option, string) result
+(** [read_small_regular_file ~max_bytes path] is [Ok (Some content)] if [path]
+    (following symlinks) is a regular file of at most [max_bytes] bytes, and
+    [Ok None] if it does not exist. It never blocks on a FIFO or a device and
+    never raises: any other entry, a larger file, or an error while reading it
+    gives [Error reason]. *)
+
 exception Timeout
 
 val with_socket_timeout : Unix.file_descr -> float option -> (unit -> 'a) -> 'a

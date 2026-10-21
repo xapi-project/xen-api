@@ -42,12 +42,24 @@ let check_domain0_uuid () =
 let make_var_run_xen () =
   Xapi_stdext_unix.Unixext.mkdir_rec Device_common.var_run_xen_path 0o0755
 
+(* Configuration options which only make sense for the xc backend *)
+let options =
+  [
+    ( "emu-manager-quiet-timeout"
+    , Arg.Set_float Emu_manager.quiet_timeout
+    , (fun () -> string_of_float !Emu_manager.quiet_timeout)
+    , "Time in seconds without any message from emu-manager before we assume \
+       it is stuck and abort the operation"
+    )
+  ]
+
 (* Start the program with the xen backend *)
 let _ =
   (* set up coverage profiling *)
   Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".classic" ;
   Xenops_utils.set_root "xenopsd/classic" ;
-  Xenopsd.configure ~specific_essential_paths:Xc_resources.essentials
+  Xenopsd.configure ~specific_options:options
+    ~specific_essential_paths:Xc_resources.essentials
     ~specific_nonessential_paths:Xc_resources.nonessentials () ;
   check_domain0_uuid () ;
   make_var_run_xen () ;

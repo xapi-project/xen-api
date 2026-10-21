@@ -18,8 +18,10 @@ and restart xenopsd:
 migration-tls = ktls
 ```
 
-If the option is absent or set to `stunnel` (the default), xenopsd uses the
-existing stunnel-based path. If the helper fails for any reason (binary missing,
+If the option is set to `stunnel`, xenopsd uses the existing stunnel-based
+path. If it is absent (the default), xenopsd uses the helper only when the
+experimental feature flag `migration_ktls` is on
+(`xe-enable-experimental-feature migration_ktls`). If the helper fails for any reason (binary missing,
 TLS handshake error, kTLS install rejected by the kernel), xenopsd logs a `warn`
 and transparently retries that single connection over stunnel, so the migration
 still succeeds over TLS.

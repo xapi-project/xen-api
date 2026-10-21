@@ -1,5 +1,8 @@
 (executable
  (name set_domain_uuid)
+ ; belong to the package, so that dune-build-info reports its version
+ (public_name -)
+ (package xapi-tools)
  (libraries xenctrl uuid cmdliner)
 )
 
