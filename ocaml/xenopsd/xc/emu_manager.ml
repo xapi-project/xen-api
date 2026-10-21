@@ -181,46 +181,14 @@ let parse_result res =
 (* Seconds, settable from xenopsd.conf *)
 let quiet_timeout = ref 600.
 
-(* Watch the control channel while [f] reads from it, and send an abort if
-   nothing arrives within [quiet_timeout]. *)
-let with_quiet_watchdog ((_, _, fd, _, _) as t) f =
-  let answered = ref false in
-  let m = Mutex.create () in
-  let seen () =
-    Mutex.lock m ;
-    answered := true ;
-    Mutex.unlock m
-  in
-  let duration =
-    Clock.Timer.s_to_span !quiet_timeout
-    |> Option.value ~default:Mtime.Span.max_span
-  in
-  let timer = Clock.Timer.start ~duration in
-  let watchdog () =
-    let rec wait () =
-      match Clock.Timer.remaining timer with
-      | Clock.Timer.Expired _ ->
-          Mutex.lock m ;
-          let quiet = not !answered in
-          Mutex.unlock m ;
-          if quiet then (
-            debug "emu-manager has been silent for too long; sending abort" ;
-            try send_abort t with _ -> ()
-          )
-      | Clock.Timer.Remaining left ->
-          let secs = Clock.Timer.span_to_s left in
-          ignore (Unix.select [fd] [] [] (Float.min secs 1.0)) ;
-          Mutex.lock m ;
-          let quiet = not !answered in
-          Mutex.unlock m ;
-          if quiet then wait ()
-    in
-    wait ()
-  in
-  let th = Thread.create watchdog () in
-  Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
-      seen () ; Thread.join th
-  )
+(* emu-manager says nothing on the control channel while xenguest does a
+   non-live save, however long that takes, so judge whether it is stuck by
+   whether it or its children are still doing any IO. *)
+let with_quiet_watchdog ((_, _, _, _, pid) as t) f =
+  Io_watchdog.with_watchdog ~name:"emu-manager" ~pid:(Forkhelpers.getpid pid)
+    ~timeout:!quiet_timeout
+    ~abort:(fun () -> send_abort t)
+    f
 
 (** return the next output line from the control channel *)
 let receive (infd, _, _, _, _) = message_of_string (input_line infd)
