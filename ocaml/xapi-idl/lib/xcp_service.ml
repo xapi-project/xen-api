@@ -491,11 +491,23 @@ let configure_common ~options ~resources arg_parse_fn =
   adjust_timeslice () ;
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore
 
-let configure ?(argv = Sys.argv) ?(options = []) ?(resources = []) () =
+let configure ?(argv = Sys.argv) ?(options = []) ?(resources = []) ?version () =
+  let version_spec =
+    match version with
+    | None ->
+        []
+    | Some v ->
+        [
+          ( "--version"
+          , Arg.Unit (fun () -> print_endline v ; exit 0)
+          , " Print the version and exit"
+          )
+        ]
+  in
   try
     configure_common ~options ~resources (fun config_spec ->
         Arg.parse_argv argv
-          (Arg.align (arg_spec config_spec))
+          (Arg.align (arg_spec config_spec @ version_spec))
           (fun _ -> failwith "Invalid argument")
           (Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0))
     )

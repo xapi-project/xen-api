@@ -855,6 +855,10 @@ let compute_required_SRs_for_shutting_down_suspended_domains ~__context ~vm =
   in
   List.map (fun vdi -> Db.VDI.get_SR ~self:vdi ~__context) all_vm_vdis
 
+let check_vm_can_move_between_host_versions ~__context ~vm ~dst =
+  let src = Db.VM.get_resident_on ~__context ~self:vm in
+  Xapi_host_helpers.check_host_versions_compatible ~__context ~src ~dst
+
 (** Returns the subset of all hosts on which the given [vm] can boot. This
     function also prints a debug message identifying the given [vm] and hosts. *)
 let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
@@ -863,10 +867,11 @@ let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
     [host]
   else
     possible_hosts ~__context ~vm
-      ~choose_fn:
-        (assert_can_boot_here ~__context ~self:vm ~snapshot
-           ~do_cpuid_check:false ()
-        )
+      ~choose_fn:(fun ~host ->
+        assert (check_vm_can_move_between_host_versions ~__context ~vm ~dst:host) ;
+        assert_can_boot_here ~__context ~self:vm ~snapshot ~do_cpuid_check:false
+          ~host ()
+      )
       ()
 
 (** Performs an expensive and comprehensive check to determine whether the
@@ -875,11 +880,7 @@ let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
 let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
   let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
   let host_has_proper_version () =
-    if Helpers.rolling_upgrade_in_progress ~__context then
-      Helpers.Checks.RPU.host_has_highest_version_in_pool ~__context
-        ~host:(Helpers.LocalObject host)
-    else
-      true
+    check_vm_can_move_between_host_versions ~__context ~vm ~dst:host
   in
   let host_enabled () = Db.Host.get_enabled ~__context ~self:host in
   let host_live () =

@@ -1921,6 +1921,12 @@ let pool_disable_client_certificate_auth _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   Client.Pool.disable_client_certificate_auth ~rpc ~session_id ~self:pool
 
+let pool_set_lldp_enabled _printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let value = bool_of_string "value" (Cli_args.get "value" params) in
+  let force = get_bool_param params "force" in
+  Client.Pool.set_lldp_enabled ~rpc ~session_id ~self:pool ~value ~force
+
 let pool_sync_updates printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   let force = get_bool_param params "force" in
@@ -6632,6 +6638,16 @@ let pif_set_primary_address_type _printer rpc session_id params =
       ~primary_address_type
   in
   ()
+
+let pif_set_lldp_mode _printer rpc session_id params =
+  let pif =
+    Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:(Cli_args.get "uuid" params)
+  in
+  let value =
+    Record_util.pif_lldp_mode_of_string (Cli_args.get "value" params)
+  in
+  let force = get_bool_param params "force" in
+  Client.PIF.set_lldp_mode ~rpc ~session_id ~self:pif ~value ~force
 
 let pif_unplug _printer rpc session_id params =
   let pif =

@@ -331,7 +331,7 @@ let main log_level =
 open! Cmdliner
 
 let cmd =
-  let info = Cmd.info daemon_name in
+  let info = Cmd.info daemon_name ~version:Xapi_version.version in
   let log_level =
     let doc = "Syslog level. For example, debug, info etc." in
     let level_conv =

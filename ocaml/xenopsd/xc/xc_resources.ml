@@ -97,7 +97,7 @@ let nonessentials =
   ; ( X_OK
     , "xenopsd-tls-helper"
     , Migrate_connect.helper_path
-    , "path to the ktls-helper binary used when migration-tls=ktls"
+    , "path to the ktls-helper binary used when a migration uses kTLS"
     )
   ]
   @ Resources.hvm_guests

@@ -27,7 +27,13 @@ type res = {
 }
 
 val configure :
-  ?argv:string array -> ?options:opt list -> ?resources:res list -> unit -> unit
+     ?argv:string array
+  -> ?options:opt list
+  -> ?resources:res list
+  -> ?version:string
+  -> unit
+  -> unit
+(** With [~version], a [--version] option prints [version] and exits *)
 
 val configure2 :
      name:string

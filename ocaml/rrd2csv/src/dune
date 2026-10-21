@@ -10,6 +10,7 @@
     unix
     xapi-idl.rrd
     xapi-client
+    xapi-consts.xapi_version
     xapi-rrd
     xapi-stdext-pervasives
     xapi-stdext-std

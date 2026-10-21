@@ -1,0 +1,46 @@
+{{{licence}}}
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Management.Automation;
+using XenAPI;
+
+namespace Citrix.XenServer.Commands
+{
+    [Cmdlet(VerbsCommon.{{{verb}}}, "Xen{{{noun}}}", SupportsShouldProcess = true)]
+    [OutputType(typeof({{{qualified_type}}}))]{{#async_task}}
+    [OutputType(typeof(XenAPI.Task))]{{/async_task}}{{#void_output}}
+    [OutputType(typeof(void))]{{/void_output}}
+    public class {{{class_decl}}} : XenServerCmdlet
+    {
+        #region Cmdlet Parameters
+
+        [Parameter]
+        public SwitchParameter PassThru { get; set; }
+{{{params}}}{{{async_param}}}{{{message_params}}}
+        #endregion
+
+        #region Cmdlet Methods
+
+        protected override void ProcessRecord()
+        {
+            GetSession();
+
+            string {{{local_var}}} = Parse{{{property}}}();
+
+            {{{cmdlet_methods}}}
+
+            {{{passthru}}}
+
+            UpdateSessions();
+        }
+
+        #endregion
+
+        #region Private Methods
+{{{parse_method}}}{{{process_methods}}}
+        #endregion
+    }
+}
+

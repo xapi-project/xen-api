@@ -478,7 +478,7 @@ let make_pif_metrics ~__context =
     Db.PIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
       ~carrier:false ~device_name:"" ~vendor_name:"" ~device_id:"" ~vendor_id:""
       ~speed:0L ~duplex:false ~pci_bus_path:"" ~io_read_kbs:0. ~io_write_kbs:0.
-      ~last_updated:Date.epoch ~other_config:[]
+      ~last_updated:Date.epoch ~other_config:[] ~lldp_neighbor:[]
   in
   metrics
 
@@ -516,7 +516,7 @@ let pool_introduce ~__context ~device ~network ~host ~mAC ~mTU ~vLAN ~physical
       ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of:Ref.null
       ~vLAN_master_of ~management ~other_config ~disallow_unplug
       ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type
-      ~managed ~properties ~capabilities:[] ~pCI:Ref.null
+      ~managed ~properties ~capabilities:[] ~pCI:Ref.null ~lldp_mode:`inherited
   in
   pif_ref
 
@@ -570,7 +570,7 @@ let introduce_internal ?network ?(physical = true) ~t ~__context ~host ~mAC ~mTU
       ~management:false ~other_config:[] ~disallow_unplug
       ~ipv6_configuration_mode:`None ~iPv6:[] ~ipv6_gateway:""
       ~primary_address_type ~managed ~properties:default_properties
-      ~capabilities ~pCI:pci
+      ~capabilities ~pCI:pci ~lldp_mode:`inherited
   in
   (* If I'm a pool slave and this pif represents my management
      	 * interface then leave it alone: if the interface goes down
@@ -960,6 +960,56 @@ let set_primary_address_type ~__context ~self ~primary_address_type =
   Db.PIF.set_primary_address_type ~__context ~self ~value:primary_address_type ;
   Monitor_dbcalls_cache.clear_cache_for_pif
     ~pif_name:(Db.PIF.get_device ~__context ~self)
+
+(* LLDP is configurable on any managed physical PIF, i.e. a standalone
+   physical NIC or a bond member NIC. Bond masters, VLAN, tunnel and SR-IOV
+   PIFs are excluded, as they do not represent a physical NIC. *)
+let assert_lldp_configurable ~__context ~self =
+  Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;
+  let pif_rec = Db.PIF.get_record ~__context ~self in
+  match Xapi_pif_helpers.get_pif_type pif_rec with
+  | Xapi_pif_helpers.Physical _ ->
+      ()
+  | _ ->
+      raise
+        (Api_errors.Server_error
+           (Api_errors.pif_is_not_physical, [Ref.string_of self])
+        )
+
+(* LLDP runs on the physical NIC. A standalone physical PIF is plugged
+   directly; a bond member's configuration is applied by (re)plugging the
+   bond master, which brings its member NICs up. *)
+let pif_to_plug_for_lldp ~__context ~self =
+  match Db.PIF.get_bond_slave_of ~__context ~self with
+  | bond when bond <> Ref.null ->
+      Db.Bond.get_master ~__context ~self:bond
+  | _ ->
+      self
+
+let set_lldp_mode ~__context ~self ~value ~force =
+  assert_lldp_configurable ~__context ~self ;
+  if force || Db.PIF.get_lldp_mode ~__context ~self <> value then (
+    Db.PIF.set_lldp_mode ~__context ~self ~value ;
+    (* Re-apply to networkd only if the NIC is up; an unplugged PIF will pick
+       up the new setting the next time it is brought up. *)
+    let to_plug = pif_to_plug_for_lldp ~__context ~self in
+    if Db.PIF.get_currently_attached ~__context ~self:to_plug then
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          (* The LLDP configuration itself is applied best-effort inside
+             networkd (a failure there is swallowed so it cannot block the
+             plug); only a genuine re-plug failure can be reported here. Raise
+             it as an error so the UI shows which PIF was not reconfigured. *)
+          try Client.Client.PIF.plug ~rpc ~session_id ~self:to_plug
+          with e ->
+            let pif_str = Ref.string_of to_plug in
+            error "%s: PIF.plug failed on %s: %s" __FUNCTION__ pif_str
+              (ExnHelper.string_of_exn e) ;
+            raise
+              (Api_errors.Server_error
+                 (Api_errors.lldp_pif_replug_failed, [pif_str])
+              )
+      )
+  )
 
 let set_property ~__context ~self ~name ~value =
   let fail () =

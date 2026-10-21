@@ -1,4 +1,5 @@
-let local_vdi_migration rpc session_id vm_template
+let local_vdi_migration ?backing_format ~virtual_size ~prepare_vdi
+    ~post_migration rpc session_id vm_template
     ((src_sr_info, dst_sr_info) : Qt.sr_info * Qt.sr_info) () =
   let open Client in
   Printf.printf "Testing migration from %s to %s\n"
@@ -6,12 +7,11 @@ let local_vdi_migration rpc session_id vm_template
     (Client.SR.get_name_label ~rpc ~session_id ~self:dst_sr_info.sr) ;
 
   (* Create a VDI on src *)
-  let vdi =
-    Client.VDI.create ~rpc ~session_id ~name_label:"[QT] testing migration"
-      ~name_description:__FILE__ ~sR:src_sr_info.sr ~virtual_size:2097152L
-      ~_type:`user ~sharable:false ~read_only:false ~other_config:[]
-      ~xenstore_data:[] ~sm_config:[] ~tags:[]
-  in
+  Qt.VDI.with_new ~name_label:"[QT] testing migration"
+    ~name_description:__FILE__ ~virtual_size ?backing_format rpc session_id
+    src_sr_info.sr
+  @@ fun vdi ->
+  prepare_vdi vdi ;
 
   (* Track which VDI must be destroyed at cleanup time. After migration, ownership
      moves from the original VDI to the migrated one. *)
@@ -43,7 +43,9 @@ let local_vdi_migration rpc session_id vm_template
           in
 
           Alcotest.(check string)
-            "VDI migrated to destination SR" expected actual
+            "VDI migrated to destination SR" expected actual ;
+
+          post_migration migrated_vdi
       )
     )
     (fun () ->
@@ -51,27 +53,29 @@ let local_vdi_migration rpc session_id vm_template
     )
 
 let tests () =
-  let smapiv1_mig =
-    Qt_filter.SR.(
-      all
-      |> not_iso
-      |> smapiv1
-      |> allowed_operations [`vdi_mirror; `vdi_snapshot]
-    )
-  in
-  let smapiv3_mig =
-    Qt_filter.SR.(all |> not_iso |> smapiv3 |> allowed_operations [`vdi_mirror])
-  in
-
+  let prepare_vdi = fun _ -> () in
+  let post_migration = fun _ -> () in
   let open Qt_filter in
   [
-    [("SMAPIv1 migration test", `Slow, local_vdi_migration)]
+    [
+      ( "SMAPIv1 migration test"
+      , `Slow
+      , local_vdi_migration ~backing_format:"vhd" ~virtual_size:2097152L
+          ~prepare_vdi ~post_migration
+      )
+    ]
     |> conn
     |> vm_template Qt.VM.Template.other
-    |> migration_path smapiv1_mig
-  ; [("SMAPIv3 migration test", `Slow, local_vdi_migration)]
+    |> migration_path SR.smapiv1_mig
+  ; [
+      ( "SMAPIv3 migration test"
+      , `Slow
+      , local_vdi_migration ~backing_format:"vhd" ~virtual_size:2097152L
+          ~prepare_vdi ~post_migration
+      )
+    ]
     |> conn
     |> vm_template Qt.VM.Template.other
-    |> migration_path smapiv3_mig
+    |> migration_path SR.smapiv3_mig
   ]
   |> List.concat

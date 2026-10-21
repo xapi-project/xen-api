@@ -1,6 +1,6 @@
 (test
  (name test)
- (modules :standard \ test_cpuid test_topology)
+ (modules :standard \ test_cpuid test_topology test_migrate_connect)
  (package xapi-tools)
  (libraries
   alcotest
@@ -33,6 +33,13 @@
   (modules test_topology)
   (package xapi-tools)
   (libraries alcotest fmt xapi-log xapi_xenopsd)
+)
+
+(test
+  (name test_migrate_connect)
+  (modules test_migrate_connect)
+  (package xapi-tools)
+  (libraries alcotest fmt unix xapi_xenopsd)
 )
 
 (rule

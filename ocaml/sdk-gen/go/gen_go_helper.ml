@@ -392,6 +392,10 @@ module Json = struct
             "typeKey"
         | "interface" ->
             "inter"
+        | "min" ->
+            "minVal"
+        | "max" ->
+            "maxVal"
         | _ ->
             name'
       in
