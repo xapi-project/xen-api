@@ -21,3 +21,9 @@
  (package xapi-gpu)
  (modules test_host_partitioning)
  (libraries gpu alcotest))
+
+(test
+ (name test_gpu_capacity)
+ (package xapi-gpu)
+ (modules test_gpu_capacity)
+ (libraries gpu mig_fixtures alcotest))
