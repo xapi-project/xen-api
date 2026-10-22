@@ -35,6 +35,7 @@ depends: [
   "uri"
   "vhd-format" {= version}
   "vhd-format-lwt" {= version}
+  "xapi-consts" {= version}
   "xapi-idl" {= version}
   "xapi-log" {= version}
   "xen-api-client-lwt" {= version}

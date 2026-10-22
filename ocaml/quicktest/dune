@@ -27,6 +27,7 @@
     uuid
     xapi-client
     xapi-consts
+    xapi-consts.xapi_version
     xapi-datamodel
     xapi_internal
     xapi-log

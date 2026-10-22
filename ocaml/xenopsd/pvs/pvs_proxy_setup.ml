@@ -653,7 +653,7 @@ module CLI = struct
   let cmd =
     let help = `Help (`Pager, None) in
     let doc = "set up OVS rules for PVS proxy" in
-    let info = C.Cmd.info name ~doc ~man in
+    let info = C.Cmd.info name ~version:build ~doc ~man in
     let default = C.Term.(ret @@ const help) in
     C.Cmd.group info ~default cmds
 end

@@ -38,7 +38,6 @@
     lwt/server_main.exe
     lwt/link_test_main.exe
     ../switch/switch_main.exe
-    ../cli/main.exe
   )
   (action (run ./basic-rpc-test.sh))
   (package message-switch)
@@ -53,7 +52,6 @@
     lwt/server_main.exe
     lwt/link_test_main.exe
     ../switch/switch_main.exe
-    ../cli/main.exe
   )
   (action (setenv SECS 5 (run ./basic-rpc-test.sh)))
   (package message-switch)
@@ -69,9 +67,34 @@
     lwt/server_main.exe
     lwt/link_test_main.exe
     ../switch/switch_main.exe
-    ../cli/main.exe
+    cli_main.exe
   )
   (action (run ./concur-rpc-test.sh))
   (package message-switch)
 )
 
+; A copy of message-cli for the tests of message-switch: the installed one
+; belongs to message-switch-cli, so it is not built by dune -p message-switch
+(rule
+  (copy ../cli/main.ml cli_main.ml)
+)
+
+(executable
+  (modes exe)
+  (name cli_main)
+  (public_name -)
+  (package message-switch)
+  (modules cli_main)
+  (libraries
+    cmdliner
+    message-switch-core
+    message-switch-unix
+    mtime
+    rpclib.core
+    rpclib.json
+    threads.posix
+    unix
+    xapi-consts.xapi_version
+  )
+  (preprocess (pps ppx_deriving_rpc))
+)

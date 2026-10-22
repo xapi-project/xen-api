@@ -100,6 +100,12 @@ format:
 quality-gate:
 	./quality-gate.sh
 
+# Run after `make install DESTDIR=...`, with the same DESTDIR.
+# Prints a summary; V=1 also reports the successful checks.
+.PHONY: check-versions
+check-versions:
+	./check-versions.sh -s $(if $(V),-v)
+
 .PHONY: install-scripts install-python3 install-dune1 install-dune2 install-dune3 install-dune4 install-extra
 
 install-scripts:
