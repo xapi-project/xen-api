@@ -556,9 +556,7 @@ let get_host_updates_in_json ~__context ~installed =
           get_updates_from_updateinfo ~__context repositories
         in
         (* (name_arch, pkg) list *)
-        let installed_pkgs =
-          match installed with true -> get_installed_pkgs () | false -> []
-        in
+        let installed_pkgs = get_installed_pkgs () in
         let applied_livepatches_in_json =
           Livepatch.get_applied_livepatches () |> List.map Livepatch.to_json
         in
@@ -580,7 +578,9 @@ let get_host_updates_in_json ~__context ~installed =
           | None, None ->
               None
         in
-        let latest_updates'' = get_updates_from_repoquery repositories in
+        let latest_updates'' =
+          get_updates_from_repoquery ~installed_pkgs repositories
+        in
         (* To ensure the updating function will not strand, use redundant
          * functions to get the update/installation list.
          * Falling back to use "repoquery" when
@@ -597,6 +597,12 @@ let get_host_updates_in_json ~__context ~installed =
         let latest_updates_in_json =
           validate_latest_updates ~latest_updates ~accumulative_updates
           |> List.map (get_update_in_json ~installed_pkgs:[])
+        in
+        let installed_pkgs =
+          if installed then
+            installed_pkgs
+          else
+            []
         in
         let accumulative_updates_in_json =
           prune_accumulative_updates ~accumulative_updates ~latest_updates

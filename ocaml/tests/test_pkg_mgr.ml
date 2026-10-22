@@ -44,6 +44,7 @@ let test_dnf_repo_query_updates =
             ; "--qf"
             ; "%{name}:|%{epoch}:|%{version}:|%{release}:|%{arch}:|%{repoid}\n"
             ; "--upgrades"
+            ; "--latest-limit=1"
             ]
         }
         (Pkg_mgr.Dnf_cmd.repoquery_updates
