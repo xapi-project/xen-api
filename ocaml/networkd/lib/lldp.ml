@@ -592,27 +592,23 @@ module Make (Agent : AGENT) = struct
   module Scope = struct
     module Iface_set = Set.Make (String)
 
-    let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+    let lock = Mutex.create ()
+
+    let with_lock f = Xapi_stdext_threads.Threadext.Mutex.execute lock f
 
     let ifaces = ref Iface_set.empty
-
-    let lock = Mutex.create ()
 
     let push () = Agent.set_scope (Iface_set.elements !ifaces)
 
     let add dev =
-      with_lock lock (fun () ->
-          ifaces := Iface_set.add dev !ifaces ;
-          push ()
-      )
+      with_lock @@ fun () ->
+      ifaces := Iface_set.add dev !ifaces ;
+      push ()
 
     let remove dev =
-      with_lock lock (fun () ->
-          ifaces := Iface_set.remove dev !ifaces ;
-          push ()
-      )
-
-    let clear () = with_lock lock (fun () -> ifaces := Iface_set.empty)
+      with_lock @@ fun () ->
+      ifaces := Iface_set.remove dev !ifaces ;
+      push ()
   end
 
   let set_conf dev (config : I.lldp option) : unit =
@@ -663,8 +659,7 @@ module Make (Agent : AGENT) = struct
     |> Result.iter_error (fun e ->
         warn "%s: Could not stop LLDP agent: %s" __FUNCTION__
           (Lldp_types.string_of_error e)
-    ) ;
-    Scope.clear ()
+    )
 
   let set_tlv_management_address addrs =
     Agent.set_advertising_conf (Management_address addrs)
