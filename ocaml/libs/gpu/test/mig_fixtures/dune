@@ -1,0 +1,3 @@
+(library
+ (name mig_fixtures)
+ (libraries gpu))
