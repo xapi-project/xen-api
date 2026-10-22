@@ -1,6 +1,6 @@
 (test
  (name test)
- (modules :standard \ test_cpuid test_topology test_migrate_connect)
+ (modules :standard \ test_cpuid test_topology test_migrate_connect test_io_watchdog)
  (package xapi-tools)
  (libraries
   alcotest
@@ -40,6 +40,13 @@
   (modules test_migrate_connect)
   (package xapi-tools)
   (libraries alcotest fmt unix xapi_xenopsd)
+)
+
+(test
+  (name test_io_watchdog)
+  (modules test_io_watchdog)
+  (package xapi-tools)
+  (libraries alcotest threads.posix unix xapi-idl.xen.interface xapi_xenopsd)
 )
 
 (rule

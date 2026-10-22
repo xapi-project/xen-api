@@ -48,8 +48,8 @@ let options =
     ( "emu-manager-quiet-timeout"
     , Arg.Set_float Emu_manager.quiet_timeout
     , (fun () -> string_of_float !Emu_manager.quiet_timeout)
-    , "Time in seconds without any message from emu-manager before we assume \
-       it is stuck and abort the operation"
+    , "Time in seconds during which neither emu-manager nor its children read \
+       or write anything before we assume it is stuck and abort the operation"
     )
   ]
 
