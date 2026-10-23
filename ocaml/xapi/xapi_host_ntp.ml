@@ -16,64 +16,13 @@ module D = Debug.Make (struct let name = "xapi_host_ntp" end)
 
 open D
 
-let ( // ) = Filename.concat
+type parsed_ntp = {
+    server_lines: string list
+  ; dhcp_lines: string list
+  ; other_lines: string list
+}
 
-let ntp_dhcp_server_path interface =
-  Printf.sprintf "%s/%s.sources" !Xapi_globs.ntp_dhcp_dir interface
-
-let add_exec_permission fname =
-  let st = Unix.stat fname in
-  let perm = st.Unix.st_perm lor 0o111 in
-  Unix.chmod fname perm
-
-let remove_exec_permission fname =
-  let st = Unix.stat fname in
-  let perm = st.Unix.st_perm land lnot 0o111 in
-  Unix.chmod fname perm
-
-let get_dhclient_interfaces () =
-  let extract_interface_name filename =
-    try Scanf.sscanf filename "dhclient-%[^.].leases" (fun x -> Some x)
-    with _ -> None
-  in
-  Sys.readdir "/var/lib/xcp"
-  |> Array.to_list
-  |> List.filter_map extract_interface_name
-
-let get_dhcp_ntp_server interface =
-  let fname = Printf.sprintf "/var/lib/xcp/dhclient-%s.leases" interface in
-  Xapi_stdext_unix.Unixext.read_lines ~path:fname
-  |> List.rev (* search from the last lease entry *)
-  |> List.find_map (fun line ->
-      let line = String.trim line in
-      try Scanf.sscanf line "option ntp-servers %[^;];" (fun x -> Some x)
-      with _ -> None
-  )
-
-let add_dhcp_ntp_servers () =
-  let ntp_dhcp_dir = !Xapi_globs.ntp_dhcp_dir in
-  if not (Sys.file_exists ntp_dhcp_dir && Sys.is_directory ntp_dhcp_dir) then
-    Xapi_stdext_unix.Unixext.mkdir_rec ntp_dhcp_dir 0o755 ;
-  get_dhclient_interfaces ()
-  |> List.iter (fun interface ->
-      match get_dhcp_ntp_server interface with
-      | Some server ->
-          let line = Printf.sprintf "server %s iburst prefer\n" server in
-          Xapi_stdext_unix.Unixext.write_string_to_file
-            (ntp_dhcp_server_path interface)
-            line
-      | None ->
-          ()
-  ) ;
-  add_exec_permission !Xapi_globs.ntp_dhcp_script
-
-let remove_dhcp_ntp_servers () =
-  remove_exec_permission !Xapi_globs.ntp_dhcp_script ;
-  Sys.readdir !Xapi_globs.ntp_dhcp_dir
-  |> Array.iter (fun fname ->
-      if String.ends_with ~suffix:".sources" fname then
-        Sys.remove (!Xapi_globs.ntp_dhcp_dir // fname)
-  )
+let dhcp_line () = Printf.sprintf "sourcedir %s" !Xapi_globs.ntp_dhcp_dir
 
 let enable_ntp_service () =
   Helpers.call_script !Xapi_globs.timedatectl ["set-ntp"; "true"] |> ignore
@@ -91,40 +40,53 @@ let is_ntp_service_active () =
   Fe_systemctl.is_active ~service:!Xapi_globs.ntp_service
 
 let parse_ntp_conf () =
-  try
-    Xapi_stdext_unix.Unixext.read_lines ~path:!Xapi_globs.ntp_conf
-    |> List.partition (String.starts_with ~prefix:"server ")
-  with Sys_error _ -> ([], [])
+  let server_lines, other_lines =
+    try
+      Xapi_stdext_unix.Unixext.read_lines ~path:!Xapi_globs.ntp_conf
+      |> List.partition (String.starts_with ~prefix:"server ")
+    with Sys_error _ -> ([], [])
+  in
+  let dhcp_lines, other_lines =
+    other_lines |> List.partition (String.starts_with ~prefix:(dhcp_line ()))
+  in
+  {server_lines; dhcp_lines; other_lines}
 
-let write_ntp_conf other servers =
-  let lines = List.map (fun s -> Printf.sprintf "server %s iburst" s) servers in
-  let all_lines = other @ lines in
+let write_ntp_conf {server_lines; dhcp_lines; other_lines} =
+  let all_lines = other_lines @ dhcp_lines @ server_lines in
   let write_lines fname lines =
     Xapi_stdext_unix.Unixext.write_string_to_file fname
       (String.concat "\n" lines ^ "\n")
   in
   write_lines !Xapi_globs.ntp_conf all_lines
 
+let add_dhcp_ntp_servers () =
+  let parsed = parse_ntp_conf () in
+  write_ntp_conf {parsed with dhcp_lines= [dhcp_line ()]}
+
+let remove_dhcp_ntp_servers () =
+  let parsed = parse_ntp_conf () in
+  write_ntp_conf {parsed with dhcp_lines= []}
+
 let set_servers_in_conf servers =
-  let _, other = parse_ntp_conf () in
-  write_ntp_conf other servers
+  let server_lines =
+    List.map (fun s -> Printf.sprintf "server %s iburst" s) servers
+  in
+  let parsed = parse_ntp_conf () in
+  write_ntp_conf {parsed with server_lines}
 
 let clear_servers_in_conf () = set_servers_in_conf []
 
 let get_servers_from_conf () =
-  let servers, _ = parse_ntp_conf () in
+  let {server_lines; _} = parse_ntp_conf () in
   List.filter_map
     (fun line ->
       try Scanf.sscanf line "server %s@ iburst%!" Option.some with _ -> None
     )
-    servers
+    server_lines
 
 let is_ntp_dhcp_enabled () =
-  (* check ntp_dhcp_script exec permission *)
-  try
-    let stat = Unix.stat !Xapi_globs.ntp_dhcp_script in
-    stat.Unix.st_perm land 0o100 <> 0
-  with _ -> false
+  let {dhcp_lines; _} = parse_ntp_conf () in
+  dhcp_lines <> []
 
 (* chronyc -c sources output the ntp servers status in csv format. Example:
     ^,-,10.62.16.11,5,6,377,54,0.000496471,0.000496471,0.071449950
@@ -188,3 +150,49 @@ let is_synchronized () =
     |> List.exists ((Fun.flip List.mem) patterns)
     |> Result.ok
   with e -> Error (ExnHelper.string_of_exn e)
+
+let update_system_layout () =
+  (*
+   * In the previous layout:
+   * - ntp_dhcp_script filemode was +x only when ntp-mode=DHCP (and -x else)
+   * - possible presence of `sourcedir` lines in ntp_conf (even if not in ntp-mode=DHCP)
+   *
+   * In the new layout:
+   * - ntp_dhcp_script is always +x
+   * - the `sourcedir` line in ntp_conf is the only marker of ntp-mode=DHCP
+   *
+   * This migration runs at every xapi startup and is idempotent:
+   * it only changes state on a system with the previous layout
+   * (-x ntp_dhcp_script) and is a no-op on fresh install or on an
+   * already migrated system. If an action fails, an error is logged
+   * and the migration is retried at the next startup.
+   *
+   * The no-op on an executable ntp_dhcp_script is intentional: an
+   * executable script with no `sourcedir` line could be a previous-layout
+   * system in DHCP mode where the line was manually removed, or a new-layout
+   * system with ntp-mode <> DHCP. It is treated as non-DHCP, so that a fresh
+   * non-DHCP install is never converted to DHCP. On such a previous-layout
+   * system, the user must re-set ntp-mode=DHCP to restore the `sourcedir` line.
+   *
+   * Another migration edge case: if the host was booted with IP-mode=DHCP and
+   * ntp-mode <> DHCP before updating, the /run/chrony-dhcp directory will only
+   * be populated with the next lease renewal. Setting ntp-mode=DHCP during this
+   * window will not work as expected (the NTP servers list from DHCP will be
+   * empty, and only updated at the next lease).
+   *)
+  let hook = !Xapi_globs.ntp_dhcp_script in
+  match Unix.stat hook with
+  | {Unix.st_perm; _} when st_perm land 0o100 = 0 -> (
+      (* Old layout: non-DHCP mode. Drop the `sourcedir` line and set +x. *)
+      info "Migrating NTP layout: removing sourcedir, making %s executable" hook ;
+      try
+        remove_dhcp_ntp_servers () ;
+        Unix.chmod hook (st_perm lor 0o111)
+      with e -> error "NTP layout migration failed: %s" (Printexc.to_string e)
+    )
+  | _ ->
+      (* New layout (or previous layout in DHCP mode): leave everything as is. *)
+      ()
+  | exception e ->
+      (* e.g. ntp_dhcp_script is absent: nothing can be concluded, skip. *)
+      warn "NTP layout migration skipped: %s" (Printexc.to_string e)
