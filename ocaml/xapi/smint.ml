@@ -220,6 +220,9 @@ type attach_info = {
   ; o_direct: bool
   ; o_direct_reason: string
   ; xenstore_data: (string * string) list
+  ; backend_kind: string option
+        (** Optional SMAPIv1-specified datapath backend (e.g. "qdisk" for
+          qemu). When [None] the toolstack defaults to "vbd3". *)
 }
 
 exception Backend_missing_field of string
