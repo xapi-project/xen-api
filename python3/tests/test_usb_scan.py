@@ -86,10 +86,13 @@ class MocContext():
         raise AssertionError(f"unexpected {dev_type}")  # pragma: no cover
 
 
-def mock_setup(mod, devices, interfaces, path):
+def mock_setup(mod, devices, interfaces, path, dropin_dir):
     mod.log.error = verify_log
     mod.log.debug = verify_log
     mod.Policy._PATH = path
+    # point at a path that don't exist by default, so tests that don't care
+    # about drop-in files keep today's behaviour.
+    mod.Policy._DROPIN_DIR = dropin_dir or "/nonexistent/usb-policy.conf.d"
     mod.pyudev.Context = MagicMock(
             return_value=MocContext(devices, interfaces))
 
@@ -110,10 +113,11 @@ class TestUsbScan(unittest.TestCase):
         moc_interfaces,
         moc_results,
         # Use relative path to allow tests to be started in subdirectories
-        path = os.path.dirname(__file__) + "/../../scripts/usb-policy.conf"
+        path = os.path.dirname(__file__) + "/../../scripts/usb-policy.conf",
+        dropin_dir=None,
     ):
 
-        mock_setup(usb_scan, moc_devices, moc_interfaces, path)
+        mock_setup(usb_scan, moc_devices, moc_interfaces, path, dropin_dir)
 
         devices, interfaces = usb_scan.get_usb_info()
 
@@ -137,6 +141,110 @@ class TestUsbScan(unittest.TestCase):
             # looks like "duplicated tag'vid' found,
             # malformed line ALLOW:vid=056a vid=0314 class=03"
             self.assertIn(msg, cast(str, cm.exception.code))  # code is a str
+
+    def _hid_keyboard_device(self, vid=b"413c", pid=b"2113"):
+        devices = [
+            {
+                "name": "1-2",
+                "props": {"ID_VENDOR_FROM_DATABASE": "Generic Vendor Inc."},
+                "attrs": {
+                    "idVendor": vid,
+                    "bNumInterfaces": b" 1",
+                    "bConfigurationValue": b"1",
+                    "bcdDevice": b"0110",
+                    "version": b" 2.00",
+                    "idProduct": pid,
+                    "bDeviceClass": b"00",
+                    "speed": b"480",
+                },
+            }
+        ]
+        interfaces = [
+            {
+                "name": "1-2:1.0",
+                "attrs": {
+                    "bInterfaceClass": b"03",
+                    "bInterfaceSubClass": b"01",
+                    "bInterfaceProtocol": b"01",
+                    "bInterfaceNumber": b"00",
+                },
+            }
+        ]
+        return devices, interfaces
+
+    def test_usb_dropin_overrides_main_file(self):
+        # The main policy file denies HID boot keyboards; a drop-in rule for this
+        # exact vendor/product must override that
+        devices, interfaces = self._hid_keyboard_device()
+
+        dropin_dir = os.path.join(self.work_dir, "usb-policy.conf.d")
+        os.mkdir(dropin_dir)
+        with open(os.path.join(dropin_dir, "10-custom.conf"), "w", encoding="utf-8") as f:
+            f.write("ALLOW: vid=413c pid=2113 # allow this keyboard\n")
+
+        results = [
+            {
+                "product-desc": "",
+                "product-id": "2113",
+                "description": "Generic Vendor Inc.",
+                "vendor-desc": "Generic Vendor Inc.",
+                "version": "2.00",
+                "vendor-id": "413c",
+                "path": "1-2",
+                "serial": "",
+                "speed": "480",
+            }
+        ]
+
+        self.verify_usb_common(devices, interfaces, results, dropin_dir=dropin_dir)
+
+    def test_usb_dropin_files_read_in_alphabetical_order(self):
+        # two drop-in files disagree on the same device, the one that sorts first
+        # must win
+        devices, interfaces = self._hid_keyboard_device()
+
+        dropin_dir = os.path.join(self.work_dir, "usb-policy.conf.d")
+        os.mkdir(dropin_dir)
+
+        with open(os.path.join(dropin_dir, "10-allow.conf"), "w", encoding="utf-8") as f:
+            f.write("ALLOW: vid=413c pid=2113 # allow this keyboard\n")
+        with open(os.path.join(dropin_dir, "20-deny.conf"), "w", encoding="utf-8") as f:
+            f.write("DENY: vid=413c pid=2113 # deny this keyboard\n")
+
+        results = [
+            {
+                "product-desc": "",
+                "product-id": "2113",
+                "description": "Generic Vendor Inc.",
+                "vendor-desc": "Generic Vendor Inc.",
+                "version": "2.00",
+                "vendor-id": "413c",
+                "path": "1-2",
+                "serial": "",
+                "speed": "480",
+            }
+        ]
+
+        self.verify_usb_common(devices, interfaces, results, dropin_dir=dropin_dir)
+
+    def test_usb_dropin_files_read_in_alphabetical_order_flipped(self):
+        # This time we set DENY with higher priority
+        devices, interfaces = self._hid_keyboard_device()
+
+        dropin_dir = os.path.join(self.work_dir, "usb-policy.conf.d")
+        os.mkdir(dropin_dir)
+
+        with open(os.path.join(dropin_dir, "30-allow.conf"), "w", encoding="utf-8") as f:
+            f.write("ALLOW: vid=413c pid=2113 # allow this keyboard\n")
+        with open(os.path.join(dropin_dir, "20-deny.conf"), "w", encoding="utf-8") as f:
+            f.write("DENY: vid=413c pid=2113 # deny this keyboard\n")
+
+        self.verify_usb_common(devices, interfaces, [], dropin_dir=dropin_dir)
+
+    def test_usb_dropin_dir_missing_is_not_error(self):
+        # no drop-in directory at all: behavior must be unchanged
+        devices, interfaces = self._hid_keyboard_device()
+        self.verify_usb_common(devices, interfaces, [])
 
     def test_usb_dongle(self):
         devices = [
@@ -248,7 +356,7 @@ class TestUsbScan(unittest.TestCase):
         devices = [
             {
                 "name": "1-2",
-                "props": {"ID_VENDOR_FROM_DATABASE": "Dell Computer Corp."},
+                "props": {"ID_VENDOR_FROM_DATABASE": "Generic Vendor Inc."},
                 "attrs": {
                     "idVendor": b"413c",
                     "bNumInterfaces": b" 2",
