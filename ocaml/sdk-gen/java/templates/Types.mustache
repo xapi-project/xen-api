@@ -58,11 +58,13 @@ public class Types
         public final String[] errorDescription;
 
         XenAPIException(String shortDescription) {
+            super(shortDescription);
             this.shortDescription = shortDescription;
             this.errorDescription = null;
         }
 
         XenAPIException(String[] errorDescription) {
+            super(errorDescription.length > 0 ? errorDescription[0] : "");
             this.errorDescription = errorDescription;
             if (errorDescription.length > 0) {
                 shortDescription = errorDescription[0];
