@@ -2878,9 +2878,17 @@ let vif_configure_ipv4 _printer rpc session_id params =
   in
   let address = Cli_args.get_default "address" params "" in
   let gateway = Cli_args.get_default "gateway" params "" in
+  let dns =
+    match Cli_args.get_default "dns" params "" with
+    | "" ->
+        []
+    | dns ->
+        String.split_on_char ',' dns
+  in
   if mode = `Static && address = "" then
     failwith "Required parameter not found: address" ;
   Client.VIF.configure_ipv4 ~rpc ~session_id ~self:vif ~mode ~address ~gateway
+    ~dns
 
 let vif_configure_ipv6 _printer rpc session_id params =
   let vif =
@@ -2892,9 +2900,17 @@ let vif_configure_ipv6 _printer rpc session_id params =
   in
   let address = Cli_args.get_default "address" params "" in
   let gateway = Cli_args.get_default "gateway" params "" in
+  let dns =
+    match Cli_args.get_default "dns" params "" with
+    | "" ->
+        []
+    | dns ->
+        String.split_on_char ',' dns
+  in
   if mode = `Static && address = "" then
     failwith "Required parameter not found: address" ;
   Client.VIF.configure_ipv6 ~rpc ~session_id ~self:vif ~mode ~address ~gateway
+    ~dns
 
 let vif_move _printer rpc session_id params =
   let uuid = Cli_args.get "uuid" params in

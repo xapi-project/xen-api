@@ -851,7 +851,7 @@ module MD = struct
             else
               Some vif.API.vIF_ipv4_gateway
           in
-          Vif.Static4 (vif.API.vIF_ipv4_addresses, gateway)
+          Vif.Static4 (vif.API.vIF_ipv4_addresses, gateway, vif.API.vIF_ipv4_dns)
       | `DHCP ->
           Vif.DHCP4
     in
@@ -866,7 +866,7 @@ module MD = struct
             else
               Some vif.API.vIF_ipv6_gateway
           in
-          Vif.Static6 (vif.API.vIF_ipv6_addresses, gateway)
+          Vif.Static6 (vif.API.vIF_ipv6_addresses, gateway, vif.API.vIF_ipv6_dns)
       | `Autoconf ->
           Vif.Autoconf6
     in
