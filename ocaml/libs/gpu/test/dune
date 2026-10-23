@@ -1,9 +1,22 @@
 (test
  (name test_partition_mode)
+ (modules test_partition_mode)
  (package xapi-gpu)
  (libraries gpu alcotest))
 
 (test
  (name test_gpu_partition_lifecycle)
+ (modules test_gpu_partition_lifecycle)
  (package xapi-gpu)
  (libraries gpu alcotest))
+
+(library
+ (name mig_fixtures)
+ (modules mig_fixtures)
+ (libraries gpu))
+
+(test
+ (name test_gpu_capacity)
+ (package xapi-gpu)
+ (modules test_gpu_capacity)
+ (libraries gpu mig_fixtures alcotest))
