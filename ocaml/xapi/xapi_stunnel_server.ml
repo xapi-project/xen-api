@@ -22,6 +22,8 @@ let cert = !Xapi_globs.server_cert_path
 
 let pool_cert = !Xapi_globs.server_cert_internal_path
 
+let client_auth_bundle = "/etc/stunnel/xapi-client-auth-ca-bundle.pem"
+
 (** protect ourselves from concurrent writes to files *)
 module Config : sig
   val update : accept:string -> client_auth_name:string option -> bool
@@ -97,7 +99,7 @@ end = struct
                 Xapi_globs.unix_domain_socket_clientcert
             ; "redirect = 80"
             ; "verifyChain = yes"
-            ; Printf.sprintf "CAfile = %s" !Xapi_globs.stunnel_bundle_path
+            ; Printf.sprintf "CAfile = %s" client_auth_bundle
             ; Printf.sprintf "checkHost = %s" name
             ]
         )
@@ -185,6 +187,38 @@ let update_certificates ~__context () =
   | exception e ->
       error "Failed to update host certificates: %s" (Printexc.to_string e)
 
+(* stunnel takes a single CAfile: combine the CAs installed with
+   Pool.install_ca_certificate and those trusted for client_certificate_auth *)
+let client_auth_bundle_sources () =
+  let purpose_bundles =
+    Certificates.(trusted_store_locations (Root [`client_certificate_auth]))
+    |> List.filter_map (fun {Certificates.bundle; _} -> bundle)
+    |> List.map (fun (dir, file) -> Filename.concat dir file)
+  in
+  !Xapi_globs.stunnel_bundle_path :: purpose_bundles
+
+let combine_bundles ~target sources =
+  let contents =
+    sources
+    |> List.filter Sys.file_exists
+    |> List.map Unixext.string_of_file
+    |> String.concat "\n"
+  in
+  let current = try Some (Unixext.string_of_file target) with _ -> None in
+  if String.trim contents = "" then (
+    Unixext.unlink_safe target ; `Empty
+  ) else if current = Some contents then
+    `Unchanged
+  else (
+    Unixext.atomic_write_to_file target 0o644 (fun fd ->
+        Unixext.really_write_string fd contents
+    ) ;
+    `Changed
+  )
+
+let update_client_auth_bundle () =
+  combine_bundles ~target:client_auth_bundle (client_auth_bundle_sources ())
+
 let sync ~__context ipv6_enabled =
   try
     let accept =
@@ -211,6 +245,18 @@ let sync ~__context ipv6_enabled =
       else
         None
     in
+    let trust =
+      Option.map (fun _ -> update_client_auth_bundle ()) client_auth_name
+    in
+    let client_auth_name =
+      match trust with
+      | Some `Empty ->
+          (* there would be no CAfile to verify client certificates against *)
+          warn "No CA is trusted for client certificate auth" ;
+          None
+      | _ ->
+          client_auth_name
+    in
     info "Synchronising stunnel (accept = %s, client_auth_name = %s)" accept
       (Option.value ~default:"(none)" client_auth_name) ;
     let needs_restart = Config.update ~accept ~client_auth_name in
@@ -220,6 +266,9 @@ let sync ~__context ipv6_enabled =
       systemctl_ "restart" ;
       (* the stunnel start may have caused gencert to generate new certificates: now sync the DB *)
       update_certificates ~__context ()
+    ) else if trust = Some `Changed then (
+      info "Trusted client certificates changed: reloading stunnel" ;
+      reload ()
     ) else
       debug "No configuration changes: not restarting stunnel"
   with e ->
