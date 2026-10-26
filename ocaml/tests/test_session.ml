@@ -169,6 +169,25 @@ let test_failed_logins_from_both_known_and_unknown_clients () =
 </body>|}
     stats
 
+let test_client_certificate_sessions_get_pool_admin_permissions () =
+  let __context = Test_common.make_test_database () in
+  let pool_admin =
+    match
+      Xapi_role.get_by_name_label ~__context
+        ~label:Datamodel_roles.role_pool_admin
+    with
+    | [role] ->
+        role
+    | _ ->
+        Alcotest.fail "pool-admin role not found"
+  in
+  let permissions = Xapi_session.client_certificate_permissions ~__context in
+  Alcotest.(check (slist string String.compare))
+    "same permissions as pool-admin"
+    (Xapi_role.get_permissions_name_label ~__context ~self:pool_admin)
+    permissions ;
+  Alcotest.(check bool) "can start VMs" true (List.mem "vm.start" permissions)
+
 let tests =
   [
     ( "AuthFail"
@@ -188,6 +207,14 @@ let tests =
       ; ( "test_failed_logins_from_both_known_and_unknown_clients"
         , `Quick
         , test_failed_logins_from_both_known_and_unknown_clients
+        )
+      ]
+    )
+  ; ( "ClientCertificate"
+    , [
+        ( "test_client_certificate_sessions_get_pool_admin_permissions"
+        , `Quick
+        , test_client_certificate_sessions_get_pool_admin_permissions
         )
       ]
     )

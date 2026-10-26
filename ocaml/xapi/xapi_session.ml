@@ -929,6 +929,16 @@ end
 
 let clear_external_auth_cache = Caching.clear_cache
 
+let client_certificate_permissions ~__context =
+  match
+    Xapi_role.get_by_name_label ~__context
+      ~label:Datamodel_roles.role_pool_admin
+  with
+  | role :: _ ->
+      Xapi_role.get_permissions_name_label ~__context ~self:role
+  | [] ->
+      Helpers.internal_error "%s role not found" Datamodel_roles.role_pool_admin
+
 (* CP-714: Modify session.login_with_password to first try local super-user
    login; and then call into external auth plugin if this is enabled
    1. If the pool master's Host.external_auth_type field is not none, then the
@@ -961,22 +971,8 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
         ~client_certificate:false
   | Some `client_cert ->
       (* The session was authenticated by stunnel's verification of the client certificate,
-         so we do not need to verify the username/password. Grant access to functions
-         based on the special "client_cert" RBAC role. *)
-      let role =
-        match
-          Xapi_role.get_by_name_label ~__context
-            ~label:Datamodel_roles.role_client_cert
-        with
-        | role :: _ ->
-            role
-        | [] ->
-            Helpers.internal_error "%s role not found"
-              Datamodel_roles.role_client_cert
-      in
-      let rbac_permissions =
-        Xapi_role.get_permissions_name_label ~__context ~self:role
-      in
+         so we do not need to verify the username/password. *)
+      let rbac_permissions = client_certificate_permissions ~__context in
       login_no_password_common ~__context ~uname:(Some uname) ~originator
         ~host:(Helpers.get_localhost ~__context)
         ~pool:false ~is_local_superuser:false ~subject:Ref.null
