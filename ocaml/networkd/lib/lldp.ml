@@ -168,8 +168,9 @@ end
 module type AGENT = sig
   type error = Lldp_types.error
 
-  val start : unit -> (unit, error) result
-  (** Ensure the agent is running. *)
+  val start : system_name:string -> (unit, error) result
+  (** Ensure the agent is running. A newly started agent gets [system_name]
+      before any other configuration. *)
 
   val stop : unit -> (unit, error) result
   (** Stop the agent. *)
@@ -398,6 +399,18 @@ module Lldpd : AGENT = struct
 
     let cache_mgmt_addr : conf option Atomic.t = Atomic.make None
 
+    let clear () =
+      List.iter
+        (fun cache -> Atomic.set cache None)
+        [
+          cache_chassis_id
+        ; cache_sys_name
+        ; cache_sys_desc
+        ; cache_sys_cap
+        ; cache_mc_addr
+        ; cache_mgmt_addr
+        ]
+
     (* Check out cache before calling cli *)
     let checkout cache f =
       match cache with
@@ -465,7 +478,7 @@ module Lldpd : AGENT = struct
         Unixext.write_string_to_file dropin_path dropin ;
         call_systemctl ["daemon-reload"]
 
-  let start () =
+  let start ~system_name =
     try
       if Fe_systemctl.is_active ~service then (
         Atomic.set service_running true ;
@@ -473,7 +486,14 @@ module Lldpd : AGENT = struct
       ) else
         let* () = install_dropin () in
         Xapi_stdext_unix.Unixext.write_string_to_file conf_path default_conf ;
-        mark_service_running true @@ fun () -> call_systemctl ["start"; service]
+        Cache.clear () ;
+        let* () =
+          mark_service_running true @@ fun () ->
+          call_systemctl ["start"; service]
+        in
+        (* Until the system name is set, every lldpd update looks up the host
+           name, which is slow if the name does not resolve. *)
+        set_advertising_conf (System_name system_name)
     with e -> Error (Internal (Printexc.to_string e))
 
   let stop () =
@@ -618,7 +638,7 @@ module Make (Agent : AGENT) = struct
               Scope.remove dev
           | false, true ->
               Network_utils.Ethtool.try_to_disable_firmware_lldp dev ;
-              let* () = Agent.start () in
+              let* () = Agent.start ~system_name:lldp.system_name in
               let* () =
                 Agent.advertising_confs dev lldp
                 |> List.map Agent.set_advertising_conf
