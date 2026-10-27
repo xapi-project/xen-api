@@ -234,6 +234,19 @@ let detect_rolling_upgrade ~__context =
     warn "Ignoring error in detect_rolling_upgrade: %s"
       (ExnHelper.string_of_exn exn)
 
+(* Act as if [host] stopped heartbeating long ago, so that it is marked not
+   live now rather than after host_assumed_dead_interval. No-op under HA. *)
+let expire_host_heartbeat ~__context host =
+  with_lock use_host_heartbeat_for_liveness_m (fun () ->
+      if !use_host_heartbeat_for_liveness then (
+        with_lock host_table_m (fun () ->
+            Hashtbl.replace host_heartbeat_table host
+              (Clock.Timer.start ~duration:Mtime.Span.zero)
+        ) ;
+        check_host_liveness ~__context
+      )
+  )
+
 (* A host has asked to tickle its heartbeat to keep it alive (if we're using that
    mechanism for host liveness). *)
 let tickle_heartbeat ~__context host stuff =

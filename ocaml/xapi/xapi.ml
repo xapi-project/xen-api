@@ -189,15 +189,64 @@ let wait_to_die () : unit =
     Thread.delay 20000.
   done
 
+exception Host_did_not_answer
+
+(* Each host is asked in its own thread so that all are asked at once and one
+   that never answers cannot block startup; such a thread is left behind. *)
+let ask_hosts_if_they_are_slaves ~timeout hosts =
+  let start host =
+    let result = Atomic.make None in
+    let ask () =
+      Atomic.set result
+        (Some
+           ( try
+               Ok
+                 (Server_helpers.exec_with_new_task "no-other-masters probe"
+                    (fun __context ->
+                      Xapi_host.ask_host_if_it_is_a_slave ~__context ~host
+                  )
+                 )
+             with e -> Error e
+           )
+        )
+    in
+    let (_ : Thread.t) = Thread.create ask () in
+    (host, result)
+  in
+  let probes = List.map start hosts in
+  let timer =
+    if timeout > 0. then
+      Option.map
+        (fun duration -> Clock.Timer.start ~duration)
+        (Clock.Timer.s_to_span timeout)
+    else
+      None
+  in
+  let expired () =
+    Option.fold ~none:false ~some:Clock.Timer.has_expired timer
+  in
+  let unanswered (_, result) = Option.is_none (Atomic.get result) in
+  while List.exists unanswered probes && not (expired ()) do
+    Thread.delay 0.1
+  done ;
+  List.map (fun (host, result) -> (host, Atomic.get result)) probes
+
 (* Go through hosts in db. If they're up then just check that no-one else thinks they're the master.
    If someone else thinks they're the master then we switch to a slave and restart. *)
 let check_no_other_masters () =
   Server_helpers.exec_with_new_task "checking no other known hosts are masters"
     (fun __context ->
-      let assert_is_slave href =
+      let answer = function
+        | Some (Ok is_slave) ->
+            is_slave
+        | Some (Error e) ->
+            raise e
+        | None ->
+            raise Host_did_not_answer
+      in
+      let assert_is_slave (href, result) =
         try
-          if not (Xapi_host.ask_host_if_it_is_a_slave ~__context ~host:href)
-          then (
+          if not (answer result) then (
             let master_address = Db.Host.get_address ~self:href ~__context in
             error
               "Detected another master in my database of known hosts. Aborting \
@@ -217,16 +266,27 @@ let check_no_other_masters () =
             ) ;
             exit Xapi_globs.restart_return_code
           )
-        with e ->
-          (* if we couldn't contact slave then carry on regardless
+        with
+        | Host_did_not_answer ->
+            log_and_ignore_exn (fun () ->
+                error
+                  "Host %s did not answer the no-other-masters check in time; \
+                   carrying on without it"
+                  (Db.Host.get_uuid ~__context ~self:href) ;
+                Db_gc.expire_host_heartbeat ~__context href
+            )
+        | e ->
+            (* if we couldn't contact slave then carry on regardless
              		       --- this is just a sanity check, not a guarantee... *)
-          debug "Couldn't contact slave on startup check: %s"
-            (Printexc.to_string e)
+            debug "Couldn't contact slave on startup check: %s"
+              (Printexc.to_string e)
       in
       let hosts = Db.Host.get_all ~__context in
       let me = Helpers.get_localhost ~__context in
       let all_hosts_but_me = List.filter (fun h -> h <> me) hosts in
-      List.iter assert_is_slave all_hosts_but_me
+      let timeout = !Xapi_globs.no_other_masters_check_timeout in
+      ask_hosts_if_they_are_slaves ~timeout all_hosts_but_me
+      |> List.iter assert_is_slave
   )
 
 (** Called when the master restarts and any other time when the database connection restarts.
