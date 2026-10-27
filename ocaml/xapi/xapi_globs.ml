@@ -673,6 +673,8 @@ let hotplug_timeout = ref 300.
 
 let pif_reconfigure_ip_timeout = ref 300.
 
+let no_other_masters_check_timeout = ref 120.
+
 (* CA-16878: 5 minutes, same as the local database flush *)
 let pool_db_sync_interval = ref 300.
 
@@ -1219,6 +1221,7 @@ let xapi_globs_spec =
   ; ("qemu_dm_ready_timeout", Float qemu_dm_ready_timeout)
   ; ("hotplug_timeout", Float hotplug_timeout)
   ; ("pif_reconfigure_ip_timeout", Float pif_reconfigure_ip_timeout)
+  ; ("no_other_masters_check_timeout", Float no_other_masters_check_timeout)
   ; ("pool_db_sync_interval", Float pool_db_sync_interval)
   ; ("pool_data_sync_interval", Float pool_data_sync_interval)
   ; ("domain_shutdown_total_timeout", Float domain_shutdown_total_timeout)
