@@ -647,6 +647,20 @@ let reset ~__context ~vm =
         (System_domains.pbd_of_vm ~__context ~vm)
   )
 
+(** [deactivate_and_detach __context vbd domid] idempotent function which ensures
+    that any attached or activated VDI gets properly deactivated and detached. *)
+let deactivate_and_detach ~__context ~vbd ~domid =
+  transform_storage_exn (fun () ->
+      (* It suffices to destroy the datapath: any attached or activated VDIs will be
+         			   automatically detached and deactivated. *)
+      on_vdi ~__context ~vbd ~domid (fun rpc dbg dp _sr _vdi ->
+          let module C = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
+            let rpc = rpc
+          end)) in
+          C.DP.destroy dbg dp false
+      )
+  )
+
 (** [attach_and_activate __context vbd domid f] calls [f attach_info] where
     [attach_info] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained
@@ -660,22 +674,13 @@ let attach_and_activate ~__context ~vbd ~domid f =
           end)) in
           let vm = Storage_interface.Vm.of_string (string_of_int domid) in
           let attach_info = C.VDI.attach3 dbg dp sr vdi vm read_write in
-          C.VDI.activate3 dbg dp sr vdi vm ;
-          f attach_info
-      )
-  )
-
-(** [deactivate_and_detach __context vbd domid] idempotent function which ensures
-    that any attached or activated VDI gets properly deactivated and detached. *)
-let deactivate_and_detach ~__context ~vbd ~domid =
-  transform_storage_exn (fun () ->
-      (* It suffices to destroy the datapath: any attached or activated VDIs will be
-         			   automatically detached and deactivated. *)
-      on_vdi ~__context ~vbd ~domid (fun rpc dbg dp _sr _vdi ->
-          let module C = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
-            let rpc = rpc
-          end)) in
-          C.DP.destroy dbg dp false
+          (* If activate fails, remove the still-attached datapath *)
+          try
+            C.VDI.activate3 dbg dp sr vdi vm ;
+            f attach_info
+          with e ->
+            deactivate_and_detach ~__context ~vbd ~domid ;
+            raise e
       )
   )
 
