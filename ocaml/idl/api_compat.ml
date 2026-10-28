@@ -110,4 +110,32 @@ let print () =
   |> List.sort String.compare
   |> List.iter print_endline
 
-let () = match Sys.argv with [|_; "-print"|] -> print () | _ -> exit 2
+(* Parse each line, where each line is of the format produced by
+   line_of. *)
+let read_messages file =
+  let param line = function
+    | Rpc.String p ->
+        p
+    | _ ->
+        failwith ("Bad parameter in line: " ^ line)
+  in
+  In_channel.with_open_text file In_channel.input_all
+  |> String.split_on_char '\n'
+  |> List.filter (( <> ) "")
+  |> List.map (fun line ->
+      match Jsonrpc.of_string line with
+      | Rpc.(Enum (String name :: String result :: params)) ->
+          let params = List.map (param line) params in
+          (name, result, params)
+      | _ ->
+          failwith ("Unable to parse line: " ^ line)
+  )
+
+let () =
+  match Sys.argv with
+  | [|_; "-print"|] ->
+      print ()
+  | [|_; "-parse"; file|] ->
+      ignore (read_messages file)
+  | _ ->
+      exit 2
