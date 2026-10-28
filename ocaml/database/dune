@@ -76,6 +76,9 @@
 (executable
  (modes exe)
  (name block_device_io)
+ ; belong to the package, so that dune-build-info reports its version
+ (public_name -)
+ (package xapi)
  (modules block_device_io)
  (libraries
   unix

@@ -2,6 +2,7 @@
 Description=NBD server that exposes XenServer disks
 After=xapi.service message-switch.service syslog.target
 Wants=xapi.service message-switch.service syslog.target
+PartOf=toolstack.target
 
 [Service]
 Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"

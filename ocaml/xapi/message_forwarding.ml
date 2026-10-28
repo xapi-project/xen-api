@@ -1017,6 +1017,12 @@ functor
           value ;
         Local.Pool.set_igmp_snooping_enabled ~__context ~self ~value
 
+      let set_lldp_enabled ~__context ~self ~value ~force =
+        info "Pool.set_lldp_enabled: Pool = '%s', value = %B, force = %B"
+          (pool_uuid ~__context self)
+          value force ;
+        Local.Pool.set_lldp_enabled ~__context ~self ~value ~force
+
       let has_extension ~__context ~self ~name =
         info "Pool.has_extension: pool = '%s'; name = '%s'"
           (pool_uuid ~__context self)
@@ -4997,6 +5003,13 @@ functor
         in
         let host = Db.PIF.get_host ~__context ~self in
         do_op_on ~local_fn ~__context ~host ~remote_fn
+
+      let set_lldp_mode ~__context ~self ~value ~force =
+        info "PIF.set_lldp_mode: PIF = '%s'; value = '%s'; force = %B"
+          (pif_uuid ~__context self)
+          (Record_util.pif_lldp_mode_to_string value)
+          force ;
+        Local.PIF.set_lldp_mode ~__context ~self ~value ~force
 
       let set_property ~__context ~self ~name ~value =
         info "PIF.set_property: PIF = '%s'; name = '%s'; value = '%s'"

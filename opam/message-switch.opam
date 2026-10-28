@@ -30,6 +30,7 @@ depends: [
   "ppx_sexp_conv"
   "sexplib"
   "shared-block-ring" {>= "2.3.0"}
+  "xapi-consts" {with-test}
   "xapi-stdext-unix"
   "xapi-tracing"
 ]

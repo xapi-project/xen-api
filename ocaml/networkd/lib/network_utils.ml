@@ -1011,6 +1011,47 @@ end = struct
     let file = conf_file_path ~ipv6 interface in
     try Unix.unlink file with _ -> ()
 
+  let wait_for_ip ~ipv6 interface =
+    let timer = Clock.Timer.start ~duration:Mtime.Span.(1 * min) in
+    let ipver =
+      if ipv6 then
+        "IPv6"
+      else
+        "IPv4"
+    in
+    let get_ip_addresses =
+      if ipv6 then
+        Ip.get_ipv6
+      else
+        Ip.get_ipv4
+    in
+    let filter_no_local_addr =
+      if ipv6 then
+        (* get_ipv6_link_local_addr always adds prefix, so split_addr will be Some *)
+        let link_local_addr =
+          Ip.get_ipv6_link_local_addr interface |> Ip.split_addr |> Option.get
+        in
+        List.filter (( <> ) link_local_addr)
+      else
+        Fun.id
+    in
+    let has_ip () =
+      try
+        let ips = get_ip_addresses interface |> filter_no_local_addr in
+        ips <> []
+      with _ -> false (* keep trying until timeout on exception *)
+    in
+    let rec loop () =
+      if has_ip () then
+        debug "wait_for_ip: %s: %s configured" interface ipver
+      else if Clock.Timer.has_expired timer then
+        info "wait_for_ip: %s: no %s configured" interface ipver
+      else (
+        Unix.sleepf 0.5 ; loop ()
+      )
+    in
+    loop ()
+
   (** start: regenerate configuration file and start DHCP client. *)
   let start ~ipv6 interface options =
     (* create an up-to-date configuration file. *)
@@ -1043,12 +1084,13 @@ end = struct
     in
     (* start dhclient *)
     ignore
-      (call_script ~timeout:None dhclient
+      (call_script dhclient
          (ipv6'
          @ gw_opt
          @ dns_opt
          @ [
              "-q"
+           ; "-nw"
            ; "-pf"
            ; pid_file_path ~ipv6 interface
            ; "-lf"
@@ -1058,7 +1100,8 @@ end = struct
            ; interface
            ]
          )
-      )
+      ) ;
+    wait_for_ip ~ipv6 interface
 
   let set_stale ?(ipv6 = false) interface =
     (* set the configuration dirty by removing the configuration file.
@@ -1933,6 +1976,66 @@ module Ethtool = struct
     if options <> [] then
       ignore
         (call ("-K" :: name :: List.concat_map (fun (k, v) -> [k; v]) options))
+
+  let get_priv_flags name : ((string * bool) list, string) result =
+    let ps = Printf.sprintf in
+    try
+      call ["--show-priv-flags"; name]
+      |> Astring.String.cuts ~empty:false ~sep:"\n"
+      |> Xapi_stdext_std.Listext.List.try_map (fun line ->
+          match Astring.String.cut ~sep:":" line with
+          | None ->
+              Error (ps "Unexpected line (no colon): %S" line)
+          | Some (flag, value) -> (
+              let flag = String.trim flag in
+              match String.trim value with
+              | "on" ->
+                  Ok (Some (flag, true))
+              | "off" ->
+                  Ok (Some (flag, false))
+              | "" ->
+                  Ok None
+              | v ->
+                  Error (ps "Unexpected value (neither 'on' nor 'off'): %S" v)
+            )
+      )
+      |> Result.map (List.filter_map Fun.id)
+    with e -> Error (Printexc.to_string e)
+
+  let set_priv_flag name flag enabled : (unit, string) result =
+    try
+      ignore
+        (call
+           [
+             "--set-priv-flags"
+           ; name
+           ; flag
+           ; ( if enabled then
+                 "on"
+               else
+                 "off"
+             )
+           ]
+        ) ;
+      Ok ()
+    with e -> Error (Printexc.to_string e)
+
+  let try_to_disable_firmware_lldp dev =
+    match get_priv_flags dev with
+    | Ok flags ->
+        let set flag enabled =
+          List.assoc_opt flag flags
+          |> Option.iter (fun value ->
+              if value <> enabled then
+                set_priv_flag dev flag enabled
+                |> Result.fold ~ok:Fun.id ~error:(fun e ->
+                    warn "%s: %s" __FUNCTION__ e
+                )
+          )
+        in
+        set "disable-fw-lldp" true ; set "fw-lldp-agent" false
+    | Error e ->
+        warn "%s: %s" __FUNCTION__ e
 end
 
 module Dracut = struct

@@ -275,50 +275,77 @@ let config_file ?(accept = None) config host port =
 
 let ignore_exn f x = try f x with _ -> ()
 
+(* How long to wait for a disconnected stunnel child *)
+let disconnect_wait_timeout = Mtime.Span.(30 * s)
+
+(* [reap_within nohang duration] polls [nohang] until the child is reaped or
+   [duration] elapses. Returns exit status if exited, 0 otherwise *)
+let reap_within nohang duration =
+  let timer = Clock.Timer.start ~duration in
+  let rec poll delay =
+    match nohang () with
+    | 0, _ when not (Clock.Timer.has_expired timer) ->
+        Unix.sleepf delay ;
+        poll (Float.min (delay *. 2.) 0.1)
+    | res ->
+        res
+  in
+  poll 0.001
+
+(** State of child after [disconnect_with_pid] *)
+type reaped = Exited | Killed | Running
+
 let disconnect_with_pid ?(wait = true) ?(force = false) pid =
-  let do_disc waiter pid =
-    let res =
-      try waiter ()
+  let do_disc ~nohang ~blocking pid =
+    let nohang () =
+      try nohang ()
       with Unix.Unix_error (Unix.ECHILD, _, _) -> (pid, Unix.WEXITED 0)
     in
-    match res with
-    | 0, _ when force -> (
-      try Unix.kill pid Sys.sigkill
-      with Unix.Unix_error (Unix.ESRCH, _, _) -> ()
-    )
+    let waited =
+      if wait then
+        reap_within nohang disconnect_wait_timeout
+      else
+        nohang ()
+    in
+    match waited with
+    | 0, _ ->
+        (* Still running *)
+        if force || wait then (
+          ignore_exn (Unix.kill pid) Sys.sigkill ;
+          ( try ignore (blocking () : int * Unix.process_status)
+            with Unix.Unix_error (Unix.ECHILD, _, _) -> ()
+          ) ;
+          Killed
+        ) else
+          Running
     | _ ->
-        ()
+        Exited
   in
   match pid with
   | FEFork fpid ->
-      let pid_int = Forkhelpers.getpid fpid in
       do_disc
-        (fun () ->
-          ( if wait then
-              Forkhelpers.waitpid
-            else
-              Forkhelpers.waitpid_nohang
-          )
-            fpid
-        )
-        pid_int
+        ~nohang:(fun () -> Forkhelpers.waitpid_nohang fpid)
+        ~blocking:(fun () -> Forkhelpers.waitpid fpid)
+        (Forkhelpers.getpid fpid)
   | StdFork pid ->
       do_disc
-        (fun () ->
-          ( if wait then
-              Unix.waitpid []
-            else
-              Unix.waitpid [Unix.WNOHANG]
-          )
-            pid
-        )
+        ~nohang:(fun () -> Unix.waitpid [Unix.WNOHANG] pid)
+        ~blocking:(fun () -> Unix.waitpid [] pid)
         pid
   | Nopid ->
-      ()
+      Exited
 
 let disconnect ?(wait = true) ?(force = false) x =
   ignore_exn Unixfd.safe_close x.fd ;
-  disconnect_with_pid ~wait ~force x.pid ;
+  ( match disconnect_with_pid ~wait ~force x.pid with
+  | Killed ->
+      D.warn "stunnel %d had to be killed: a peer still held its stdio"
+        (getpid x.pid)
+  | Exited ->
+      D.debug "stunnel disconnect: peer exited"
+  | Running ->
+      D.debug "stunnel disconnect: peer still running"
+  ) ;
   (* make disconnect idempotent, need to do it here,
      due to the recursive call *)
   x.pid <- Nopid
@@ -393,7 +420,7 @@ let attempt_one_connect ?(use_fork_exec_helper = true)
             Unix.write Unixfd.(!config_in) (Bytes.of_string config) 0 len
           in
           if n < len then (
-            disconnect_with_pid ~wait:false ~force:true pid ;
+            ignore (disconnect_with_pid ~wait:false ~force:true pid : reaped) ;
             raise Stunnel_initialisation_failed
           ) ;
           Unixfd.safe_close config_in ;
@@ -405,7 +432,7 @@ let attempt_one_connect ?(use_fork_exec_helper = true)
                 Stunnel_initialisation_failed"
                (Unix.error_message err) fn arg
             ) ;
-          disconnect_with_pid ~wait:false ~force:true pid ;
+          ignore (disconnect_with_pid ~wait:false ~force:true pid : reaped) ;
           raise Stunnel_initialisation_failed
     )
   in
@@ -593,7 +620,7 @@ module UnixSocketProxy = struct
     let clean_up () =
       close_in ic ;
       kill pid ;
-      disconnect_with_pid pid ;
+      ignore (disconnect_with_pid pid : reaped) ;
       Unixext.unlink_safe unix_socket_path ;
       Unixext.unlink_safe logfile
     in
@@ -636,7 +663,7 @@ module UnixSocketProxy = struct
 
   let stop handle =
     kill handle.proxy_pid ;
-    disconnect_with_pid handle.proxy_pid ;
+    ignore (disconnect_with_pid handle.proxy_pid : reaped) ;
     Unixext.unlink_safe handle.proxy_socket_path ;
     close_in handle.proxy_log_ic ;
     Unixext.unlink_safe handle.proxy_logfile ;

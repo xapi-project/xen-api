@@ -3,6 +3,7 @@
  (modes best)
  (libraries
   astring
+  clock
   forkexec
   macaddr
   mtime
@@ -16,6 +17,7 @@
   threads.posix
   unix
   uri
+  uutf
   xapi-stdext-pervasives
   xapi-stdext-std
   xapi-stdext-threads

@@ -61,6 +61,7 @@ type state =
 
 type t = {
     mutable state: state
+  ; mutable runner: int option
   ; lock: Mutex.t
   ; condition: Condition.t
   ; delay: Delay.t
@@ -69,10 +70,16 @@ type t = {
 let make () =
   {
     state= Stopped `New
+  ; runner= None
   ; lock= Mutex.create ()
   ; condition= Condition.create ()
   ; delay= Delay.make ()
   }
+
+(* [cancel] and [wait_until_stopped] must never block on the reporter's own
+   thread: [condition] is broadcast only by [loop], which runs there. *)
+let on_reporter_thread reporter =
+  reporter.runner = Some (Thread.id (Thread.self ()))
 
 let choose_protocol = function
   | Rrd_interface.V1 ->
@@ -130,7 +137,10 @@ let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
   let running = ref true in
   ( match reporter with
   | Some reporter ->
-      with_lock reporter.lock (fun () -> reporter.state <- Running)
+      with_lock reporter.lock (fun () ->
+          reporter.runner <- Some (Thread.id (Thread.self ())) ;
+          reporter.state <- Running
+      )
   | None ->
       ()
   ) ;
@@ -174,19 +184,24 @@ let get_state ~reporter = with_lock reporter.lock (fun () -> reporter.state)
 
 let cancel ~reporter =
   with_lock reporter.lock (fun () ->
+      let wait_for_stop () =
+        if not (on_reporter_thread reporter) then
+          Condition.wait reporter.condition reporter.lock
+      in
       match reporter.state with
       | Running ->
           reporter.state <- Cancelled ;
           Delay.signal reporter.delay ;
-          Condition.wait reporter.condition reporter.lock
+          wait_for_stop ()
       | Cancelled ->
           Delay.signal reporter.delay ;
-          Condition.wait reporter.condition reporter.lock
+          wait_for_stop ()
       | Stopped _ ->
           ()
   )
 
 let wait_until_stopped ~reporter =
   with_lock reporter.lock (fun () ->
-      Condition.wait reporter.condition reporter.lock
+      if not (on_reporter_thread reporter) then
+        Condition.wait reporter.condition reporter.lock
   )

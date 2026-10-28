@@ -275,12 +275,16 @@ module Dnf_args : Args = struct
   let is_obsoleted pkg_name repositories =
     Common_args.is_obsoleted pkg_name repositories |> add_sub_cmd Repoquery
 
+  (* Unlike yum, dnf5 lists all versions in the repositories by default.
+     Only the latest one of each name.arch is wanted, as yum does. *)
   let repoquery_available repositories =
-    Common_args.repoquery repositories @ ["--qf"; fmt; "--available"]
+    Common_args.repoquery repositories
+    @ ["--qf"; fmt; "--available"; "--latest-limit=1"]
     |> add_sub_cmd Repoquery
 
   let repoquery_updates repositories =
-    Common_args.repoquery repositories @ ["--qf"; fmt; "--upgrades"]
+    Common_args.repoquery repositories
+    @ ["--qf"; fmt; "--upgrades"; "--latest-limit=1"]
     |> add_sub_cmd Repoquery
 
   let sync_repo repo_name =

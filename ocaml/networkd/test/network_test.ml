@@ -19,4 +19,5 @@ let () =
     @ Test_jsonrpc_client.tests
     @ Test_network_device_order_inherited.tests
     @ Test_network_device_order.tests
+    @ Test_lldp.tests
     )

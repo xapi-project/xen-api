@@ -192,6 +192,8 @@
   ppx_deriving_rpc
   (xapi-client
    (= :version))
+  (xapi-consts
+   (= :version))
   (xapi-idl
    (= :version))
   (xapi-rate-limit
@@ -259,6 +261,8 @@
   logs
   mtime
   rpclib
+  ppx_deriving_rpc
+  ppx_sexp_conv
   (xapi-stdext-pervasives (= :version))))
 
 (package
@@ -345,6 +349,7 @@
   uuidm
   uutf
   x509
+  xapi-consts
   xapi-log
   xapi-types
   xapi-rate-limit
@@ -388,6 +393,7 @@
   ; because it is not in xs-opam yet
   rrd-transport
   rrdd-plugin
+  xapi-consts
   xapi-stdext-std
   xapi-tracing-export
   xapi-work-queues
@@ -561,6 +567,8 @@
    (= :version))
   (vhd-format-lwt
    (= :version))
+  (xapi-consts
+   (= :version))
   (xapi-idl
    (= :version))
   (xapi-log
@@ -640,6 +648,7 @@
   (depends
     qcow-stream
     cmdliner
+    xapi-consts
     yojson
   )
 )

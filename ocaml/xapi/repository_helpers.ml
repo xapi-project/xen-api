@@ -731,7 +731,7 @@ let get_pkgs_from_repoquery cmd params =
   )
   |> List.fold_left parse_line_of_repoquery []
 
-let get_updates_from_repoquery repositories =
+let get_updates_from_repoquery ~installed_pkgs repositories =
   List.iter (fun r -> clean_yum_cache r) repositories ;
   (* Use 'updates' to decrease the number of packages to apply 'is_obsoleted' *)
   let Pkg_mgr.{cmd; params} = Pkgs.repoquery_updates ~repositories in
@@ -742,6 +742,9 @@ let get_updates_from_repoquery repositories =
   let new_updates =
     get_pkgs_from_repoquery cmd params
     |> List.filter (fun x -> not (PkgSet.mem x updates_set))
+    |> List.filter (fun (pkg, _) ->
+        not (List.mem_assoc (Pkg.to_name_arch_string pkg) installed_pkgs)
+    )
     |> List.filter (fun (pkg, _) -> not (is_obsoleted pkg.Pkg.name repositories))
   in
   new_updates @ updates
@@ -776,6 +779,7 @@ module YumUpgradeOutput = struct
     in
     (* The following sections/separators come from
      * https://github.com/rpm-software-management/yum/blob/master/output.py#L1569-L1576
+     * https://github.com/rpm-software-management/dnf5/blob/main/libdnf5-cli/output/transaction_table.cpp
      *)
     at_end_of_input >>= function
     | false -> (
@@ -790,7 +794,26 @@ module YumUpgradeOutput = struct
           | "Downgrading:"
           | "Installing for dependencies:"
           | "Updating for dependencies:"
-          | "Removing for dependencies:" ) as section' -> (
+          | "Removing for dependencies:"
+          (* dnf5 only *)
+          | "Installing dependencies:"
+          | "Installing weak dependencies:"
+          | "Removing dependent packages:"
+          | "Removing unused dependencies:"
+          | "Changing reason:"
+          | "Installing groups:"
+          | "Installing groups dependencies:"
+          | "Removing groups:"
+          | "Changing reason of installed groups:"
+          | "Installing environmental groups:"
+          | "Removing environmental groups:"
+          | "Upgrading environmental groups:"
+          | "Enabling module streams:"
+          | "Disabling modules:"
+          | "Resetting modules:"
+          | "Switching module streams:"
+          | "Skipping packages with conflicts:"
+          | "Skipping packages with broken dependencies:" ) as section' -> (
           (* a new section *)
           match section with
           | Some s ->
@@ -905,7 +928,9 @@ module YumUpgradeOutput = struct
             | "Updating:"
             | "Upgrading:"
             | "Installing for dependencies:"
-            | "Updating for dependencies:" ->
+            | "Updating for dependencies:"
+            | "Installing dependencies:"
+            | "Installing weak dependencies:" ->
                 true
             | _ ->
                 false
@@ -1288,19 +1313,25 @@ let retrieve_livepatches_from_updateinfo ~updates_info ~updates =
           None
   )
 
-let merge_livepatches ~livepatches =
-  let get_accumulative_upd_ids acc_lps =
-    List.fold_left
-      (fun acc (_, u) -> UpdateIdSet.add u.UpdateInfo.id acc)
-      UpdateIdSet.empty acc_lps
-  in
+(* For each live patch component, i.e. Xen or Kernel, it's a latest live patch
+   with a list of accumulative live patches for that component.
+   This function merges for all live patch components to return a set of update
+   IDs introducing the live patches and a set of accumulative live patches themselves. *)
+let merge_livepatches
+    ~(livepatches : (LivePatch.t * (LivePatch.t * UpdateInfo.t) list) list) :
+    UpdateIdSet.t * LivePatchSet.t =
   livepatches
   |> List.fold_left
-       (fun (acc_upd_ids, acc_latest_lps) (latest_lp, acc_lps) ->
-         let upd_ids = get_accumulative_upd_ids acc_lps in
-         (UpdateIdSet.union upd_ids acc_upd_ids, latest_lp :: acc_latest_lps)
+       (fun (acc_upd_ids, acc_lps) (_latest_lp, lps) ->
+         List.fold_left
+           (fun (acc1, acc2) (lp, upd_info) ->
+             ( UpdateIdSet.add upd_info.UpdateInfo.id acc1
+             , LivePatchSet.add lp acc2
+             )
+           )
+           (acc_upd_ids, acc_lps) lps
        )
-       (UpdateIdSet.empty, [])
+       (UpdateIdSet.empty, LivePatchSet.empty)
 
 let reduce_guidance ~updates_info ~updates ~livepatches =
   let open Guidance in
@@ -1343,11 +1374,11 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
   let ids_of_updates, updates =
     merge_updates ~repository_name ~updates:updates_of_host
   in
-  (* Find out applicable latest livepatches and the info of accumulative updates
-   * introduced them. These accumulative updates will not be evaluated for guidance.
-   * They are only to be returned in the update list.
-   *)
-  let livepatches =
+  (* Find out applicable live patches and the info of accumulative updates
+   * introduced them. These accumulative updates will not be evaluated for
+   * guidance, as the live patch guidance will take effect.
+   * The updates are only to be returned in the update list. *)
+  let livepatches : (LivePatch.t * (LivePatch.t * UpdateInfo.t) list) list =
     if can_avoid_live_patching ~updates_info ~updates then
       []
     else
@@ -1364,7 +1395,7 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
       ; guidance
       ; rpms
       ; update_ids= UpdateIdSet.elements upd_ids
-      ; livepatches= lps
+      ; livepatches= LivePatchSet.elements lps
       }
   in
   (host_updates, upd_ids)

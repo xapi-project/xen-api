@@ -851,6 +851,8 @@ let update_pool_apply_failed = add_error "UPDATE_POOL_APPLY_FAILED"
 let could_not_update_igmp_snooping_everywhere =
   add_error "COULD_NOT_UPDATE_IGMP_SNOOPING_EVERYWHERE"
 
+let lldp_pif_replug_failed = add_error "LLDP_PIF_REPLUG_FAILED"
+
 let update_apply_failed = add_error "UPDATE_APPLY_FAILED"
 
 let update_precheck_failed_unknown_error =

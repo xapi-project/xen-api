@@ -51,11 +51,12 @@ let create_pool_record ~__context =
       ~telemetry_frequency:`weekly ~telemetry_next_collection:Clock.Date.epoch
       ~last_update_sync:Clock.Date.epoch ~update_sync_frequency:`weekly
       ~update_sync_day:0L ~update_sync_enabled:false ~local_auth_max_threads:8L
-      ~ext_auth_max_threads:1L ~ext_auth_cache_enabled:false
+      ~ext_auth_max_threads:1L ~ext_auth_cache_enabled:true
       ~ext_auth_cache_size:50L ~ext_auth_cache_expiry:300L ~recommendations:[]
       ~license_server:[] ~ha_reboot_vm_on_internal_shutdown:true
       ~limit_console_sessions:false ~vm_console_idle_timeout:0L
-      ~auto_update_vm_secureboot_certificates:false
+      ~auto_update_vm_secureboot_certificates:false ~lldp_enabled:true
+      ~lldp_multicast_address:`nearestbridge
 
 let set_master_ip ~__context =
   let ip =
