@@ -81,7 +81,10 @@ let messages =
     in
     List.filter_map go' obj.messages
   in
-  List.concat_map go objects
+  let es = List.concat_map go objects in
+  let tbl = Hashtbl.create 1024 in
+  List.iter (fun (n, m) -> Hashtbl.replace tbl n m) es ;
+  tbl
 
 let is_released msg =
   match msg.msg_lifecycle.Lifecycle.state with
@@ -101,12 +104,14 @@ let line_of (name, msg) =
 (* Emit all the messages as line-delimited JSON arrays. *)
 let print () =
   messages
-  |> List.filter_map (fun ((_, msg) as e) ->
+  |> Hashtbl.to_seq
+  |> Seq.filter_map (fun ((_, msg) as e) ->
       if is_released msg then
         Some (line_of e)
       else
         None
   )
+  |> List.of_seq
   |> List.sort String.compare
   |> List.iter print_endline
 
@@ -131,11 +136,80 @@ let read_messages file =
           failwith ("Unable to parse line: " ^ line)
   )
 
+(* Compare the provided message against the datamodel's version. *)
+let check_message (name, result, params) =
+  match Hashtbl.find_opt messages name with
+  | None ->
+      [
+        "has been removed from the datamodel: mark it as removed in its \
+         lifecycle instead"
+      ]
+  | Some msg when msg.msg_lifecycle.Lifecycle.state = Removed_s ->
+      []
+  | Some msg ->
+      (* Ensure the result type is unchanged. *)
+      let result_problem =
+        let r = string_of_result msg in
+        if r <> result then
+          [Printf.sprintf "returns %s instead of %s" r result]
+        else
+          []
+      in
+      (* Recursively compare the parameter listings. *)
+      let rec compare_params i prev curr =
+        match (prev, curr) with
+        | [], added ->
+            (* If we've extended a message's parameters, all the new
+               parameters must be optional (have default values). *)
+            added
+            |> List.filter_map (fun p ->
+                if p.param_default = None then
+                  Some
+                    ("new parameter has no default value: " ^ string_of_param p)
+                else
+                  None
+            )
+        | r :: _, [] ->
+            [Printf.sprintf "has lost parameter %d (%s)" (i + 1) r]
+        | r :: rs, c :: cs ->
+            (* Pairwise comparison of parameters: parameters occurring
+             at the same indices must have retained their name, type,
+             and whether they have a default value (and, if they do,
+             that the default value is unchanged). *)
+            let c = string_of_param c in
+            if r = c then
+              compare_params (i + 1) rs cs
+            else
+              [
+                Printf.sprintf "parameter %d is now %s instead of %s" (i + 1) c r
+              ]
+      in
+      result_problem @ compare_params 0 params (params_of msg)
+
+let error_message =
+  {|
+Clients pass arguments by position, these changes to the datamodel
+have caused breaking changes to the API.
+|}
+
+let check_file file =
+  let check ((name, _, _) as msg) =
+    List.map (fun p -> (name, p)) (check_message msg)
+  in
+  let all = List.concat_map check (read_messages file) in
+  match all with
+  | [] ->
+      ()
+  | _ ->
+      List.iter (fun (name, p) -> Printf.eprintf "%s: %s\n" name p) all ;
+      Printf.eprintf "%s" error_message ;
+      exit 1
+
 let () =
   match Sys.argv with
   | [|_; "-print"|] ->
       print ()
-  | [|_; "-parse"; file|] ->
-      ignore (read_messages file)
+  | [|_; "-check"; file|] ->
+      check_file file
   | _ ->
       exit 2
