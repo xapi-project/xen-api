@@ -1093,16 +1093,18 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
         Db.Host.get_local_cache_sr ~__context ~self:host_ref
       in
       let local_cache_sr =
-        if my_local_cache_sr = Ref.null then
-          Ref.null
-        else
-          let my_local_cache_sr_rec =
-            Db.SR.get_record ~__context ~self:my_local_cache_sr
-          in
-          debug "Copying the local cache SR (uuid=%s)"
-            my_local_cache_sr_rec.API.sR_uuid ;
-          create_or_get_sr_on_master __context rpc session_id
-            (my_local_cache_sr, my_local_cache_sr_rec)
+        try
+          if my_local_cache_sr = Ref.null then
+            Ref.null
+          else
+            let my_local_cache_sr_rec =
+              Db.SR.get_record ~__context ~self:my_local_cache_sr
+            in
+            debug "Copying the local cache SR (uuid=%s)"
+              my_local_cache_sr_rec.API.sR_uuid ;
+            create_or_get_sr_on_master __context rpc session_id
+              (my_local_cache_sr, my_local_cache_sr_rec)
+        with _ -> Ref.null
       in
 
       debug "Creating host object on master" ;
