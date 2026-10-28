@@ -50,6 +50,11 @@ let valid_leaf_certificates =
     , "2020-02-01T00:00:00Z"
     , `SHA256
     )
+  ; ( "Valid, SHA384, matches key"
+    , "pkey_rsa_2048"
+    , "2020-02-01T00:00:00Z"
+    , `SHA384
+    )
   ; ( "Valid, SHA512, matches key"
     , "pkey_rsa_2048"
     , "2020-02-01T00:00:00Z"

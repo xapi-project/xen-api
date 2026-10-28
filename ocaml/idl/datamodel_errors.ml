@@ -1802,7 +1802,7 @@ let _ =
   error Api_errors.server_certificate_signature_not_supported []
     ~doc:
       "The provided certificate is not using one of the following SHA2 \
-       signature algorithms:  SHA256, SHA512."
+       signature algorithms:  SHA256, SHA384, SHA512."
     () ;
 
   error Api_errors.server_certificate_chain_invalid []
