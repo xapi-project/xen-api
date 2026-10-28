@@ -139,6 +139,15 @@ module Mux = struct
             Unix.unlink path
         )
       with _ -> ()
+
+    let list () =
+      let dps =
+        try with_lock m (fun () -> Sys.readdir storage_dp_path |> Array.to_list)
+        with _ -> []
+      in
+      List.filter_map
+        (fun dp -> Option.map (fun info -> (dp, info)) (read dp))
+        dps
   end
 
   module DP = struct
@@ -247,13 +256,45 @@ module Mux = struct
       C.SR.set_name_description (Debug_info.to_string di) sr
         new_name_description
 
+    let with_datapaths_destroyed ~dbg sr f =
+      let datapaths () =
+        List.filter (fun (_, {DP_info.sr= sr'; _}) -> sr' = sr) (DP_info.list ())
+      in
+      let is_guest vm =
+        let vm = Vm.string_of vm in
+        vm <> "0"
+        && String.for_all (function '0' .. '9' -> true | _ -> false) vm
+      in
+      match smapi_version_of_sr sr with
+      | SMAPIv1 | SMAPIv2 ->
+          f ()
+      | SMAPIv3 ->
+          datapaths ()
+          |> List.iter (fun (dp, {DP_info.vdi; vm; _}) ->
+              if not (is_guest vm) then
+                D.log_and_ignore_exn (fun () ->
+                    DP.destroy2 () ~dbg ~dp ~sr ~vdi ~vm ~allow_leak:false
+                )
+          ) ;
+          ( match datapaths () with
+          | [] ->
+              ()
+          | dps ->
+              error "The following datapaths have leaked: %s"
+                (String.concat "; " (List.map fst dps))
+          ) ;
+          f () ;
+          List.iter (fun (dp, _) -> DP_info.delete dp) (datapaths ())
+
     let detach () ~dbg ~sr =
       with_dbg ~name:"SR.detach" ~dbg @@ fun di ->
       info "SR.detach dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.SR.detach (Debug_info.to_string di) sr
+      with_datapaths_destroyed ~dbg:(Debug_info.to_string di) sr (fun () ->
+          C.SR.detach (Debug_info.to_string di) sr
+      )
 
     let destroy () ~dbg ~sr =
       with_dbg ~name:"SR.destroy" ~dbg @@ fun di ->
@@ -261,7 +302,9 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.SR.destroy (Debug_info.to_string di) sr
+      with_datapaths_destroyed ~dbg:(Debug_info.to_string di) sr (fun () ->
+          C.SR.destroy (Debug_info.to_string di) sr
+      )
 
     let stat () ~dbg ~sr =
       with_dbg ~name:"SR.stat" ~dbg @@ fun di ->
