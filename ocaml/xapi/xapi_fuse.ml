@@ -82,7 +82,7 @@ let light_fuse_and_run ?(fuse_length = !Constants.fuse_time) () =
              "Caught an exception flushing database (perhaps it hasn't been \
               initialised yet): %s; restarting immediately"
              (ExnHelper.string_of_exn e) ;
-           exit Xapi_globs.restart_return_code
+           Unix._exit Xapi_globs.restart_return_code
        )
        ()
     )
