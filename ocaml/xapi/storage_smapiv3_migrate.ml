@@ -482,11 +482,16 @@ module MIRROR : SMAPIv2_MIRROR = struct
       __FUNCTION__ dbg dp (s_of_sr sr) (s_of_vdi vdi) image_format
       (s_of_vm mirror_vm) mirror_id (s_of_vm live_vm) url (s_of_sr dest_sr)
       verify_dest ;
-    ignore (Local.VDI.attach3 dbg dp sr vdi (Vm.of_string "0") true) ;
-    (* TODO we are not activating the VDI here because SMAPIv3 does not support
-       activating the VDI again on dom 0 when it is already activated on the live_vm.
-       This means that if the VM shutsdown while SXM is in progress the
-       mirroring for SMAPIv3 will fail.*)
+    let live_vm =
+      match s_of_vm live_vm with
+      | "-1" ->
+          let src_vm = Vm.of_string (s_of_vm mirror_vm ^ "-src") in
+          let _ : backend = Local.VDI.attach3 dbg dp sr vdi src_vm true in
+          Local.VDI.activate3 dbg dp sr vdi src_vm ;
+          src_vm
+      | _ ->
+          live_vm
+    in
     match remote_mirror with
     | Mirror.Vhd_mirror _ ->
         raise
