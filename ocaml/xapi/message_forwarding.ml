@@ -5228,6 +5228,7 @@ functor
         let remote_fn = Client.SR.forget ~sr in
         with_sr_marked ~__context ~sr ~doc:"SR.forget" ~op:`forget (fun () ->
             Xapi_sr.assert_all_pbds_unplugged ~__context ~sr ;
+            Xapi_sr.assert_sr_not_local_cache ~__context ~sr ;
             forward_sr_all_op ~consider_unplugged_pbds:true ~local_fn ~__context
               ~self:sr ~remote_fn () ;
             (* don't forward - this is just a db call *)
