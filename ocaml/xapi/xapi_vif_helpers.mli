@@ -52,9 +52,11 @@ val create :
   -> ipv4_configuration_mode:[< `None | `Static]
   -> ipv4_addresses:string list
   -> ipv4_gateway:string
+  -> ipv4_dns:string list
   -> ipv6_configuration_mode:[< `None | `Static]
   -> ipv6_addresses:string list
   -> ipv6_gateway:string
+  -> ipv6_dns:string list
   -> trunks:int64 list
   -> API.ref_VIF
 (** Create a VIF object in the database. *)

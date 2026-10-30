@@ -242,6 +242,11 @@ let options =
     , "Time to wait for in-guest PV drivers to acknowledge a shutdown request \
        before we conclude that the drivers have failed"
     )
+  ; ( "vif-ip-configuration-timeout"
+    , Arg.Set_float Xenops_server.vif_ip_configuration_timeout
+    , (fun () -> string_of_float !Xenops_server.vif_ip_configuration_timeout)
+    , "Time in seconds to wait for the guest to respond to VIF IP configuration"
+    )
   ; ( "vif-ready-for-igmp-query-timeout"
     , Arg.Set_int vif_ready_for_igmp_query_timeout
     , (fun () -> string_of_int !vif_ready_for_igmp_query_timeout)
