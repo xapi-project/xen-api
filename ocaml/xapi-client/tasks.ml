@@ -64,9 +64,9 @@ let wait_for_all_inner ~rpc ~session_id ~all_timeout ~tasks ~callback
             List.map Event_helper.record_of_event event_from.events
           in
           (* If any records indicate that a task is no longer pending, remove that task from the set. *)
-          let pending_task_set, completed_task_count, classes =
+          let pending_task_set, completed_task_count =
             List.fold_left
-              (fun (task_set', completed_task_count, _) record ->
+              (fun (task_set', completed_task_count) record ->
                 match record with
                 | Event_helper.Task (t, Some t_rec) ->
                     on_progress t completed_task_count t_rec.API.task_progress ;
@@ -84,20 +84,18 @@ let wait_for_all_inner ~rpc ~session_id ~all_timeout ~tasks ~callback
                           (fun task_set task -> TaskSet.add task task_set)
                           new_task_set tasks_to_add
                       in
-                      ( new_task_set
-                      , completed_task_count
-                      , get_new_classes new_task_set
-                      )
+                      (new_task_set, completed_task_count)
                     else
-                      (task_set', completed_task_count, classes)
+                      (task_set', completed_task_count)
                 | _ ->
-                    (task_set', completed_task_count, classes)
+                    (task_set', completed_task_count)
               )
-              (task_set, completed_task_count, classes)
+              (task_set, completed_task_count)
               records
           in
           wait ~token:event_from.Event_types.token ~task_set:pending_task_set
-            ~completed_task_count ~classes
+            ~completed_task_count
+            ~classes:(get_new_classes pending_task_set)
   in
   let token = "" in
   let task_set =
