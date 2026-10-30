@@ -1524,64 +1524,74 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
   let exportname = Printf.sprintf "/%s?session_id=%s" vdi_uuid session_id in
   hosts_with_attached_pbds
   |> Valid_ref_list.flat_map (fun host ->
-      let ips = get_ips host in
-      (* Check if empty: avoid inter-host calls and other work if so. *)
-      if ips = [] then
-        []
-      else
-        let cert = get_server_certificate ~host in
-        let port = 10809L in
-        let module Host_set = X509.Host.Set in
-        let select_a_hostname = function
-          | set when Host_set.is_empty set ->
-              Error
-                (`Msg "Found no subject DNS names in this hosts's certificate.")
-          | set ->
-              let strict_or_wildcard = function
-                | `Strict, _ ->
-                    true
-                | `Wildcard, _ ->
-                    false
-              in
-              (* select the first strict hostname, or a wildcard one otherwise *)
-              let strict, wildcard =
-                Host_set.partition strict_or_wildcard set
-              in
-              let hosts =
-                if Host_set.is_empty strict then
-                  wildcard
-                else
-                  strict
-              in
-              Ok (Host_set.min_elt hosts |> snd |> Domain_name.to_string)
-        in
-        let hosts = Certificates.hostnames_of_pem_cert cert in
-        let subject =
-          match Rresult.R.bind hosts select_a_hostname with
-          | Ok hostname ->
-              hostname
-          | Error (`Msg e) ->
-              error
-                "get_nbd_info: failed to read subject from TLS certificate! \
-                 Falling back to Host.hostname. Error was %s"
-                e ;
-              Db.Host.get_hostname ~__context ~self:host
-        in
-        let template =
-          API.
-            {
-              vdi_nbd_server_info_exportname= exportname
-            ; vdi_nbd_server_info_address= ""
-            ; vdi_nbd_server_info_port= port
-            ; vdi_nbd_server_info_cert= cert
-            ; vdi_nbd_server_info_subject= subject
-            }
-        in
+      try
+        let ips = get_ips host in
+        (* Check if empty: avoid inter-host calls and other work if so. *)
+        if ips = [] then
+          []
+        else
+          let cert = get_server_certificate ~host in
+          let port = 10809L in
+          let module Host_set = X509.Host.Set in
+          let select_a_hostname = function
+            | set when Host_set.is_empty set ->
+                Error
+                  (`Msg
+                     "Found no subject DNS names in this hosts's certificate."
+                  )
+            | set ->
+                let strict_or_wildcard = function
+                  | `Strict, _ ->
+                      true
+                  | `Wildcard, _ ->
+                      false
+                in
+                (* select the first strict hostname, or a wildcard one otherwise *)
+                let strict, wildcard =
+                  Host_set.partition strict_or_wildcard set
+                in
+                let hosts =
+                  if Host_set.is_empty strict then
+                    wildcard
+                  else
+                    strict
+                in
+                Ok (Host_set.min_elt hosts |> snd |> Domain_name.to_string)
+          in
+          let hosts = Certificates.hostnames_of_pem_cert cert in
+          let subject =
+            match Rresult.R.bind hosts select_a_hostname with
+            | Ok hostname ->
+                hostname
+            | Error (`Msg e) ->
+                error
+                  "get_nbd_info: failed to read subject from TLS certificate! \
+                   Falling back to Host.hostname. Error was %s"
+                  e ;
+                Db.Host.get_hostname ~__context ~self:host
+          in
+          let template =
+            API.
+              {
+                vdi_nbd_server_info_exportname= exportname
+              ; vdi_nbd_server_info_address= ""
+              ; vdi_nbd_server_info_port= port
+              ; vdi_nbd_server_info_cert= cert
+              ; vdi_nbd_server_info_subject= subject
+              }
+          in
 
-        ips
-        |> List.map (fun addr ->
-            API.{template with vdi_nbd_server_info_address= addr}
-        )
+          ips
+          |> List.map (fun addr ->
+              API.{template with vdi_nbd_server_info_address= addr}
+          )
+      with
+      | Api_errors.Server_error (reason, _)
+      when reason = Api_errors.host_offline
+      ->
+        warn "%s: host %s is offline, skipping its NBD server info" __FUNCTION__
+          (Ref.string_of host) ;
+        []
   )
 
 let get_nbd_info ~__context ~self =
