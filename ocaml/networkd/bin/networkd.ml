@@ -157,8 +157,11 @@ let start server =
   ()
 
 let stop signal =
-  Network_server.on_shutdown signal ;
-  Network_monitor_thread.stop () ;
+  let log_exn f =
+    try f () with e -> D.error "%s: %s" __FUNCTION__ (Printexc.to_string e)
+  in
+  log_exn (fun () -> Network_server.on_shutdown signal) ;
+  log_exn Network_monitor_thread.stop ;
   exit 0
 
 let handle_shutdown () =
