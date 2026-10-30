@@ -557,8 +557,11 @@ module SMAPIv1 : Server_impl = struct
               ~subtask_of:(Ref.of_string dbg) (fun __context ->
                 let other_config = Db.VDI.get_other_config ~__context ~self in
                 if not (List.mem_assoc "content_id" other_config) then
-                  Db.VDI.add_to_other_config ~__context ~self ~key:"content_id"
-                    ~value:Uuidx.(to_string (make ()))
+                  try
+                    Db.VDI.add_to_other_config ~__context ~self
+                      ~key:"content_id"
+                      ~value:Uuidx.(to_string (make ()))
+                  with Db_exn.Duplicate_key _ -> ()
             ) ;
             (* If the backend doesn't advertise the capability then do nothing *)
             if
