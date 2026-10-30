@@ -42,6 +42,30 @@ let test_file_io protocol =
     )
     ()
 
+let test_file_grows protocol =
+  let shared_file = make_shared_file () in
+  let write_with_pages shared_page_count payload =
+    let _, writer =
+      Rrd_writer.FileWriter.create
+        {Rrd_writer.path= shared_file; shared_page_count}
+        protocol
+    in
+    writer.Rrd_writer.write_payload payload ;
+    writer
+  in
+  let (_ : Rrd_writer.writer) = write_with_pages 1 test_payload in
+  let reader = Rrd_reader.FileReader.create shared_file protocol in
+  let (_ : Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
+  (* More datasources than fit in the page the reader first saw. *)
+  let grown = make_random_payload 1387867224.2 100 in
+  let writer = write_with_pages 16 grown in
+  Fun.protect
+    ~finally:(fun () ->
+      reader.Rrd_reader.cleanup () ;
+      writer.Rrd_writer.cleanup ()
+    )
+    (fun () -> assert_payloads_equal grown (reader.Rrd_reader.read_payload ()))
+
 let test_writer_cleanup protocol =
   let shared_file = make_shared_file () in
   let _, writer =
@@ -128,6 +152,7 @@ let tests =
   Test_common.tests_for_all_protos
     [
       ("File I/O", test_file_io)
+    ; ("File grows", test_file_grows)
     ; ("Writer cleanup", test_writer_cleanup)
     ; ("Reader cleanup", test_reader_cleanup)
     ; ("Reader state", test_reader_state)
