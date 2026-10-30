@@ -2,7 +2,7 @@
 title: Trusted certificates for identity validation in TLS connections
 layout: default
 design_doc: true
-revision: 2
+revision: 3
 status: released (26.13.0)
 ---
 
@@ -36,7 +36,7 @@ By introducing a "purpose" attribute, certificates can be organized by their int
 
 # Use Cases
 * An XAPI client establishes a TLS connection to an XAPI service.
-This case is outside the scope of trusted certificates managed by XAPI and is included here only for completeness.
+This case is outside the scope of trusted certificates managed by XAPI, except when the client authenticates with a TLS client certificate (see [Client certificate authentication](#client-certificate-authentication)).
 * An XAPI process on one host initiates a TLS connection to an XAPI process on another host within the same pool.
 This case is covered in the base design and is listed here for completeness.
 * An XAPI process initiates a TLS connection to an external service, such as an appliance.
@@ -244,3 +244,16 @@ The endpoint to validate the peer's identity must unambiguously choose only one 
 No more attempts on remaining bundles when validation with the selected one fails (the server certificate is not trusted by the selected bundle).
 
 For example, if "Peer Bundle" doesn't exist and the "CA Bundle" (if not empty) is selected to do the validation, the endpoint should not try with "General Bundle" even when the validation with "CA Bundle" failed.
+
+## Client certificate authentication
+When client certificate authentication is enabled with "pool.enable_client_certificate_auth", stunnel on the pool coordinator verifies the certificate chain of a TLS client certificate before the connection reaches XAPI without further authentication.
+The purpose "client_certificate_auth" marks the root CA certificates that are trusted for this.
+It is only valid for root CA certificates ("ca" is true), because stunnel verifies the chain rather than pinning the certificate; a self-signed client certificate can be installed as its own root CA.
+
+The coordinator combines two bundles into "/etc/stunnel/xapi-client-auth-ca-bundle.pem", which stunnel uses as its CA file:
+* the "Default Bundle", so that CA certificates installed with "pool.install_ca_certificate" keep working until that API is removed;
+* the "CA Bundle" of the purpose "client_certificate_auth".
+
+Unlike the bundles for outgoing connections, these two are combined rather than chosen by precedence.
+stunnel reads the combined bundle only when it starts or reloads, so the coordinator regenerates it whenever trusted certificates are installed or uninstalled, and reloads stunnel if it changed.
+If neither bundle has a certificate, client certificate authentication is left out of the stunnel configuration, and XAPI authenticates every connection as usual.

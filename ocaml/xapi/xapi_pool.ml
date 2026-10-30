@@ -1634,6 +1634,10 @@ let assert_pooling_licensed ~__context =
   if not (Pool_features.is_enabled ~__context Features.Pooling) then
     raise (Api_errors.Server_error (Api_errors.license_restriction, []))
 
+(* stunnel loads the CA certificates it trusts for client certificate
+   authentication only when it starts or reloads *)
+let reload_client_auth_trust ~__context = Xapi_mgmt_iface.run ~__context ()
+
 let certificate_install ~__context ~name ~cert =
   let open Certificates in
   let certificate =
@@ -1654,7 +1658,7 @@ let certificate_install ~__context ~name ~cert =
   let (_ : API.ref_Certificate), _ =
     Db_util.add_cert ~__context ~type':(`ca name) ~purpose:[] certificate
   in
-  ()
+  reload_client_auth_trust ~__context
 
 let install_ca_certificate = certificate_install
 
@@ -1662,7 +1666,8 @@ let uninstall_ca_certificate ~__context ~name ~force =
   let open Certificates in
   host_uninstall Root_legacy ~name ~force ;
   Cert_distrib.copy_certs_to_all ~__context ;
-  Db_util.remove_ca_cert_by_name ~__context name
+  Db_util.remove_ca_cert_by_name ~__context name ;
+  reload_client_auth_trust ~__context
 
 let certificate_uninstall = uninstall_ca_certificate ~force:false
 
@@ -1690,6 +1695,9 @@ let certificate_sync ~__context =
 
 let install_trusted_certificate' ~__context ~self:_ ~ca ~cert ~purpose =
   let open Certificates in
+  (* stunnel checks client certificates by chain verification, not pinning *)
+  if (not ca) && List.mem `client_certificate_auth purpose then
+    raise Api_errors.(Server_error (invalid_value, ["ca"; "false"])) ;
   let certificate =
     let open Api_errors in
     match
@@ -1724,7 +1732,7 @@ let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose =
   let (_ : API.ref_Certificate) =
     install_trusted_certificate' ~__context ~self ~ca ~cert ~purpose
   in
-  ()
+  reload_client_auth_trust ~__context
 
 let uninstall_trusted_certificate ~__context ~self:_ ~certificate =
   let open Certificates in
@@ -1746,7 +1754,7 @@ let uninstall_trusted_certificate ~__context ~self:_ ~certificate =
   Db_util.remove_cert_by_ref ~__context certificate ;
   Certificates.host_uninstall kind ~name ~force:true ;
   Cert_distrib.copy_certs_to_all ~__context ;
-  ()
+  reload_client_auth_trust ~__context
 
 let install_trusted_certificate_ignore_dup' ~__context ~self ~ca ~cert ~purpose
     =
@@ -1781,6 +1789,7 @@ let exchange_trusted_certificates_on_join ~__context ~self ~ca ~import ~export =
       install_trusted_certificate_ignore_dup ~__context ~self ~ca ~cert ~purpose
     )
     import ;
+  reload_client_auth_trust ~__context ;
   Cert_distrib.collect_trusted_certs ~__context ~ca ~certificates:export
 
 let exchange_trusted_certificates ~__context ~rpc ~session_id ~remote ~local =
@@ -1839,6 +1848,7 @@ let sync_trusted_certificates_from ~__context ~self ~remote_pool ~remote_session
   )
   |> function
   | Ok refs ->
+      reload_client_auth_trust ~__context ;
       List.filter_map Fun.id refs
   | Error (refs, e) ->
       List.filter_map Fun.id refs

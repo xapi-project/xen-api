@@ -21,3 +21,8 @@ val sync : __context:Context.t -> bool -> unit
 
 val reload : ?wait:float -> unit -> unit
 (** reload (potentially updated) configuration *)
+
+val combine_bundles :
+  target:string -> string list -> [`Changed | `Empty | `Unchanged]
+(** write the existing [sources] to [target], or remove [target] when they
+    hold no certificate *)
