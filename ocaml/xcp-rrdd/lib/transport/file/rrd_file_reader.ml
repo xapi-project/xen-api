@@ -16,9 +16,9 @@ module File = struct
   (** Filesystem path. *)
   type id_t = string
 
-  type state_t = Cstruct.t
+  type state_t = {path: string; mutable mapping: Cstruct.t}
 
-  let init path =
+  let map path =
     let fd = Unix.openfile path [Unix.O_RDONLY] 0o400 in
     if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then failwith "lseek" ;
     let mapping =
@@ -29,9 +29,19 @@ module File = struct
     Unix.close fd ;
     Cstruct.of_bigarray mapping
 
+  let init path = {path; mapping= map path}
+
   let cleanup _ _ = ()
 
-  let expose cstruct = cstruct
+  (* A writer that adds datasources extends the file in place, past the end
+     of a mapping taken earlier, so the data and metadata the reader must
+     then re-read would be cut short. *)
+  let expose state =
+    let size =
+      try (Unix.stat state.path).Unix.st_size with Unix.Unix_error _ -> 0
+    in
+    if size > Cstruct.length state.mapping then state.mapping <- map state.path ;
+    state.mapping
 end
 
 include Rrd_reader_functor.Make (File)
