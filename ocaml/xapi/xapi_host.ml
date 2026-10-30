@@ -3563,7 +3563,12 @@ let set_ntp_custom_servers ~__context ~self ~value =
       Db.Host.set_ntp_custom_servers ~__context ~self ~value
 
 let sync_ntp_config ~__context ~host =
+  Xapi_host_ntp.update_system_layout () ;
   Xapi_host_ntp.promote_legacy_default_servers () ;
+
+  (*
+   * update Host.ntp-mode value from system state
+   *)
   let servers = Xapi_host_ntp.get_servers_from_conf () in
   let is_ntp_dhcp_enabled = Xapi_host_ntp.is_ntp_dhcp_enabled () in
   let ntp_enabled = Xapi_host_ntp.is_ntp_service_active () in
