@@ -392,6 +392,14 @@ let mxgpu_vf_setup ~__context =
  * going to use a vgpu backed by an nvidia pgpu. *)
 let nvidia_vf_setup_mutex = Mutex.create ()
 
+let gpu_lock_engaged = ref false
+
+let gpu_lock = Gpu_lock.create ~engaged:(fun () -> !gpu_lock_engaged) ()
+
+(* How long to wait for another holder before refusing: about twice the
+   longest hold measured, a VF enable of 16 s *)
+let gpu_lock_vf_enable_timeout = Mtime.Span.(30 * s)
+
 let nvidia_vf_setup ~__context ~pf ~enable =
   let sprintf = Printf.sprintf in
   let script = !Xapi_globs.nvidia_sriov_manage_script in
@@ -454,8 +462,14 @@ let nvidia_vf_setup ~__context ~pf ~enable =
           )
     | Some 0 when Sys.file_exists script ->
         debug "PCI %s has 0 VFs - calling %s" pci script ;
+        let card = addr_of pci in
         let out, _ =
-          Forkhelpers.execute_command_get_output script [enable'; pci]
+          Gpu_lock.with_lock gpu_lock (Vf_enable card)
+            ~timeout:gpu_lock_vf_enable_timeout
+          @@ fun ~keep_fds ~bounds ->
+          Gpu_lock.sriov_manage bounds ~enable card @@ fun timeout ->
+          Forkhelpers.execute_command_get_output ~keep_fds ?timeout script
+            [enable'; pci]
         in
         debug "Activating NVidia vGPUs %s yielded: '%s'" pci (String.escaped out)
     | Some n when n > 0 ->
