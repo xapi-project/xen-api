@@ -13,6 +13,7 @@
  *)
 
 open Lock_rw
+open Xapi_stdext_pervasives.Pervasiveext
 
 type t = {dir: string; magic: string; boot_id: unit -> string}
 
@@ -494,6 +495,22 @@ let attest_if_alone t h waiter =
   | others ->
       Error
         (Printf.sprintf "%d hold(s) on an older lock file" (List.length others))
+
+(* Only the decimal text of a number counts: "01", "+1" or "0x1" read as 0 *)
+let label h =
+  let text = Option.bind (attested h) (List.assoc_opt "label") in
+  match Option.bind text int_of_string_opt with
+  | Some n when Some (string_of_int n) = text ->
+      n
+  | _ ->
+      0
+
+let set_label h n =
+  let ( let* ) = Result.bind in
+  let error = "not the attested, current lock file" in
+  let* () = ok_if_true (is_current h) ~error in
+  let* kv = Option.to_result ~none:error (attested h) in
+  write_mark h (List.remove_assoc "label" kv @ [("label", string_of_int n)])
 
 let holders t key waiter =
   let holder {Granted.pid; hold; dev; ino} =

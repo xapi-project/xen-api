@@ -17,3 +17,7 @@ val finally : (unit -> 'a) -> (unit -> unit) -> 'a
     [g ()] even if [f ()] throws an exception. *)
 
 val ignore_exn : (unit -> unit) -> unit
+
+val ok_if_true : bool -> error:'e -> (unit, 'e) result
+(** [ok_if_true b ~error] is [Ok ()] if [b], else [Error error]: a guard in a
+    chain of results. *)
