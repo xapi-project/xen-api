@@ -7,7 +7,17 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.20"}
+  "astring" {with-test}
+  "forkexec"
+  "mtime"
   "ppx_deriving"
+  "ppx_deriving_rpc"
+  "rpclib"
+  "xapi-idl"
+  "xapi-log"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
   "alcotest" {with-test}
   "odoc" {with-doc}
 ]
