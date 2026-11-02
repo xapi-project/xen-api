@@ -49,12 +49,16 @@ val execute_command_get_output :
   -> ?syslog_stdout:syslog_stdout
   -> ?redirect_stderr_to_stdout:bool
   -> ?timeout:Mtime.Span.t
+  -> ?keep_fds:Unix.file_descr list
   -> string
   -> string list
   -> string * string
 (** [execute_command_get_output cmd args] runs [cmd args] and returns (stdout, stderr)
     	on success (exit 0). On failure this raises 
-    [Spawn_internal_error(stderr, stdout, Unix.process_status)] *)
+    [Spawn_internal_error(stderr, stdout, Unix.process_status)].
+    [keep_fds] stay open in the child, for example a lock it must keep holding.
+    The caller must open them close-on-exec; the flag, cleared for the child,
+    is set again once the child is spawned. *)
 
 val execute_command_get_output_send_stdin :
      ?tracing:Tracing.Span.t
