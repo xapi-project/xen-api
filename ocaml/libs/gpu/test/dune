@@ -1,9 +1,17 @@
 (test
  (name test_partition_mode)
  (package xapi-gpu)
+ (modules test_partition_mode)
  (libraries gpu alcotest))
+
+(test
+ (name test_gpu_lock)
+ (package xapi-gpu)
+ (modules test_gpu_lock)
+ (libraries alcotest astring forkexec mtime unix xapi-gpu.lock xapi-idl xapi-stdext-unix))
 
 (test
  (name test_gpu_partition_lifecycle)
  (package xapi-gpu)
+ (modules test_gpu_partition_lifecycle)
  (libraries gpu alcotest))
