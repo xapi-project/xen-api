@@ -120,6 +120,18 @@ module Helper = struct
   end)
 end
 
+let can_own_task ?session_id task_id =
+  try
+    Context.with_context ~quiet:true ?session_id "can_own_task"
+      (fun __context -> TaskHelper.assert_op_valid ~__context task_id
+    ) ;
+    true
+  with e ->
+    warn "Task %s provided in the request can't be handled by the caller: %s"
+      (Ref.string_of task_id)
+      (ExnHelper.string_of_exn e) ;
+    false
+
 let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
     op_fn marshaller fd http_req label sync_ty generate_task_for =
   (* if the call has been forwarded to us, then they are responsible for completing the task, so we don't need to complete it *)
@@ -134,6 +146,20 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
       Context.of_http_req ?session_id ~internal_async_subtask ~generate_task_for
         ~supports_async ~label ~http_req ~fd ()
     in
+    if
+      Context.task_in_database __context
+      && not (can_own_task ?session_id (Context.get_task_id __context))
+    then
+      raise
+        Api_errors.(
+          Server_error
+            ( rbac_permission_denied
+            , [
+                String.lowercase_ascii called_fn_name
+              ; "The task provided in the request belongs to another subject."
+              ]
+            )
+        ) ;
 
     Constants.when_tgroups_enabled (fun () ->
         let identity =
