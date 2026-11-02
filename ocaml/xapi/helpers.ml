@@ -2735,3 +2735,28 @@ let assert_map_with_rbac ~__context ~match_protected ~object_name ~field_name
             , [action; "cannot determine the originating session"]
             )
         )
+
+(* With similar purpose of assert_map_with_rbac, check if setting a non-default
+   value on a field of an object is allowed. *)
+let assert_field_value_with_rbac ~__context ~object_name ~field_name ~is_default
+    =
+  if not is_default then
+    let action = Printf.sprintf "%s.set_%s" object_name field_name in
+    let permission = String.lowercase_ascii action in
+    match original_session ~__context with
+    | Ok None ->
+        ()
+    | Ok (Some session_id) ->
+        if not (Rbac.is_access_allowed ~__context ~session_id ~permission) then
+          raise
+            (Rbac.disallowed_permission_exn ~extra_dmsg:"" ~extra_msg:""
+               ~__context ~permission ~action
+            )
+    | Error () ->
+        raise
+          Api_errors.(
+            Server_error
+              ( rbac_permission_denied
+              , [action; "cannot determine the originating session"]
+              )
+          )
