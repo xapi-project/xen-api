@@ -591,6 +591,10 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     else
       other_config
   in
+  Xapi_vm_helpers.assert_protected_map_keys_allowed ~__context
+    ~field_name:"other_config" ~value:other_config ;
+  Xapi_vm_helpers.assert_protected_map_keys_allowed ~__context
+    ~field_name:"platform" ~value:platform ;
   (* NB apart from the above, parameter validation is delayed until VM.start *)
   let uuid = Uuidx.make () in
   let vm_ref = Ref.make () in
