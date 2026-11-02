@@ -84,6 +84,13 @@ let set_root service_name =
 let get_root () =
   match !root with None -> failwith "Xenops_utils.root not set" | Some x -> x
 
+let gpu_lock_engaged_file () = get_root () ^ "/gpu-lock-engaged"
+
+(* The lock is engaged while this file exists. It lives in xenopsd's root,
+   by default under /var/run: there it survives a restart of xenopsd but not
+   a reboot, after which the lock is off until it is engaged again *)
+let gpu_lock_engaged () = Sys.file_exists (gpu_lock_engaged_file ())
+
 module StringMap = Map.Make (String)
 
 type 'a fs = Dir of 'a fs StringMap.t ref | Leaf of 'a

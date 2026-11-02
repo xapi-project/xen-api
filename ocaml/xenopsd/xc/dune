@@ -37,6 +37,7 @@
   uuid
   uuidm
   xapi-log.backtrace
+  xapi-gpu.lock
   xapi-idl
   xapi-idl.memory
   xapi-idl.network
