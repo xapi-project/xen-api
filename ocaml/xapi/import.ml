@@ -1266,6 +1266,12 @@ module Net : HandlerTools = struct
            originating session. *)
         Xapi_network_helpers.assert_protected_map_keys_allowed ~__context
           ~field_name:"other_config" ~value:net_record.API.network_other_config ;
+        (* The bridge from the import is meaningless to this pool.
+           Network.create will choose the bridge. A network created during
+           import must be a managed one. *)
+        let net_record =
+          {net_record with API.network_bridge= ""; network_managed= true}
+        in
         let net =
           log_reraise
             ("failed to create Network with name_label "
