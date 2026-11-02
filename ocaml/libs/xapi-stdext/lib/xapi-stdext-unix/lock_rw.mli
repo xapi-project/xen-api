@@ -113,6 +113,14 @@ module type S = sig
       keeps the old one's fields that are not the primitive's own. The creator
       only. *)
 
+  val label : _ held -> int
+  (** A small number kept in the mark for the caller; 0, as every creation or
+      repair writes it, unless attested. *)
+
+  val set_label : exclusive held -> int -> (unit, string) result
+  (** Keeps every other field of the mark; an [Error] unless the hold is on
+      the current, attested object, or if the write fails. *)
+
   val holders : t -> string -> waiter -> (holder list, string) result
   (** For operators: each process that holds an object of the key, or has an
       older one open, once per object and mode. *)

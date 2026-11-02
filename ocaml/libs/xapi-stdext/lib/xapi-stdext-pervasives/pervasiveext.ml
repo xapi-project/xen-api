@@ -42,3 +42,9 @@ let finally fct clean_f =
 
 (** execute fct ignoring exceptions *)
 let ignore_exn fct = try fct () with _ -> ()
+
+let ok_if_true b ~error =
+  if b then
+    Ok ()
+  else
+    Error error
