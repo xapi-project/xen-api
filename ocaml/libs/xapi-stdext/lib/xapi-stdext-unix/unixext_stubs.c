@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  */
+#define _GNU_SOURCE /* O_TMPFILE */
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/file.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
@@ -61,6 +65,28 @@ CAMLprim value stub_unixext_fsync (value fd)
 	CAMLreturn(Val_unit);
 }
 
+
+/* LOCK_NB never waits, so the runtime lock is kept */
+CAMLprim value stub_unixext_flock_try(value fd, value exclusive)
+{
+	CAMLparam2(fd, exclusive);
+	int rc = flock(Int_val(fd), (Bool_val(exclusive) ? LOCK_EX : LOCK_SH) | LOCK_NB);
+
+	if (rc != 0 && errno != EWOULDBLOCK) uerror("flock", Nothing);
+	CAMLreturn(Val_bool(rc == 0));
+}
+
+/* The runtime lock is kept: on a local file system, such as the tmpfs of a
+   lock directory, open does not wait */
+CAMLprim value stub_unixext_open_tmpfile(value dir)
+{
+	CAMLparam1(dir);
+	caml_unix_check_path(dir, "open");
+	int fd = open(String_val(dir), O_TMPFILE | O_RDWR | O_CLOEXEC, 0600);
+
+	if (fd < 0) uerror("open", dir);
+	CAMLreturn(Val_int(fd));
+}
 
 CAMLprim value stub_unixext_blkgetsize64(value fd)
 {
