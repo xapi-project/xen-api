@@ -322,21 +322,88 @@ let stat_field n d =
   | None | (exception Unix.Unix_error _) ->
       None
 
-let d_threads pid =
+let d_threads ?tids pid =
   let tasks = Printf.sprintf "/proc/%d/task/" pid in
   let in_d tid = stat_field 0 (tasks ^ string_of_int tid ^ "/") = Some "D" in
-  try List.filter in_d (ids tasks) with Sys_error _ -> []
+  try List.filter in_d (match tids with Some tids -> tids | None -> ids tasks)
+  with Sys_error _ -> []
+
+let switches pid tid =
+  proc_number "voluntary_ctxt_switches"
+    (Printf.sprintf "/proc/%d/task/%d/status" pid tid)
+  |> Option.map (fun switches -> {tid; switches})
+
+(* From /proc only, so that a hung file system cannot stall the walk; a walk
+   costs a system call per descriptor on the host, so later looks read again
+   only what the look before found *)
+let blockers h ~exclusive ~stop =
+  let file = (device_text h.dev, h.ino) in
+  let link = Unix.readlink (self_fd_path h.fd) in
+  let dir = Filename.dirname link ^ "/" in
+  let holds found descriptor target =
+    if not (String.starts_with ~prefix:dir target) then
+      found
+    else
+      match flock_of descriptor with
+      | Some g when (g.dev, g.ino) = file && (exclusive || g.hold = Write) ->
+          (descriptor, g.pid) :: found
+      | _ ->
+          found
+  in
+  let blocker ?tids = function
+    | _, [] ->
+        None
+    | pid, held ->
+        let ( let* ) = Option.bind in
+        let* start = stat_field 19 (Printf.sprintf "/proc/%d/" pid) in
+        let own = List.for_all (fun (_, t) -> t = Unix.getpid ()) held in
+        let d_threads = d_threads ?tids pid in
+        let d_switches = List.filter_map (switches pid) d_threads in
+        Some ({process= (pid, start); own; d_threads; d_switches}, held)
+  in
+  let walk pid =
+    (pid, try fold_fds ~stop pid holds [] with Unix.Unix_error _ -> [])
+  in
+  let again ((b : blocker), held) =
+    (* a descriptor found before: [link] passes the test of its target *)
+    let still (descriptor, _) = holds [] descriptor link <> [] in
+    blocker ~tids:b.d_threads (fst b.process, List.filter still held)
+  in
+  let first () =
+    try List.filter_map (fun pid -> blocker (walk pid)) (ids "/proc")
+    with Exit -> []
+  in
+  let last = ref None in
+  fun () ->
+    let found =
+      match !last with
+      | None ->
+          first ()
+      | Some before ->
+          List.filter_map again before
+    in
+    last := Some found ;
+    List.map fst found
 
 let acquire (type m) t key (mode : m mode) waiter :
     (m held, acquire_error) result =
   let exclusive = match mode with Exclusive -> true | Shared -> false in
   let lock h =
     let retry () = Unixext.flock_try h.fd ~exclusive in
+    (* every 64 descriptors the search also tries the lock, so that a lock
+       released during the search is taken at once; an error of that try is
+       left to the wait *)
+    let walked = ref 0 in
+    let walk_stop () =
+      incr walked ;
+      waiter.stop ()
+      || (!walked mod 64 = 0 && try retry () with Unix.Unix_error _ -> false)
+    in
     match
       if retry () then
         Ok ()
       else
-        waiter.wait ~retry ~blockers:(fun () -> [])
+        waiter.wait ~retry ~blockers:(blockers h ~exclusive ~stop:walk_stop)
     with
     | Ok () ->
         Ok h
