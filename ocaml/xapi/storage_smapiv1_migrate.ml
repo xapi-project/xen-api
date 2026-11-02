@@ -816,8 +816,14 @@ module MIRROR : SMAPIv2_MIRROR = struct
            runs against the dest pool via the XenAPI session embedded in the
            SXM url, so it works both intra-pool and cross-pool. No-op on
            SMAPIv1 where the row was already dropped above. *)
-        Storage_migrate_helper.forget_orphan_dest_vdi ~url:r.url
-          ~verify_dest:r.verify_dest ~sr:r.sr ~vdi:r.dummy_vdi ;
+        let _ : Thread.t =
+          Thread.create
+            (fun () ->
+              Storage_migrate_helper.forget_orphan_dest_vdi ~url:r.url
+                ~verify_dest:r.verify_dest ~sr:r.sr ~vdi:r.dummy_vdi
+            )
+            ()
+        in
         SMAPI.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
       )
       recv_state ;
