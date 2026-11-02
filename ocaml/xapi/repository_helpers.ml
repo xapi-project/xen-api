@@ -158,7 +158,21 @@ module DomainNameIncludeIP = struct
     )
 end
 
+let has_control_character s =
+  let is_control_character c =
+    let code = Char.code c in
+    code < 0x20 || code = 0x7f
+  in
+  String.exists is_control_character s
+
+let assert_no_control_chars ~url ~url_error =
+  if has_control_character url then (
+    error "Invalid url: it contains control character(s)" ;
+    raise Api_errors.(Server_error (url_error, [url]))
+  )
+
 let assert_url_is_valid ~url =
+  assert_no_control_chars ~url ~url_error:Api_errors.invalid_base_url ;
   try
     let uri = Uri.of_string url in
     match Uri.(scheme uri, host uri) with
@@ -259,6 +273,7 @@ let get_remote_pool_coordinator_ip url =
       raise Api_errors.(Server_error (invalid_base_url, [url]))
 
 let assert_remote_pool_url_is_valid ~url =
+  assert_no_control_chars ~url ~url_error:Api_errors.invalid_base_url ;
   ignore (get_remote_pool_coordinator_ip url : string)
 
 let with_pool_repositories f =

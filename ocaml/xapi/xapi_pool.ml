@@ -4259,13 +4259,18 @@ let configure_repository_proxy ~__context ~self ~url ~username ~password =
       error "missing password of the repository proxy with a username specified" ;
       raise Api_errors.(Server_error (invalid_repository_proxy_credential, []))
   | u, p when u <> "" && p <> "" ->
-      if String.contains u '\n' || String.contains p '\n' then (
+      if
+        Repository_helpers.has_control_character u
+        || Repository_helpers.has_control_character p
+      then (
         error "getting invalid username/password of the repository proxy" ;
         raise Api_errors.(Server_error (invalid_repository_proxy_credential, []))
       )
   | _ ->
       ()
   ) ;
+  Repository_helpers.assert_no_control_chars ~url
+    ~url_error:Api_errors.invalid_repository_proxy_url ;
   let old_secret_ref = Db.Pool.get_repository_proxy_password ~__context ~self in
   let secret_ref =
     if password = "" then
