@@ -73,4 +73,5 @@ let () =
     @ Test_rfb_client_msgtype_parser.tests
     @ Test_tracked_user_agents.tests
     @ Test_cli_args.tests
+    @ Test_vm_protected_keys.tests
     )
