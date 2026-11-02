@@ -66,3 +66,7 @@ val clone :
 (* For test purpose only *)
 val assert_protected_map_keys_allowed :
   __context:Context.t -> vm:[`VM] API.Ref.t -> disk_op_t -> unit
+
+(* For test purpose only *)
+val assert_protected_fields_allowed :
+  __context:Context.t -> vm:[`VM] API.Ref.t -> disk_op_t -> unit

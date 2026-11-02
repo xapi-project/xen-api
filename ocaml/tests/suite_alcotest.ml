@@ -74,4 +74,5 @@ let () =
     @ Test_tracked_user_agents.tests
     @ Test_cli_args.tests
     @ Test_vm_protected_keys.tests
+    @ Test_vm_protected_fields.tests
     )
