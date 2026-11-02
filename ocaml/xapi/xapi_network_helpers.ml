@@ -123,3 +123,8 @@ let assert_network_compatible_with_sriov ~__context ~pif ~network =
                 )
             )
   )
+
+let assert_protected_map_keys_allowed ~__context ~field_name ~value =
+  let match_protected = Helpers.match_protected_key "network" in
+  Helpers.assert_map_with_rbac ~__context ~match_protected
+    ~object_name:"network" ~field_name ~value

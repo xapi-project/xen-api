@@ -1255,6 +1255,17 @@ module Net : HandlerTools = struct
     | Found_net _ ->
         handle_dry_run __context config rpc session_id state x precheck_result
     | Create net_record ->
+        (* The [session_id] passed to Client.Network.create_from_record
+           (and hence to Network.create) may have been created by
+           Helpers.call_api_functions with a higher privilege level than the
+           requesting client session. This is intentional, but it means the
+           per-key RBAC check inside Network.create would evaluate that
+           elevated session and let protected keys through. The import
+           metadata is caller-controlled, so enforce the check here instead,
+           where Helpers.assert_map_with_rbac can still resolve the
+           originating session. *)
+        Xapi_network_helpers.assert_protected_map_keys_allowed ~__context
+          ~field_name:"other_config" ~value:net_record.API.network_other_config ;
         let net =
           log_reraise
             ("failed to create Network with name_label "
