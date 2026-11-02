@@ -30,17 +30,25 @@ type _ mode = Shared : shared mode | Exclusive : exclusive mode
     [`Failed]: an object that fails the checks, or an error *)
 type acquire_error = [`Busy | `Stuck | `Absent | `Failed of string]
 
-(** A process whose hold conflicts with a taker's: the process that took the
-    hold, or a child that kept its descriptor *)
+(** A thread waiting in the kernel, with its count of voluntary context
+    switches: a count that changes shows that the thread makes progress *)
+type d_switch = {tid: int; switches: int}
+
+(** A process whose hold conflicts with a taker's, as the primitive finds it
+    (Flock: in /proc): the process that took the hold, or a child that kept
+    its descriptor *)
 type blocker = {
     process: int * string  (** pid and start time, unique across pid reuse *)
   ; own: bool  (** the hold was taken by the caller's process *)
   ; d_threads: int list  (** its threads waiting in the kernel (state D) *)
+  ; d_switches: d_switch list  (** of [d_threads], each whose count was read *)
 }
 
 (** A wait without a clock: [stop] tells when the caller's time is up; while
-    another holds the object, [wait] decides, and may [retry]; [blockers]
-    gives the conflicting holders that the primitive found. *)
+    another holds the object, [wait] decides, and may [retry]. The first call
+    of [blockers] finds the conflicting holders, until [stop]; later calls
+    look again only at those found before. A look that finds none may have
+    taken the lock: [retry] then succeeds at once. *)
 type waiter = {
     stop: unit -> bool
   ; wait:

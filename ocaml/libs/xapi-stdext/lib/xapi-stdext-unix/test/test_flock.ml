@@ -84,6 +84,15 @@ let rewrite path text =
 let holds lock =
   Result.map (List.map (fun h -> (h.pid, h.hold))) (L.holders lock "k" once)
 
+let blocking lock =
+  let seen = ref [] in
+  let look ~retry:_ ~blockers =
+    seen := blockers () ;
+    Error `Busy
+  in
+  let refused = L.acquire lock "k" Exclusive {once with wait= look} in
+  (refused, List.map (fun b -> (fst b.process, b.own)) !seen)
+
 let unsafe_objects_refused () =
   let refused_with make =
     let path, lock = world () in
@@ -138,6 +147,8 @@ let creator_counted () =
   check "prepared" true (L.prepare lock = Ok ()) ;
   let created = Result.get_ok (L.fresh lock "k") in
   check "held by the creator" true (take lock = Error `Busy) ;
+  check "the creator blocks" true
+    (blocking lock = (Error `Busy, [(Unix.getpid (), true)])) ;
   check "the census names the creator" true
     (holds lock = Ok [(Unix.getpid (), Write)]) ;
   let copies = List.map Unix.dup (L.fds_for_child created) in
@@ -182,10 +193,34 @@ let child_keeps_lock () =
       Unix.stderr
   in
   check "held by the child" true (take lock = Error `Busy) ;
+  check "the child blocks" true (blocking lock = (Error `Busy, [(child, true)])) ;
   check "the census names the child" true (holds lock = Ok [(child, Write)]) ;
   Unix.kill child Sys.sigkill ;
   ignore (Unix.waitpid [] child : int * Unix.process_status) ;
   check "free when it ends" true (take lock = Ok 1)
+
+(* the first look tries the lock as it walks the descriptors: a holder that
+   lets go as the walk starts is not waited for *)
+let walk_tries_lock () =
+  let path, lock = world () in
+  plain path ;
+  let other = hold path in
+  let looked = ref 0 in
+  let spare =
+    List.init 100 (fun _ -> Unix.openfile "/dev/null" [O_RDONLY; O_CLOEXEC] 0)
+  in
+  let stop () = incr looked ; false in
+  let wait ~retry ~blockers =
+    Unix.close other ;
+    if blockers () = [] && retry () then
+      Ok ()
+    else
+      Error `Busy
+  in
+  check "taken" true
+    (Result.map L.release (L.acquire lock "k" Exclusive {stop; wait}) = Ok ()) ;
+  check "during the walk" true (!looked = 64) ;
+  List.iter Unix.close spare
 
 let child_outlives_taker () =
   let path, lock = world () in
@@ -234,6 +269,7 @@ let () =
           ; ("a mark others may write counts for no key", shared_mark_ignored)
           ; ("links and versions", links_and_versions)
           ; ("a child keeps the lock", child_keeps_lock)
+          ; ("the walk tries the lock", walk_tries_lock)
           ; ("a child that outlives its taker keeps it", child_outlives_taker)
           ; ("shared holds coexist, not with an exclusive", shared_holds)
           ]
