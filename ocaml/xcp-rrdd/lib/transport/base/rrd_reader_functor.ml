@@ -42,8 +42,13 @@ module Make (T : TRANSPORT) = struct
     let read_payload () =
       if !is_open then
         let cs =
-          if Cstruct.length (T.expose !state) <= 0 then state := T.init id ;
-          T.expose !state
+          let exposed = T.expose !state in
+          if Cstruct.length exposed > 0 then
+            exposed
+          else (
+            state := T.init id ;
+            T.expose !state
+          )
         in
         reader cs
       else
