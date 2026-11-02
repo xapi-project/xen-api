@@ -8,7 +8,7 @@
  (name test_gpu_lock)
  (package xapi-gpu)
  (modules test_gpu_lock)
- (libraries alcotest astring forkexec mtime unix xapi-gpu.lock xapi-idl xapi-stdext-unix))
+ (libraries alcotest astring clock forkexec mtime unix xapi-gpu.lock xapi-idl xapi-stdext-unix))
 
 (test
  (name test_gpu_partition_lifecycle)
