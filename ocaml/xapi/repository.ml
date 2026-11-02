@@ -140,11 +140,17 @@ let get_proxy_params ~__context =
   match (url, username, password_ref) with
   | url', username', password_ref'
     when url' <> "" && username' <> "" && password_ref' <> Ref.null ->
+      let password = Db.Secret.get_value ~__context ~self:password_ref' in
+      (* The secret value may change after being configured. Re-check it again. *)
+      if has_control_character password then (
+        error
+          "The password of the repository proxy contains control character(s)" ;
+        raise Api_errors.(Server_error (invalid_repository_proxy_credential, []))
+      ) ;
       [
         Printf.sprintf "proxy=%s" url'
       ; Printf.sprintf "proxy_username=%s" username'
-      ; Printf.sprintf "proxy_password=%s"
-          (Db.Secret.get_value ~__context ~self:password_ref')
+      ; Printf.sprintf "proxy_password=%s" password
       ]
   | url', "", _ when url' <> "" ->
       [Printf.sprintf "proxy=%s" url']

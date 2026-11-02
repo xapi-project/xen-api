@@ -250,6 +250,96 @@ module AssertUrlIsValid = Generic.MakeStateless (struct
       ; (("https://a.b.d.com//", ["c.com"; "d.com"]), Ok ())
       ; (("https://a.b.d.com/a/b", ["c.com"; "d.com"]), Ok ())
       ; (("https://a.b.d.com/a/b/", ["c.com"; "d.com"]), Ok ())
+      ; (* control characters are rejected wherever they appear *)
+        ( ("http://a.b.c.com/a\n/b", ["c.com"])
+        , Error
+            Api_errors.(
+              Server_error (invalid_base_url, ["http://a.b.c.com/a\n/b"])
+            )
+        )
+      ; ( ("http://a.b.c.com\r\nX-Injected: 1", ["c.com"])
+        , Error
+            Api_errors.(
+              Server_error
+                (invalid_base_url, ["http://a.b.c.com\r\nX-Injected: 1"])
+            )
+        )
+      ; ( ("http://a.b.c\000.com", ["c.com"])
+        , Error
+            Api_errors.(
+              Server_error (invalid_base_url, ["http://a.b.c\000.com"])
+            )
+        )
+      ; ( ("http://a.b.c.com/\127", ["c.com"])
+        , Error
+            Api_errors.(
+              Server_error (invalid_base_url, ["http://a.b.c.com/\127"])
+            )
+        )
+      ; ( ("\thttp://a.b.c.com", ["c.com"])
+        , Error
+            Api_errors.(Server_error (invalid_base_url, ["\thttp://a.b.c.com"]))
+        )
+      ]
+end)
+
+module AssertRemotePoolUrlIsValid = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = string
+
+    type output_t = (unit, exn) result
+
+    let string_of_input_t = Fmt.(str "%a" Dump.string)
+
+    let string_of_output_t =
+      Fmt.(str "%a" Dump.(result ~ok:(any "()") ~error:exn))
+  end
+
+  let transform url =
+    try Ok (assert_remote_pool_url_is_valid ~url) with e -> Error e
+
+  let invalid url = Error Api_errors.(Server_error (invalid_base_url, [url]))
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ("https://192.168.0.2/repository/enabled", Ok ())
+      ; ("https://[::1]/repository/enabled", Ok ())
+      ; (* wrong scheme, host or path *)
+        ( "http://192.168.0.2/repository/enabled"
+        , invalid "http://192.168.0.2/repository/enabled"
+        )
+      ; ( "https://a.b.c.com/repository/enabled"
+        , invalid "https://a.b.c.com/repository/enabled"
+        )
+      ; ( "https://192.168.0.2/repository"
+        , invalid "https://192.168.0.2/repository"
+        )
+      ; (* a newline terminates Uri.path, so the shape check on its own would
+           accept these and the trailing lines would reach the .repo file *)
+        ( "https://192.168.0.2/repository/enabled\n\
+           [evil]\n\
+           baseurl=http://attacker/"
+        , invalid
+            "https://192.168.0.2/repository/enabled\n\
+             [evil]\n\
+             baseurl=http://attacker/"
+        )
+      ; ( "https://192.168.0.2/repository/enabled\nproxy=http://attacker:3128"
+        , invalid
+            "https://192.168.0.2/repository/enabled\nproxy=http://attacker:3128"
+        )
+      ; (* other control characters, which the shape check already rejected but
+           which must keep reporting the same error *)
+        ( "https://192.168.0.2/repository/enabled\r\nX-Injected: 1"
+        , invalid "https://192.168.0.2/repository/enabled\r\nX-Injected: 1"
+        )
+      ; ( "https://192.168.0.2\000/repository/enabled"
+        , invalid "https://192.168.0.2\000/repository/enabled"
+        )
+      ; ( "\thttps://192.168.0.2/repository/enabled"
+        , invalid "\thttps://192.168.0.2/repository/enabled"
+        )
       ]
 end)
 
@@ -5576,6 +5666,7 @@ let tests =
     [
       ("update_of_json", UpdateOfJsonTest.tests)
     ; ("assert_url_is_valid", AssertUrlIsValid.tests)
+    ; ("assert_remote_pool_url_is_valid", AssertRemotePoolUrlIsValid.tests)
     ; ("assert_url_is_not_blocked", AssertUrlIsNotBlocked.tests)
     ; ("write_yum_config", WriteYumConfig.tests)
     ; ("eval_guidance_for_one_update", EvalGuidanceForOneUpdate.tests)
