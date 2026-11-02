@@ -43,7 +43,7 @@
  (name test_flock)
  (package xapi-stdext-unix)
  (modules test_flock)
- (libraries alcotest unix xapi-stdext-unix))
+ (libraries alcotest astring unix xapi-stdext-unix))
 
 (test
  (modes exe)

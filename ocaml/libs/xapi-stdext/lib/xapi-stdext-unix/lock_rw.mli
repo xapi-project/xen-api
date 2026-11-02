@@ -53,12 +53,30 @@ type waiter = {
     whether its creator attested it *)
 type state = Attested | Unattested | Replaced
 
+(** [Write] is an exclusive hold, [Read] a shared one; [Open] is none yet: the
+    process has the object open and may take one later *)
+type hold = Write | Read | Open
+
+(** A process that holds an object or has it open ([hold]); [run_state] is the
+    state letter of its main thread in /proc, or "?" *)
+type holder = {
+    pid: int
+  ; command: string
+  ; run_state: string
+  ; hold: hold
+  ; file: string  (** device and inode, "00:2a:5678" *)
+  ; d_threads: int list  (** its threads waiting in the kernel (state D) *)
+}
+
 (** One object at a time stands behind a key, and a hold is bound to the object
     it took. *)
 module type S = sig
   type t
 
   type 'mode held
+
+  val prepare : t -> (unit, string) result
+  (** Makes or checks the place where objects live. The creator only. *)
 
   val acquire :
     t -> string -> 'mode mode -> waiter -> ('mode held, acquire_error) result
@@ -69,6 +87,24 @@ module type S = sig
   val release : _ held -> unit
 
   val state : _ held -> state
+
+  val incarnation : _ held -> string
+  (** For logs: which object the hold is on. *)
+
+  val fresh :
+    t -> string -> (exclusive held, [`Exists | `Failed of string]) result
+  (** Publishes a new object for the key, held exclusively, or fails. The
+      creator only. *)
+
+  val attest_if_alone : t -> exclusive held -> waiter -> (unit, string) result
+  (** Attests the held object only when no other object of the key is held,
+      also by a forked child whose taker exited. The new mark has label 0 and
+      keeps the old one's fields that are not the primitive's own. The creator
+      only. *)
+
+  val holders : t -> string -> waiter -> (holder list, string) result
+  (** For operators: each process that holds an object of the key, or has an
+      older one open, once per object and mode. *)
 
   val fds_for_child : _ held -> Unix.file_descr list
   (** What a forked child keeps open so that the hold lasts while it runs. *)
