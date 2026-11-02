@@ -595,6 +595,10 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~field_name:"other_config" ~value:other_config ;
   Xapi_vm_helpers.assert_protected_map_keys_allowed ~__context
     ~field_name:"platform" ~value:platform ;
+  Xapi_vm_helpers.assert_protected_field_allowed ~__context
+    ~field_name:"ha_restart_priority" ~is_default:(ha_restart_priority = "") ;
+  Xapi_vm_helpers.assert_protected_field_allowed ~__context
+    ~field_name:"appliance" ~is_default:(appliance = Ref.null) ;
   (* NB apart from the above, parameter validation is delayed until VM.start *)
   let uuid = Uuidx.make () in
   let vm_ref = Ref.make () in

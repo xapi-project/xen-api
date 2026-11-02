@@ -431,11 +431,22 @@ let assert_protected_map_keys_allowed ~__context ~vm disk_op =
   | Disk_op_snapshot | Disk_op_checkpoint ->
       ()
 
+let assert_protected_fields_allowed ~__context ~vm disk_op =
+  match disk_op with
+  | Disk_op_clone | Disk_op_copy _ ->
+      (* The appliance of the new VM is reset, so it isn't checked. *)
+      Xapi_vm_helpers.assert_protected_field_allowed ~__context
+        ~field_name:"ha_restart_priority"
+        ~is_default:(Db.VM.get_ha_restart_priority ~__context ~self:vm = "")
+  | Disk_op_snapshot | Disk_op_checkpoint ->
+      ()
+
 (* NB this function may be called when the VM is suspended for copy/clone
    operations. Snapshot can be done in live. *)
 let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
     ~new_name =
   assert_protected_map_keys_allowed ~__context ~vm disk_op ;
+  assert_protected_fields_allowed ~__context ~vm disk_op ;
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       let task_id = Ref.string_of (Context.get_task_id __context) in
       let vbds = Db.VM.get_VBDs ~__context ~self:vm in

@@ -522,6 +522,10 @@ module VM : HandlerTools = struct
               ~field_name:"other_config" ~value:vm_record.API.vM_other_config ;
             Xapi_vm_helpers.assert_protected_map_keys_allowed ~__context
               ~field_name:"platform" ~value:vm_record.API.vM_platform ;
+            (* The appliance is cleared on import, so it isn't checked. *)
+            Xapi_vm_helpers.assert_protected_field_allowed ~__context
+              ~field_name:"ha_restart_priority"
+              ~is_default:(vm_record.API.vM_ha_restart_priority = "") ;
             if is_live config then assert_can_live_import __context vm_record ;
             ( if needs_cpu_check config vm_record then
                 let vmm_record =
