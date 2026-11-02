@@ -86,6 +86,9 @@ module type S = sig
 
   type 'mode held
 
+  (** A caller's field in the object's mark, never one of the primitive's *)
+  type field
+
   val prepare : t -> (unit, string) result
   (** Makes or checks the place where objects live. The creator only. *)
 
@@ -97,6 +100,11 @@ module type S = sig
 
   val release : _ held -> unit
 
+  val unlock : _ held -> unit
+  (** Ends the hold also for every process that shares it, such as a forked
+      child that keeps the descriptor, then releases it; so call it only when
+      no process that shares the hold still works under it. *)
+
   val state : _ held -> state
 
   val inode : _ held -> int
@@ -107,11 +115,18 @@ module type S = sig
   (** Publishes a new object for the key, held exclusively, or fails. The
       creator only. *)
 
-  val attest_if_alone : t -> exclusive held -> waiter -> (unit, string) result
+  val attest_if_alone :
+       ?carry:bool
+    -> ?extra:field list
+    -> t
+    -> exclusive held
+    -> waiter
+    -> (unit, string) result
   (** Attests the held object only when no other object of the key is held,
-      also by a forked child whose taker exited. The new mark has label 0 and
-      keeps the old one's fields that are not the primitive's own. The creator
-      only. *)
+      also by a forked child whose taker exited; its label is then 0. The new
+      mark keeps the old one's other fields if [carry] (default), and adds
+      [extra], each name once, else an [Error]; a mark of 4096 bytes or more
+      reads as no mark. The creator only. *)
 
   val label : _ held -> int
   (** A small number kept in the mark for the caller; 0, as every creation or
@@ -120,6 +135,11 @@ module type S = sig
   val set_label : exclusive held -> int -> (unit, string) result
   (** Keeps every other field of the mark; an [Error] unless the hold is on
       the current, attested object, or if the write fails. *)
+
+  val field_value : _ held -> string -> (string option, [`Unattested]) result
+  (** The caller's field of that name, if any, from a mark that attests the
+      object, else [`Unattested]. Attesting vouches only for the primitive's
+      fields: a repair may carry the caller's from an unattested mark. *)
 
   val holders : t -> string -> waiter -> (holder list, string) result
   (** For operators: each process that holds an object of the key, or has an

@@ -76,6 +76,14 @@ CAMLprim value stub_unixext_flock_try(value fd, value exclusive)
 	CAMLreturn(Val_bool(rc == 0));
 }
 
+CAMLprim value stub_unixext_flock_unlock(value fd)
+{
+	CAMLparam1(fd);
+
+	if (flock(Int_val(fd), LOCK_UN) != 0) uerror("flock", Nothing);
+	CAMLreturn(Val_unit);
+}
+
 /* The runtime lock is kept: on a local file system, such as the tmpfs of a
    lock directory, open does not wait */
 CAMLprim value stub_unixext_open_tmpfile(value dir)
