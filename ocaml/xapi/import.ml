@@ -518,6 +518,10 @@ module VM : HandlerTools = struct
         in
         match import_action with
         | Replace (_, vm_record) | Clean_import vm_record ->
+            Xapi_vm_helpers.assert_protected_map_keys_allowed ~__context
+              ~field_name:"other_config" ~value:vm_record.API.vM_other_config ;
+            Xapi_vm_helpers.assert_protected_map_keys_allowed ~__context
+              ~field_name:"platform" ~value:vm_record.API.vM_platform ;
             if is_live config then assert_can_live_import __context vm_record ;
             ( if needs_cpu_check config vm_record then
                 let vmm_record =
