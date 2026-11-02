@@ -469,6 +469,22 @@ let attest_if_alone t h waiter =
       Error
         (Printf.sprintf "%d hold(s) on an older lock file" (List.length others))
 
+(* Only the decimal text of a number counts: "01", "+1" or "0x1" read as 0 *)
+let label h =
+  let text = Option.bind (attested h) (List.assoc_opt "label") in
+  match Option.bind text int_of_string_opt with
+  | Some n when Some (string_of_int n) = text ->
+      n
+  | _ ->
+      0
+
+let set_label h n =
+  match (state h, attested h) with
+  | Attested, Some kv ->
+      write_mark h (List.remove_assoc "label" kv @ [("label", string_of_int n)])
+  | (Unattested | Replaced), _ | Attested, None ->
+      Error "not the attested, current lock file"
+
 let holders t key waiter =
   let holder {Granted.pid; hold; dev; ino} =
     let proc = Printf.sprintf "/proc/%d/" pid in

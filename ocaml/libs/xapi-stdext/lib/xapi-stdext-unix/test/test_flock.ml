@@ -221,6 +221,19 @@ let walk_tries_lock () =
   check "during the walk" true (!looked = 64) ;
   List.iter Unix.close spare
 
+(* the label: 0 in a new mark, set under an exclusive hold, read back only as
+   decimal text, and 0 again in a new attestation *)
+let mark_label () =
+  let path, lock = world () in
+  let label () = holding lock L.label in
+  check "created" true (attest lock = Ok () && label () = Ok 0) ;
+  check "set" true (holding lock (fun h -> L.set_label h 2) = Ok (Ok ())) ;
+  check "read" true (label () = Ok 2) ;
+  rewrite path
+    (String.concat "label=02" (Astring.String.cuts ~sep:"label=2" (mark path))) ;
+  check "not decimal" true (label () = Ok 0) ;
+  check "anew" true (attest lock = Ok () && label () = Ok 0)
+
 let child_outlives_taker () =
   let path, lock = world () in
   check "created" true (attest lock = Ok ()) ;
@@ -270,6 +283,7 @@ let () =
           ; ("the walk tries the lock", walk_tries_lock)
           ; ("a child that outlives its taker keeps it", child_outlives_taker)
           ; ("shared holds coexist, not with an exclusive", shared_holds)
+          ; ("the mark's label", mark_label)
           ]
       )
     ]
