@@ -77,4 +77,5 @@ let () =
     @ Test_vm_protected_keys.tests
     @ Test_vm_protected_fields.tests
     @ Test_network_protected_keys.tests
+    @ Test_task_ownership.tests
     )
