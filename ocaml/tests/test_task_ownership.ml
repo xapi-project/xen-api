@@ -24,6 +24,10 @@ let make_session ~__context ?(rbac_permissions = []) ~auth_user_sid () =
   Test_common.make_session ~__context ~is_local_superuser:false ~auth_user_sid
     ~rbac_permissions ()
 
+let make_client_cert_session ~__context =
+  Test_common.make_session ~__context ~is_local_superuser:false
+    ~auth_user_sid:"" ~client_certificate:true ()
+
 let make_task ~__context ~session_id label =
   let self = Ref.make () in
   Db.Task.create ~__context ~ref:self ~uuid:(Test_common.make_uuid ())
@@ -247,6 +251,14 @@ let test_not_own_task_of_other_user () =
   let session_id = make_session ~__context ~auth_user_sid:"S-1-attacker" () in
   check_can_own_task ~session_id ~expected:false ~task "task of another user"
 
+let test_client_cert_does_not_own_root_task () =
+  let __context = Test_common.make_test_database () in
+  let root = Test_common.make_session ~__context ~is_local_superuser:true () in
+  let task = make_task ~__context ~session_id:root "task of the root" in
+  let session_id = make_client_cert_session ~__context in
+  check_can_own_task ~session_id ~expected:false ~task
+    "client-cert session and root task"
+
 let test_not_own_task_without_session () =
   (* The Http.Unauthorised path of Xapi_http.with_context has no session at all. *)
   let __context = Test_common.make_test_database () in
@@ -343,6 +355,17 @@ let test_dispatch_allows_without_task_header () =
   check_dispatch_ran ~expected:true ~session_id ~supports_async:false
     "no task-id header"
 
+let test_dispatch_denies_client_cert_with_root_task () =
+  let __context = Test_common.make_test_database () in
+  let root = Test_common.make_session ~__context ~is_local_superuser:true () in
+  let task = make_task ~__context ~session_id:root "task of the root" in
+  let session_id = make_client_cert_session ~__context in
+  expect_rbac_denied
+    "task-id header from a client-cert session naming a root's task" (fun () ->
+      ignore (dispatch ~task ~session_id ())
+  ) ;
+  check_task_untouched ~__context ~task "task-id header, client-cert session"
+
 let tests =
   [
     ( "Xapi_http.assert_credentials_ok: RBAC-denied task"
@@ -394,6 +417,10 @@ let tests =
         , `Quick
         , test_own_task_of_destroy_any_holder
         )
+      ; ( "does not own a root task from a client-cert session"
+        , `Quick
+        , test_client_cert_does_not_own_root_task
+        )
       ]
     )
   ; ( "Server_helpers.do_dispatch: the task-id header"
@@ -413,6 +440,10 @@ let tests =
       ; ( "runs when no task is named by the request"
         , `Quick
         , test_dispatch_allows_without_task_header
+        )
+      ; ( "refuses a root task named by a client-cert session"
+        , `Quick
+        , test_dispatch_denies_client_cert_with_root_task
         )
       ]
     )
