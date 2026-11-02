@@ -71,6 +71,21 @@ let hold path =
   assert (Unixext.flock_try fd ~exclusive:true) ;
   fd
 
+let hold_elsewhere path =
+  let ready, held = Unix.pipe () in
+  match Unix.fork () with
+  | 0 ->
+      (* the child never returns to the tests *)
+      (try ignore (hold path : Unix.file_descr) with _ -> Unix._exit 1) ;
+      Unix.close held ; Unix.sleep 60 ; Unix._exit 0
+  | child ->
+      Unix.close held ;
+      ignore (Unix.read ready (Bytes.create 1) 0 1 : int) ;
+      Unix.close ready ;
+      fun () ->
+        Unix.kill child Sys.sigkill ;
+        ignore (Unix.waitpid [] child : int * Unix.process_status)
+
 let inode path = (Unix.stat path).st_ino
 
 let not_engaged () =
@@ -100,6 +115,27 @@ let busy_then_free () =
   refused ~busy:true "busy" (run lock) ;
   Unix.close other ;
   check "free, one descriptor" true (run lock = Ok 1)
+
+(* after one whole wait behind another process's holder, refused at once
+   while it holds; the caller's own holds never fail fast, and a try alone
+   records no holder *)
+let same_blocker_fails_fast () =
+  let path, lock = world () in
+  check "ran" true (run lock = Ok 1) ;
+  let waited ?(timeout = ms 300) span =
+    let timer = Clock.Timer.start ~duration:span in
+    refused ~busy:true "refused" (run ~timeout lock) ;
+    Clock.Timer.has_expired timer
+  in
+  let own = hold path in
+  refused ~busy:true "behind its own hold" (run lock) ;
+  check "own: waited again" true (waited (ms 250)) ;
+  Unix.close own ;
+  Fun.protect ~finally:(hold_elsewhere path) (fun () ->
+      refused ~busy:true "a try" (run ~timeout:(ms 0) lock) ;
+      check "waited" true (waited (ms 250)) ;
+      check "at once" false (waited ~timeout:(ms 5000) (ms 2500))
+  )
 
 let no_mark_while_old_held () =
   let path, lock = world () in
@@ -132,6 +168,7 @@ let () =
             ("not engaged: no lock, no directory, no bounds", not_engaged)
           ; ("engaged: bounded work", bounds_where_engaged)
           ; ("busy until the wait ends, then free", busy_then_free)
+          ; ("the same blocker fails fast", same_blocker_fails_fast)
           ; ("older lock held: refused, then adopted", no_mark_while_old_held)
           ; ("a refusal counts holders, names none", refusal_counts_holders)
           ]
