@@ -208,6 +208,10 @@ external flock_try : Unix.file_descr -> exclusive:bool -> bool
 (** [flock_try fd ~exclusive] takes a flock(2) lock without waiting; [false]
     if a conflicting lock is held, [Unix_error] on any other error. *)
 
+external flock_unlock : Unix.file_descr -> unit = "stub_unixext_flock_unlock"
+(** [flock_unlock fd] ends the flock(2) lock of [fd]'s open file, also for
+    every other descriptor of that open file, such as a forked child's. *)
+
 external open_tmpfile : string -> Unix.file_descr = "stub_unixext_open_tmpfile"
 (** [open_tmpfile dir] opens a new unnamed file of mode 0600 in [dir], with
     O_TMPFILE: linkat(2) can give it a name later. *)

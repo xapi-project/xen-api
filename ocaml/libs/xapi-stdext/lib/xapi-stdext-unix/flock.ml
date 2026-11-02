@@ -24,6 +24,8 @@ type 'mode held = {
   ; ino: int
 }
 
+type field = string * string
+
 let create ~boot_id ~magic dir = {dir; magic; boot_id}
 
 let path t key = Filename.concat t.dir (key ^ ".lock")
@@ -406,7 +408,14 @@ let acquire (type m) t key (mode : m mode) waiter :
 
 let incarnation h = Printf.sprintf "inode %d" h.ino
 
+let inode h = h.ino
+
 let release h = Unix.close h.fd
+
+let unlock h =
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> Unixext.flock_unlock h.fd)
+    (fun () -> release h)
 
 let state h =
   match Unix.lstat (path h.lock h.key) with
@@ -445,14 +454,27 @@ let fresh t key =
           Error (`Failed ("linkat: " ^ Unix.error_message e))
     )
 
-(* The mark's fields of this module; the others of an old mark are kept *)
+(* The mark's fields of this module; the others are the caller's *)
 let own = ["v"; "id"; "boot"; "ino"; "links"; "nonce"; "label"]
 
-let attest_if_alone t h waiter =
+let callers = List.filter (fun (k, _) -> not (List.mem k own))
+
+let field name value =
+  let clean = String.for_all (fun c -> c > ' ' && c <> '\x7f') in
+  let reserved = List.mem name own || String.contains name '=' in
+  if clean name && clean value && not reserved then
+    Some (name, value)
+  else
+    None
+
+let attest_if_alone ?(carry = true) ?(extra = []) t h waiter =
   let older g = g.Granted.ino <> h.ino in
-  let kept kv = List.filter (fun (k, _) -> not (List.mem k own)) kv in
+  let keep (k, _) = carry && not (List.mem_assoc k extra) in
+  let kept kv = List.filter keep (callers kv) in
   Result.bind (holds_of_key t h.key ~stop:waiter.stop) @@ fun holds ->
   match List.filter older holds with
+  | _ when not (distinct (List.map fst extra)) ->
+      Error "a field of the caller's given twice"
   | [] -> (
     match own_mark h with
     | Error `Other_version ->
@@ -462,6 +484,7 @@ let attest_if_alone t h waiter =
         write_mark h
           ((("v", "1.0") :: checked h ~links:1)
           @ (("nonce", Printf.sprintf "%016Lx" rand) :: kept kv)
+          @ extra
           @ [("label", "0")]
           )
   )
@@ -484,6 +507,10 @@ let set_label h n =
       write_mark h (List.remove_assoc "label" kv @ [("label", string_of_int n)])
   | (Unattested | Replaced), _ | Attested, None ->
       Error "not the attested, current lock file"
+
+let field_value h name =
+  Option.to_result ~none:`Unattested (attested h)
+  |> Result.map (fun kv -> List.assoc_opt name (callers kv))
 
 let holders t key waiter =
   let holder {Granted.pid; hold; dev; ino} =

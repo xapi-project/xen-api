@@ -51,9 +51,9 @@ let take lock = holding lock (fun h -> List.length (L.fds_for_child h))
 let state lock = holding lock L.state
 
 (* what the creator does: a new or the current lock object, attested *)
-let attest lock =
+let attest ?carry ?extra lock =
   ignore (L.prepare lock : (unit, string) result) ;
-  let attest h = L.attest_if_alone lock h once in
+  let attest h = L.attest_if_alone ?carry ?extra lock h once in
   match L.fresh lock "k" with
   | Ok h ->
       with_held h attest
@@ -197,7 +197,18 @@ let child_keeps_lock () =
   check "the census names the child" true (holds lock = Ok [(child, Write)]) ;
   Unix.kill child Sys.sigkill ;
   ignore (Unix.waitpid [] child : int * Unix.process_status) ;
-  check "free when it ends" true (take lock = Ok 1)
+  check "free when it ends" true (take lock = Ok 1) ;
+  let h = Result.get_ok (L.acquire lock "k" Exclusive once) in
+  check "its inode" true (L.inode h = (Unix.stat path).st_ino) ;
+  List.iter Unix.clear_close_on_exec (L.fds_for_child h) ;
+  let child =
+    Unix.create_process "sleep" [|"sleep"; "60"|] Unix.stdin Unix.stdout
+      Unix.stderr
+  in
+  L.unlock h ;
+  check "unlocked for the child too" true (take lock = Ok 1) ;
+  Unix.kill child Sys.sigkill ;
+  ignore (Unix.waitpid [] child : int * Unix.process_status)
 
 (* the first look tries the lock as it walks the descriptors: a holder that
    lets go as the walk starts is not waited for *)
@@ -233,6 +244,28 @@ let mark_label () =
     (String.concat "label=02" (Astring.String.cuts ~sep:"label=2" (mark path))) ;
   check "not decimal" true (label () = Ok 0) ;
   check "anew" true (attest lock = Ok () && label () = Ok 0)
+
+(* the caller's fields: given when the file is attested, kept when the label
+   is set and by a new attestation unless ~carry:false, read back only from
+   an attested mark *)
+let mark_fields () =
+  let path, lock = world () in
+  let value name = holding lock (fun h -> L.field_value h name) in
+  let slot = Option.to_list (L.field "slot" "x") in
+  check "created" true (attest ~extra:slot lock = Ok ()) ;
+  check "own name" true (L.field "label" "1" = None) ;
+  check "set" true (holding lock (fun h -> L.set_label h 2) = Ok (Ok ())) ;
+  check "kept" true (has "slot=x" path) ;
+  check "read" true
+    (value "slot" = Ok (Ok (Some "x")) && value "label" = Ok (Ok None)) ;
+  Unix.link path (path ^ ".second") ;
+  check "read only when attested" true (value "slot" = Ok (Error `Unattested)) ;
+  Unix.unlink (path ^ ".second") ;
+  check "anew" true (attest lock = Ok ()) ;
+  check "carried" true (has "slot=x" path) ;
+  check "given twice" true (Result.is_error (attest ~extra:(slot @ slot) lock)) ;
+  check "dropped" true
+    (attest ~carry:false lock = Ok () && not (has "slot=x" path))
 
 let child_outlives_taker () =
   let path, lock = world () in
@@ -284,6 +317,7 @@ let () =
           ; ("a child that outlives its taker keeps it", child_outlives_taker)
           ; ("shared holds coexist, not with an exclusive", shared_holds)
           ; ("the mark's label", mark_label)
+          ; ("the mark's fields", mark_fields)
           ]
       )
     ]

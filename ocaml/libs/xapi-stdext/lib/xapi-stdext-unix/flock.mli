@@ -23,3 +23,7 @@ val create : boot_id:(unit -> string) -> magic:string -> string -> t
     the current boot in the mark; it is read at each check of a mark. A key
     names the file [<key>.lock] in [dir], and its mark: printable ASCII
     without '/', '=' or a space, not starting with '.' or '#'. *)
+
+val field : string -> string -> field option
+(** [None] for one of this module's own names, a name with '=', or a name or
+    value with a space or another byte that is not printable *)
