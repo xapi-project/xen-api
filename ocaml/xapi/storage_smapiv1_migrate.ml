@@ -357,6 +357,9 @@ module Copy = struct
               D.debug "Cloning VDI" ;
               let vdi_clone = Remote.VDI.clone dbg dest vdi in
               D.debug "Clone: %s" (Storage_interface.Vdi.string_of vdi_clone.vdi) ;
+              (* A SMAPIv1 clone inherits the content_id but a SMAPIv3 clone
+                 does not, and copy_into_vdi needs it to find the base *)
+              Remote.VDI.set_content_id dbg dest vdi_clone.vdi vdi.content_id ;
               ( if vdi_clone.virtual_size <> local_vdi.virtual_size then
                   let new_size =
                     Remote.VDI.resize dbg dest vdi_clone.vdi
@@ -694,6 +697,9 @@ module MIRROR : SMAPIv2_MIRROR = struct
             let vdi = add_to_sm_config vdi "base_mirror" id in
             let vdi_clone = SMAPI.VDI.clone dbg sr vdi in
             D.debug "Clone: %s" (Storage_interface.Vdi.string_of vdi_clone.vdi) ;
+            (* A SMAPIv1 clone inherits the content_id but a SMAPIv3 clone
+               does not, and copy_into_vdi needs it to find the base *)
+            SMAPI.VDI.set_content_id dbg sr vdi_clone.vdi vdi.content_id ;
             ( if vdi_clone.virtual_size <> vdi_info.virtual_size then
                 let new_size =
                   SMAPI.VDI.resize dbg sr vdi_clone.vdi vdi_info.virtual_size
