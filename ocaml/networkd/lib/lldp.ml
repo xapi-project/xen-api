@@ -168,8 +168,9 @@ end
 module type AGENT = sig
   type error = Lldp_types.error
 
-  val start : unit -> (unit, error) result
-  (** Ensure the agent is running. *)
+  val start : system_name:string -> (unit, error) result
+  (** Ensure the agent is running. A newly started agent gets [system_name]
+      before any other configuration. *)
 
   val stop : unit -> (unit, error) result
   (** Stop the agent. *)
@@ -248,6 +249,12 @@ module Lldpd : AGENT = struct
 
   let conf_path = Filename.concat conf_dir "00-networkd-default.conf"
 
+  let dropin_dir = "/run/systemd/system/lldpd.service.d"
+
+  let dropin_path = Filename.concat dropin_dir "10-networkd.conf"
+
+  let ( let* ) = Result.bind
+
   let result_ignore = Result.map ignore
 
   let service_running =
@@ -270,12 +277,14 @@ module Lldpd : AGENT = struct
   let default_conf =
     String.concat "\n"
       [
-        "configure lldp status disabled"
-      ; "configure lldp capabilities-advertisements"
+        "configure lldp capabilities-advertisements"
       ; "configure system capabilities enabled bridge"
-      ; "configure system interface pattern " ^ deny_all_pattern
       ; ""
       ]
+
+  let dropin =
+    Printf.sprintf "[Service]\nEnvironment=\"DAEMON_ARGS=-I %s\"\n"
+      deny_all_pattern
 
   let run cmd ?(log = true) args =
     let cmdline = String.concat " " (cmd :: args) in
@@ -306,57 +315,6 @@ module Lldpd : AGENT = struct
     ; Port_id (dev, Default)
     ; Port_description (dev, Default)
     ]
-
-  (* lldpd signals readiness before it replays [conf_path], so [systemctl start]
-     returns before the deny-all default is in effect; a scope or port pushed in
-     that window would be overwritten by the replay. Wait until the deny-all
-     pattern (the last line of [default_conf]) has been applied. *)
-  let default_conf_applied () =
-    match
-      Network_utils.call_script ~log:false cli
-        ["-f"; "keyvalue"; "show"; "configuration"]
-    with
-    | output ->
-        let marker = "configuration.config.iface-pattern=" ^ deny_all_pattern in
-        String.split_on_char '\n' output
-        |> List.exists (fun line -> String.trim line = marker)
-    | exception _ ->
-        false
-
-  let wait_for_default_conf () =
-    let count = 5 in
-    let interval = 0.5 in
-    let rec loop n =
-      match (default_conf_applied (), n) with
-      | true, _ ->
-          ()
-      | false, n when n > 0 ->
-          Unix.sleepf interval ;
-          loop (n - 1)
-      | false, _ ->
-          warn "%s: lldpd did not apply its default config within the timeout"
-            __FUNCTION__
-    in
-    loop count
-
-  let start () =
-    try
-      mark_service_running true @@ fun () ->
-      Xapi_stdext_unix.Unixext.write_string_to_file conf_path default_conf ;
-      if Fe_systemctl.is_active ~service then
-        Ok ()
-      else
-        call_systemctl ["start"; service] |> Result.map wait_for_default_conf
-    with e -> Error (Internal (Printexc.to_string e))
-
-  let stop () =
-    try
-      mark_service_running false @@ fun () ->
-      if Fe_systemctl.is_active ~service then
-        call_systemctl ["stop"; service]
-      else
-        Ok ()
-    with e -> Error (Internal (Printexc.to_string e))
 
   let enable dev =
     call_cli_ignore ["configure"; "ports"; dev; "lldp"; "status"; "rx-and-tx"]
@@ -441,6 +399,18 @@ module Lldpd : AGENT = struct
 
     let cache_mgmt_addr : conf option Atomic.t = Atomic.make None
 
+    let clear () =
+      List.iter
+        (fun cache -> Atomic.set cache None)
+        [
+          cache_chassis_id
+        ; cache_sys_name
+        ; cache_sys_desc
+        ; cache_sys_cap
+        ; cache_mc_addr
+        ; cache_mgmt_addr
+        ]
+
     (* Check out cache before calling cli *)
     let checkout cache f =
       match cache with
@@ -494,10 +464,46 @@ module Lldpd : AGENT = struct
 
   let set_advertising_conf conf =
     let ( let@ ) = Cache.checkout in
-    let ( let* ) = Result.bind in
     let@ () = Cache.get conf in
     let* () = set_advertising_conf' conf in
     Cache.set conf ; Ok ()
+
+  let install_dropin () =
+    let open Xapi_stdext_unix in
+    match Unixext.string_of_file dropin_path with
+    | current when current = dropin ->
+        Ok ()
+    | _ | (exception _) ->
+        Unixext.mkdir_rec dropin_dir 0o755 ;
+        Unixext.write_string_to_file dropin_path dropin ;
+        call_systemctl ["daemon-reload"]
+
+  let start ~system_name =
+    try
+      if Fe_systemctl.is_active ~service then (
+        Atomic.set service_running true ;
+        Ok ()
+      ) else
+        let* () = install_dropin () in
+        Xapi_stdext_unix.Unixext.write_string_to_file conf_path default_conf ;
+        Cache.clear () ;
+        let* () =
+          mark_service_running true @@ fun () ->
+          call_systemctl ["start"; service]
+        in
+        (* Until the system name is set, every lldpd update looks up the host
+           name, which is slow if the name does not resolve. *)
+        set_advertising_conf (System_name system_name)
+    with e -> Error (Internal (Printexc.to_string e))
+
+  let stop () =
+    try
+      mark_service_running false @@ fun () ->
+      if Fe_systemctl.is_active ~service then
+        call_systemctl ["stop"; service]
+      else
+        Ok ()
+    with e -> Error (Internal (Printexc.to_string e))
 end
 
 module Blocklist = struct
@@ -586,27 +592,23 @@ module Make (Agent : AGENT) = struct
   module Scope = struct
     module Iface_set = Set.Make (String)
 
-    let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+    let lock = Mutex.create ()
+
+    let with_lock f = Xapi_stdext_threads.Threadext.Mutex.execute lock f
 
     let ifaces = ref Iface_set.empty
-
-    let lock = Mutex.create ()
 
     let push () = Agent.set_scope (Iface_set.elements !ifaces)
 
     let add dev =
-      with_lock lock (fun () ->
-          ifaces := Iface_set.add dev !ifaces ;
-          push ()
-      )
+      with_lock @@ fun () ->
+      ifaces := Iface_set.add dev !ifaces ;
+      push ()
 
     let remove dev =
-      with_lock lock (fun () ->
-          ifaces := Iface_set.remove dev !ifaces ;
-          push ()
-      )
-
-    let clear () = with_lock lock (fun () -> ifaces := Iface_set.empty)
+      with_lock @@ fun () ->
+      ifaces := Iface_set.remove dev !ifaces ;
+      push ()
   end
 
   let set_conf dev (config : I.lldp option) : unit =
@@ -632,16 +634,14 @@ module Make (Agent : AGENT) = struct
               Scope.remove dev
           | false, true ->
               Network_utils.Ethtool.try_to_disable_firmware_lldp dev ;
-              let* () = Agent.start () in
-              (* Add [dev] to the scope before enabling its port, so lldpd has
-                 created the interface. *)
-              let* () = Scope.add dev in
+              let* () = Agent.start ~system_name:lldp.system_name in
               let* () =
                 Agent.advertising_confs dev lldp
                 |> List.map Agent.set_advertising_conf
                 |> List.find_opt Result.is_error
                 |> Option.fold ~none:(Ok ()) ~some:Fun.id
               in
+              let* () = Scope.add dev in
               Agent.enable dev
           | false, false ->
               let* () = Agent.disable dev in
@@ -659,8 +659,7 @@ module Make (Agent : AGENT) = struct
     |> Result.iter_error (fun e ->
         warn "%s: Could not stop LLDP agent: %s" __FUNCTION__
           (Lldp_types.string_of_error e)
-    ) ;
-    Scope.clear ()
+    )
 
   let set_tlv_management_address addrs =
     Agent.set_advertising_conf (Management_address addrs)
