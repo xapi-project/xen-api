@@ -105,3 +105,26 @@
     (diff datamodel_lifecycle.ml datamodel_lifecycle.ml.generated)))
 
 (data_only_dirs templates)
+
+(test
+  (name api_compat)
+  (modes exe)
+  (modules api_compat)
+  (libraries
+    rpclib.core
+    rpclib.json
+    xapi_datamodel
+  )
+  (deps (:msgs messages.ndjson))
+  (action (run %{test} -check %{msgs})))
+
+(rule
+  (deps api_compat.exe)
+  (action
+    (with-stdout-to
+      messages.ndjson.generated
+      (run %{deps} -print))))
+
+(rule
+  (alias update-messages)
+  (action (diff messages.ndjson messages.ndjson.generated)))
