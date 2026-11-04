@@ -303,6 +303,9 @@ let backup_db_xml = Filename.concat "/var/lib/xcp" "state-backup.xml"
    and when a node gives up the master role *)
 let master_scripts_dir = ref (Filename.concat "/etc/xensource" "master.d")
 
+(* Pool-wide default for platform:usb-controller ("legacy" or "xhci") *)
+let pool_usb_controller = "usb-controller"
+
 (* Indicates whether we should allow clones of suspended VMs via VM.clone *)
 let pool_allow_clone_suspended_vm = "allow_clone_suspended_vm"
 
