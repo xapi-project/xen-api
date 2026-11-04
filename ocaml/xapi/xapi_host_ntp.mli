@@ -37,3 +37,5 @@ val is_ntp_dhcp_enabled : unit -> bool
 val get_servers_status : unit -> (string * string) list
 
 val is_synchronized : unit -> (bool, string) Result.t
+
+val update_system_layout : unit -> unit
