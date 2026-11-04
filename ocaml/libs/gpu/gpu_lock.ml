@@ -143,6 +143,49 @@ let sriov_manage bounds ~enable card run =
       (Xcp_pci.string_of_address card)
       Mtime.Span.pp sriov_manage_timeout left
 
+type unbind_lock = Set_by_us | Already_set | Busy of {tries: int option}
+
+(* Where engaged, each try reads the flag first, so that a flag set by another
+   unbinder during the back-off is not taken for ours *)
+let grab_unbind_lock bounds card span ~tries ~read ~write =
+  let bdf = Xcp_pci.string_of_address card in
+  let is_set () = String.equal (read ()) "1\n" in
+  let set grab =
+    write "1\n" ;
+    match is_set () with true -> Ok grab | false -> Error ()
+  in
+  match bounds with
+  | Unbounded ->
+      (* not read first: we can't tell it was ours, so never clear it *)
+      Result.value (set Already_set) ~default:(Busy {tries= None})
+  | Bounded -> (
+      let timer = Clock.Timer.start ~duration:span in
+      let tried = ref 0 in
+      let stop () = !tried >= tries || Clock.Timer.has_expired timer in
+      let try_once () =
+        incr tried ;
+        if !tried = 2 then D.debug "unbindLock of %s busy at first try" bdf ;
+        if is_set () then (
+          D.warn "unbindLock of %s already set before write" bdf ;
+          set Already_set
+        ) else
+          set Set_by_us
+      in
+      let delay = Mtime.Span.(100 * ms) in
+      let max_delay = Mtime.Span.(400 * ms) in
+      match Threadext.retry ~delay ~max_delay ~stop try_once with
+      | Ok grab ->
+          if !tried > 1 then
+            D.debug "unbindLock of %s set, busy tries: %d" bdf (!tried - 1) ;
+          grab
+      | Error () ->
+          D.error "unbindLock of %s busy, tries: %d" bdf !tried ;
+          Busy {tries= Some !tried}
+    )
+
+let release_unbind_lock grab ~write =
+  match grab with Set_by_us -> write "0\n" | Already_set | Busy _ -> ()
+
 let host = "host"
 
 module Make (B : Lock_rw.S) = struct

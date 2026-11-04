@@ -67,6 +67,33 @@ val sriov_manage :
     sriov-manage, run with [-e] or [-d] on [card], where the lock is engaged.
     @raise Killed when it times out. *)
 
+(** What an unbind found when it set a card's driver unbind lock, a flag that
+    it may clear only if it set it. [Busy]'s [tries] counts the tries where
+    the lock is engaged. *)
+type unbind_lock = private
+  | Set_by_us
+  | Already_set
+  | Busy of {tries: int option}
+
+val grab_unbind_lock :
+     bounds
+  -> Xcp_pci.address
+  -> Mtime.Span.t
+  -> tries:int
+  -> read:(unit -> string)
+  -> write:(string -> unit)
+  -> unbind_lock
+(** [grab_unbind_lock bounds card span ~tries ~read ~write] sets [card]'s flag
+    and reads it back. Where the lock is engaged, each try reads the flag
+    first, and the tries go on, backing off from 100 ms to 400 ms, until
+    [tries] tries or a try that fails once [span] has passed: a try that
+    sleeps in the driver cannot be cut short. Elsewhere it tries once, as
+    without the lock: the flag, not read first, counts as [Already_set], and
+    a failure is [Busy {tries= None}]. *)
+
+val release_unbind_lock : unbind_lock -> write:(string -> unit) -> unit
+(** Clears the flag only if it was [Set_by_us]. *)
+
 val with_lock :
      t
   -> local
