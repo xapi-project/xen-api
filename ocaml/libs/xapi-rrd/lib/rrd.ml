@@ -776,8 +776,15 @@ let from_xml input =
           let value = get_el "value" i in
           let unknown_sec = get_el "unknown_sec" i in
           let last_updated =
-            try float_of_string (get_el "last_updated" i)
-            with _ -> rrd_last_update
+            (* WARNING: future additions to the RRD format should be
+               backwards-compatible, such as this way of handling
+               last_updated. Otherwise, clients with a temporary
+               version mismatch (e.g. during RPU) may disagree on the
+               format, causing a parser error.*)
+            if Xmlm.peek i = start_tag "last_updated" then
+              float_of_string (get_el "last_updated" i)
+            else
+              rrd_last_update
           in
           {
             ds_name= name
