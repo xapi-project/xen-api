@@ -11,7 +11,7 @@
  (modules gpu_lock)
  (preprocess (pps ppx_deriving_rpc))
  (libraries
-  forkexec mtime rpclib.core rpclib.json unix xapi-idl xapi-log
+  clock forkexec mtime rpclib.core rpclib.json unix xapi-idl xapi-log
   xapi-stdext-pervasives xapi-stdext-threads xapi-stdext-unix))
 
 (executable

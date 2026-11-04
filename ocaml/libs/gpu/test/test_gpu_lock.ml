@@ -187,6 +187,52 @@ let key_view () =
       check "printed escaped" true (listed {|\\194\\1558m|})
     )
 
+let text = function
+  | L.Set_by_us ->
+      "set by us"
+  | Already_set ->
+      "already set"
+  | Busy text ->
+      "busy" ^ text
+
+let busy n =
+  Printf.sprintf "busy; unbindLock busy, tries: %d (see the host's log)" n
+
+(* An unbind's grab with 2 tries in [span] of a flag whose reads give [reads],
+   then "0" (writes never change it), then the release as after a failed
+   unbind: the grab, and all it wrote *)
+let grab_then_release ~engaged reads span =
+  let _, lock = world ~engaged () in
+  let reads = Queue.of_seq (String.to_seq reads) and written = ref "" in
+  let read () =
+    Printf.sprintf "%c\n" (Option.value (Queue.take_opt reads) ~default:'0')
+  in
+  let write s = written := !written ^ s in
+  L.with_lock lock (Unbind card) ~timeout:(ms 300) @@ fun ~keep_fds:_ ~bounds ->
+  let grab = L.grab_unbind_lock bounds card span ~tries:2 ~read ~write in
+  L.release_unbind_lock grab ~write ;
+  (text grab, !written)
+
+(* An unbind clears only a flag it set, and gives up after its tries or its
+   time where the lock is engaged; elsewhere it writes and reads once *)
+let unbind_lock_rows =
+  let row (name, engaged, reads, span, grab, written) =
+    Alcotest.test_case name `Quick @@ fun () ->
+    Alcotest.(check (pair string string))
+      name (grab, written)
+      (grab_then_release ~engaged reads span)
+  in
+  List.map row
+    [
+      ("set by us, cleared", true, "01", ms 1000, "set by us", "1\n0\n")
+    ; ("set before, kept", true, "11", ms 1000, "already set", "1\n")
+    ; ("set by another, kept", true, "0011", ms 1000, "already set", "1\n1\n")
+    ; ("busy: 2 tries", true, "", ms 1000, busy 2, "1\n1\n")
+    ; ("busy: time out", true, "", ms 0, busy 1, "1\n")
+    ; ("not engaged: once", false, "", ms 1000, "busy", "1\n")
+    ; ("not engaged: not read first", false, "1", ms 1000, "already set", "1\n")
+    ]
+
 let () =
   Alcotest.run "gpu_lock"
     [
@@ -203,4 +249,5 @@ let () =
           ; ("the operator's view", key_view)
           ]
       )
+    ; ("unbind lock", unbind_lock_rows)
     ]

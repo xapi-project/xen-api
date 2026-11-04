@@ -854,6 +854,7 @@
  (name xapi-gpu)
  (depends
   (astring :with-test)
+  clock
   forkexec
   mtime
   ppx_deriving
