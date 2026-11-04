@@ -246,6 +246,7 @@
   xapi-tracing
   xapi-tracing-export
   xapi_version
+  xapi-work-queues
   xapi_xenopsd
   xenstore_transport.unix
   xml-light2

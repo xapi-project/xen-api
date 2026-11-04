@@ -1865,6 +1865,19 @@ module Events_from_xenopsd = struct
 
   let active_m = Mutex.create ()
 
+  (* Maps barrier ID to the VM the barrier was injected for, so that the
+     wakeup can be queued on that VM's work queue. *)
+  let mapping = Hashtbl.create 25
+
+  let mapping_m = Mutex.create ()
+
+  let record_id id vm_id =
+    with_lock mapping_m (fun () -> Hashtbl.replace mapping id vm_id)
+
+  let lookup_id id = with_lock mapping_m (fun () -> Hashtbl.find_opt mapping id)
+
+  let forget_id id = with_lock mapping_m (fun () -> Hashtbl.remove mapping id)
+
   let register =
     let counter = ref 0 in
     fun t ->
@@ -1891,7 +1904,8 @@ module Events_from_xenopsd = struct
       ~dbg
     @@ fun di ->
     let dbg = Debug_info.to_string di in
-    debug "Client.UPDATES.inject_barrier %d" id ;
+    debug "Client.UPDATES.inject_barrier %d (vm_id = %s)" id vm_id ;
+    record_id id vm_id ;
     Client.UPDATES.inject_barrier dbg vm_id id ;
     with_lock t.m (fun () ->
         while not t.finished do
@@ -1913,6 +1927,7 @@ module Events_from_xenopsd = struct
     let dbg = Debug_info.to_string di in
     let module Client = (val make_client queue_name : XENOPS) in
     Client.UPDATES.remove_barrier dbg id ;
+    forget_id id ;
     let t =
       with_lock active_m @@ fun () ->
       match Hashtbl.find_opt active id with
@@ -2530,9 +2545,11 @@ let update_vm_internal ~__context ~id ~self ~previous ~info ~localhost =
 
   Xenops_cache.update_vm id info ;
   if !should_update_allowed_operations then
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        XenAPI.VM.update_allowed_operations ~rpc ~session_id ~self
-    )
+    ignore
+      (Helpers.call_api_functions ~__context (fun rpc session_id ->
+           XenAPI.Async.VM.update_allowed_operations ~rpc ~session_id ~self
+       )
+      )
 
 let update_vm ~__context id =
   let@ __context =
@@ -3031,7 +3048,48 @@ let update_task ~__context queue_name id =
   | e ->
       error "xenopsd event: Caught %s while updating task" (string_of_exn e)
 
+(* Xenopsd events are handed to a pool of worker threads keyed on the id of the
+   object's VM: events for one VM are processed in the order they arrived,
+   events for different VMs may be processed concurrently. Previously a single
+   thread processed every event on the host in sequence, so one slow update -
+   each of which makes several database calls, and on a supporter host those
+   are RPCs to the coordinator - delayed the events of every other VM,
+   including the barriers that VM.start waits on. *)
+module Xenops_event_work = struct
+  type t = {label: string; work: Context.t -> unit}
+
+  let describe_work t = t.label
+
+  let dump_task _ = Rpc.Null
+
+  (* Run each item under a fresh task rather than the event loop's context:
+     the loop completes its tracing span on every iteration, so a captured
+     context could be completed while an item is still using it. *)
+  let execute t =
+    Server_helpers.exec_with_new_task t.label (fun __context -> t.work __context)
+
+  let finally _ = ()
+
+  (* Never drop a queued item. Coalescing redundant updates for the same VM is
+     possible, but would have to keep each barrier ordered after the updates it
+     was injected behind. *)
+  let should_keep _ _ = true
+end
+
+module Xenops_event_worker = Xapi_work_queues.Make (Xenops_event_work)
+
+(* Shared by every queue's event thread, so start it once however many queues
+   are watched. events_watch is useless without it - the items it queues would
+   never run - so it is forced there rather than in any one caller. *)
+let start_event_workers =
+  lazy
+    (let n = !Xapi_globs.xenopsd_event_workers in
+     info "Starting %d xenopsd event worker threads" n ;
+     Xenops_event_worker.WorkerPool.start_default n
+    )
+
 let rec events_watch ~__context cancel queue_name from =
+  Lazy.force start_event_workers ;
   Context.complete_tracing __context ;
   let next =
     Context.with_tracing ~__context __FUNCTION__ (fun __context ->
@@ -3044,6 +3102,11 @@ let rec events_watch ~__context cancel queue_name from =
         let done_events = ref [] in
         let already_done x = List.mem x !done_events in
         let add_event x = done_events := x :: !done_events in
+        let enqueue tag label work =
+          Xenops_event_worker.Redirector.push
+            Xenops_event_worker.Redirector.default tag
+            {Xenops_event_work.label; work}
+        in
         let do_updates l =
           let open Dynamic in
           List.iter
@@ -3054,28 +3117,47 @@ let rec events_watch ~__context cancel queue_name from =
                 debug "Skipping (already processed this round)"
               else (
                 add_event ev ;
+                (* Tag on the VM's id so that all of a VM's events, and the
+                   barrier injected behind them, are processed in order. *)
                 match ev with
                 | Vm id ->
                     debug "xenops event on VM %s" id ;
-                    update_vm ~__context id
+                    enqueue id (Printf.sprintf "update_vm(%s)" id)
+                      (fun __context -> update_vm ~__context id
+                    )
                 | Vbd id ->
                     debug "xenops event on VBD %s.%s" (fst id) (snd id) ;
-                    update_vbd ~__context id
+                    enqueue (fst id)
+                      (Printf.sprintf "update_vbd(%s.%s)" (fst id) (snd id))
+                      (fun __context -> update_vbd ~__context id)
                 | Vif id ->
                     debug "xenops event on VIF %s.%s" (fst id) (snd id) ;
-                    update_vif ~__context id
+                    enqueue (fst id)
+                      (Printf.sprintf "update_vif(%s.%s)" (fst id) (snd id))
+                      (fun __context -> update_vif ~__context id)
                 | Pci id ->
                     debug "xenops event on PCI %s.%s" (fst id) (snd id) ;
-                    update_pci ~__context id
+                    enqueue (fst id)
+                      (Printf.sprintf "update_pci(%s.%s)" (fst id) (snd id))
+                      (fun __context -> update_pci ~__context id)
                 | Vgpu id ->
                     debug "xenops event on VGPU %s.%s" (fst id) (snd id) ;
-                    update_vgpu ~__context id
+                    enqueue (fst id)
+                      (Printf.sprintf "update_vgpu(%s.%s)" (fst id) (snd id))
+                      (fun __context -> update_vgpu ~__context id)
                 | Vusb id ->
                     debug "xenops event on VUSB %s.%s" (fst id) (snd id) ;
-                    update_vusb ~__context id
+                    enqueue (fst id)
+                      (Printf.sprintf "update_vusb(%s.%s)" (fst id) (snd id))
+                      (fun __context -> update_vusb ~__context id)
                 | Task id ->
+                    (* Tasks are not VM-scoped; tag on the task so that updates
+                       to one task stay ordered without serialising all of
+                       them behind each other. *)
                     debug "xenops event on Task %s" id ;
-                    update_task ~__context queue_name id
+                    enqueue id (Printf.sprintf "update_task(%s)" id)
+                      (fun __context -> update_task ~__context queue_name id
+                    )
               )
             )
             l
@@ -3084,7 +3166,21 @@ let rec events_watch ~__context cancel queue_name from =
           (fun (id, b_events) ->
             debug "Processing barrier %d" id ;
             do_updates b_events ;
-            Events_from_xenopsd.wakeup queue_name dbg id
+            let wake __context =
+              let dbg = Context.string_of_task_and_tracing __context in
+              Events_from_xenopsd.wakeup queue_name dbg id
+            in
+            match Events_from_xenopsd.lookup_id id with
+            | Some vm_id ->
+                (* Queue the wakeup behind that VM's updates, so a waiter is
+                   only released once the events it is waiting for have been
+                   applied. *)
+                enqueue vm_id (Printf.sprintf "barrier(%d)" id) wake
+            | None ->
+                (* No record of who injected this barrier: wake immediately
+                   rather than leave a caller blocked forever. *)
+                warn "Barrier %d has no recorded VM; waking inline" id ;
+                Events_from_xenopsd.wakeup queue_name dbg id
           )
           barriers ;
         do_updates events ;
