@@ -23,6 +23,11 @@ type local =
   | Vf_enable of Xcp_pci.address
   | Vf_disable of Xcp_pci.address
 
+type key = Pending | On | Off
+
+(* stored in the lock file and read by GPU tools outside xapi: never renumber *)
+let key_of_label = function 1 -> On | 2 -> Off | _ -> Pending
+
 type reason = Busy of string | Stuck of string | Unusable of string
 
 type refusal = {reason: reason; holders: int option}
@@ -39,7 +44,8 @@ let reason_text = function
       "the GPU lock is unusable: " ^ why
 
 let describe r =
-  Printf.sprintf "%s; holders: %s (see the host's log)" (reason_text r.reason)
+  Printf.sprintf "%s; holders: %s (see the host's log or gpu-lock-cli status)"
+    (reason_text r.reason)
     (Option.fold ~none:"unknown" ~some:string_of_int r.holders)
 
 exception Refused of refusal
@@ -240,6 +246,27 @@ module Make (B : Lock_rw.S) = struct
       |> Result.fold
            ~ok:(fun h -> with_held h use)
            ~error:(fun r -> raise (Refused r))
+
+  module Gate = struct
+    let ensure t ~timeout = repair t host (waiter t timeout) ~reason:"ensure"
+
+    let read_key t ~timeout =
+      match B.acquire t.backend host Shared (waiter t timeout) with
+      | Error `Absent ->
+          Ok None
+      | Error e ->
+          refuse t host (of_acquire_error "reading the key" e)
+      | Ok h ->
+          with_held h (fun h -> Ok (Some (key_of_label (B.label h))))
+
+    (* longer than a refusal's census, as a person waits for it *)
+    let status_holders_timeout = Mtime.Span.(5 * refusal_holders_timeout)
+
+    let holders t =
+      B.holders t.backend host (waiter t status_holders_timeout)
+      |> Result.map
+           (List.map (fun h -> Jsonrpc.to_string (Json.rpc_of_holder h)))
+  end
 end
 
 include Make (Flock)
