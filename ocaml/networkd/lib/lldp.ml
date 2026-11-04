@@ -598,17 +598,28 @@ module Make (Agent : AGENT) = struct
 
     let ifaces = ref Iface_set.empty
 
-    let push () = Agent.set_scope (Iface_set.elements !ifaces)
-
-    let add dev =
+    let add dev ~system_name ~configure =
       with_lock @@ fun () ->
+      let* () = Agent.start ~system_name in
+      let* () = configure () in
       ifaces := Iface_set.add dev !ifaces ;
-      push ()
+      let* () = Agent.set_scope (Iface_set.elements !ifaces) in
+      Agent.enable dev
 
     let remove dev =
       with_lock @@ fun () ->
-      ifaces := Iface_set.remove dev !ifaces ;
-      push ()
+      let rest = Iface_set.remove dev !ifaces in
+      match (Iface_set.is_empty rest, Iface_set.mem dev !ifaces) with
+      | true, true ->
+          ifaces := rest ;
+          Agent.stop ()
+      | false, true ->
+          ifaces := rest ;
+          let* () = Agent.disable dev in
+          Agent.set_scope (Iface_set.elements !ifaces)
+      | _, false ->
+          (* Interface is not in the LLDP scope, nothing to disable. *)
+          Ok ()
   end
 
   let set_conf dev (config : I.lldp option) : unit =
@@ -630,21 +641,16 @@ module Make (Agent : AGENT) = struct
           match (blocked, lldp.enabled) with
           | true, _ ->
               debug "%s: Driver of %s is in blocklist." __FUNCTION__ dev ;
-              let* () = Agent.disable dev in
               Scope.remove dev
           | false, true ->
               Network_utils.Ethtool.try_to_disable_firmware_lldp dev ;
-              let* () = Agent.start ~system_name:lldp.system_name in
-              let* () =
-                Agent.advertising_confs dev lldp
-                |> List.map Agent.set_advertising_conf
-                |> List.find_opt Result.is_error
-                |> Option.fold ~none:(Ok ()) ~some:Fun.id
-              in
-              let* () = Scope.add dev in
-              Agent.enable dev
+              Scope.add dev ~system_name:lldp.system_name ~configure:(fun () ->
+                  Agent.advertising_confs dev lldp
+                  |> List.map Agent.set_advertising_conf
+                  |> List.find_opt Result.is_error
+                  |> Option.fold ~none:(Ok ()) ~some:Fun.id
+              )
           | false, false ->
-              let* () = Agent.disable dev in
               Scope.remove dev
         )
     in
