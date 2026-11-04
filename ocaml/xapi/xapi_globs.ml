@@ -1239,6 +1239,7 @@ let xapi_globs_spec =
     , LongDurationFromSeconds host_assumed_dead_interval
     )
   ; ("fuse_time", Float Constants.fuse_time)
+  ; ("fuse_exit_grace", Float Constants.fuse_exit_grace)
   ; ("db_restore_fuse_time", Float Constants.db_restore_fuse_time)
   ; ("inactive_session_timeout", Float inactive_session_timeout)
   ; ("pending_task_timeout", Float pending_task_timeout)
