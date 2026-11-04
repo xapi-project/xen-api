@@ -922,6 +922,26 @@ let latest_synced_updates_applied_state =
       ]
     )
 
+(* Complete from the first release: a host fails on a stored enum value it does
+   not know, so new causes go in gpu_partitioning_reason instead. *)
+let host_gpu_partitioning_status =
+  Enum
+    ( "host_gpu_partitioning_status"
+    , [
+        ("not_reported", "The host has not reported its status yet")
+      ; ("inactive", "GPU partitioning is not in use on the host")
+      ; ("entering", "The host is preparing its GPUs for partitioning")
+      ; ("active", "GPU partitioning is in use on the host")
+      ; ("leaving", "The host is returning its GPUs from partitioning")
+      ]
+    )
+
+let gpu_partitioning_reason_doc =
+  "Why GPU partitioning is not active on the host, empty until the host \
+   reports: no_partitionable_gpu (no GPU from a vendor whose GPUs this version \
+   can partition) or pool_disabled (it is not enabled for the pool). Later \
+   versions may add values: treat an unknown one as a reason to show as is."
+
 let create_params =
   [
     {
@@ -1190,6 +1210,20 @@ let create_params =
          not followed, will not cause a failure"
     ; param_release= numbered_release "26.0.0"
     ; param_default= Some (VSet [])
+    }
+  ; {
+      param_type= host_gpu_partitioning_status
+    ; param_name= "gpu_partitioning_status"
+    ; param_doc= "The state of GPU partitioning on the host"
+    ; param_release= numbered_release "26.18.0-next"
+    ; param_default= Some (VEnum "not_reported")
+    }
+  ; {
+      param_type= String
+    ; param_name= "gpu_partitioning_reason"
+    ; param_doc= gpu_partitioning_reason_doc
+    ; param_release= numbered_release "26.18.0-next"
+    ; param_default= Some (VString "")
     }
   ]
 
@@ -2776,6 +2810,14 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
             ~default_value:(Some (VString "UTC")) "timezone"
             "The time zone identifier as defined in the IANA Time Zone Database"
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:host_gpu_partitioning_status
+            ~default_value:(Some (VEnum "not_reported"))
+            "gpu_partitioning_status"
+            "The state of GPU partitioning on the host"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
+            ~default_value:(Some (VString "")) "gpu_partitioning_reason"
+            gpu_partitioning_reason_doc
         ]
       )
     ()

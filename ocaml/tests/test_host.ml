@@ -31,7 +31,8 @@ let add_host __context name =
        ~ntp_custom_servers:[] ~timezone:"UTC"
        ~numa_affinity_policy:`default_policy
        ~latest_synced_updates_applied:`unknown ~pending_guidances_full:[]
-       ~pending_guidances_recommended:[]
+       ~pending_guidances_recommended:[] ~gpu_partitioning_status:`not_reported
+       ~gpu_partitioning_reason:""
     )
 
 (* Creates an unlicensed pool with the maximum number of hosts *)
@@ -73,4 +74,69 @@ let test_host_join_restriction () =
     (Xapi_globs.restricted_pool_size + 1)
     (Db.Host.get_all ~__context |> List.length)
 
-let test = [("test_host_join_restriction", `Quick, test_host_join_restriction)]
+(* Each row: the checks of the desired state, most specific first; a check
+   after a failed one must not run. *)
+let gpu_partitioning_desired (name, partitionable_gpu, pool_enabled, expected) =
+  let test () =
+    Alcotest.(check (result unit string))
+      name expected
+      Gpu.Host_partitioning.(
+        desired ~partitionable_gpu ~pool_enabled |> Result.map_error token
+      )
+  in
+  (name, `Quick, test)
+
+let not_run () = Alcotest.fail "a check ran after an earlier one failed"
+
+(* Each row: GPUs added in steps, the host's state written after each step. *)
+let sync_gpu_partitioning (name, steps, reason) =
+  let test () =
+    let __context = make_test_database () in
+    let host = Helpers.get_localhost ~__context in
+    let add_gpu vendor_id =
+      let pCI = make_pci ~__context ~host ~vendor_id () in
+      ignore (make_pgpu ~__context ~pCI ~host () : API.ref_PGPU)
+    in
+    steps
+    |> List.iter (fun gpus ->
+        List.iter add_gpu gpus ;
+        Xapi_host.sync_gpu_partitioning ~__context
+    ) ;
+    Alcotest.(check (pair string string))
+      name ("inactive", reason)
+      ( API.host_gpu_partitioning_status_to_string
+          (Db.Host.get_gpu_partitioning_status ~__context ~self:host)
+      , Db.Host.get_gpu_partitioning_reason ~__context ~self:host
+      )
+  in
+  (name, `Quick, test)
+
+let test =
+  ("test_host_join_restriction", `Quick, test_host_join_restriction)
+  :: List.map gpu_partitioning_desired
+       [
+         ( "desired: no partitionable GPU"
+         , Fun.const false
+         , not_run
+         , Error "no_partitionable_gpu"
+         )
+       ; ( "desired: a partitionable GPU, the pool switch off"
+         , Fun.const true
+         , Fun.const false
+         , Error "pool_disabled"
+         )
+       ; ( "desired: a partitionable GPU, the pool switch on"
+         , Fun.const true
+         , Fun.const true
+         , Ok ()
+         )
+       ]
+  @ List.map sync_gpu_partitioning
+      [
+        ("sync: another vendor's GPU", [["8086"]], "no_partitionable_gpu")
+      ; ("sync: an NVIDIA GPU", [["10de"]], "pool_disabled")
+      ; ( "sync: an NVIDIA GPU added after a first sync"
+        , [["8086"]; ["10de"]]
+        , "pool_disabled"
+        )
+      ]
