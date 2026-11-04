@@ -620,6 +620,8 @@ module Make (Agent : AGENT) = struct
       | _, false ->
           (* Interface is not in the LLDP scope, nothing to disable. *)
           Ok ()
+
+    let is_empty () = with_lock @@ fun () -> Iface_set.is_empty !ifaces
   end
 
   let set_conf dev (config : I.lldp option) : unit =
@@ -670,7 +672,10 @@ module Make (Agent : AGENT) = struct
   let set_tlv_management_address addrs =
     Agent.set_advertising_conf (Management_address addrs)
     |> Result.iter_error (fun e ->
-        warn "%s: %s" __FUNCTION__ (Lldp_types.string_of_error e)
+        if not (Scope.is_empty ()) then
+          warn "%s: %s" __FUNCTION__ (Lldp_types.string_of_error e)
+        else
+          ()
     )
 end
 
