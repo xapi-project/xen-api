@@ -173,6 +173,10 @@ let prototyped_of_field = function
       Some "26.21.1"
   | "VIF", "trunks" ->
       Some "26.17.0"
+  | "host", "gpu_partitioning_reason" ->
+      Some "26.18.0-next"
+  | "host", "gpu_partitioning_status" ->
+      Some "26.18.0-next"
   | "host", "timezone" ->
       Some "26.0.0"
   | "host", "ntp_custom_servers" ->

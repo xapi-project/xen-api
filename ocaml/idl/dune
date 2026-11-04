@@ -17,6 +17,7 @@
     threads
     xapi-log.backtrace
     xapi-consts
+    xapi-gpu
     xapi-schema
     clock
     xapi-stdext-std

@@ -919,6 +919,39 @@ let latest_synced_updates_applied_state =
       ]
     )
 
+(* Lists every status from the first release on, even before code writes it: an
+   older xapi fails to read from the database an enum value it does not know.
+   Add new causes to gpu_partitioning_reason, not here. *)
+let host_gpu_partitioning_status =
+  Enum
+    ( "host_gpu_partitioning_status"
+    , [
+        ("not_reported", "The host's xapi has not set its status yet")
+      ; ("inactive", "GPU partitioning is not in use on the host")
+      ; ("entering", "The host is preparing its GPUs for partitioning")
+      ; ("active", "GPU partitioning is in use on the host")
+      ; ("leaving", "The host is taking its GPUs out of partitioning")
+      ]
+    )
+
+let gpu_partitioning_reason_doc =
+  let open Gpu.Host_partitioning in
+  let describe = function
+    | No_partitionable_gpu ->
+        "no GPU from a vendor whose GPUs this version can partition"
+    | Pool_disabled ->
+        "it is not enabled for the pool"
+  in
+  Printf.sprintf
+    "Why GPU partitioning is not active on the host: %s. It is empty until the \
+     host's xapi first sets it. Later versions may add other values: a client \
+     that does not know a value should display it unchanged, rather than treat \
+     it as an error."
+    (all_reasons
+    |> List.map (fun r -> Printf.sprintf "%s (%s)" (token r) (describe r))
+    |> String.concat " or "
+    )
+
 let create_params =
   [
     {
@@ -1187,6 +1220,20 @@ let create_params =
          not followed, will not cause a failure"
     ; param_release= numbered_release "26.0.0"
     ; param_default= Some (VSet [])
+    }
+  ; {
+      param_type= host_gpu_partitioning_status
+    ; param_name= "gpu_partitioning_status"
+    ; param_doc= "The state of GPU partitioning on the host"
+    ; param_release= numbered_release "26.18.0-next"
+    ; param_default= Some (VEnum "not_reported")
+    }
+  ; {
+      param_type= String
+    ; param_name= "gpu_partitioning_reason"
+    ; param_doc= gpu_partitioning_reason_doc
+    ; param_release= numbered_release "26.18.0-next"
+    ; param_default= Some (VString "")
     }
   ]
 
@@ -2772,6 +2819,14 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
             ~default_value:(Some (VString "UTC")) "timezone"
             "The time zone identifier as defined in the IANA Time Zone Database"
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:host_gpu_partitioning_status
+            ~default_value:(Some (VEnum "not_reported"))
+            "gpu_partitioning_status"
+            "The state of GPU partitioning on the host"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
+            ~default_value:(Some (VString "")) "gpu_partitioning_reason"
+            gpu_partitioning_reason_doc
         ]
       )
     ()
