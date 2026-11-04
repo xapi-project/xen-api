@@ -148,7 +148,7 @@ let check_raw_stream_contents t expected =
           in
           check 0 ;
           return Int64.(add offset len)
-      | `Sectors data ->
+      | `Sectors (data, _) ->
           let rec loop offset remaining =
             if Cstruct.length remaining = 0 then
               return offset
@@ -206,7 +206,7 @@ let verify t contents =
         match x with
         | `Empty y ->
             return Int64.(add offset (mul y 512L))
-        | `Sectors data ->
+        | `Sectors (data, _) ->
             IO.really_write fd offset data >>= fun () ->
             return Int64.(add offset (of_int (Cstruct.length data)))
         | `Copy (fd', offset', len') ->
