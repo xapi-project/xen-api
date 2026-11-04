@@ -1142,6 +1142,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~pending_guidances_full:host.API.host_pending_guidances_full
           ~pending_guidances_recommended:
             host.API.host_pending_guidances_recommended
+          ~gpu_partitioning_status:`not_reported ~gpu_partitioning_reason:""
       in
       (* Copy other-config into newly created host record: *)
       no_exn

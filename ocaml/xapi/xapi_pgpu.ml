@@ -36,11 +36,22 @@ let calculate_max_capacities ~__context ~pCI:_ ~size ~supported_VGPU_types =
     )
     supported_VGPU_types
 
+let is_nvidia_vendor id =
+  id = Xapi_pci.id_of_int Xapi_vgpu_type.Nvidia.vendor_id
+
+(* By PCI vendor, not by the driver bound now: a pass-through start unbinds a
+   card from its driver. *)
+let nvidia_cards ~__context ~host =
+  Db.Host.get_PGPUs ~__context ~self:host
+  |> List.map (fun self ->
+      ( self
+      , Db.PCI.get_record ~__context ~self:(Db.PGPU.get_PCI ~__context ~self)
+      )
+  )
+  |> List.filter (fun (_, pci) -> is_nvidia_vendor pci.API.pCI_vendor_id)
+
 let fetch_compatibility_metadata ~__context ~pgpu_pci =
-  if
-    Db.PCI.get_vendor_id ~__context ~self:pgpu_pci
-    = Xapi_pci.id_of_int Xapi_vgpu_type.Nvidia.vendor_id
-  then
+  if is_nvidia_vendor (Db.PCI.get_vendor_id ~__context ~self:pgpu_pci) then
     let dbg = Context.string_of_task __context in
     let pgpu_pci_address = Db.PCI.get_pci_id ~__context ~self:pgpu_pci in
     Xapi_gpumon.Nvidia.get_pgpu_compatibility_metadata ~dbg ~pgpu_pci_address
