@@ -321,21 +321,19 @@ module Vif = struct
 
   type ipv4_configuration =
     | Unspecified4
-    | Static4 of string list * string option
+    (* a list of CIDRs, optionally a gateway, a list of DNS servers *)
+    | Static4 of string list * string option * string list
     | DHCP4
   [@@deriving rpcty]
-
-  (* a list of CIDRs and optionally a gateway *)
 
   let default_ipv4_configuration = Unspecified4
 
   type ipv6_configuration =
     | Unspecified6
-    | Static6 of string list * string option
+    (* a list of CIDRs, optionally a gateway, a list of DNS servers *)
+    | Static6 of string list * string option * string list
     | Autoconf6
   [@@deriving rpcty]
-
-  (* a list of CIDRs and optionally a gateway *)
 
   let default_ipv6_configuration = Unspecified6
 
