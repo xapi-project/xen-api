@@ -36,6 +36,9 @@ type refusal
 val transient : refusal -> bool
 (** [true] when the lock was busy: the same call may succeed later. *)
 
+val describe : refusal -> string
+(** The reason, the number of holders, and where to find who they are. *)
+
 (** Printed as the reason, the number of holders, and where to find who they
     are. *)
 exception Refused of refusal
@@ -67,3 +70,25 @@ val with_lock :
     the lock; a missing or damaged lock object is repaired once.
     @raise Refused when [timeout] runs out or the object stays unusable; the
     function has not run. *)
+
+(** The gate key kept in the lock object: what GPU tools may do. A value this
+    version does not know reads as [Pending], the most restrictive; every
+    creation or repair sets [Pending]. *)
+type key = Pending | On | Off
+
+(** For operators: these work whether or not [engaged]. *)
+module Switch : sig
+  val ensure : t -> timeout:Mtime.Span.t -> (unit, refusal) result
+  (** Makes the lock object usable: creates, adopts or confirms it; never
+      deletes or renames one. *)
+
+  val read_key : t -> (key option, refusal) result
+  (** Never waits nor creates anything; [None] when there is no lock object. *)
+
+  val holders : t -> (string list, string) result
+  (** Every holder as a JSON object of one line: its "pid", process "name",
+      the "state" letter of its main thread, its "mode" ("exclusive",
+      "shared", or "open" for an older lock file it has open), the lock
+      "file" as device:inode, and its "d_threads" that wait in the kernel; or
+      why they could not be listed. Later versions may add members. *)
+end

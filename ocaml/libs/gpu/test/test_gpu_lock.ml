@@ -66,9 +66,9 @@ let says affix = function
 
 (* holds the lock file as another holder would: flock(2) locks on two open
    files conflict also within one process *)
-let hold path =
+let hold ?(exclusive = true) path =
   let fd = Unix.openfile path [O_RDONLY; O_CLOEXEC] 0 in
-  assert (Unixext.flock_try fd ~exclusive:true) ;
+  assert (Unixext.flock_try fd ~exclusive) ;
   fd
 
 let hold_elsewhere path =
@@ -158,6 +158,35 @@ let refusal_counts_holders () =
   Unix.close other ;
   check "counted" true (says "; holders: 1 " refusal)
 
+(* the operator's view: no lock object until ensured, then the key pending,
+   read beside a shared holder, who is listed; a name that a terminal may act
+   on is printed escaped *)
+let key_view () =
+  let path, lock = world () in
+  let comm = String.trim (Unixext.string_of_file "/proc/self/comm") in
+  let rename name =
+    Out_channel.with_open_bin "/proc/self/comm" (Fun.flip output_string name)
+  in
+  let listed name =
+    let me = Printf.sprintf {|{"pid":%d,"name":"%s"|} (Unix.getpid ()) name in
+    Result.map
+      (List.exists (String.starts_with ~prefix:me))
+      (L.Switch.holders lock)
+    = Ok true
+  in
+  check "none, nothing made" true
+    (L.Switch.read_key lock = Ok None && not (Sys.file_exists path)) ;
+  check "ensured" true (L.Switch.ensure lock ~timeout:(ms 300) = Ok ()) ;
+  let reader = hold ~exclusive:false path in
+  Fun.protect
+    ~finally:(fun () -> rename comm ; Unix.close reader)
+    (fun () ->
+      check "pending, listed" true
+        (L.Switch.read_key lock = Ok (Some L.Pending) && listed comm) ;
+      rename "\xc2\x9b8m" ;
+      check "printed escaped" true (listed {|\\194\\1558m|})
+    )
+
 let () =
   Alcotest.run "gpu_lock"
     [
@@ -171,6 +200,7 @@ let () =
           ; ("the same blocker fails fast", same_blocker_fails_fast)
           ; ("older lock held: refused, then adopted", no_mark_while_old_held)
           ; ("a refusal counts holders, names none", refusal_counts_holders)
+          ; ("the operator's view", key_view)
           ]
       )
     ]

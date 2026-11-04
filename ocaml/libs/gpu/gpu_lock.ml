@@ -20,6 +20,10 @@ module Pervasiveext = Xapi_stdext_pervasives.Pervasiveext
 
 type local = Unbind of Xcp_pci.address | Vf_enable of Xcp_pci.address
 
+type key = Pending | On | Off
+
+let key_of_label = function 1 -> On | 2 -> Off | _ -> Pending
+
 type reason = Busy of string | Stuck of string | Unusable of string
 
 type refusal = {reason: reason; holders: int option}
@@ -36,7 +40,8 @@ let reason_text = function
       "the GPU lock is unusable: " ^ why
 
 let describe r =
-  Printf.sprintf "%s; holders: %s (see the host's log)" (reason_text r.reason)
+  Printf.sprintf "%s; holders: %s (see the host's log or gpu-lock-cli status)"
+    (reason_text r.reason)
     (Option.fold ~none:"unknown" ~some:string_of_int r.holders)
 
 exception Refused of refusal
@@ -231,6 +236,28 @@ module Make (B : Lock_rw.S) = struct
       |> Result.fold
            ~ok:(fun h -> with_held h use)
            ~error:(fun r -> raise (Refused r))
+
+  module Switch = struct
+    let ensure t ~timeout = repair t host (timer t timeout) ~reason:"ensure"
+
+    let read_key t =
+      match B.acquire t.backend host Shared (timer t Mtime.Span.zero) with
+      | Error `Absent ->
+          Ok None
+      | Error e ->
+          refuse t host (of_acquire_error "reading the key" e)
+      | Ok h ->
+          with_held h (fun h -> Ok (Some (key_of_label (B.label h))))
+
+    (* How long listing the holders for an operator may take: five times as
+       long as for a refusal, as a person waits for it *)
+    let status_holders_timeout = Mtime.Span.(1 * s)
+
+    let holders t =
+      B.holders t.backend host (timer t status_holders_timeout)
+      |> Result.map
+           (List.map (fun h -> Jsonrpc.to_string (Json.rpc_of_holder h)))
+  end
 end
 
 include Make (Flock)

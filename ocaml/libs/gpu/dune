@@ -13,3 +13,13 @@
  (libraries
   forkexec mtime rpclib.core rpclib.json unix xapi-idl xapi-log
   xapi-stdext-pervasives xapi-stdext-threads xapi-stdext-unix))
+
+(executable
+ (name gpu_lock_cli)
+ (modules gpu_lock_cli)
+ (libraries mtime xapi-gpu.lock))
+
+(install
+ (files (gpu_lock_cli.exe as gpu-lock-cli))
+ (section sbin)
+ (package xapi-tools))
