@@ -1213,35 +1213,32 @@ let emergency_ha_disable __context soft =
     if not soft then Localdb.put Constants.ha_armed "false"
   )
 
+(** Deactivate and detach HA statefile or metadata VDI that is still configured
+    as static VDI on this host. *)
+let release_local_ha_static_vdis ~__context =
+  let ha_vdis =
+    Xha_statefile.list_existing_statefiles ()
+    @ Xha_metadata_vdi.list_existing ()
+  in
+  List.iter
+    (fun {Static_vdis.uuid; reason; _} ->
+      info "%s: releasing static VDI %s (reason: %s)" __FUNCTION__ uuid reason ;
+      Helpers.log_exn_continue
+        (Printf.sprintf "releasing static VDI UUID: %s" uuid)
+        (fun () ->
+          Static_vdis.permanent_vdi_deactivate_by_uuid ~__context ~uuid ;
+          Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid
+        )
+        ()
+    )
+    ha_vdis
+
 let ha_release_resources __context _localhost =
   Monitor.stop () ;
-
-  (* Why aren't we calling Xha_statefile.detach_existing_statefiles?
-     Does Db.Pool.get_ha_statefiles return a different set of
-     statefiles than Xha_statefile.list_existing_statefiles? *)
-
-  (* Deactivate and detach all statefile VDIs in the entire pool *)
-  let statefile_vdis =
-    Db.Pool.get_ha_statefiles ~__context ~self:(Helpers.get_pool ~__context)
-  and deactivate_and_detach_vdi vdi_str =
-    match Db.VDI.get_uuid ~__context ~self:(Ref.of_string vdi_str) with
-    | uuid ->
-        Helpers.log_exn_continue
-          (Printf.sprintf "detaching statefile VDI uuid: %s" uuid)
-          (fun () ->
-            Static_vdis.permanent_vdi_deactivate_by_uuid ~__context ~uuid ;
-            Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid
-          )
-          ()
-    | exception _e ->
-        warn "%s: VDI %s not found in database" __FUNCTION__ vdi_str
-  in
-  List.iter deactivate_and_detach_vdi statefile_vdis ;
-  (* Deactivate and detach any metadata VDIs *)
-  Helpers.log_exn_continue
-    (Printf.sprintf "deactivating and detaching metadata VDIs")
-    (fun () -> Xha_metadata_vdi.deactivate_and_detach_existing ~__context)
-    () ;
+  (* Deactivate and detach the statefile and metadata VDIs configured on this
+     host. We use the local static-vdis configuration rather than
+     Db.Pool.get_ha_statefiles: it is what this host actually attached. *)
+  release_local_ha_static_vdis ~__context ;
   (* At this point a restart won't enable the HA subsystem *)
   Localdb.put Constants.ha_armed "false"
 
