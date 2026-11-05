@@ -39,6 +39,7 @@
     xapi-consts
     xapi-datamodel
     xapi-idl
+    xapi-idl.gpumon
     xapi-idl.storage.interface
     xapi-idl.xen.interface
     xapi-idl.xen.interface.types

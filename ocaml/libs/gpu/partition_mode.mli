@@ -35,6 +35,9 @@ type axis = private {
 val absent : axis
 (** The state of an axis the card does not have *)
 
+val axis : enabled:bool -> after:bool -> axis
+(** The state of an axis the card has *)
+
 val combine_axis : axis -> axis -> axis
 (** Pointwise OR, with [absent] as the identity *)
 
