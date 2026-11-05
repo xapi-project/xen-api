@@ -1367,6 +1367,9 @@ let install_trusted_certificate =
       ]
     ~allowed_roles:_R_POOL_OP ~lifecycle:[] ()
 
+let extra_permission_client_certificate_auth =
+  "pool.install_trusted_certificate/client_certificate_auth"
+
 let uninstall_trusted_certificate =
   call ~name:"uninstall_trusted_certificate"
     ~doc:"Uninstall a trusted TLS certificate, pool-wide."

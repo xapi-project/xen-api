@@ -22,6 +22,10 @@ let cert = !Xapi_globs.server_cert_path
 
 let pool_cert = !Xapi_globs.server_cert_internal_path
 
+let client_auth_bundle =
+  Printf.sprintf "%s/%s-client_certificate_auth.pem"
+    Constants.trusted_certs_by_purpose_dir Constants.trusted_certs_root_prefix
+
 (** protect ourselves from concurrent writes to files *)
 module Config : sig
   val update : accept:string -> client_auth_name:string option -> bool
@@ -97,7 +101,7 @@ end = struct
                 Xapi_globs.unix_domain_socket_clientcert
             ; "redirect = 80"
             ; "verifyChain = yes"
-            ; Printf.sprintf "CAfile = %s" !Xapi_globs.stunnel_bundle_path
+            ; Printf.sprintf "CAfile = %s" client_auth_bundle
             ; Printf.sprintf "checkHost = %s" name
             ]
         )
@@ -185,6 +189,8 @@ let update_certificates ~__context () =
   | exception e ->
       error "Failed to update host certificates: %s" (Printexc.to_string e)
 
+let loaded_client_auth_cas = ref None
+
 let sync ~__context ipv6_enabled =
   try
     let accept =
@@ -211,6 +217,21 @@ let sync ~__context ipv6_enabled =
       else
         None
     in
+    let client_auth_cas =
+      Option.bind client_auth_name (fun _ ->
+          try Some (Unixext.string_of_file client_auth_bundle)
+          with Unix.Unix_error (Unix.ENOENT, _, _) -> None
+      )
+    in
+    let client_auth_name =
+      match (client_auth_name, client_auth_cas) with
+      | Some _, None ->
+          (* stunnel fails to start with a missing CAfile *)
+          warn "No CA is trusted for client certificate auth" ;
+          None
+      | _ ->
+          client_auth_name
+    in
     info "Synchronising stunnel (accept = %s, client_auth_name = %s)" accept
       (Option.value ~default:"(none)" client_auth_name) ;
     let needs_restart = Config.update ~accept ~client_auth_name in
@@ -218,8 +239,13 @@ let sync ~__context ipv6_enabled =
       (* we do not worry about generating certificates here, because systemd will handle this for us, via the gencert service *)
       if not @@ is_enabled () then systemctl_ "enable" ;
       systemctl_ "restart" ;
+      loaded_client_auth_cas := client_auth_cas ;
       (* the stunnel start may have caused gencert to generate new certificates: now sync the DB *)
       update_certificates ~__context ()
+    ) else if client_auth_cas <> !loaded_client_auth_cas then (
+      info "Trusted client certificates changed: reloading stunnel" ;
+      reload () ;
+      loaded_client_auth_cas := client_auth_cas
     ) else
       debug "No configuration changes: not restarting stunnel"
   with e ->

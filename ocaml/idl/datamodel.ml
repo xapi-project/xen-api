@@ -9211,6 +9211,8 @@ let extra_permissions =
   [
     (Task.extra_permission_task_destroy_any, _R_POOL_OP)
     (* only POOL_OP can destroy any tasks *)
+  ; (Datamodel_pool.extra_permission_client_certificate_auth, _R_POOL_ADMIN)
+    (* client certificates trusted for this purpose log in as pool-admin *)
   ]
 
 module StringMap = Map.Make (String)

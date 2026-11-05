@@ -10,6 +10,7 @@
 <files>@ETCDIR@/stunnel/xapi.conf</files>
 <files>@ETCDIR@/stunnel/xapi-pool-ca-bundle.pem</files>
 <files>@ETCDIR@/stunnel/xapi-stunnel-ca-bundle.pem</files>
+<files>@ETCDIR@/trusted-certs/ca-bundle-client_certificate_auth.pem</files>
 <command label="xapi_cert">cat @ETCXENDIR@/xapi-ssl.pem | @BINDIR@/openssl x509 -text</command>
 <command label="xapi_pool_cert">cat @ETCXENDIR@/xapi-pool-tls.pem | @BINDIR@/openssl x509 -text</command>
 <command label="save_rrd">rrd-cli save_rrds</command>

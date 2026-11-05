@@ -43,6 +43,10 @@ let certificate_purpose =
         , "Trusted certificates that are for LDAPS connections to external \
            authentication services."
         )
+      ; ( "client_certificate_auth"
+        , "Trusted root CA certificates that are for authenticating XAPI \
+           clients by TLS client certificates."
+        )
       ]
     )
 
