@@ -843,8 +843,7 @@ let start_on =
       ; Api_errors.bootloader_failed
       ; Api_errors.unknown_bootloader
       ]
-    ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_VM_POWER_ADMIN ()
 
 (* VM.Pause *)
 
@@ -945,8 +944,7 @@ let shutdown =
       ; Api_errors.operation_not_allowed
       ; Api_errors.vm_is_template
       ]
-    ~allowed_roles:(_R_VM_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_VM_OP ()
 
 (* VM.PowerStateReset *)
 
@@ -1009,8 +1007,7 @@ let suspend =
       ; Api_errors.operation_not_allowed
       ; Api_errors.vm_is_template
       ]
-    ~allowed_roles:(_R_VM_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_VM_OP ()
 
 (* VM.clsp -- clone suspended, undocumented API for VMLogix *)
 let csvm =
@@ -1078,8 +1075,7 @@ let resume_on =
       ; Api_errors.operation_not_allowed
       ; Api_errors.vm_is_template
       ]
-    ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_VM_POWER_ADMIN ()
 
 let pool_migrate =
   call ~in_oss_since:None ~published:rel_rio ~name:"pool_migrate"
@@ -1103,8 +1099,7 @@ let pool_migrate =
       ; Api_errors.operation_not_allowed
       ; Api_errors.vm_bad_power_state
       ]
-    ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_VM_POWER_ADMIN ()
 
 let pool_migrate_complete =
   call ~in_oss_since:None ~published:rel_tampa ~name:"pool_migrate_complete"
@@ -1116,8 +1111,7 @@ let pool_migrate_complete =
       ]
     ~hide_from_docs:true
     ~pool_internal:false (* needed for cross-pool migrate too *)
-    ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_VM_POWER_ADMIN ()
 
 let set_vcpus_number_live =
   call ~name:"set_VCPUs_number_live"
@@ -1865,8 +1859,7 @@ let restart_device_models =
       ; Api_errors.operation_not_allowed
       ; Api_errors.vm_bad_power_state
       ]
-    ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_VM_POWER_ADMIN ()
 
 let sysprep =
   call ~name:"sysprep" ~lifecycle:[]

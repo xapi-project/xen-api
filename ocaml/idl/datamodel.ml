@@ -8891,22 +8891,10 @@ let http_actions =
     , (Get, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, [])
     )
   ; ( "post_services_xenops"
-    , ( Post
-      , Constants.xenops_uri
-      , false
-      , []
-      , _R_VM_POWER_ADMIN ++ _R_CLIENT_CERT
-      , []
-      )
+    , (Post, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, [])
     )
   ; ( "put_services_xenops"
-    , ( Put
-      , Constants.xenops_uri
-      , false
-      , []
-      , _R_VM_POWER_ADMIN ++ _R_CLIENT_CERT
-      , []
-      )
+    , (Put, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, [])
     )
   ; ( "get_services_sm"
     , (Get, Constants.sm_uri, false, [], _R_VM_POWER_ADMIN, [])
@@ -9179,32 +9167,12 @@ let http_actions =
     , (Get, Constants.get_repository_uri, false, [], _R_LOCAL_ROOT_ONLY, [])
     )
   ; ( "get_enabled_repository"
-    , ( Get
-      , Constants.get_enabled_repository_uri
-      , false
-      , []
-      , _R_POOL_OP ++ _R_CLIENT_CERT
-      , []
-      )
+    , (Get, Constants.get_enabled_repository_uri, false, [], _R_POOL_OP, [])
     )
   ; ( "get_host_updates"
-    , ( Get
-      , Constants.get_host_updates_uri
-      , false
-      , []
-      , _R_POOL_OP ++ _R_CLIENT_CERT
-      , []
-      )
+    , (Get, Constants.get_host_updates_uri, false, [], _R_POOL_OP, [])
     )
-  ; ( "get_updates"
-    , ( Get
-      , Constants.get_updates_uri
-      , true
-      , []
-      , _R_POOL_OP ++ _R_CLIENT_CERT
-      , []
-      )
-    )
+  ; ("get_updates", (Get, Constants.get_updates_uri, true, [], _R_POOL_OP, []))
   ; ("put_bundle", (Put, Constants.put_bundle_uri, true, [], _R_POOL_OP, []))
   ]
 

@@ -375,8 +375,7 @@ let evacuate =
         ; param_default= Some (VInt 0L)
         }
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let get_uncooperative_resident_VMs =
   call
@@ -473,8 +472,7 @@ let disable =
         ; param_default= Some (VBool true)
         }
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 (* Host.Enable *)
 
@@ -482,8 +480,7 @@ let enable =
   call ~name:"enable" ~published:rel_rio
     ~doc:"Puts the host into a state in which new VMs can be started."
     ~params:[(Ref _host, "host", "The Host to enable")]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 (* Host.Shutdown *)
 
@@ -2086,8 +2083,7 @@ let apply_updates =
       , "The list of results after applying updates, including livepatch apply \
          failures and recommended guidances"
       )
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let rescan_drivers =
   call ~name:"rescan_drivers" ~in_oss_since:None ~lifecycle:[]

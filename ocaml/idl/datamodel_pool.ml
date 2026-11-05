@@ -82,15 +82,11 @@ let enable_ha =
         ; param_default= None
         }
       ]
-    ~doc:"Turn on High Availability mode"
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~doc:"Turn on High Availability mode" ~allowed_roles:_R_POOL_OP ()
 
 let disable_ha =
   call ~published:rel_miami ~name:"disable_ha" ~in_oss_since:None ~params:[]
-    ~doc:"Turn off High Availability mode"
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~doc:"Turn off High Availability mode" ~allowed_roles:_R_POOL_OP ()
 
 let sync_database =
   call ~name:"sync_database" ~in_oss_since:None ~published:rel_rio ~params:[]
@@ -653,7 +649,7 @@ let install_ca_certificate =
         (String, "name", "A name to give the certificate")
       ; (String, "cert", "The certificate in PEM format")
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~allowed_roles:_R_POOL_OP
     ~lifecycle:
       [
         (Published, "1.290.0", "Install TLS CA certificate")
@@ -701,7 +697,7 @@ let uninstall_ca_certificate =
         ; param_default= Some (VBool false)
         }
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~allowed_roles:_R_POOL_OP
     ~lifecycle:
       [
         (Published, "1.290.0", "Uninstall TLS CA certificate")
@@ -956,8 +952,7 @@ let set_repositories =
         (Ref _pool, "self", "The pool")
       ; (Set (Ref _repository), "value", "The set of repositories to be enabled")
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let add_repository =
   call ~name:"add_repository"
@@ -971,8 +966,7 @@ let add_repository =
         , "The repository to be added to the enabled set"
         )
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let remove_repository =
   call ~name:"remove_repository"
@@ -983,8 +977,7 @@ let remove_repository =
         (Ref _pool, "self", "The pool")
       ; (Ref _repository, "value", "The repository to be removed")
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let sync_updates =
   call ~name:"sync_updates"
@@ -1045,8 +1038,7 @@ let sync_updates =
         }
       ]
     ~result:(String, "The SHA256 hash of updateinfo.xml.gz")
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let check_update_readiness =
   call ~name:"check_update_readiness"
@@ -1066,8 +1058,7 @@ let check_update_readiness =
         \        not ready to update. An empty list means the pool can be \
          updated."
       )
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let enable_client_certificate_auth =
   call ~name:"enable_client_certificate_auth"
@@ -1082,8 +1073,7 @@ let enable_client_certificate_auth =
            allow authentication"
         )
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let set_https_only =
   call ~name:"set_https_only"
@@ -1107,8 +1097,7 @@ let disable_client_certificate_auth =
     ~lifecycle:[(Published, "1.318.0", "")]
     ~doc:"Disable client certificate authentication on the pool"
     ~params:[(Ref _pool, "self", "The pool")]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let configure_repository_proxy =
   call ~name:"configure_repository_proxy"
@@ -1127,16 +1116,14 @@ let configure_repository_proxy =
         , "The password used to authenticate with the proxy server"
         )
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let disable_repository_proxy =
   call ~name:"disable_repository_proxy"
     ~lifecycle:[(Published, "21.4.0", "")]
     ~doc:"Disable the proxy for RPM package repositories."
     ~params:[(Ref _pool, "self", "The pool")]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let set_uefi_certificates =
   call ~name:"set_uefi_certificates"
@@ -1378,8 +1365,7 @@ let install_trusted_certificate =
         , "The purpose of the certificate"
         )
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~lifecycle:[] ()
+    ~allowed_roles:_R_POOL_OP ~lifecycle:[] ()
 
 let uninstall_trusted_certificate =
   call ~name:"uninstall_trusted_certificate"
@@ -1392,8 +1378,7 @@ let uninstall_trusted_certificate =
         , "The reference of the trusted certificate to be uninstalled"
         )
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~lifecycle:[] ()
+    ~allowed_roles:_R_POOL_OP ~lifecycle:[] ()
 
 let sync_trusted_certificates_from =
   call ~name:"sync_trusted_certificates_from"
@@ -1422,8 +1407,7 @@ let sync_trusted_certificates_from =
       ; (Bool, "ca", "true for 'ca' or false for 'pinned'")
       ]
     ~result:(Set (Ref _certificate), "The references of certificates synced.")
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~lifecycle:[] ()
+    ~allowed_roles:_R_POOL_OP ~lifecycle:[] ()
 
 let trusted_certs = Map (String, Set String)
 
@@ -1446,8 +1430,7 @@ let exchange_trusted_certificates_on_join =
         )
       ]
     ~result:(trusted_certs, "The contents of these trusted TLS certificates.")
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~hide_from_docs:true ~lifecycle:[] ()
+    ~allowed_roles:_R_POOL_OP ~hide_from_docs:true ~lifecycle:[] ()
 
 let exchange_crls_on_join =
   call ~name:"exchange_crls_on_join"
@@ -1472,8 +1455,7 @@ let exchange_crls_on_join =
       ( certs
       , "The contents of the TLS CA-issued Certificate Revocation Lists (CRLs)."
       )
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~hide_from_docs:true ~lifecycle:[] ()
+    ~allowed_roles:_R_POOL_OP ~hide_from_docs:true ~lifecycle:[] ()
 
 let lldp_multicast_address =
   Enum
@@ -1685,10 +1667,8 @@ let t =
         ; field ~published:rel_george ~internal_only:true ~qualifier:DynamicRO
             ~ty:(Ref _secret) "wlb_password"
             "Password for accessing the workload balancing host"
-        ; field
-            ~writer_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-            ~published:rel_george ~qualifier:RW ~ty:Bool
-            ~default_value:(Some (VBool false)) "wlb_enabled"
+        ; field ~writer_roles:_R_POOL_OP ~published:rel_george ~qualifier:RW
+            ~ty:Bool ~default_value:(Some (VBool false)) "wlb_enabled"
             "true if workload balancing is enabled on the pool, false otherwise"
         ; field ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false))
             "wlb_verify_cert"
