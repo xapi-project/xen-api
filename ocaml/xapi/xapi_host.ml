@@ -2709,8 +2709,12 @@ let sync_gpu_partitioning ~__context =
       Db.Host.set_gpu_partitioning_reason ~__context ~self ~value ;
       Db.Host.set_gpu_partitioning_status ~__context ~self ~value:`inactive
   | Ok () ->
-      (* Unreachable until the pool can enable partitioning *)
-      ()
+      (* Unreachable until the pool can enable partitioning. The cards are read
+         under the lock, so no other evaluation runs meanwhile *)
+      Gpu_partition_helper.(
+        read_cards_at_start ~__context ~host:self
+          ~read_card:(read_card ~run:run_helper ~lock_args:no_lock_args)
+      )
 
 let apply_guest_agent_config ~__context ~host:_ =
   let pool = Helpers.get_pool ~__context in
