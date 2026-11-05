@@ -26,4 +26,56 @@ let pp_hash_test =
     )
     hashables
 
-let test = pp_hash_test
+let test_pinned_client_auth_refused () =
+  let __context = Test_common.make_test_database () in
+  Alcotest.check_raises "pinning for client_certificate_auth"
+    Api_errors.(Server_error (invalid_value, ["ca"; "false"]))
+    (fun () ->
+      Xapi_pool.install_trusted_certificate ~__context ~self:Ref.null ~ca:false
+        ~cert:"" ~purpose:[`client_certificate_auth]
+    )
+
+let test_client_auth_needs_permission () =
+  let __context = Test_common.make_test_database () in
+  let install ?rbac_permissions purpose =
+    let session_id = Test_common.make_session ~__context ?rbac_permissions () in
+    let __context = Context.make ~session_id "test" in
+    match
+      Xapi_pool.install_trusted_certificate ~__context ~self:Ref.null ~ca:true
+        ~cert:"" ~purpose
+    with
+    | () ->
+        "installed"
+    | exception Api_errors.Server_error (code, _) ->
+        code
+  in
+  let permission =
+    Rbac_static
+    .permission_pool_install_trusted_certificate_client_certificate_auth
+      .Db_actions.role_name_label
+  in
+  (* the empty certificate is rejected only after the permission check *)
+  Alcotest.(check string)
+    "client_certificate_auth without the permission"
+    Api_errors.rbac_permission_denied
+    (install [`client_certificate_auth]) ;
+  Alcotest.(check string)
+    "client_certificate_auth with the permission"
+    Api_errors.trusted_certificate_invalid
+    (install ~rbac_permissions:[permission] [`client_certificate_auth]) ;
+  Alcotest.(check string)
+    "other purposes without the permission"
+    Api_errors.trusted_certificate_invalid (install [`ldaps])
+
+let test =
+  pp_hash_test
+  @ [
+      ( "pinned client_certificate_auth refused"
+      , `Quick
+      , test_pinned_client_auth_refused
+      )
+    ; ( "client_certificate_auth needs its permission"
+      , `Quick
+      , test_client_auth_needs_permission
+      )
+    ]
