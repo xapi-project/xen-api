@@ -151,8 +151,13 @@ of its VDIs, and, for the VDIs it mirrors itself, `vdi_mirror`,
 The capability says only that the operations exist; which VDIs they cover is
 the backend's answer to `vdi_mirror_supported`. So the capability needs no
 version, no list of formats and no per-VDI metadata for xapi to interpret,
-and supporting a further format is a change to the backend alone. It is still
-needed: an SM answers an operation it does not know with an error that xapi
+and supporting a further format is a change to the backend alone. The
+alternative, xapi reading each VDI's `image-format` from `sm_config` against a
+versioned capability listing formats, would need the backend to record the
+format in xapi's database for every VDI and backfill it at scan, which is the
+backend calling back into xapi; the query costs one call per disk at
+migration start instead. Whether a backend mirrors a VDI is not determined by
+format alone in any case. The capability is still needed: an SM answers an operation it does not know with an error that xapi
 cannot tell apart from a failure, so xapi must not ask an SM that has not
 declared it. Its absence means xapi never calls the operations. Two products
 built from the same toolstack source can therefore differ: one declares the
@@ -192,7 +197,9 @@ the VDI is attached. The usual `sr_ref`, `sr_uuid`, `vdi_ref`, `vdi_uuid` and
 - `args`: `[remote]`, an NBD URI of the form
   `nbd+unix:///<export>?socket=<path>`. The backend connects to it as an NBD
   client.
-- Result: a string, the operation id.
+- Result: a string, the operation id. The call does not wait for the copy:
+  xapi keeps the id in the mirror's send state and polls `vdi_mirror_stat`
+  with it.
 - Preconditions: the VDI is attached and activated on this host, read-write
   (live mirror) or read-only (one-shot copy of a snapshot).
 - Semantics, matching the SMAPIv3 `Data.mirror` implementation in
@@ -480,15 +487,23 @@ qemu-dp drops its side reconnects to it while keeping tapdisk's side open.
 ## Upgrade and compatibility
 
 - An SM without `VDI_MIRROR_NBD`: xapi never calls the new operations.
-- An older xapi with a new SM: never calls them either, so VDIs that only the
-  new path can migrate (for XenServer, qcow2 VDIs served by qemu-dp) cannot be
-  storage-migrated, which is the case today.
+- An older xapi with a new SM: never calls them either. xapi does not
+  interpret a VDI's format, so the VDIs are otherwise fully usable; only those
+  that need the new path to migrate (for XenServer, qcow2 VDIs served by
+  qemu-dp) cannot be storage-migrated, which is the case today.
+- An older SM, one that predates a format a newer SM wrote to the same SR,
+  does not recognise those VDIs at all. That is a downgrade constraint of the
+  format, not of this design.
 - Mixed pools during a rolling upgrade: the capability is merged pool-wide as
   for other SM features, so the new path is used only once every host has it.
 - Cross-pool, backend mirror: the destination needs nothing new. Its VDI must
   offer an NBD server on attach, which every current datapath does.
 - Cross-pool, tapdisk mirror into a VDI served outside tapdisk: needs a
-  destination with this design. An older destination host fails at
+  destination with this design, and nothing new from the source. The source
+  chooses the mirror, and the backend that finalises or cancels it, from its
+  own SR, so an older source runs and finalises the tapdisk mirror as it does
+  today; the destination picks its import path from the attach result in
+  `DATA.import_activate`. An older destination host fails at
   `DATA.import_activate`, as it does today.
 
 ## Testing
@@ -525,22 +540,14 @@ qemu-dp drops its side reconnects to it while keeping tapdisk's side open.
    paused, so the v3 path finalises without knowing the mirror's last state.
    This design requires SMAPIv1 backends to keep it and proposes the same for
    SMAPIv3 plugins; that needs agreeing with the `feature/sxm-v3` work.
-2. **A per-VDI query or a published format.** The alternative is for xapi to
-   read the VDI's `image-format` from `sm_config` against a versioned
-   capability listing formats. Asking the backend instead keeps the policy in
-   the backend, avoids the metadata and the scan-time backfill that would
-   need, and lets a backend add a format without a xapi change, at the cost
-   of one call per disk at migration start. If xapi gains a first-class per-VDI
-   image format for other reasons, the query can still stand: whether a
-   backend mirrors a VDI is not determined by format alone.
-3. **Halted VMs.** The leaf is activated in dom0 for the mirror; the fix for
+2. **Halted VMs.** The leaf is activated in dom0 for the mirror; the fix for
    the equivalent SMAPIv3 case (xapi-project/xen-api#7334) should apply
    unchanged, but needs confirming for SMAPIv1 datapaths.
-4. **One capability or two.** `VDI_MIRROR_NBD` covers both directions, so an
+3. **One capability or two.** `VDI_MIRROR_NBD` covers both directions, so an
    SM cannot offer outbound migration for a format until it can also receive
    a tapdisk mirror into it. Splitting it into outbound and inbound
    capabilities, as `VDI_MIRROR` and `VDI_MIRROR_IN` are, would let the two
    ship separately at the cost of another check.
-5. **Module names.** Renaming `Storage_smapiv1_migrate` and
+4. **Module names.** Renaming `Storage_smapiv1_migrate` and
    `Storage_smapiv3_migrate` after the mirror each runs would make the code
    match this document; it is not required.
