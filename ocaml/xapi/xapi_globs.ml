@@ -914,6 +914,8 @@ let nvidia_whitelist = ref "/usr/share/nvidia/vgpu/vgpuConfig.xml"
 
 let nvidia_sriov_manage_script = ref "/usr/lib/nvidia/sriov-manage"
 
+let gpu_partition_helper = ref "/opt/xensource/libexec/gpu-partition-helper"
+
 let igd_passthru_vendor_whitelist = ref []
 
 let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
@@ -2178,6 +2180,10 @@ module Resources = struct
     ; ( "nvidia-sriov-manage"
       , nvidia_sriov_manage_script
       , "Path to NVIDIA sriov-manage script"
+      )
+    ; ( "gpu-partition-helper"
+      , gpu_partition_helper
+      , "Reads the partitions of the host's GPUs"
       )
     ; ( "gen_pool_secret_script"
       , gen_pool_secret_script

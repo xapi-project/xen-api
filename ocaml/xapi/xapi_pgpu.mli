@@ -76,6 +76,10 @@ val nvidia_vf_setup :
 
 val has_nvidia_gpu : __context:Context.t -> host:API.ref_host -> bool
 
+val nvidia_cards :
+  __context:Context.t -> host:API.ref_host -> (API.ref_PGPU * API.pCI_t) list
+(** The host's NVIDIA GPUs, found by PCI vendor, with their PCI records *)
+
 (* Sets [PGPU.partition_mode] from the observed state of each partition axis
  * of the card, where [None] is an axis that could not be read. *)
 val update_partition_mode :

@@ -48,6 +48,15 @@ let has_nvidia_gpu ~__context ~host =
       is_nvidia_vendor (Db.PCI.get_vendor_id ~__context ~self:pci)
   )
 
+let nvidia_cards ~__context ~host =
+  Db.Host.get_PGPUs ~__context ~self:host
+  |> List.map (fun self ->
+      ( self
+      , Db.PCI.get_record ~__context ~self:(Db.PGPU.get_PCI ~__context ~self)
+      )
+  )
+  |> List.filter (fun (_, pci) -> is_nvidia_vendor pci.API.pCI_vendor_id)
+
 let fetch_compatibility_metadata ~__context ~pgpu_pci =
   if is_nvidia_vendor (Db.PCI.get_vendor_id ~__context ~self:pgpu_pci) then
     let dbg = Context.string_of_task __context in

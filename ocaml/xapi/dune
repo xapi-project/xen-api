@@ -265,6 +265,7 @@
    ((pps ppx_deriving_rpc)
     Config_file_sync
     Extauth_plugin_ADwinbind
+    Gpu_partition_probe
     Importexport
     Sparse_dd_wrapper
     Storage_migrate
