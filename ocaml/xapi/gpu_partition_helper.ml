@@ -54,35 +54,56 @@ let cards_bound_to_nvidia ~__context ~host =
   |> List.filter (fun (_, pci) -> pci.API.pCI_driver_name = "nvidia")
 
 let read_cards ~__context ~read_card cards =
-  let read (self, pci) =
+  (* After a host-wide failure, the GPUs not yet read get its reason without a
+     read; not its mode, which was read on the GPU that failed *)
+  let read host_wide (self, pci) =
     let bdf = pci.API.pCI_pci_id in
-    (* Any exception, even one before the helper runs, costs only this GPU;
-       the warning names it *)
     let answer =
-      try (read_card bdf).Gpu_partition_probe.probe
-      with e ->
-        D.log_backtrace e ;
-        D.warn "%s: GPU %s: %s" __FUNCTION__ bdf (Printexc.to_string e) ;
-        Unreadable {mode= None; reason= Xapi Helper_crashed}
+      match host_wide with
+      | Some reason ->
+          Gpu_partition_probe.Unreadable {mode= None; reason}
+      | None -> (
+        (* Any exception, even one before the helper runs, costs only this
+           GPU; the warning names it *)
+        try (read_card bdf).Gpu_partition_probe.probe
+        with e ->
+          D.log_backtrace e ;
+          D.warn "%s: GPU %s: %s" __FUNCTION__ bdf (Printexc.to_string e) ;
+          Unreadable {mode= None; reason= Xapi Helper_crashed}
+      )
     in
-    let axes = Gpu_partition_probe.axes answer in
-    Xapi_pgpu.update_partition_mode ~__context ~self axes ;
+    Xapi_pgpu.update_partition_mode ~__context ~self
+      (Gpu_partition_probe.axes answer) ;
     D.info "%s: GPU %s: partition_mode %s%s" __FUNCTION__ bdf
       (API.partition_mode_to_string
          (Db.PGPU.get_partition_mode ~__context ~self)
       )
-      ( match answer with
-      | Unreadable {reason; _} ->
+      ( match (answer, host_wide) with
+      | Unreadable {reason; _}, None ->
           ", unreadable: " ^ Gpu_partition_probe.string_of_reason reason
-      | Partitions _ | None_carved _ | Not_applicable ->
+      | Unreadable {reason; _}, Some _ ->
+          ", not read: " ^ Gpu_partition_probe.string_of_reason reason
+      | (Partitions _ | None_carved _ | Not_applicable), (None | Some _) ->
           ""
-      )
+      ) ;
+    match answer with
+    | Unreadable {reason; _} when Gpu_partition_probe.host_wide reason ->
+        Some reason
+    | Unreadable _ | Partitions _ | None_carved _ | Not_applicable ->
+        host_wide
   in
-  List.iter read cards
+  let (_ : Gpu_partition_probe.reason option) =
+    List.fold_left read None cards
+  in
+  ()
 
 let read_cards_at_start ~__context ~host ~read_card =
   let cards = cards_bound_to_nvidia ~__context ~host in
-  List.iter
-    (fun (self, _) -> Xapi_pgpu.update_partition_mode ~__context ~self [None])
-    cards ;
+  Db.Host.get_PGPUs ~__context ~self:host
+  |> List.iter (fun self ->
+      if List.mem_assoc self cards then
+        Xapi_pgpu.update_partition_mode ~__context ~self [None]
+      else
+        Xapi_pgpu.set_not_checked ~__context ~self
+  ) ;
   read_cards ~__context ~read_card cards

@@ -85,6 +85,50 @@ let string_of_reason = function
   | Xapi kind ->
       wire_name typ_of_xapi (Known kind)
 
+(* A failure of the host, its GPU library or the helper, which every GPU would
+   meet again. A timeout may pass, and a kind this version does not know may
+   be the GPU's own, so the other GPUs are still read *)
+let host_wide = function
+  | Xapi (Helper_absent | Helper_not_executable)
+  | Helper
+      (Known
+         ( Schema_unsupported
+         | Library_absent
+         | Library_symbol_absent
+         | Library_init_failed
+         | Driver_not_loaded
+         | Driver_library_mismatch
+         | Library_too_old
+         | Lock_unsafe )
+        ) ->
+      true
+  | Xapi (Caller_timeout | Helper_crashed | Decode_failed | Card_busy)
+  | Helper
+      ( Unknown _
+      | Known
+          ( Not_supported
+          | Invalid_state
+          | Library_error
+          | Not_found
+          | Profile_catalogue_empty
+          | Profile_catalogue_incomplete
+          | Withdrawn
+          | Device_not_found
+          | Gpu_lost
+          | Reset_required
+          | Device_unhealthy
+          | Usage
+          | Internal
+          | Lock_timeout
+          | In_use
+          | Not_ready
+          | Timeout
+          | Mode_changed
+          | No_permission
+          | Gate_key_not_on
+          | Mode_unknown ) ) ->
+      false
+
 type t =
   | Partitions of {mode: Partition_mode.mode}
   | None_carved of {mode: Partition_mode.mode}

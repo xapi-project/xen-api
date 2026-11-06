@@ -35,5 +35,8 @@ val read_cards_at_start :
   -> read_card:(string -> Gpu_partition_probe.reply)
   -> unit
 (** For each NVIDIA GPU of [host] bound to the nvidia driver: sets
-    partition_mode to unknown, then to what [read_card] answers for its PCI
-    address. A failed read affects only its own GPU. *)
+    partition_mode to unknown, or to possibly_enabled if the GPU may still be
+    divided, then to what [read_card] answers for its PCI address. A failed
+    read affects only its own GPU, unless the failure is host-wide: then the
+    GPUs not yet read get its reason without a read. The host's other GPUs are
+    set to not_checked. *)
