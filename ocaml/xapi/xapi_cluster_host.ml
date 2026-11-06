@@ -170,6 +170,15 @@ let join_internal ~__context ~self =
           handle_error error
   )
 
+(* Tracing configuration must never decide whether clustering starts *)
+let initialise_clusterd_observer ~__context =
+  try
+    Xapi_observer.initialise_observer ~__context
+      Xapi_observer_components.Xapi_clusterd
+  with e ->
+    warn "%s: failed to initialise tracing for xapi-clusterd: %s" __FUNCTION__
+      (Printexc.to_string e)
+
 (* Enable cluster_host in client layer via clusterd *)
 let resync_host ~__context ~host =
   match find_cluster_host ~__context ~host with
@@ -200,8 +209,7 @@ let resync_host ~__context ~host =
           if not (Db.Cluster_host.get_joined ~__context ~self) then (
             join_internal ~__context ~self ;
             Watcher.create_as_necessary ~__context ~host ;
-            Xapi_observer.initialise_observer ~__context
-              Xapi_observer_components.Xapi_clusterd
+            initialise_clusterd_observer ~__context
           ) else if Db.Cluster_host.get_enabled ~__context ~self then (
             (* [enable] unconditionally invokes low-level enable operations and is idempotent.
                RPU reformats partition, losing service status, never re-enables clusterd *)
@@ -342,8 +350,6 @@ let enable ~__context ~self =
         Xapi_clustering.Daemon.enable ~__context
       ) ;
       Watcher.create_as_necessary ~__context ~host ;
-      Xapi_observer.initialise_observer ~__context
-        Xapi_observer_components.Xapi_clusterd ;
       let verify = Stunnel_client.get_verify_by_default () in
       set_tls_config ~__context ~self ~verify ;
       let open Cluster_interface in
@@ -364,7 +370,8 @@ let enable ~__context ~self =
       | Ok () ->
           Db.Cluster_host.set_enabled ~__context ~self ~value:true ;
           debug "Cluster_host.enable was successful for cluster_host: %s"
-            (Ref.string_of self)
+            (Ref.string_of self) ;
+          initialise_clusterd_observer ~__context
       | Error error ->
           warn "Error encountered when enabling cluster_host %s"
             (Ref.string_of self) ;
