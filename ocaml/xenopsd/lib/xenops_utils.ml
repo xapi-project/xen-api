@@ -91,6 +91,9 @@ let gpu_lock_engaged_file () = get_root () ^ "/gpu-lock-engaged"
    a reboot, after which the lock is off until it is engaged again *)
 let gpu_lock_engaged () = Sys.file_exists (gpu_lock_engaged_file ())
 
+(* PCI binds and unbinds run one at a time *)
+let pci_bind_mutex = Mutex.create ()
+
 module StringMap = Map.Make (String)
 
 type 'a fs = Dir of 'a fs StringMap.t ref | Leaf of 'a

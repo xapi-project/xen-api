@@ -1663,8 +1663,6 @@ module PCI = struct
         Printf.ksprintf failwith "Couldn't lock GPU with device ID %s%s" devstr
           text
 
-  let bind_lock = Mutex.create ()
-
   let bind devices new_driver =
     let bind_to devstr = function
       | I915 ->
@@ -1684,7 +1682,7 @@ module PCI = struct
       | driver ->
           unbind devstr driver
     in
-    with_lock bind_lock (fun () ->
+    with_lock pci_bind_mutex (fun () ->
         List.iter
           (fun device ->
             let devstr = Xenops_interface.Pci.string_of_address device in
