@@ -100,13 +100,48 @@ let sync_gpu_partitioning (name, steps, reason) =
     steps
     |> List.iter (fun gpus ->
         List.iter add_gpu gpus ;
-        Xapi_host.sync_gpu_partitioning ~__context
+        Xapi_host.sync_gpu_partitioning ~__context ~after_boot:false
     ) ;
     Alcotest.(check (pair string string))
       name ("inactive", reason)
       ( API.host_gpu_partitioning_status_to_string
           (Db.Host.get_gpu_partitioning_status ~__context ~self:host)
       , Db.Host.get_gpu_partitioning_reason ~__context ~self:host
+      )
+  in
+  (name, `Quick, test)
+
+let no_division_evidence =
+  [`not_supported; `disabled; `unknown; `not_checked; `not_in_use]
+
+let division_evidence =
+  [`enable_on_reboot; `enabled; `disable_on_reboot; `possibly_enabled]
+
+(* Each row: NVIDIA GPUs, one per value [before], on a host where partitioning
+   is not in use; [after] is the value each reads after the start, if it
+   changes *)
+let partition_modes_at_start (name, after_boot, before, after) =
+  let test () =
+    let __context = make_test_database () in
+    let host = Helpers.get_localhost ~__context in
+    let gpus =
+      List.map
+        (fun partition_mode ->
+          let pCI = make_pci ~__context ~host ~vendor_id:"10de" () in
+          make_pgpu ~__context ~pCI ~host ~partition_mode ()
+        )
+        before
+    in
+    Xapi_host.sync_gpu_partitioning ~__context ~after_boot ;
+    let names = List.map API.partition_mode_to_string in
+    Alcotest.(check (list string))
+      name
+      (names (List.map (fun mode -> Option.value after ~default:mode) before))
+      (names
+         (List.map
+            (fun self -> Db.PGPU.get_partition_mode ~__context ~self)
+            gpus
+         )
       )
   in
   (name, `Quick, test)
@@ -138,5 +173,25 @@ let test =
       ; ( "sync: an NVIDIA GPU added after a first sync"
         , [["8086"]; ["10de"]]
         , "pool_disabled"
+        )
+      ]
+  @ List.map partition_modes_at_start
+      [
+        ( "sync: xapi restart, every GPU keeps its partition_mode"
+        , false
+        , no_division_evidence @ division_evidence
+        , None
+        )
+      ; ( "sync: first start after a boot, GPUs showing no division read \
+           not_in_use"
+        , true
+        , no_division_evidence
+        , Some `not_in_use
+        )
+      ; ( "sync: first start after a boot, GPUs that may be divided read \
+           possibly_enabled"
+        , true
+        , division_evidence
+        , Some `possibly_enabled
         )
       ]

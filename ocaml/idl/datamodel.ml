@@ -7399,7 +7399,8 @@ end
    on PGPU.dom0_access (below), which carries the current state and a pending
    reboot change in a single field so that the two cannot contradict each
    other. That field is deprecated; it is its shape that is being reused here,
-   not its API. *)
+   not its API. Complete from the first release: a host fails on a stored
+   enum value it does not know. *)
 let partition_mode =
   Enum
     ( "partition_mode"
@@ -7418,6 +7419,19 @@ let partition_mode =
            the next host reboot"
         )
       ; ("unknown", "The division of this GPU could not be read")
+      ; ( "not_checked"
+        , "The division of this GPU is not read, by design: the host does not \
+           manage partitions of this kind of GPU, or the GPU is not bound to \
+           its vendor's driver, for example while it is passed through to a VM"
+        )
+      ; ( "not_in_use"
+        , "GPU partitioning is not in use on this GPU's host, or this GPU has \
+           not been read since it was added"
+        )
+      ; ( "possibly_enabled"
+        , "This GPU was divided into partitions, or was being divided, and has \
+           not been read as undivided since"
+        )
       ]
     )
 
@@ -7663,7 +7677,7 @@ module PGPU = struct
             ~lifecycle:[] "partitions"
             "The partitions this GPU is currently divided into"
         ; field ~qualifier:DynamicRO ~ty:partition_mode ~lifecycle:[]
-            ~default_value:(Some (VEnum "unknown")) "partition_mode"
+            ~default_value:(Some (VEnum "not_in_use")) "partition_mode"
             "Whether and how this GPU is divided into hardware partitions. \
              'disabled' means the GPU could be divided but is not; \
              'not_supported' means it cannot be divided at all"

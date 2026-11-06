@@ -34,6 +34,8 @@ val read_cards_at_start :
   -> host:API.ref_host
   -> read_card:(string -> Gpu_partition_probe.reply)
   -> unit
-(** The host's NVIDIA GPUs bound to the nvidia driver read unknown, then each
-    is written on what [read_card] answers for its PCI address; a failed read
-    costs only its card *)
+(** The host's NVIDIA GPUs bound to the nvidia driver read unknown, or
+    possibly_enabled if they may still be divided, then each is written on
+    what [read_card] answers for its PCI address; a failed read costs only its
+    card, unless its reason holds for the host, and then no other card is
+    asked. The host's other GPUs read not_checked *)

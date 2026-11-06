@@ -501,8 +501,9 @@ val disable_display :
 
 val sync_display : __context:Context.t -> host:API.ref_host -> unit
 
-val sync_gpu_partitioning : __context:Context.t -> unit
-(** Computes this host's GPU partitioning status and reason and writes both *)
+val sync_gpu_partitioning : __context:Context.t -> after_boot:bool -> unit
+(** Computes this host's GPU partitioning status and reason and writes both;
+    [after_boot] is true only at the first xapi start after a host boot *)
 
 val apply_guest_agent_config : __context:Context.t -> host:API.ref_host -> unit
 

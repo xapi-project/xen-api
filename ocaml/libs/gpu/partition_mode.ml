@@ -84,3 +84,15 @@ let to_api = function
       `enabled
   | Some Disable_on_reboot ->
       `disable_on_reboot
+
+type division_evidence =
+  [`enable_on_reboot | `enabled | `disable_on_reboot | `possibly_enabled]
+
+type no_division_evidence =
+  [`not_supported | `disabled | `unknown | `not_checked | `not_in_use]
+
+let possibly_enabled_or ~otherwise = function
+  | #division_evidence ->
+      `possibly_enabled
+  | #no_division_evidence ->
+      otherwise

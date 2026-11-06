@@ -29,6 +29,9 @@ type reason = Helper of Gpumon_interface.Kind.t | Xapi of xapi_kind
 val string_of_reason : reason -> string
 (** The reason's name, spelt as the helper's reply spells kinds *)
 
+val host_wide : reason -> bool
+(** The reason holds for every card of the host, so no other card is asked *)
+
 (** Readers match the cases as [{mode; _}]: later fields are added, not edited *)
 type t =
   | Partitions of {mode: Gpu.Partition_mode.mode}

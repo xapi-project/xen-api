@@ -54,15 +54,23 @@ let cards_bound_to_nvidia ~__context ~host =
   |> List.filter (fun (_, pci) -> pci.API.pCI_driver_name = "nvidia")
 
 let read_cards ~__context ~read_card cards =
+  (* A reason that holds for the host is every later card's reason; the mode
+     read on the first card says nothing of the others *)
+  let host_wide = ref None in
   cards
   |> List.iter @@ fun (self, pci) ->
      let bdf = pci.API.pCI_pci_id in
      (* Whatever fails in a read, its card is written as not readable *)
      let answer =
-       try (read_card bdf).Gpu_partition_probe.probe
-       with e ->
-         D.warn "%s: GPU %s: %s" __FUNCTION__ bdf (Printexc.to_string e) ;
-         Unreadable {mode= None; reason= Xapi Helper_crashed}
+       match !host_wide with
+       | Some answer ->
+           answer
+       | None -> (
+         try (read_card bdf).Gpu_partition_probe.probe
+         with e ->
+           D.warn "%s: GPU %s: %s" __FUNCTION__ bdf (Printexc.to_string e) ;
+           Unreadable {mode= None; reason= Xapi Helper_crashed}
+       )
      in
      let axes = Gpu_partition_probe.axes answer in
      Xapi_pgpu.update_partition_mode ~__context ~self axes ;
@@ -75,11 +83,20 @@ let read_cards ~__context ~read_card cards =
            ", unreadable: " ^ Gpu_partition_probe.string_of_reason reason
        | Partitions _ | None_carved _ | Not_applicable ->
            ""
-       )
+       ) ;
+     match answer with
+     | Unreadable {reason; _} when Gpu_partition_probe.host_wide reason ->
+         host_wide := Some Gpu_partition_probe.(Unreadable {mode= None; reason})
+     | Unreadable _ | Partitions _ | None_carved _ | Not_applicable ->
+         ()
 
 let read_cards_at_start ~__context ~host ~read_card =
   let cards = cards_bound_to_nvidia ~__context ~host in
-  List.iter
-    (fun (self, _) -> Xapi_pgpu.update_partition_mode ~__context ~self [None])
-    cards ;
+  Db.Host.get_PGPUs ~__context ~self:host
+  |> List.iter (fun self ->
+      if List.mem_assoc self cards then
+        Xapi_pgpu.update_partition_mode ~__context ~self [None]
+      else
+        Xapi_pgpu.set_not_checked ~__context ~self
+  ) ;
   read_cards ~__context ~read_card cards
