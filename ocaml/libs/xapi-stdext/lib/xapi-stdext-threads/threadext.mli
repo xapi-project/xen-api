@@ -11,6 +11,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
+val mutex_execute_within :
+  timeout:Mtime.Span.t -> Mutex.t -> (unit -> 'a) -> 'a option
+(** As [Mutex.execute], once the mutex is free: it polls it for up to
+    [timeout], and returns [None], without running the function, if it stays
+    held. *)
+
 module Mutex : sig val execute : Mutex.t -> (unit -> 'a) -> 'a end
 
 module Semaphore : sig val execute : Semaphore.Counting.t -> (unit -> 'a) -> 'a

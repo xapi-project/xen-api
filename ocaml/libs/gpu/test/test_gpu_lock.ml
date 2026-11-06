@@ -233,6 +233,16 @@ let unbind_lock_rows =
     ; ("not engaged: not read first", false, "1", ms 1000, "already set", "1\n")
     ]
 
+(* the key read back is the one written last, over another one *)
+let key_written (before, key) () =
+  let _, lock = world () in
+  let set key = L.Switch.set_key lock ~timeout:(ms 300) key in
+  check "written, read back" true
+    (set before = Ok ()
+    && set key = Ok ()
+    && L.Switch.read_key lock = Ok (Some key)
+    )
+
 let () =
   Alcotest.run "gpu_lock"
     [
@@ -247,6 +257,9 @@ let () =
           ; ("older lock held: refused, then adopted", no_mark_while_old_held)
           ; ("a refusal counts holders, names none", refusal_counts_holders)
           ; ("the operator's view", key_view)
+          ; ("key on written over pending", key_written (L.Pending, L.On))
+          ; ("key off written over on", key_written (L.On, L.Off))
+          ; ("key pending written over off", key_written (L.Off, L.Pending))
           ]
       )
     ; ("unbind lock", unbind_lock_rows)

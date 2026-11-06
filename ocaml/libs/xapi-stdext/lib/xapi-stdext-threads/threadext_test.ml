@@ -74,6 +74,39 @@ let tests =
   ; ("other_thread", `Quick, other_thread)
   ]
 
+let mutex_free_runs_and_is_released () =
+  let m = Mutex.create () in
+  let ran =
+    Xapi_stdext_threads.Threadext.mutex_execute_within ~timeout:Mtime.Span.zero
+      m (fun () -> 1
+    )
+  in
+  Alcotest.(check (pair (option int) bool))
+    "ran, then released" (Some 1, true)
+    (ran, Mutex.try_lock m)
+
+let mutex_held_runs_nothing () =
+  let m = Mutex.create () in
+  Mutex.lock m ;
+  let ran =
+    Xapi_stdext_threads.Threadext.mutex_execute_within
+      ~timeout:Mtime.Span.(20 * ms)
+      m Fun.id
+  in
+  Alcotest.(check (option unit)) "not run" None ran
+
+let mutex_tests =
+  [
+    ( "mutex_execute_within: a free mutex"
+    , `Quick
+    , mutex_free_runs_and_is_released
+    )
+  ; ( "mutex_execute_within: a mutex held too long"
+    , `Quick
+    , mutex_held_runs_nothing
+    )
+  ]
+
 let test_create_ambient_storage () =
   let open Xapi_stdext_threads.Threadext in
   let _ : Thread.t =
@@ -167,4 +200,8 @@ let tls_tests =
 
 let () =
   Alcotest.run "Threadext"
-    [("Delay", tests); ("ThreadRuntimeContext", tls_tests)]
+    [
+      ("Delay", tests)
+    ; ("Mutex", mutex_tests)
+    ; ("ThreadRuntimeContext", tls_tests)
+    ]

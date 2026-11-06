@@ -93,6 +93,18 @@ let retry ?(delay = Mtime.Span.(50 * ms)) ?(max_delay = delay) ~stop f =
   in
   go delay None
 
+let mutex_execute_within ~timeout lock f =
+  let timer = Clock.Timer.start ~duration:timeout in
+  let take () =
+    if M.try_lock lock then
+      Ok ()
+    else
+      Error ()
+  in
+  retry ~stop:(fun () -> Clock.Timer.has_expired timer) take
+  |> Result.to_option
+  |> Option.map (fun () -> finally f (fun () -> M.unlock lock))
+
 let wait_timed_read fd timeout =
   match Xapi_stdext_unix.Unixext.select [fd] [] [] timeout with
   | [], _, _ ->

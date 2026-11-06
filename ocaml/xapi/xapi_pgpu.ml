@@ -403,9 +403,19 @@ let mxgpu_vf_setup ~__context =
  * going to use a vgpu backed by an nvidia pgpu. *)
 let nvidia_vf_setup_mutex = Mutex.create ()
 
-let gpu_lock_engaged = ref false
+(* written under nvidia_vf_setup_mutex, inside which VF setups read it *)
+let gpu_lock_engaged_flag = Atomic.make false
 
-let gpu_lock = Gpu_lock.create ~engaged:(fun () -> !gpu_lock_engaged) ()
+let gpu_lock_engaged () = Atomic.get gpu_lock_engaged_flag
+
+let gpu_lock = Gpu_lock.create ~engaged:gpu_lock_engaged ()
+
+let set_gpu_lock_engaged ~timeout engaged =
+  let set () = Atomic.exchange gpu_lock_engaged_flag engaged in
+  Xapi_stdext_threads.Threadext.mutex_execute_within ~timeout
+    nvidia_vf_setup_mutex set
+  |> Option.to_result
+       ~none:(Fmt.str "a VF setup still ran after %a" Mtime.Span.pp timeout)
 
 (* How long to wait for another holder before refusing: about twice the
    longest hold measured, a VF enable of 16 s *)

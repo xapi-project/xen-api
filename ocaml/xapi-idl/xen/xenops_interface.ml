@@ -668,6 +668,31 @@ module XenopsAPI (R : RPC) = struct
       declare "HOST.set_numa_affinity_policy"
         ["Sets the host's NUMA aware VM scheduling policy"]
         (debug_info_p @-> numa_affinity_policy_p @-> returning unit_p err)
+
+    let set_gpu_lock_engaged =
+      let engaged_p =
+        Param.mk ~name:"engaged" ~description:["Take the host GPU lock"]
+          Types.bool
+      in
+      let issued_at_p =
+        Param.mk ~name:"issued_at"
+          ~description:
+            [
+              "When the caller sent it, in ns of the host's monotonic clock: a \
+               call sent before one applied changes nothing"
+            ]
+          Types.int64
+      in
+      declare "HOST.set_gpu_lock_engaged"
+        [
+          "Sets whether PCI unbinds take the host GPU lock, once the running \
+           binds and unbinds end; returns whether they take it"
+        ]
+        (debug_info_p
+        @-> engaged_p
+        @-> issued_at_p
+        @-> returning (Param.mk Types.bool) err
+        )
   end
 
   module VM = struct

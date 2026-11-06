@@ -2689,6 +2689,118 @@ let sync_display ~__context ~host =
     Db.Host.set_display ~__context ~self:host ~value:status
   )
 
+(* How long switching the GPU lock waits for running VF setups. One can hold
+   their mutex longer, as it waits for the GPU lock and then enables VFs; the
+   switch then changes nothing and says so. *)
+let gpu_lock_switch_timeout = Mtime.Span.(20 * s)
+
+let set_gpu_lock_regime_from_switch_file () =
+  let file = !Xapi_globs.gpu_lock_engaged_file and fn = __FUNCTION__ in
+  let engaged = Sys.file_exists file in
+  let found, takes =
+    if engaged then
+      ("exists", "takes")
+    else
+      ("is absent", "does not take")
+  in
+  Xapi_pgpu.set_gpu_lock_engaged ~timeout:gpu_lock_switch_timeout engaged
+  |> Result.fold
+       ~ok:(fun (_ : bool) ->
+         info "%s: %s %s, so xapi %s the host GPU lock" fn file found takes
+       )
+       ~error:(warn "%s: %s" fn)
+
+(* xapi's regime first, then xenopsd's; if xenopsd's fails, xapi's previous
+   value comes back, so that both change or neither *)
+let set_gpu_lock_regimes ~__context ~timeout engaged =
+  let ( let* ) = Result.bind in
+  let* previous = Xapi_pgpu.set_gpu_lock_engaged ~timeout engaged in
+  let xenopsd =
+    match Xapi_xenops.set_gpu_lock_engaged ~__context engaged with
+    | now when now = engaged ->
+        Ok ()
+    | (_ : bool) ->
+        Error "xenopsd's PCI binds or unbinds did not end in time"
+    | exception e ->
+        (* any failure to reach xenopsd, too: xapi's regime must come back *)
+        Error (Printexc.to_string e)
+  in
+  let restore why =
+    Xapi_pgpu.set_gpu_lock_engaged ~timeout previous
+    |> Result.fold
+         ~ok:(fun (_ : bool) -> why ^ "; neither regime changed")
+         ~error:
+           (Printf.sprintf
+              "%s; and xapi's regime did not come back, so xapi and xenopsd \
+               disagree: %s"
+              why
+           )
+  in
+  Result.map_error restore xenopsd
+
+type gpu_lock_release_step = Key_off | Regimes_off | Key_on_left
+
+let gpu_lock_release_steps ~key ~locking =
+  match (key, locking) with
+  | (None | Some Gpu_lock.Off), false ->
+      []
+  | (None | Some Off), true ->
+      [Regimes_off]
+  | Some Pending, false ->
+      [Key_off]
+  | Some (Pending | On), true ->
+      [Key_off; Regimes_off]
+  | Some On, false ->
+      [Key_on_left]
+
+let either_daemon_takes_gpu_lock () =
+  Xapi_pgpu.gpu_lock_engaged ()
+  || Sys.file_exists !Xapi_globs.gpu_lock_engaged_file
+
+let release_gpu_lock ~__context =
+  let fn = __FUNCTION__ and timeout = gpu_lock_switch_timeout in
+  let lock = Xapi_pgpu.gpu_lock and ( let* ) = Result.bind in
+  let describe what refusal = what ^ ": " ^ Gpu_lock.describe refusal in
+  let run result step =
+    let* () = result in
+    match step with
+    | Key_off ->
+        info "%s: setting the GPU lock's key to off" fn ;
+        Gpu_lock.Switch.set_key lock ~timeout Gpu_lock.Off
+        |> Result.map_error (describe "the key stays as it was")
+    | Regimes_off ->
+        info "%s: VF enables and PCI unbinds stop taking the GPU lock" fn ;
+        set_gpu_lock_regimes ~__context ~timeout false
+    | Key_on_left ->
+        warn "%s: the GPU lock's key is on, but nothing takes the lock" fn ;
+        Ok ()
+  in
+  let release () =
+    let locking = either_daemon_takes_gpu_lock () in
+    let* key =
+      Gpu_lock.Switch.read_key lock
+      |> Result.map_error (describe "the key could not be read")
+    in
+    gpu_lock_release_steps ~key ~locking |> List.fold_left run (Ok ())
+  in
+  (* a failure to lock a file raises; the host's status is still written *)
+  (try release () with e -> Error (Printexc.to_string e))
+  |> Result.iter_error
+       (warn
+          "%s: the GPU lock's release stopped: %s; a toolstack restart retries \
+           it"
+          fn
+       )
+
+(* A host that may hold MIG state leaves first, by reading its cards, and
+   keeps its locks until then; any other host releases them. *)
+let gpu_partitioning_not_wanted ~__context = function
+  | `entering | `active | `leaving ->
+      `leaving
+  | `not_reported | `inactive ->
+      release_gpu_lock ~__context ;
+      `inactive
+
 (* Every evaluation of the desired state, whatever started it, runs under this
    lock and writes the reason and then the status. *)
 let gpu_partitioning_m = Mutex.create ()
@@ -2705,9 +2817,15 @@ let sync_gpu_partitioning ~__context =
   with
   | Error reason ->
       let value = Gpu.Host_partitioning.token reason in
-      debug "%s: inactive (%s)" fn value ;
+      let status =
+        Db.Host.get_gpu_partitioning_status ~__context ~self
+        |> gpu_partitioning_not_wanted ~__context
+      in
+      debug "%s: %s (%s)" fn
+        (API.host_gpu_partitioning_status_to_string status)
+        value ;
       Db.Host.set_gpu_partitioning_reason ~__context ~self ~value ;
-      Db.Host.set_gpu_partitioning_status ~__context ~self ~value:`inactive
+      Db.Host.set_gpu_partitioning_status ~__context ~self ~value:status
   | Ok () ->
       (* Unreachable until the pool can enable partitioning *)
       ()

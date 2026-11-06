@@ -84,15 +84,62 @@ let set_root service_name =
 let get_root () =
   match !root with None -> failwith "Xenops_utils.root not set" | Some x -> x
 
-let gpu_lock_engaged_file () = get_root () ^ "/gpu-lock-engaged"
+(* xenopsd's setting; xapi has its own, with the same default *)
+let gpu_lock_engaged_path = ref None
+
+let gpu_lock_engaged_file () =
+  match !gpu_lock_engaged_path with
+  | Some file ->
+      file
+  | None ->
+      get_root () ^ "/gpu-lock-engaged"
 
 (* The lock is engaged while this file exists. It lives in xenopsd's root,
    by default under /var/run: there it survives a restart of xenopsd but not
    a reboot, after which the lock is off until it is engaged again *)
 let gpu_lock_engaged () = Sys.file_exists (gpu_lock_engaged_file ())
 
-(* PCI binds and unbinds run one at a time *)
+(* PCI binds and unbinds run one at a time, and the switch file changes
+   between them *)
 let pci_bind_mutex = Mutex.create ()
+
+(* an unbind may wait for the GPU lock and then run for seconds, and a bind of
+   several GPUs holds the mutex for all of them; on expiry the file stays *)
+let gpu_lock_regime_change_timeout = Mtime.Span.(30 * s)
+
+(* when the newest change applied was sent; a call sent before it, by a xapi
+   that has since been replaced, changes nothing *)
+let gpu_lock_engaged_issued_at = ref 0L
+
+let set_gpu_lock_engaged ~issued_at engaged =
+  let file = gpu_lock_engaged_file () and fn = __FUNCTION__ in
+  let change () =
+    if Int64.compare issued_at !gpu_lock_engaged_issued_at < 0 then
+      debug "%s: ignored a call older than the newest applied" fn
+    else (
+      gpu_lock_engaged_issued_at := issued_at ;
+      if engaged then (
+        Unixext.mkdir_rec (Filename.dirname file) 0o755 ;
+        Unixext.write_string_to_file file "" ;
+        info "%s: created %s" fn file
+      ) else
+        match Unix.unlink file with
+        | () ->
+            info "%s: removed %s" fn file
+        | exception Unix.Unix_error (Unix.ENOENT, _, _) ->
+            debug "%s: %s already absent" fn file
+    )
+  in
+  let timeout = gpu_lock_regime_change_timeout in
+  if
+    Option.is_none
+      (Xapi_stdext_threads.Threadext.mutex_execute_within ~timeout
+         pci_bind_mutex change
+      )
+  then
+    warn "%s: a PCI bind or unbind still ran after %a; %s unchanged" fn
+      Debug.Pp.mtime_span timeout file ;
+  gpu_lock_engaged ()
 
 module StringMap = Map.Make (String)
 

@@ -1147,6 +1147,10 @@ let server_init () =
             , [Startup.OnlyMaster]
             , remove_blocked_repositories ~__context
             )
+          ; ( "taking the host GPU lock if xenopsd takes it"
+            , [Startup.NoExnRaising]
+            , Xapi_host.set_gpu_lock_regime_from_switch_file
+            )
           ; ( "bringing up management interface"
             , []
             , bring_up_management_if ~__context

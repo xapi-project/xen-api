@@ -961,6 +961,40 @@ let barrier_ordering () =
   List.map fst barriers
   |> assert_equal ~msg:"Barriers not in correct order" barrier_ids
 
+(* in a directory that no call has made yet *)
+let with_gpu_lock_switch_file f =
+  let dir =
+    Printf.sprintf "%s/xenopsd-test-%d-%d"
+      (Filename.get_temp_dir_name ())
+      (Unix.getpid ()) (Random.bits ())
+  in
+  let file = dir ^ "/gpu-lock-engaged" in
+  let remove rm path = if Sys.file_exists path then rm path in
+  Xenops_utils.gpu_lock_engaged_path := Some file ;
+  Xenops_utils.gpu_lock_engaged_issued_at := 0L ;
+  finally
+    (fun () -> f file)
+    (fun () ->
+      remove Sys.remove file ;
+      remove Unix.rmdir dir ;
+      Xenops_utils.gpu_lock_engaged_path := None
+    )
+
+let gpu_lock_switch_follows_newer_calls () =
+  with_gpu_lock_switch_file @@ fun file ->
+  let on = Client.HOST.set_gpu_lock_engaged dbg true 10L in
+  let created = Sys.file_exists file in
+  let off = Client.HOST.set_gpu_lock_engaged dbg false 11L in
+  assert_equal ~msg:"created, then removed" (true, true, false, false)
+    (on, created, off, Sys.file_exists file)
+
+let gpu_lock_switch_ignores_older_calls () =
+  with_gpu_lock_switch_file @@ fun file ->
+  let on = Client.HOST.set_gpu_lock_engaged dbg true 20L in
+  let late_off = Client.HOST.set_gpu_lock_engaged dbg false 19L in
+  assert_equal ~msg:"still created" (true, true, true)
+    (on, late_off, Sys.file_exists file)
+
 let test_ca351823 () =
   let open Suspend_image.Xenops_record in
   let s =
@@ -1032,6 +1066,14 @@ let _ =
       ; ("ionice_output", `Quick, ionice_output)
       ; ("barrier_ordering", `Quick, barrier_ordering)
       ; ("test_ca351823", `Quick, test_ca351823)
+      ; ( "GPU lock switch file follows newer calls"
+        , `Quick
+        , gpu_lock_switch_follows_newer_calls
+        )
+      ; ( "GPU lock switch file ignores an older call"
+        , `Quick
+        , gpu_lock_switch_ignores_older_calls
+        )
       ]
     )
   in

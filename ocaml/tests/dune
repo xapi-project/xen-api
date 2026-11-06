@@ -52,6 +52,7 @@
     xapi-tracing
     xapi-types
     xapi-gpu
+    xapi-gpu.lock
     xapi_xenopsd
     xapi_cli_server
     xapi_database

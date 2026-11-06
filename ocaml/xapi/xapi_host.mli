@@ -501,6 +501,21 @@ val disable_display :
 
 val sync_display : __context:Context.t -> host:API.ref_host -> unit
 
+val set_gpu_lock_regime_from_switch_file : unit -> unit
+(** At xapi's start: VF enables take the host GPU lock if xenopsd's switch
+    file exists, as xenopsd's PCI unbinds then do. *)
+
+(** What a host where GPU partitioning is not wanted undoes, in this order *)
+type gpu_lock_release_step =
+  | Key_off  (** the key off, so no GPU tool waits for it *)
+  | Regimes_off  (** xapi and then xenopsd stop taking the lock *)
+  | Key_on_left  (** a key on that nothing takes: only logged *)
+
+val gpu_lock_release_steps :
+  key:Gpu_lock.key option -> locking:bool -> gpu_lock_release_step list
+(** For a host that holds no MIG state, from the key ([None]: no lock object,
+    and none is made) and whether xapi or xenopsd takes the lock *)
+
 val sync_gpu_partitioning : __context:Context.t -> unit
 (** Computes this host's GPU partitioning status and reason and writes both *)
 
