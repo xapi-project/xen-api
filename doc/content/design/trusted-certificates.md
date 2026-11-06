@@ -258,7 +258,10 @@ The trusted certificates are copied to all hosts in the pool, so a new coordinat
 
 Only root CA certificates can be installed for this purpose, because stunnel is configured to verify the certificate chain.
 A self-signed client certificate can be installed as a root CA.
-A client certificate login has the permissions of pool-admin, so only pool-admin can install certificates for this purpose.
+
+Client certificate logins used to get the "client-cert" role.
+This role is removed, because a client that manages a pool this way needs the same access as pool-admin.
+These logins now get the permissions of pool-admin, so only pool-admin can install certificates for this purpose.
 
 The "Default Bundle" is not used for client certificate authentication any more.
 The CA certificates installed by "pool.install_ca_certificate" can't be used for client certificate login.
