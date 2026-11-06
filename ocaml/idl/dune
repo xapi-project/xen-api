@@ -104,3 +104,13 @@
     (diff datamodel_lifecycle.ml datamodel_lifecycle.ml.generated)))
 
 (data_only_dirs templates)
+
+(executable
+  (name api_compat)
+  (modes exe)
+  (modules api_compat)
+  (libraries
+    rpclib.core
+    rpclib.json
+    xapi_datamodel
+  ))
