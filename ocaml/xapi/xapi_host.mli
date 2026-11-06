@@ -147,6 +147,8 @@ val create :
   -> latest_synced_updates_applied:API.latest_synced_updates_applied_state
   -> pending_guidances_full:API.update_guidances_set
   -> pending_guidances_recommended:API.update_guidances_set
+  -> gpu_partitioning_status:API.host_gpu_partitioning_status
+  -> gpu_partitioning_reason:string
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit
@@ -498,6 +500,10 @@ val disable_display :
   __context:Context.t -> host:API.ref_host -> API.host_display
 
 val sync_display : __context:Context.t -> host:API.ref_host -> unit
+
+val sync_gpu_partitioning : __context:Context.t -> after_boot:bool -> unit
+(** Computes this host's GPU partitioning status and reason and writes both;
+    [after_boot] is true only at the first xapi start after a host boot *)
 
 val apply_guest_agent_config : __context:Context.t -> host:API.ref_host -> unit
 

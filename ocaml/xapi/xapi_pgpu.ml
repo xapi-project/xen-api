@@ -36,11 +36,22 @@ let calculate_max_capacities ~__context ~pCI:_ ~size ~supported_VGPU_types =
     )
     supported_VGPU_types
 
+let is_nvidia_vendor id =
+  id = Xapi_pci.id_of_int Xapi_vgpu_type.Nvidia.vendor_id
+
+(* By PCI vendor, not by the driver bound now: a pass-through start unbinds a
+   card from its driver. *)
+let nvidia_cards ~__context ~host =
+  Db.Host.get_PGPUs ~__context ~self:host
+  |> List.map (fun self ->
+      ( self
+      , Db.PCI.get_record ~__context ~self:(Db.PGPU.get_PCI ~__context ~self)
+      )
+  )
+  |> List.filter (fun (_, pci) -> is_nvidia_vendor pci.API.pCI_vendor_id)
+
 let fetch_compatibility_metadata ~__context ~pgpu_pci =
-  if
-    Db.PCI.get_vendor_id ~__context ~self:pgpu_pci
-    = Xapi_pci.id_of_int Xapi_vgpu_type.Nvidia.vendor_id
-  then
+  if is_nvidia_vendor (Db.PCI.get_vendor_id ~__context ~self:pgpu_pci) then
     let dbg = Context.string_of_task __context in
     let pgpu_pci_address = Db.PCI.get_pci_id ~__context ~self:pgpu_pci in
     Xapi_gpumon.Nvidia.get_pgpu_compatibility_metadata ~dbg ~pgpu_pci_address
@@ -80,7 +91,7 @@ let create ~__context ~pCI ~gPU_group ~host ~other_config ~supported_VGPU_types
     ~size ~supported_VGPU_max_capacities ~dom0_access ~is_system_display_device
     ~compatibility_metadata:
       (maybe_fetch_compatibility_metadata ~__context ~pgpu_pci:pCI)
-    ~partition_mode:`unknown ~supported_partition_profiles:[]
+    ~partition_mode:`not_in_use ~supported_partition_profiles:[]
     ~remaining_partition_profiles:[] ~partition_layout_generation:0L
     ~requires_reset:false ;
   Db.PGPU.set_supported_VGPU_types ~__context ~self:pgpu
@@ -475,6 +486,24 @@ let nvidia_vf_setup ~__context ~pf ~enable =
   debug "nvidia_vf_setup_mutex - exit" ;
   Xapi_pci.update_pcis ~__context
 
+let set_possibly_enabled_or ~__context ~otherwise self =
+  Db.PGPU.get_partition_mode ~__context ~self
+  |> Gpu.Partition_mode.possibly_enabled_or ~otherwise
+  |> fun value -> Db.PGPU.set_partition_mode ~__context ~self ~value
+
 let update_partition_mode ~__context ~self axes =
-  let value = Gpu.Partition_mode.(to_api (of_observations axes)) in
-  Db.PGPU.set_partition_mode ~__context ~self ~value
+  match Gpu.Partition_mode.of_observations axes with
+  | None ->
+      set_possibly_enabled_or ~__context ~otherwise:`unknown self
+  | Some _ as mode ->
+      Db.PGPU.set_partition_mode ~__context ~self
+        ~value:(Gpu.Partition_mode.to_api mode)
+
+let partitioning_ended ~__context ~host =
+  Db.Host.get_PGPUs ~__context ~self:host
+  |> List.iter (set_possibly_enabled_or ~__context ~otherwise:`not_in_use)
+
+let set_not_checked ~__context ~self =
+  debug "%s: GPU %s: partition_mode not_checked" __FUNCTION__
+    (Db.PCI.get_pci_id ~__context ~self:(Db.PGPU.get_PCI ~__context ~self)) ;
+  Db.PGPU.set_partition_mode ~__context ~self ~value:`not_checked

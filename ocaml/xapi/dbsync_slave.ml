@@ -76,7 +76,8 @@ let create_localhost ~__context info =
         ~ntp_custom_servers:[] ~timezone:"UTC"
         ~numa_affinity_policy:`default_policy
         ~latest_synced_updates_applied:`unknown ~pending_guidances_full:[]
-        ~pending_guidances_recommended:[]
+        ~pending_guidances_recommended:[] ~gpu_partitioning_status:`not_reported
+        ~gpu_partitioning_reason:""
     in
     ()
 

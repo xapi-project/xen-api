@@ -1528,6 +1528,12 @@ let server_init () =
             , [Startup.NoExnRaising]
             , fun () -> Xapi_host.update_firewalld_service_status ~__context
             )
+          ; ( "Sync the GPU partitioning status of the host"
+            , [Startup.NoExnRaising; Startup.OnThread]
+            , fun () ->
+                Xapi_host.sync_gpu_partitioning ~__context
+                  ~after_boot:!Xapi_globs.on_system_boot
+            )
           ; ( "writing init complete"
             , []
             , fun () -> Helpers.touch_file !Xapi_globs.init_complete
