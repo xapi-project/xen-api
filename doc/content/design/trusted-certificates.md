@@ -2,8 +2,8 @@
 title: Trusted certificates for identity validation in TLS connections
 layout: default
 design_doc: true
-revision: 2
-status: released (26.13.0)
+revision: 3
+status: released (26.13.0), with proposed changes for releases after 26.23.0
 ---
 
 # Overview
@@ -37,6 +37,8 @@ By introducing a "purpose" attribute, certificates can be organized by their int
 # Use Cases
 * An XAPI client establishes a TLS connection to an XAPI service.
 This case is outside the scope of trusted certificates managed by XAPI and is included here only for completeness.
+* An XAPI client logs in to an XAPI service with a TLS client certificate.
+This case is supported by a new purpose in this design, see [Client certificate authentication](#client-certificate-authentication).
 * An XAPI process on one host initiates a TLS connection to an XAPI process on another host within the same pool.
 This case is covered in the base design and is listed here for completeness.
 * An XAPI process initiates a TLS connection to an external service, such as an appliance.
@@ -244,3 +246,25 @@ The endpoint to validate the peer's identity must unambiguously choose only one 
 No more attempts on remaining bundles when validation with the selected one fails (the server certificate is not trusted by the selected bundle).
 
 For example, if "Peer Bundle" doesn't exist and the "CA Bundle" (if not empty) is selected to do the validation, the endpoint should not try with "General Bundle" even when the validation with "CA Bundle" failed.
+
+## Client certificate authentication
+A new purpose "client_certificate_auth" is added for the trusted certificates used to verify TLS client certificates.
+When "pool.enable_client_certificate_auth" is called, stunnel on the pool coordinator verifies the client certificate with the "CA Bundle" of this purpose.
+It also checks that the name in the client certificate matches "pool.client_certificate_auth_name".
+If the check passes, the client can log in without a password. Otherwise, the regular authentication is used.
+
+The client certificate is only checked on the coordinator. A pool member tells the client to contact the coordinator.
+The trusted certificates are copied to all hosts in the pool, so a new coordinator has the same bundle when the coordinator is changed.
+
+Only root CA certificates can be installed for this purpose, because stunnel is configured to verify the certificate chain.
+A self-signed client certificate can be installed as a root CA.
+
+Client certificate logins used to get the "client-cert" role.
+This role is removed, because a client that manages a pool this way needs the same access as pool-admin.
+These logins now get the permissions of pool-admin, so only pool-admin can install certificates for this purpose.
+
+The "Default Bundle" is not used for client certificate authentication any more.
+The CA certificates installed by "pool.install_ca_certificate" can't be used for client certificate login.
+
+stunnel only reads the bundle when it starts or reloads. The coordinator reloads stunnel when the bundle is changed.
+If the bundle is empty, client certificate authentication is not configured in stunnel.
