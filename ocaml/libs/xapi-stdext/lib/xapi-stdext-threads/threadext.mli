@@ -37,6 +37,18 @@ module Delay : sig
   (** Sends a signal to a waiting thread. See 'wait' *)
 end
 
+val retry :
+     ?delay:Mtime.Span.t
+  -> ?max_delay:Mtime.Span.t
+  -> stop:(unit -> bool)
+  -> (unit -> ('a, 'e) result)
+  -> ('a, 'e) result
+(** [retry ~stop f] calls [f] until it returns [Ok], or until [stop ()] is true
+    after an [Error]: it then returns the [Error] of the call before that one,
+    if any, as the deadline may have cut the last call short. Between two
+    calls it sleeps [delay] (default 50 ms), doubled after each call up to
+    [max_delay] (default [delay]: a fixed delay). *)
+
 val wait_timed_read : Unix.file_descr -> float -> bool
 
 val wait_timed_write : Unix.file_descr -> float -> bool

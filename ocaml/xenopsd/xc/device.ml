@@ -1554,7 +1554,7 @@ module PCI = struct
   (** [deactivate_nvidia_sriov devstr] deactivates SRIOV PCI VFs of [devstr] if
         necessary. This needs to be called for NVidia GPUs before using [devstr]
         as a pass-through GPU. *)
-  let deactivate_nvidia_sriov devstr =
+  let deactivate_nvidia_sriov ~keep_fds ~timeout devstr =
     let cmd = nvidia_manage in
     let args = ["-d"; devstr] in
     let has_pciback devstr = get_driver devstr = Some (Supported Pciback) in
@@ -1564,7 +1564,9 @@ module PCI = struct
     | vfs when Sys.file_exists cmd ->
         vfs |> List.filter has_pciback |> List.iter unbind_from_pciback ;
         debug "About to deactivate NVidia vGPUs %s by calling %s" devstr cmd ;
-        let out, _ = Forkhelpers.execute_command_get_output cmd args in
+        let out, _ =
+          Forkhelpers.execute_command_get_output ~keep_fds ?timeout cmd args
+        in
         debug "Deactivating NVidia vGPUs %s yielded: '%s'" devstr
           (String.escaped out)
     | _ ->
@@ -1574,6 +1576,16 @@ module PCI = struct
     debug "pci: binding device %s to nvidia" devstr ;
     let bind = sysfs_nvidia // "bind" in
     write_string_to_file bind devstr
+
+  let gpu_lock = Gpu_lock.create ~engaged:gpu_lock_engaged ()
+
+  (* How long to wait for another holder before refusing: about twice the
+     longest hold measured, a VF enable of 16 s *)
+  let gpu_lock_unbind_timeout = Mtime.Span.(30 * s)
+
+  (* Meant to end a hang, not a slow run: nvidia-smi turns persistence mode
+     off in about 1 s, measured once, on one card *)
+  let persistence_off_timeout = Mtime.Span.(30 * s)
 
   let unbind_from_nvidia devstr =
     debug "pci: attempting to lock device %s before unbinding from nvidia"
@@ -1607,13 +1619,28 @@ module PCI = struct
           else
             find_gpu rest
     in
-    deactivate_nvidia_sriov devstr ;
+    let card = Pci.address_of_string devstr in
+    Gpu_lock.with_lock gpu_lock (Unbind card) ~timeout:gpu_lock_unbind_timeout
+    @@ fun ~keep_fds ~bounds ->
+    Gpu_lock.sriov_manage bounds ~enable:false card (fun timeout ->
+        deactivate_nvidia_sriov ~keep_fds ~timeout devstr
+    ) ;
     (* Disable persistence mode on the device before unbinding it. In future it
        might be worth augmenting gpumon so that it can do this, and to enable
        xapi and/or xenopsd to tell it to do so. *)
     let (_ : string * string) =
-      Forkhelpers.execute_command_get_output nvidia_smi
-        ["--id=" ^ devstr; "--persistence-mode=0"]
+      try
+        Forkhelpers.execute_command_get_output ~keep_fds
+          ?timeout:(Gpu_lock.timeout bounds persistence_off_timeout)
+          nvidia_smi
+          ["--id=" ^ devstr; "--persistence-mode=0"]
+      with Forkhelpers.Subprocess_timeout ->
+        warn
+          "pci: nvidia-smi --persistence-mode=0 timed out on %s and was \
+           killed; the nvidia driver's unbind lock will now decide if the \
+           unbind can proceed"
+          devstr ;
+        ("", "")
     in
     let unbind_lock_path = find_gpu (Array.to_list gpus) // "unbindLock" in
     (* Grab the unbind lock. *)
