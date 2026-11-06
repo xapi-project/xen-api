@@ -1530,7 +1530,9 @@ let server_init () =
             )
           ; ( "Sync the GPU partitioning status of the host"
             , [Startup.NoExnRaising; Startup.OnThread]
-            , fun () -> Xapi_host.sync_gpu_partitioning ~__context
+            , fun () ->
+                Xapi_host.sync_gpu_partitioning ~__context
+                  ~after_boot:!Xapi_globs.on_system_boot
             )
           ; ( "writing init complete"
             , []

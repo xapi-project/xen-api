@@ -182,8 +182,8 @@ let with_member key value r =
   | rpc ->
       Jsonrpc.to_string rpc
 
-(* What xapi reads from a reply: its case and the partition mode it writes *)
-let reading =
+(* What xapi reads from a reply: its case and the partition mode read from it *)
+let reading : (Gpu_partition_probe.t * API.partition_mode) Alcotest.testable =
   let describe = function
     | Partitions {mode; _} ->
         "partitions " ^ Partition_mode.string_of_mode mode
@@ -529,12 +529,51 @@ let a_failed_read_costs_only_its_card () =
     ["enable_on_reboot"; "unknown"; "enabled"]
     modes
 
-let gpus_not_asked_are_untouched () =
+let this_hosts_gpus_not_asked_read_not_checked () =
   let _, _, _, modes = read_at_start () in
   Alcotest.(check (list string))
     "the other GPUs' partition modes"
-    ["disabled"; "disabled"; "disabled"]
+    ["not_checked"; "not_checked"; "disabled"]
     modes
+
+(* GPUs bound to nvidia, by default divided, not divided and pending division,
+   read with every read answering [reply] *)
+let read_failing ?(stored = [`enabled; `disabled; `enable_on_reboot]) reply =
+  let __context = Test_common.make_test_database () in
+  let host = Helpers.get_localhost ~__context in
+  let gpu pci_id partition_mode =
+    let pCI =
+      Test_common.make_pci ~__context ~host ~vendor_id:"10de"
+        ~driver_name:"nvidia" ~pci_id ()
+    in
+    Test_common.make_pgpu ~__context ~host ~pCI ~partition_mode ()
+  in
+  let cards = List.map2 gpu nvidia_bdfs stored and asked = ref 0 in
+  let run _ = incr asked ; reply in
+  Gpu_partition_helper.(
+    read_cards_at_start ~__context ~host
+      ~read_card:(read_card ~run ~lock_args:no_lock_args)
+  ) ;
+  (!asked, partition_modes ~__context cards)
+
+let every_read_fails name reason asked =
+  Alcotest.test_case name `Quick @@ fun () ->
+  Alcotest.(check (pair int (list string)))
+    "GPUs asked, partition modes"
+    (asked, ["possibly_enabled"; "unknown"; "possibly_enabled"])
+    (read_failing (Error reason))
+
+(* The first GPU asked reads as divided; which GPU is first is not fixed *)
+let a_reason_of_the_host_does_not_copy_the_first_gpus_mode () =
+  let too_old = with_probe ~reason:(Known Library_too_old) (Known Unreadable) in
+  let reply = Ok {exit= Some 69; stdout= lines [too_old partitions]} in
+  let asked, modes =
+    read_failing ~stored:[`disabled; `disabled; `disabled] reply
+  in
+  Alcotest.(check (pair int (list string)))
+    "GPUs asked, partition modes in any order"
+    (1, ["enabled"; "unknown"; "unknown"])
+    (asked, List.sort String.compare modes)
 
 let starting_up =
   Alcotest.
@@ -547,8 +586,22 @@ let starting_up =
         only_this_hosts_gpus_bound_to_nvidia_are_asked
     ; test_case "a failed read costs only its card" `Quick
         a_failed_read_costs_only_its_card
-    ; test_case "GPUs not asked are untouched" `Quick
-        gpus_not_asked_are_untouched
+    ; test_case
+        "this host's GPUs not asked read not_checked, another host's GPU is \
+         untouched"
+        `Quick this_hosts_gpus_not_asked_read_not_checked
+    ; every_read_fails
+        "helper absent, a reason of the host: only the first GPU asked, the \
+         GPUs that may be divided read possibly_enabled"
+        Helper_absent 1
+    ; every_read_fails
+        "helper timeout, a reason of one GPU: every GPU asked, the GPUs that \
+         may be divided read possibly_enabled"
+        Caller_timeout 3
+    ; test_case
+        "library too old, a reason of the host: the GPUs not asked do not take \
+         the first GPU's mode"
+        `Quick a_reason_of_the_host_does_not_copy_the_first_gpus_mode
     ]
 
 let test = starting_up @ decoding

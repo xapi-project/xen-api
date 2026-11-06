@@ -2693,7 +2693,7 @@ let sync_display ~__context ~host =
    lock and writes the reason and then the status. *)
 let gpu_partitioning_m = Mutex.create ()
 
-let sync_gpu_partitioning ~__context =
+let sync_gpu_partitioning ~__context ~after_boot =
   let self = Helpers.get_localhost ~__context and fn = __FUNCTION__ in
   with_lock gpu_partitioning_m @@ fun () ->
   match
@@ -2705,7 +2705,10 @@ let sync_gpu_partitioning ~__context =
   with
   | Error reason ->
       let value = Gpu.Host_partitioning.token reason in
-      debug "%s: inactive (%s)" fn value ;
+      debug "%s: inactive (%s), after boot: %B" fn value after_boot ;
+      (* What was read before a reboot no longer holds. Before the status
+         write, so the status from before the boot can still be read here *)
+      if after_boot then Xapi_pgpu.partitioning_ended ~__context ~host:self ;
       Db.Host.set_gpu_partitioning_reason ~__context ~self ~value ;
       Db.Host.set_gpu_partitioning_status ~__context ~self ~value:`inactive
   | Ok () ->
