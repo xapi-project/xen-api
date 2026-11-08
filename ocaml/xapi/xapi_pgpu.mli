@@ -74,10 +74,23 @@ val mxgpu_vf_setup : __context:Context.t -> unit
 val nvidia_vf_setup :
   __context:Context.t -> pf:API.ref_PCI -> enable:bool -> unit
 
+val nvidia_cards :
+  __context:Context.t -> host:API.ref_host -> (API.ref_PGPU * API.pCI_t) list
+(** The host's NVIDIA GPUs, found by PCI vendor, with their PCI records *)
+
 (* Sets [PGPU.partition_mode] from the observed state of each partition axis
- * of the card, where [None] is an axis that could not be read. *)
+ * of the card, where [None] is an axis that could not be read. A card that
+ * could not be read keeps showing that it may still be divided. *)
 val update_partition_mode :
      __context:Context.t
   -> self:API.ref_PGPU
   -> Gpu.Partition_mode.mode option list
   -> unit
+
+val partitioning_ended : __context:Context.t -> host:API.ref_host -> unit
+(** Partitioning is not in use on [host] now: its GPUs read [`not_in_use],
+    except those that may still be divided *)
+
+val set_not_checked : __context:Context.t -> self:API.ref_PGPU -> unit
+(** The GPU is not read, by design: it is not bound to the driver through
+    which xapi reads its division *)

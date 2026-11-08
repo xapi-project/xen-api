@@ -251,35 +251,50 @@ let test_set_GPU_group =
 
 (*--- Xapi_pgpu.update_partition_mode tests ---*)
 
-let test_update_partition_mode () =
+(* Each row: the value before, the axes read, the value written *)
+let test_partition_mode =
   let open Gpu.Partition_mode in
-  let __context = T.make_test_database () in
-  let self = T.make_pgpu ~__context () in
-  let check msg expected =
-    Alcotest.(check string)
-      msg
-      (API.partition_mode_to_string expected)
-      (API.partition_mode_to_string
-         (Db.PGPU.get_partition_mode ~__context ~self)
+  List.map
+    (fun (name, before, axes, expected) ->
+      ( name
+      , `Quick
+      , fun () ->
+          let __context = T.make_test_database () in
+          let self = T.make_pgpu ~__context ~partition_mode:before () in
+          Xapi_pgpu.update_partition_mode ~__context ~self axes ;
+          Alcotest.(check string)
+            name
+            (API.partition_mode_to_string expected)
+            (API.partition_mode_to_string
+               (Db.PGPU.get_partition_mode ~__context ~self)
+            )
       )
-  in
-  check "a new PGPU has not been read" `unknown ;
-  List.iter
-    (fun (msg, axes, expected) ->
-      Xapi_pgpu.update_partition_mode ~__context ~self axes ;
-      check msg expected
     )
     [
-      ("no axes", [], `not_supported)
-    ; ("one axis, not partitioned", [Some Disabled], `disabled)
-    ; ("one of two axes partitioned", [Some Enabled; Some Disabled], `enabled)
-    ; ("one of two axes unread", [Some Enabled; None], `unknown)
-    ; ("one axis, pending", [Some Enable_on_reboot], `enable_on_reboot)
-    ; ("one axis unread", [None], `unknown)
+      ("no axes: not_supported", `unknown, [], `not_supported)
+    ; ("never divided, unread: unknown", `not_supported, [None], `unknown)
+    ; ("one axis, undivided: disabled", `unknown, [Some Disabled], `disabled)
+    ; ( "one of two axes partitioned: enabled"
+      , `disabled
+      , [Some Enabled; Some Disabled]
+      , `enabled
+      )
+    ; ( "divided, one of two axes unread: possibly_enabled"
+      , `enabled
+      , [Some Enabled; None]
+      , `possibly_enabled
+      )
+    ; ( "one axis, pending: enable_on_reboot"
+      , `possibly_enabled
+      , [Some Enable_on_reboot]
+      , `enable_on_reboot
+      )
+    ; ( "pending division, unread: possibly_enabled"
+      , `enable_on_reboot
+      , [None]
+      , `possibly_enabled
+      )
     ]
-
-let test_partition_mode =
-  [("test_update_partition_mode", `Quick, test_update_partition_mode)]
 
 let test =
   test_can_run_vgpu

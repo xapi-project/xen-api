@@ -187,7 +187,8 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
       ~https_only ~max_cstate:"" ~ntp_mode:`Factory ~ntp_custom_servers:[]
       ~timezone:"UTC" ~numa_affinity_policy:`default_policy
       ~latest_synced_updates_applied:`unknown ~pending_guidances_full:[]
-      ~pending_guidances_recommended:[]
+      ~pending_guidances_recommended:[] ~gpu_partitioning_status:`not_reported
+      ~gpu_partitioning_reason:""
   in
   Db.Host.set_cpu_info ~__context ~self:host ~value:default_cpu_info ;
   host
@@ -228,7 +229,8 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~last_update_hash:"" ~ssh_enabled:true ~ssh_enabled_timeout:0L
     ~ssh_expiry:Date.epoch ~console_idle_timeout:0L ~ssh_auto_mode:false
     ~secure_boot:false ~https_only ~max_cstate:"" ~ntp_mode:`Factory
-    ~ntp_custom_servers:[] ~timezone:"UTC" ;
+    ~ntp_custom_servers:[] ~timezone:"UTC"
+    ~gpu_partitioning_status:`not_reported ~gpu_partitioning_reason:"" ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")

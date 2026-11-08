@@ -1029,7 +1029,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~secure_boot ~software_version ~https_only ~max_cstate ~ntp_mode
     ~ntp_custom_servers ~timezone ~numa_affinity_policy
     ~latest_synced_updates_applied ~pending_guidances_full
-    ~pending_guidances_recommended =
+    ~pending_guidances_recommended ~gpu_partitioning_status
+    ~gpu_partitioning_reason =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
      pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
      the initial setup of the database *)
@@ -1093,7 +1094,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~recommended_guidances:[] ~latest_synced_updates_applied
     ~pending_guidances_recommended ~pending_guidances_full ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
-    ~max_cstate ~secure_boot ~ntp_mode ~ntp_custom_servers ~timezone ;
+    ~max_cstate ~secure_boot ~ntp_mode ~ntp_custom_servers ~timezone
+    ~gpu_partitioning_status ~gpu_partitioning_reason ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
@@ -2686,6 +2688,36 @@ let sync_display ~__context ~host =
     if status = `disabled then Xapi_pci.disable_system_display_device () ;
     Db.Host.set_display ~__context ~self:host ~value:status
   )
+
+(* Every evaluation of the desired state, whatever started it, runs under this
+   lock and writes the reason and then the status. *)
+let gpu_partitioning_m = Mutex.create ()
+
+let sync_gpu_partitioning ~__context ~after_boot =
+  let self = Helpers.get_localhost ~__context and fn = __FUNCTION__ in
+  with_lock gpu_partitioning_m @@ fun () ->
+  match
+    Gpu.Host_partitioning.desired
+      ~partitionable_gpu:(fun () ->
+        Xapi_pgpu.nvidia_cards ~__context ~host:self <> []
+      )
+      ~pool_enabled:(fun () -> false)
+  with
+  | Error reason ->
+      let value = Gpu.Host_partitioning.token reason in
+      debug "%s: inactive (%s), after boot: %B" fn value after_boot ;
+      (* What was read before a reboot no longer holds. Before the status
+         write, so the status from before the boot can still be read here *)
+      if after_boot then Xapi_pgpu.partitioning_ended ~__context ~host:self ;
+      Db.Host.set_gpu_partitioning_reason ~__context ~self ~value ;
+      Db.Host.set_gpu_partitioning_status ~__context ~self ~value:`inactive
+  | Ok () ->
+      (* Unreachable until the pool can enable partitioning. The cards are read
+         under the lock, so no other evaluation runs meanwhile *)
+      Gpu_partition_helper.(
+        read_cards_at_start ~__context ~host:self
+          ~read_card:(read_card ~run:run_helper ~lock_args:no_lock_args)
+      )
 
 let apply_guest_agent_config ~__context ~host:_ =
   let pool = Helpers.get_pool ~__context in

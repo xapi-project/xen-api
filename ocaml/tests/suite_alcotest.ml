@@ -13,6 +13,7 @@ let () =
      ; ("Test_vm_check_operation_error", Test_vm_check_operation_error.test)
      ; ("Test_xapi_vbd_helpers", Test_xapi_vbd_helpers.test)
      ; ("Test_host", Test_host.test)
+     ; ("Test_gpu_partition_helper", Test_gpu_partition_helper.test)
      ; ("Test_host_helpers", Test_host_helpers.test)
      ; ("Test_sr_update_vdis", Test_sr_update_vdis.test)
      ; ("Test_xapi_db_upgrade", Test_xapi_db_upgrade.test)
