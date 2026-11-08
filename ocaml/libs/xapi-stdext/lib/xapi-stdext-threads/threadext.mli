@@ -11,6 +11,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
+val mutex_execute_within :
+  timeout:Mtime.Span.t -> Mutex.t -> (unit -> 'a) -> 'a option
+(** As [Mutex.execute], once the mutex is free: it polls it for up to
+    [timeout], and returns [None], without running the function, if it stays
+    held. *)
+
 module Mutex : sig val execute : Mutex.t -> (unit -> 'a) -> 'a end
 
 module Semaphore : sig val execute : Semaphore.Counting.t -> (unit -> 'a) -> 'a
@@ -36,6 +43,18 @@ module Delay : sig
   val signal : t -> unit
   (** Sends a signal to a waiting thread. See 'wait' *)
 end
+
+val retry :
+     ?delay:Mtime.Span.t
+  -> ?max_delay:Mtime.Span.t
+  -> stop:(unit -> bool)
+  -> (unit -> ('a, 'e) result)
+  -> ('a, 'e) result
+(** [retry ~stop f] calls [f] until it returns [Ok], or until [stop ()] is true
+    after an [Error]: it then returns the [Error] of the call before that one,
+    if any, as the deadline may have cut the last call short. Between two
+    calls it sleeps [delay] (default 50 ms), doubled after each call up to
+    [max_delay] (default [delay]: a fixed delay). *)
 
 val wait_timed_read : Unix.file_descr -> float -> bool
 

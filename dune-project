@@ -853,7 +853,18 @@
 (package
  (name xapi-gpu)
  (depends
+  (astring :with-test)
+  clock
+  forkexec
+  mtime
   ppx_deriving
+  ppx_deriving_rpc
+  rpclib
+  xapi-idl
+  xapi-log
+  xapi-stdext-pervasives
+  xapi-stdext-threads
+  xapi-stdext-unix
   (alcotest :with-test)))
 
 (package

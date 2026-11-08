@@ -74,6 +74,19 @@ val mxgpu_vf_setup : __context:Context.t -> unit
 val nvidia_vf_setup :
   __context:Context.t -> pf:API.ref_PCI -> enable:bool -> unit
 
+val gpu_lock : Gpu_lock.t
+(** The host GPU lock, taken around VF enables while engaged *)
+
+val gpu_lock_engaged : unit -> bool
+
+val set_gpu_lock_engaged : timeout:Mtime.Span.t -> bool -> (bool, string) result
+(** Sets whether VF enables take the host GPU lock, once running VF setups
+    end, waiting for them up to [timeout]; returns the previous value. *)
+
+val nvidia_cards :
+  __context:Context.t -> host:API.ref_host -> (API.ref_PGPU * API.pCI_t) list
+(** The host's NVIDIA GPUs, found by PCI vendor, with their PCI records *)
+
 (* Sets [PGPU.partition_mode] from the observed state of each partition axis
  * of the card, where [None] is an axis that could not be read. *)
 val update_partition_mode :

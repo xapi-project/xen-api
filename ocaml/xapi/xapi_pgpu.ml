@@ -36,11 +36,22 @@ let calculate_max_capacities ~__context ~pCI:_ ~size ~supported_VGPU_types =
     )
     supported_VGPU_types
 
+let is_nvidia_vendor id =
+  id = Xapi_pci.id_of_int Xapi_vgpu_type.Nvidia.vendor_id
+
+(* By PCI vendor, not by the driver bound now: a pass-through start unbinds a
+   card from its driver. *)
+let nvidia_cards ~__context ~host =
+  Db.Host.get_PGPUs ~__context ~self:host
+  |> List.map (fun self ->
+      ( self
+      , Db.PCI.get_record ~__context ~self:(Db.PGPU.get_PCI ~__context ~self)
+      )
+  )
+  |> List.filter (fun (_, pci) -> is_nvidia_vendor pci.API.pCI_vendor_id)
+
 let fetch_compatibility_metadata ~__context ~pgpu_pci =
-  if
-    Db.PCI.get_vendor_id ~__context ~self:pgpu_pci
-    = Xapi_pci.id_of_int Xapi_vgpu_type.Nvidia.vendor_id
-  then
+  if is_nvidia_vendor (Db.PCI.get_vendor_id ~__context ~self:pgpu_pci) then
     let dbg = Context.string_of_task __context in
     let pgpu_pci_address = Db.PCI.get_pci_id ~__context ~self:pgpu_pci in
     Xapi_gpumon.Nvidia.get_pgpu_compatibility_metadata ~dbg ~pgpu_pci_address
@@ -392,6 +403,24 @@ let mxgpu_vf_setup ~__context =
  * going to use a vgpu backed by an nvidia pgpu. *)
 let nvidia_vf_setup_mutex = Mutex.create ()
 
+(* written under nvidia_vf_setup_mutex, inside which VF setups read it *)
+let gpu_lock_engaged_flag = Atomic.make false
+
+let gpu_lock_engaged () = Atomic.get gpu_lock_engaged_flag
+
+let gpu_lock = Gpu_lock.create ~engaged:gpu_lock_engaged ()
+
+let set_gpu_lock_engaged ~timeout engaged =
+  let set () = Atomic.exchange gpu_lock_engaged_flag engaged in
+  Xapi_stdext_threads.Threadext.mutex_execute_within ~timeout
+    nvidia_vf_setup_mutex set
+  |> Option.to_result
+       ~none:(Fmt.str "a VF setup still ran after %a" Mtime.Span.pp timeout)
+
+(* How long to wait for another holder before refusing: about twice the
+   longest hold measured, a VF enable of 16 s *)
+let gpu_lock_vf_enable_timeout = Mtime.Span.(30 * s)
+
 let nvidia_vf_setup ~__context ~pf ~enable =
   let sprintf = Printf.sprintf in
   let script = !Xapi_globs.nvidia_sriov_manage_script in
@@ -454,8 +483,14 @@ let nvidia_vf_setup ~__context ~pf ~enable =
           )
     | Some 0 when Sys.file_exists script ->
         debug "PCI %s has 0 VFs - calling %s" pci script ;
+        let card = addr_of pci in
         let out, _ =
-          Forkhelpers.execute_command_get_output script [enable'; pci]
+          Gpu_lock.with_lock gpu_lock (Vf_enable card)
+            ~timeout:gpu_lock_vf_enable_timeout
+          @@ fun ~keep_fds ~bounds ->
+          Gpu_lock.sriov_manage bounds ~enable card @@ fun timeout ->
+          Forkhelpers.execute_command_get_output ~keep_fds ?timeout script
+            [enable'; pci]
         in
         debug "Activating NVidia vGPUs %s yielded: '%s'" pci (String.escaped out)
     | Some n when n > 0 ->

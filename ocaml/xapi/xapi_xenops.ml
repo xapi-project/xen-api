@@ -3294,6 +3294,14 @@ let set_numa_affinity_policy ~__context ~value =
   in
   Client.HOST.set_numa_affinity_policy dbg value
 
+(* the time lets xenopsd ignore a call from a xapi that has since restarted *)
+let set_gpu_lock_engaged ~__context engaged =
+  let dbg = Context.string_of_task __context in
+  let open Xapi_xenops_queue in
+  let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+  Client.HOST.set_gpu_lock_engaged dbg engaged
+    (Mtime.to_uint64_ns (Mtime_clock.now ()))
+
 let on_xapi_restart ~__context =
   let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   let host = Helpers.get_localhost ~__context in

@@ -3,4 +3,23 @@
  (public_name xapi-gpu)
  (preprocess (pps ppx_deriving.std))
  (flags (:standard -w -39@8))
- (modules partition_mode gpu_partition_lifecycle))
+ (modules partition_mode gpu_partition_lifecycle host_partitioning))
+
+(library
+ (name gpu_lock)
+ (public_name xapi-gpu.lock)
+ (modules gpu_lock)
+ (preprocess (pps ppx_deriving_rpc))
+ (libraries
+  clock forkexec mtime rpclib.core rpclib.json unix xapi-idl xapi-log
+  xapi-stdext-pervasives xapi-stdext-threads xapi-stdext-unix))
+
+(executable
+ (name gpu_lock_cli)
+ (modules gpu_lock_cli)
+ (libraries mtime xapi-gpu.lock))
+
+(install
+ (files (gpu_lock_cli.exe as gpu-lock-cli))
+ (section sbin)
+ (package xapi-tools))

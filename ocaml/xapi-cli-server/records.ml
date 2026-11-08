@@ -3551,6 +3551,15 @@ let host_record rpc session_id host =
             Client.Host.set_timezone ~rpc ~session_id ~self:host ~value
           )
           ()
+      ; make_field ~name:"gpu-partitioning-status"
+          ~get:(fun () ->
+            Record_util.host_gpu_partitioning_status_to_string
+              (x ()).API.host_gpu_partitioning_status
+          )
+          ()
+      ; make_field ~name:"gpu-partitioning-reason"
+          ~get:(fun () -> (x ()).API.host_gpu_partitioning_reason)
+          ()
       ]
   }
 
