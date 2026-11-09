@@ -528,14 +528,6 @@ functor
           Ref.string_of pbd
       with _ -> "invalid"
 
-    let task_uuid ~__context task =
-      try
-        if Pool_role.is_master () then
-          Db.Task.get_uuid ~__context ~self:task
-        else
-          Ref.string_of task
-      with _ -> "invalid"
-
     let crashdump_uuid ~__context cd =
       try
         if Pool_role.is_master () then
@@ -630,14 +622,6 @@ functor
           Db.SDN_controller.get_uuid ~__context ~self:sdn_controller
         else
           Ref.string_of sdn_controller
-      with _ -> "invalid"
-
-    let pusb_uuid ~__context pusb =
-      try
-        if Pool_role.is_master () then
-          Db.PUSB.get_uuid ~__context ~self:pusb
-        else
-          Ref.string_of pusb
       with _ -> "invalid"
 
     let usb_group_uuid ~__context usb_group =
@@ -3137,12 +3121,6 @@ functor
           (host_uuid ~__context host) ;
         Local.VM.copy_bios_strings ~__context ~vm ~host
 
-      let set_protection_policy ~__context ~self:_ ~value:_ =
-        raise
-          Api_errors.(
-            Server_error (not_implemented, ["VM.set_protection_policy"])
-          )
-
       let set_snapshot_schedule ~__context ~self ~value =
         info "VM.set_snapshot_schedule: self = '%s'; " (vm_uuid ~__context self) ;
         Local.VM.set_snapshot_schedule ~__context ~self ~value
@@ -3919,11 +3897,6 @@ functor
           Client.Host.uninstall_ca_certificate ~host ~name ~force
         in
         do_op_on ~local_fn ~__context ~host ~remote_fn
-
-      (* legacy names *)
-      let certificate_install = install_ca_certificate
-
-      let certificate_uninstall = uninstall_ca_certificate ~force:false
 
       let certificate_list ~__context ~host =
         info "Host.certificate_list: host = '%s'" (host_uuid ~__context host) ;
