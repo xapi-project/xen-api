@@ -12,59 +12,27 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Bodies of the messages recording the lifecycle of a VM, one function
-    per operation creating such a message *)
+(** Messages recording the lifecycle of a VM (VM_STARTED, VM_MIGRATED...) *)
 
-val snapshot_body :
-  __context:Context.t -> vm:API.ref_VM -> new_name:string -> string
+(** The VM lifecycle events for which a message is created *)
+type event =
+  | Started of {host: API.ref_host}
+  | Resumed of {host: API.ref_host}
+  | Paused
+  | Unpaused
+  | Suspended
+  | Shutdown of {forced: bool}
+  | Rebooted of {forced: bool}
+  | Migrated of {source: API.ref_host; destination: API.ref_host}
+  | Snapshotted of {snapshot_name: string}
+  | Checkpointed of {snapshot_name: string}
+  | Snapshot_reverted of {snapshot: API.ref_VM}
+  | Cloned of {clone: API.ref_VM}
 
-val checkpoint_body :
-  __context:Context.t -> vm:API.ref_VM -> new_name:string -> string
+val body : __context:Context.t -> vm:API.ref_VM -> event -> string
+(** The text of the message for an event of [vm] *)
 
-val start_body :
-  __context:Context.t -> vm:API.ref_VM -> host:API.ref_host -> string
-
-val start_on_body :
-  __context:Context.t -> vm:API.ref_VM -> host:API.ref_host -> string
-
-val pause_body : __context:Context.t -> vm:API.ref_VM -> string
-
-val unpause_body : __context:Context.t -> vm:API.ref_VM -> string
-
-val clean_shutdown_body : __context:Context.t -> vm:API.ref_VM -> string
-
-val shutdown_body : __context:Context.t -> vm:API.ref_VM -> string
-
-val clean_reboot_body : __context:Context.t -> vm:API.ref_VM -> string
-
-val hard_shutdown_body : __context:Context.t -> vm:API.ref_VM -> string
-
-val hard_reboot_body : __context:Context.t -> vm:API.ref_VM -> string
-
-val suspend_body : __context:Context.t -> vm:API.ref_VM -> string
-
-val revert_body :
-  __context:Context.t -> vm:API.ref_VM -> snapshot:API.ref_VM -> string
-
-val csvm_body :
-  __context:Context.t -> vm:API.ref_VM -> result:API.ref_VM -> string
-
-val resume_body :
-  __context:Context.t -> vm:API.ref_VM -> host:API.ref_host -> string
-
-val resume_on_body :
-  __context:Context.t -> vm:API.ref_VM -> host:API.ref_host -> string
-
-val pool_migrate_body :
-     __context:Context.t
-  -> vm:API.ref_VM
-  -> source_host:API.ref_host
-  -> host:API.ref_host
-  -> string
-
-val migrate_send_body :
-     __context:Context.t
-  -> vm:API.ref_VM
-  -> source_host:API.ref_host
-  -> host:API.ref_host
-  -> string
+val create : __context:Context.t -> vm:API.ref_VM -> event -> unit
+(** Create the message for an event of [vm]. Failing to compute the
+    message body raises an exception; failing to create the message
+    itself is ignored. *)

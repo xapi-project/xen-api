@@ -32,45 +32,45 @@ let test_bodies () =
   in
   let open Vm_message in
   check "snapshot" "VM 'vm' (uuid: vm-uuid) snapshotted, snapshot name: snap"
-    (snapshot_body ~__context ~vm ~new_name:"snap") ;
+    (body ~__context ~vm (Snapshotted {snapshot_name= "snap"})) ;
   check "checkpoint" "VM 'vm' (uuid: vm-uuid) checkpointed, snapshot name: snap"
-    (checkpoint_body ~__context ~vm ~new_name:"snap") ;
+    (body ~__context ~vm (Checkpointed {snapshot_name= "snap"})) ;
   check "start" "VM 'vm' (uuid: vm-uuid) started on host: h (uuid: h-uuid)"
-    (start_body ~__context ~vm ~host) ;
+    (body ~__context ~vm (Started {host})) ;
   check "start_on" "VM 'vm' (uuid: vm-uuid) started on host: h (uuid: h-uuid)"
-    (start_on_body ~__context ~vm ~host) ;
-  check "pause" "VM 'vm' (uuid: vm-uuid) paused" (pause_body ~__context ~vm) ;
+    (body ~__context ~vm (Started {host})) ;
+  check "pause" "VM 'vm' (uuid: vm-uuid) paused" (body ~__context ~vm Paused) ;
   check "unpause" "VM 'vm' (uuid: vm-uuid) unpaused"
-    (unpause_body ~__context ~vm) ;
+    (body ~__context ~vm Unpaused) ;
   check "clean_shutdown" "VM 'vm' (uuid: vm-uuid) shutdown"
-    (clean_shutdown_body ~__context ~vm) ;
+    (body ~__context ~vm (Shutdown {forced= false})) ;
   check "shutdown" "VM 'vm' (uuid: vm-uuid) shutdown"
-    (shutdown_body ~__context ~vm) ;
+    (body ~__context ~vm (Shutdown {forced= false})) ;
   check "clean_reboot" "VM 'vm' (uuid: vm-uuid) rebooted cleanly"
-    (clean_reboot_body ~__context ~vm) ;
+    (body ~__context ~vm (Rebooted {forced= false})) ;
   check "hard_shutdown" "VM 'vm' (uuid: vm-uuid) shutdown forcibly"
-    (hard_shutdown_body ~__context ~vm) ;
+    (body ~__context ~vm (Shutdown {forced= true})) ;
   check "hard_reboot" "VM 'vm' (uuid: vm-uuid) rebooted forcibly"
-    (hard_reboot_body ~__context ~vm) ;
+    (body ~__context ~vm (Rebooted {forced= true})) ;
   check "suspend" "VM 'vm' (uuid: vm-uuid) suspended"
-    (suspend_body ~__context ~vm) ;
+    (body ~__context ~vm Suspended) ;
   check "revert"
     "VM 'vm' (uuid: vm-uuid) reverted to snapshot: other (uuid other-uuid)"
-    (revert_body ~__context ~vm ~snapshot:other) ;
+    (body ~__context ~vm (Snapshot_reverted {snapshot= other})) ;
   check "csvm" "VM 'vm' (uuid: vm-uuid) cloned (new uuid: other-uuid)"
-    (csvm_body ~__context ~vm ~result:other) ;
+    (body ~__context ~vm (Cloned {clone= other})) ;
   check "resume" "VM 'vm' (uuid: vm-uuid) resumed on host: h (uuid: h-uuid)"
-    (resume_body ~__context ~vm ~host) ;
+    (body ~__context ~vm (Resumed {host})) ;
   check "resume_on" "VM 'vm' (uuid: vm-uuid) resumed on host: h (uuid: h-uuid)"
-    (resume_on_body ~__context ~vm ~host) ;
+    (body ~__context ~vm (Resumed {host})) ;
   check "pool_migrate"
     "VM 'vm' (uuid: vm-uuid) migrated from host 'src' (uuid: src-uuid) to host \
      'h' (uuid: h-uuid)"
-    (pool_migrate_body ~__context ~vm ~source_host ~host) ;
+    (body ~__context ~vm (Migrated {source= source_host; destination= host})) ;
   check "migrate_send"
     "VM 'vm' (uuid: vm-uuid) migrated from host 'src' (uuid: src-uuid) to host \
      'h' (uuid: h-uuid)"
-    (migrate_send_body ~__context ~vm ~source_host ~host)
+    (body ~__context ~vm (Migrated {source= source_host; destination= host}))
 
 let test = [("Message bodies", `Quick, test_bodies)]
 

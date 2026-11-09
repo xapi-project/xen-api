@@ -1323,16 +1323,6 @@ functor
 
       let wait_for_tasks = Helpers.Task.wait_for
 
-      let create_vm_message ~__context ~vm ~message_body ~message =
-        let name, priority = message in
-        try
-          ignore
-            (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-               ~obj_uuid:(Db.VM.get_uuid ~__context ~self:vm)
-               ~body:message_body
-            )
-        with _ -> ()
-
       let cancel ~__context ~vm ~ops =
         Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
         let cancelled =
@@ -1855,9 +1845,7 @@ functor
             (fun () -> forward_to_access_srs ~local_fn ~__context ~vm ~remote_fn
           )
         in
-        let message_body = Vm_message.snapshot_body ~__context ~vm ~new_name in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_snapshotted ;
+        Vm_message.create ~__context ~vm (Snapshotted {snapshot_name= new_name}) ;
         result
 
       let checkpoint ~__context ~vm ~new_name =
@@ -1874,11 +1862,7 @@ functor
                 forward_to_access_srs ~local_fn ~__context ~vm ~remote_fn
           )
         in
-        let message_body =
-          Vm_message.checkpoint_body ~__context ~vm ~new_name
-        in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_checkpointed ;
+        Vm_message.create ~__context ~vm (Checkpointed {snapshot_name= new_name}) ;
         result
 
       let copy ~__context ~vm ~new_name ~sr =
@@ -2017,9 +2001,7 @@ functor
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
         let uuid = Db.VM.get_uuid ~__context ~self:vm in
-        let message_body = Vm_message.start_body ~__context ~vm ~host in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_started ;
+        Vm_message.create ~__context ~vm (Started {host}) ;
         Rrdd_proxy.push_rrd ~__context ~vm_uuid:uuid
 
       let start_on ~__context ~vm ~host ~start_paused ~force =
@@ -2073,9 +2055,7 @@ functor
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
         let _ (* uuid *) = Db.VM.get_uuid ~__context ~self:vm in
-        let message_body = Vm_message.start_on_body ~__context ~vm ~host in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_started ;
+        Vm_message.create ~__context ~vm (Started {host}) ;
         Rrdd_proxy.push_rrd ~__context
           ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 
@@ -2086,9 +2066,7 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.pause" ~op:`pause
           (fun () -> forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
-        let message_body = Vm_message.pause_body ~__context ~vm in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_paused ;
+        Vm_message.create ~__context ~vm Paused ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2099,9 +2077,7 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.unpause" ~op:`unpause
           (fun () -> forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
-        let message_body = Vm_message.unpause_body ~__context ~vm in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_unpaused ;
+        Vm_message.create ~__context ~vm Unpaused ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2167,9 +2143,7 @@ functor
           ~op:`clean_shutdown (fun () ->
             forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
-        let message_body = Vm_message.clean_shutdown_body ~__context ~vm in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_shutdown ;
+        Vm_message.create ~__context ~vm (Shutdown {forced= false}) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2205,9 +2179,7 @@ functor
         ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
-        let message_body = Vm_message.shutdown_body ~__context ~vm in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_shutdown
+        Vm_message.create ~__context ~vm (Shutdown {forced= false})
 
       let clean_reboot ~__context ~vm =
         info "VM.clean_reboot: VM = '%s'" (vm_uuid ~__context vm) ;
@@ -2227,9 +2199,7 @@ functor
                 )
             )
         ) ;
-        let message_body = Vm_message.clean_reboot_body ~__context ~vm in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_rebooted ;
+        Vm_message.create ~__context ~vm (Rebooted {forced= false}) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2284,9 +2254,7 @@ functor
             in
             policy ~local_fn ~__context ~remote_fn
         ) ;
-        let message_body = Vm_message.hard_shutdown_body ~__context ~vm in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_shutdown ;
+        Vm_message.create ~__context ~vm (Shutdown {forced= true}) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2316,9 +2284,7 @@ functor
                 )
             )
         ) ;
-        let message_body = Vm_message.hard_reboot_body ~__context ~vm in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_rebooted ;
+        Vm_message.create ~__context ~vm (Rebooted {forced= true}) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2347,9 +2313,7 @@ functor
           (fun () -> forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
         (* debug "placeholder for retrieving the current value of memory-actual";*)
-        let message_body = Vm_message.suspend_body ~__context ~vm in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_suspended ;
+        Vm_message.create ~__context ~vm Suspended ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2415,9 +2379,7 @@ functor
                   forward_to_access_srs ~local_fn ~__context ~vm ~remote_fn
             )
         ) ;
-        let message_body = Vm_message.revert_body ~__context ~vm ~snapshot in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_snapshot_reverted
+        Vm_message.create ~__context ~vm (Snapshot_reverted {snapshot})
 
       (* same forwarding logic as clone *)
       let csvm ~__context ~vm =
@@ -2438,9 +2400,7 @@ functor
                 ~__context ~vm ~remote_fn ()
           )
         in
-        let message_body = Vm_message.csvm_body ~__context ~vm ~result in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_cloned ;
+        Vm_message.create ~__context ~vm (Cloned {clone= result}) ;
         result
 
       (* Like start.. resume on any suitable host *)
@@ -2468,9 +2428,7 @@ functor
         in
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
-        let message_body = Vm_message.resume_body ~__context ~vm ~host in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_resumed ;
+        Vm_message.create ~__context ~vm (Resumed {host}) ;
         Rrdd_proxy.push_rrd ~__context
           ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 
@@ -2498,9 +2456,7 @@ functor
         ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
-        let message_body = Vm_message.resume_on_body ~__context ~vm ~host in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_resumed ;
+        Vm_message.create ~__context ~vm (Resumed {host}) ;
         Rrdd_proxy.push_rrd ~__context
           ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 
@@ -2550,11 +2506,8 @@ functor
                 forward_vm_op ~local_fn ~__context ~vm ~remote_fn
             )
         ) ;
-        let message_body =
-          Vm_message.pool_migrate_body ~__context ~vm ~source_host ~host
-        in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_migrated ;
+        Vm_message.create ~__context ~vm
+          (Migrated {source= source_host; destination= host}) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2679,11 +2632,8 @@ functor
         in
         ( match migration_type with
         | `Live_intrapool host ->
-            let message_body =
-              Vm_message.migrate_send_body ~__context ~vm ~source_host ~host
-            in
-            create_vm_message ~__context ~vm ~message_body
-              ~message:Api_messages.vm_migrated
+            Vm_message.create ~__context ~vm
+              (Migrated {source= source_host; destination= host})
         | _ ->
             ()
         ) ;

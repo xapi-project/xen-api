@@ -12,119 +12,100 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* Bodies of the messages recording the lifecycle of a VM *)
+type event =
+  | Started of {host: API.ref_host}
+  | Resumed of {host: API.ref_host}
+  | Paused
+  | Unpaused
+  | Suspended
+  | Shutdown of {forced: bool}
+  | Rebooted of {forced: bool}
+  | Migrated of {source: API.ref_host; destination: API.ref_host}
+  | Snapshotted of {snapshot_name: string}
+  | Checkpointed of {snapshot_name: string}
+  | Snapshot_reverted of {snapshot: API.ref_VM}
+  | Cloned of {clone: API.ref_VM}
 
-let snapshot_body ~__context ~vm ~new_name =
-  Printf.sprintf "VM '%s' (uuid: %s) snapshotted, snapshot name: %s"
+let message = function
+  | Started _ ->
+      Api_messages.vm_started
+  | Resumed _ ->
+      Api_messages.vm_resumed
+  | Paused ->
+      Api_messages.vm_paused
+  | Unpaused ->
+      Api_messages.vm_unpaused
+  | Suspended ->
+      Api_messages.vm_suspended
+  | Shutdown _ ->
+      Api_messages.vm_shutdown
+  | Rebooted _ ->
+      Api_messages.vm_rebooted
+  | Migrated _ ->
+      Api_messages.vm_migrated
+  | Snapshotted _ ->
+      Api_messages.vm_snapshotted
+  | Checkpointed _ ->
+      Api_messages.vm_checkpointed
+  | Snapshot_reverted _ ->
+      Api_messages.vm_snapshot_reverted
+  | Cloned _ ->
+      Api_messages.vm_cloned
+
+let body ~__context ~vm event =
+  let host_name self = Db.Host.get_name_label ~__context ~self in
+  let host_uuid self = Db.Host.get_uuid ~__context ~self in
+  let what =
+    match event with
+    | Started {host} ->
+        Printf.sprintf "started on host: %s (uuid: %s)" (host_name host)
+          (host_uuid host)
+    | Resumed {host} ->
+        Printf.sprintf "resumed on host: %s (uuid: %s)" (host_name host)
+          (host_uuid host)
+    | Paused ->
+        "paused"
+    | Unpaused ->
+        "unpaused"
+    | Suspended ->
+        "suspended"
+    | Shutdown {forced= false} ->
+        "shutdown"
+    | Shutdown {forced= true} ->
+        "shutdown forcibly"
+    | Rebooted {forced= false} ->
+        "rebooted cleanly"
+    | Rebooted {forced= true} ->
+        "rebooted forcibly"
+    | Migrated {source; destination} ->
+        Printf.sprintf
+          "migrated from host '%s' (uuid: %s) to host '%s' (uuid: %s)"
+          (host_name source) (host_uuid source) (host_name destination)
+          (host_uuid destination)
+    | Snapshotted {snapshot_name} ->
+        Printf.sprintf "snapshotted, snapshot name: %s" snapshot_name
+    | Checkpointed {snapshot_name} ->
+        Printf.sprintf "checkpointed, snapshot name: %s" snapshot_name
+    | Snapshot_reverted {snapshot} ->
+        Printf.sprintf "reverted to snapshot: %s (uuid %s)"
+          (Db.VM.get_name_label ~__context ~self:snapshot)
+          (Db.VM.get_uuid ~__context ~self:snapshot)
+    | Cloned {clone} ->
+        Printf.sprintf "cloned (new uuid: %s)"
+          (Db.VM.get_uuid ~__context ~self:clone)
+  in
+  Printf.sprintf "VM '%s' (uuid: %s) %s"
     (Db.VM.get_name_label ~__context ~self:vm)
     (Db.VM.get_uuid ~__context ~self:vm)
-    new_name
+    what
 
-let checkpoint_body ~__context ~vm ~new_name =
-  Printf.sprintf "VM '%s' (uuid: %s) checkpointed, snapshot name: %s"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-    new_name
-
-let start_body ~__context ~vm ~host =
-  Printf.sprintf "VM '%s' (uuid: %s) started on host: %s (uuid: %s)"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-    (Db.Host.get_name_label ~__context ~self:host)
-    (Db.Host.get_uuid ~__context ~self:host)
-
-let start_on_body ~__context ~vm ~host =
-  Printf.sprintf "VM '%s' (uuid: %s) started on host: %s (uuid: %s)"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-    (Db.Host.get_name_label ~__context ~self:host)
-    (Db.Host.get_uuid ~__context ~self:host)
-
-let pause_body ~__context ~vm =
-  Printf.sprintf "VM '%s' (uuid: %s) paused"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-
-let unpause_body ~__context ~vm =
-  Printf.sprintf "VM '%s' (uuid: %s) unpaused"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-
-let clean_shutdown_body ~__context ~vm =
-  Printf.sprintf "VM '%s' (uuid: %s) shutdown"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-
-let shutdown_body ~__context ~vm =
-  Printf.sprintf "VM '%s' (uuid: %s) shutdown"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-
-let clean_reboot_body ~__context ~vm =
-  Printf.sprintf "VM '%s' (uuid: %s) rebooted cleanly"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-
-let hard_shutdown_body ~__context ~vm =
-  Printf.sprintf "VM '%s' (uuid: %s) shutdown forcibly"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-
-let hard_reboot_body ~__context ~vm =
-  Printf.sprintf "VM '%s' (uuid: %s) rebooted forcibly"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-
-let suspend_body ~__context ~vm =
-  Printf.sprintf "VM '%s' (uuid: %s) suspended"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-
-let revert_body ~__context ~vm ~snapshot =
-  Printf.sprintf "VM '%s' (uuid: %s) reverted to snapshot: %s (uuid %s)"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-    (Db.VM.get_name_label ~__context ~self:snapshot)
-    (Db.VM.get_uuid ~__context ~self:snapshot)
-
-let csvm_body ~__context ~vm ~result =
-  Printf.sprintf "VM '%s' (uuid: %s) cloned (new uuid: %s)"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:result)
-
-let resume_body ~__context ~vm ~host =
-  Printf.sprintf "VM '%s' (uuid: %s) resumed on host: %s (uuid: %s)"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-    (Db.Host.get_name_label ~__context ~self:host)
-    (Db.Host.get_uuid ~__context ~self:host)
-
-let resume_on_body ~__context ~vm ~host =
-  Printf.sprintf "VM '%s' (uuid: %s) resumed on host: %s (uuid: %s)"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-    (Db.Host.get_name_label ~__context ~self:host)
-    (Db.Host.get_uuid ~__context ~self:host)
-
-let pool_migrate_body ~__context ~vm ~source_host ~host =
-  Printf.sprintf
-    "VM '%s' (uuid: %s) migrated from host '%s' (uuid: %s) to host '%s' (uuid: \
-     %s)"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-    (Db.Host.get_name_label ~__context ~self:source_host)
-    (Db.Host.get_uuid ~__context ~self:source_host)
-    (Db.Host.get_name_label ~__context ~self:host)
-    (Db.Host.get_uuid ~__context ~self:host)
-
-let migrate_send_body ~__context ~vm ~source_host ~host =
-  Printf.sprintf
-    "VM '%s' (uuid: %s) migrated from host '%s' (uuid: %s) to host '%s' (uuid: \
-     %s)"
-    (Db.VM.get_name_label ~__context ~self:vm)
-    (Db.VM.get_uuid ~__context ~self:vm)
-    (Db.Host.get_name_label ~__context ~self:source_host)
-    (Db.Host.get_uuid ~__context ~self:source_host)
-    (Db.Host.get_name_label ~__context ~self:host)
-    (Db.Host.get_uuid ~__context ~self:host)
+let create ~__context ~vm event =
+  let body = body ~__context ~vm event in
+  let name, priority = message event in
+  try
+    ignore
+      (Xapi_message.create ~__context ~name ~priority ~cls:`VM
+         ~obj_uuid:(Db.VM.get_uuid ~__context ~self:vm)
+         ~body
+      )
+  with _ -> ()
