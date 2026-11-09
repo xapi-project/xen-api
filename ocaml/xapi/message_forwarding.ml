@@ -1855,12 +1855,7 @@ functor
             (fun () -> forward_to_access_srs ~local_fn ~__context ~vm ~remote_fn
           )
         in
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) snapshotted, snapshot name: %s"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-            new_name
-        in
+        let message_body = Vm_message.snapshot_body ~__context ~vm ~new_name in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_snapshotted ;
         result
@@ -1880,10 +1875,7 @@ functor
           )
         in
         let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) checkpointed, snapshot name: %s"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-            new_name
+          Vm_message.checkpoint_body ~__context ~vm ~new_name
         in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_checkpointed ;
@@ -2025,13 +2017,7 @@ functor
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
         let uuid = Db.VM.get_uuid ~__context ~self:vm in
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) started on host: %s (uuid: %s)"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-            (Db.Host.get_name_label ~__context ~self:host)
-            (Db.Host.get_uuid ~__context ~self:host)
-        in
+        let message_body = Vm_message.start_body ~__context ~vm ~host in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_started ;
         Rrdd_proxy.push_rrd ~__context ~vm_uuid:uuid
@@ -2087,13 +2073,7 @@ functor
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
         let _ (* uuid *) = Db.VM.get_uuid ~__context ~self:vm in
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) started on host: %s (uuid: %s)"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-            (Db.Host.get_name_label ~__context ~self:host)
-            (Db.Host.get_uuid ~__context ~self:host)
-        in
+        let message_body = Vm_message.start_on_body ~__context ~vm ~host in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_started ;
         Rrdd_proxy.push_rrd ~__context
@@ -2106,11 +2086,7 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.pause" ~op:`pause
           (fun () -> forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) paused"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-        in
+        let message_body = Vm_message.pause_body ~__context ~vm in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_paused ;
         update_vbd_operations ~__context ~vm ;
@@ -2123,11 +2099,7 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.unpause" ~op:`unpause
           (fun () -> forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) unpaused"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-        in
+        let message_body = Vm_message.unpause_body ~__context ~vm in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_unpaused ;
         update_vbd_operations ~__context ~vm ;
@@ -2195,11 +2167,7 @@ functor
           ~op:`clean_shutdown (fun () ->
             forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) shutdown"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-        in
+        let message_body = Vm_message.clean_shutdown_body ~__context ~vm in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_shutdown ;
         update_vbd_operations ~__context ~vm ;
@@ -2237,11 +2205,7 @@ functor
         ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) shutdown"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-        in
+        let message_body = Vm_message.shutdown_body ~__context ~vm in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_shutdown
 
@@ -2263,11 +2227,7 @@ functor
                 )
             )
         ) ;
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) rebooted cleanly"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-        in
+        let message_body = Vm_message.clean_reboot_body ~__context ~vm in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_rebooted ;
         update_vbd_operations ~__context ~vm ;
@@ -2324,11 +2284,7 @@ functor
             in
             policy ~local_fn ~__context ~remote_fn
         ) ;
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) shutdown forcibly"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-        in
+        let message_body = Vm_message.hard_shutdown_body ~__context ~vm in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_shutdown ;
         update_vbd_operations ~__context ~vm ;
@@ -2360,11 +2316,7 @@ functor
                 )
             )
         ) ;
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) rebooted forcibly"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-        in
+        let message_body = Vm_message.hard_reboot_body ~__context ~vm in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_rebooted ;
         update_vbd_operations ~__context ~vm ;
@@ -2395,11 +2347,7 @@ functor
           (fun () -> forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
         (* debug "placeholder for retrieving the current value of memory-actual";*)
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) suspended"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-        in
+        let message_body = Vm_message.suspend_body ~__context ~vm in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_suspended ;
         update_vbd_operations ~__context ~vm ;
@@ -2467,13 +2415,7 @@ functor
                   forward_to_access_srs ~local_fn ~__context ~vm ~remote_fn
             )
         ) ;
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) reverted to snapshot: %s (uuid %s)"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-            (Db.VM.get_name_label ~__context ~self:snapshot)
-            (Db.VM.get_uuid ~__context ~self:snapshot)
-        in
+        let message_body = Vm_message.revert_body ~__context ~vm ~snapshot in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_snapshot_reverted
 
@@ -2496,12 +2438,7 @@ functor
                 ~__context ~vm ~remote_fn ()
           )
         in
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) cloned (new uuid: %s)"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:result)
-        in
+        let message_body = Vm_message.csvm_body ~__context ~vm ~result in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_cloned ;
         result
@@ -2531,13 +2468,7 @@ functor
         in
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) resumed on host: %s (uuid: %s)"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-            (Db.Host.get_name_label ~__context ~self:host)
-            (Db.Host.get_uuid ~__context ~self:host)
-        in
+        let message_body = Vm_message.resume_body ~__context ~vm ~host in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_resumed ;
         Rrdd_proxy.push_rrd ~__context
@@ -2567,13 +2498,7 @@ functor
         ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
-        let message_body =
-          Printf.sprintf "VM '%s' (uuid: %s) resumed on host: %s (uuid: %s)"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-            (Db.Host.get_name_label ~__context ~self:host)
-            (Db.Host.get_uuid ~__context ~self:host)
-        in
+        let message_body = Vm_message.resume_on_body ~__context ~vm ~host in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_resumed ;
         Rrdd_proxy.push_rrd ~__context
@@ -2626,15 +2551,7 @@ functor
             )
         ) ;
         let message_body =
-          Printf.sprintf
-            "VM '%s' (uuid: %s) migrated from host '%s' (uuid: %s) to host \
-             '%s' (uuid: %s)"
-            (Db.VM.get_name_label ~__context ~self:vm)
-            (Db.VM.get_uuid ~__context ~self:vm)
-            (Db.Host.get_name_label ~__context ~self:source_host)
-            (Db.Host.get_uuid ~__context ~self:source_host)
-            (Db.Host.get_name_label ~__context ~self:host)
-            (Db.Host.get_uuid ~__context ~self:host)
+          Vm_message.pool_migrate_body ~__context ~vm ~source_host ~host
         in
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_migrated ;
@@ -2763,15 +2680,7 @@ functor
         ( match migration_type with
         | `Live_intrapool host ->
             let message_body =
-              Printf.sprintf
-                "VM '%s' (uuid: %s) migrated from host '%s' (uuid: %s) to host \
-                 '%s' (uuid: %s)"
-                (Db.VM.get_name_label ~__context ~self:vm)
-                (Db.VM.get_uuid ~__context ~self:vm)
-                (Db.Host.get_name_label ~__context ~self:source_host)
-                (Db.Host.get_uuid ~__context ~self:source_host)
-                (Db.Host.get_name_label ~__context ~self:host)
-                (Db.Host.get_uuid ~__context ~self:host)
+              Vm_message.migrate_send_body ~__context ~vm ~source_host ~host
             in
             create_vm_message ~__context ~vm ~message_body
               ~message:Api_messages.vm_migrated
