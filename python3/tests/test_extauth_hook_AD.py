@@ -4,8 +4,11 @@ Test module for extauth_hook_ad
 
 import logging
 import os
+import stat
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from python3.tests.import_helper import import_file_as_module, mocked_modules
 
@@ -209,22 +212,113 @@ class TestNssConfig(TestCase):
 
 @patch("extauth_hook_AD.run_cmd")
 @patch("extauth_hook_AD.ADConfig._install")
-@patch("extauth_hook_AD.open")
+@patch("extauth_hook_AD.SshdConfig._update_sshd_config")
 class TestSshdConfig(TestCase):
-    def test_ad_not_enabled(self, mock_open, mock_install, mock_run_cmd):
-        expected_config = "ChallengeResponseAuthentication no"
-        # mock empty file exists
-        mock_open.return_value.__enter__.return_value.readlines.return_value = []
+    def test_ad_not_enabled(self, mock_update, mock_install, mock_run_cmd):
+        # No drop-in content: the defaults of sshd_config apply
         sshd = SshdConfig(mock_session, args_bd_winbind, False)
         sshd.apply()
-        self.assertTrue(line_exists_in_config(sshd._lines, expected_config))
+        self.assertEqual(sshd._lines, [])
+        mock_install.assert_not_called()
         mock_run_cmd.assert_called()
 
-    def test_ad_enabled(self, mock_open, mock_install, mock_run_cmd):
-        expected_config = "ChallengeResponseAuthentication yes"
-        # mock empty file exists
-        mock_open.return_value.__enter__.return_value.readlines.return_value = []
+    def test_ad_enabled(self, mock_update, mock_install, mock_run_cmd):
         sshd = SshdConfig(mock_session, args_bd_winbind, True)
         sshd.apply()
-        self.assertTrue(line_exists_in_config(sshd._lines, expected_config))
+        for expected_config in (
+            "KbdInteractiveAuthentication yes",
+            "GSSAPIAuthentication yes",
+            "GSSAPICleanupCredentials yes",
+        ):
+            self.assertTrue(line_exists_in_config(sshd._lines, expected_config))
+        mock_install.assert_called()
         mock_run_cmd.assert_called()
+
+
+PACKAGED_SSHD_CONFIG = """# sshd_config header
+PermitRootLogin yes
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+GSSAPIAuthentication no
+GSSAPICleanupCredentials no
+UsePAM yes
+"""
+# sshd_config after an earlier version of this hook enabled AD
+LEGACY_SSHD_CONFIG = PACKAGED_SSHD_CONFIG.replace(" no\n", " yes\n").replace(
+    "KbdInteractiveAuthentication yes", "KbdInteractiveAuthentication no"
+)
+
+
+class SshdPaths:
+    """sshd configuration paths of the hook, redirected to a temporary directory"""
+
+    def __init__(self, tmp_path):
+        self.sshd_config = tmp_path / "sshd_config"
+        self.dropin = tmp_path / "sshd_config.d" / "50-xapi-extauth-AD.conf"
+
+    def with_include(self, config):
+        """config with the drop-in directory included before the first directive"""
+        include = "Include {}/*.conf\n".format(self.dropin.parent)
+        return config.replace("PermitRootLogin", include + "PermitRootLogin")
+
+
+@pytest.fixture
+def sshd(tmp_path, monkeypatch):
+    paths = SshdPaths(tmp_path)
+    monkeypatch.setattr(testee, "SSHD_CONFIG", str(paths.sshd_config))
+    monkeypatch.setattr(testee, "SSHD_DROPIN_DIR", str(paths.dropin.parent))
+    monkeypatch.setattr(testee, "SSHD_DROPIN", str(paths.dropin))
+    monkeypatch.setattr(testee, "run_cmd", MagicMock())
+    return paths
+
+
+@pytest.mark.parametrize("include", [False, True])
+def test_sshd_dropin_lifecycle(sshd, include):
+    """Enabling AD writes the drop-in and includes it, disabling AD removes it"""
+    packaged = sshd.with_include(PACKAGED_SSHD_CONFIG)
+    sshd.sshd_config.write_text(packaged if include else PACKAGED_SSHD_CONFIG)
+
+    SshdConfig(mock_session, args_bd_winbind, True).apply()
+    assert "KbdInteractiveAuthentication yes" in sshd.dropin.read_text().splitlines()
+    assert stat.S_IMODE(sshd.dropin.stat().st_mode) == 0o600
+    assert stat.S_IMODE(sshd.dropin.parent.stat().st_mode) == 0o700
+    assert sshd.sshd_config.read_text() == packaged
+    testee.run_cmd.assert_called_with(
+        ["/usr/bin/systemctl", "reload-or-restart", "sshd"]
+    )
+
+    SshdConfig(mock_session, args_bd_winbind, False).apply()
+    assert not sshd.dropin.exists()
+    assert sshd.sshd_config.read_text() == packaged
+
+    # Disabling again when the drop-in is already gone must not fail
+    SshdConfig(mock_session, args_bd_winbind, False).apply()
+    assert not sshd.dropin.exists()
+
+
+@pytest.mark.parametrize("ad_enabled", [True, False])
+def test_sshd_legacy_settings_reset(sshd, ad_enabled):
+    """AD settings written into sshd_config by earlier versions are reset to no"""
+    sshd.sshd_config.write_text(sshd.with_include(LEGACY_SSHD_CONFIG))
+    sshd.sshd_config.chmod(0o600)
+
+    SshdConfig(mock_session, args_bd_winbind, ad_enabled).apply()
+    assert sshd.sshd_config.read_text() == sshd.with_include(PACKAGED_SSHD_CONFIG)
+    assert stat.S_IMODE(sshd.sshd_config.stat().st_mode) == 0o600
+    assert sshd.dropin.exists() == ad_enabled
+
+
+@pytest.mark.parametrize("ad_enabled", [True, False])
+def test_sshd_config_not_rewritten(sshd, ad_enabled):
+    """sshd_config is not rewritten when it is already as expected"""
+    sshd.sshd_config.write_text(sshd.with_include(PACKAGED_SSHD_CONFIG))
+    mtime = sshd.sshd_config.stat().st_mtime_ns
+    SshdConfig(mock_session, args_bd_winbind, ad_enabled).apply()
+    assert sshd.sshd_config.stat().st_mtime_ns == mtime
+
+
+def test_sshd_include_not_added_when_ad_disabled(sshd):
+    """sshd_config is left alone when AD is disabled and was never configured"""
+    sshd.sshd_config.write_text(PACKAGED_SSHD_CONFIG)
+    SshdConfig(mock_session, args_bd_winbind, False).apply()
+    assert sshd.sshd_config.read_text() == PACKAGED_SSHD_CONFIG
