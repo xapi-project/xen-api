@@ -52,6 +52,20 @@ let message = function
   | Cloned _ ->
       Api_messages.vm_cloned
 
+(* Whether the event gives the VM a new domain *)
+let creates_domain = function
+  | Started _ | Resumed _ | Rebooted _ | Migrated _ ->
+      true
+  | Paused
+  | Unpaused
+  | Suspended
+  | Shutdown _
+  | Snapshotted _
+  | Checkpointed _
+  | Snapshot_reverted _
+  | Cloned _ ->
+      false
+
 let body ~__context ~vm event =
   let host_name self = Db.Host.get_name_label ~__context ~self in
   let host_uuid self = Db.Host.get_uuid ~__context ~self in
@@ -73,10 +87,15 @@ let body ~__context ~vm event =
         "shutdown"
     | Shutdown {forced= true} ->
         "shutdown forcibly"
-    | Rebooted {forced= false} ->
-        "rebooted cleanly"
-    | Rebooted {forced= true} ->
-        "rebooted forcibly"
+    | Rebooted {forced} ->
+        let host = Db.VM.get_resident_on ~__context ~self:vm in
+        Printf.sprintf "rebooted %s, host: %s (uuid: %s)"
+          ( if forced then
+              "forcibly"
+            else
+              "cleanly"
+          )
+          (host_name host) (host_uuid host)
     | Migrated {source; destination} ->
         Printf.sprintf
           "migrated from host '%s' (uuid: %s) to host '%s' (uuid: %s)"
@@ -94,10 +113,16 @@ let body ~__context ~vm event =
         Printf.sprintf "cloned (new uuid: %s)"
           (Db.VM.get_uuid ~__context ~self:clone)
   in
-  Printf.sprintf "VM '%s' (uuid: %s) %s"
+  let domid =
+    if creates_domain event then
+      Printf.sprintf ", domid: %Ld" (Db.VM.get_domid ~__context ~self:vm)
+    else
+      ""
+  in
+  Printf.sprintf "VM '%s' (uuid: %s) %s%s"
     (Db.VM.get_name_label ~__context ~self:vm)
     (Db.VM.get_uuid ~__context ~self:vm)
-    what
+    what domid
 
 let create ~__context ~vm event =
   let body = body ~__context ~vm event in
