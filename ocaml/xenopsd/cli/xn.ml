@@ -672,6 +672,8 @@ let add' _copts x () =
             ; pci_power_mgmt
             ; has_vendor_device
             ; generation_id= None
+            ; pxe_dhcp_ipv4_allowed= true
+            ; pxe_dhcp_ipv6_allowed= true
             }
           in
           let (id : Vm.id) = Client.VM.add dbg vm in

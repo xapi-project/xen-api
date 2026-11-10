@@ -150,7 +150,8 @@ let make_vm ~__context ?(name_label = "name_label")
     ?(hardware_platform_version = 0L) ?has_vendor_device:_
     ?(has_vendor_device = false) ?(reference_label = "") ?(domain_type = `hvm)
     ?(nVRAM = []) ?(last_booted_record = "") ?(last_boot_CPU_flags = [])
-    ?(power_state = `Halted) () =
+    ?(power_state = `Halted) ?(pxe_dhcp_ipv4_allowed = true)
+    ?(pxe_dhcp_ipv6_allowed = true) () =
   Xapi_vm.create ~__context ~name_label ~name_description ~user_version
     ~is_a_template ~affinity ~memory_target ~memory_static_max
     ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params
@@ -164,7 +165,8 @@ let make_vm ~__context ?(name_label = "name_label")
     ~shutdown_delay ~order ~suspend_SR ~suspend_VDI ~snapshot_schedule
     ~is_vmss_snapshot ~version ~generation_id ~hardware_platform_version
     ~has_vendor_device ~reference_label ~domain_type ~last_booted_record
-    ~last_boot_CPU_flags ~power_state
+    ~last_boot_CPU_flags ~power_state ~pxe_dhcp_ipv4_allowed
+    ~pxe_dhcp_ipv6_allowed
 
 let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
     ?(name_description = "description") ?(hostname = "localhost")

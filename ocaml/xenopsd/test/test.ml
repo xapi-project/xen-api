@@ -256,6 +256,8 @@ let create_vm vmid =
   ; pci_power_mgmt= false
   ; has_vendor_device= false
   ; generation_id= None
+  ; pxe_dhcp_ipv4_allowed= true
+  ; pxe_dhcp_ipv6_allowed= true
   }
 
 let sl x =
@@ -331,6 +333,10 @@ let vm_assert_equal vm vm' =
     vm.on_reboot vm'.on_reboot ;
   assert_equal ~msg:"has_vendor_device" ~printer:string_of_bool
     vm.has_vendor_device vm'.has_vendor_device ;
+  assert_equal ~msg:"pxe_dhcp_ipv4_allowed" ~printer:string_of_bool
+    vm.pxe_dhcp_ipv4_allowed vm'.pxe_dhcp_ipv4_allowed ;
+  assert_equal ~msg:"pxe_dhcp_ipv6_allowed" ~printer:string_of_bool
+    vm.pxe_dhcp_ipv6_allowed vm'.pxe_dhcp_ipv6_allowed ;
   let is_hvm vm =
     match vm.ty with HVM _ -> true | PV _ | PVinPVH _ | PVH _ -> false
   in
