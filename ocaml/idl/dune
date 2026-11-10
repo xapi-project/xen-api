@@ -116,6 +116,7 @@
     xapi_datamodel
   )
   (deps (:msgs messages.ndjson))
+  (package xapi-datamodel)
   (action (run %{test} -check %{msgs})))
 
 (rule
