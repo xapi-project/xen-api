@@ -1019,6 +1019,9 @@ let vif_record rpc session_id vif =
       ; make_field ~name:"ipv4-gateway"
           ~get:(fun () -> (x ()).API.vIF_ipv4_gateway)
           ()
+      ; make_field ~name:"ipv4-dns"
+          ~get:(fun () -> concat_with_semi (x ()).API.vIF_ipv4_dns)
+          ()
       ; make_field ~name:"ipv6-configuration-mode"
           ~get:(fun () ->
             Record_util.vif_ipv6_configuration_mode_to_string
@@ -1030,6 +1033,9 @@ let vif_record rpc session_id vif =
           ()
       ; make_field ~name:"ipv6-gateway"
           ~get:(fun () -> (x ()).API.vIF_ipv6_gateway)
+          ()
+      ; make_field ~name:"ipv6-dns"
+          ~get:(fun () -> concat_with_semi (x ()).API.vIF_ipv6_dns)
           ()
       ; make_field ~name:"trunks"
           ~get:(fun () -> map_and_concat Int64.to_string (x ()).API.vIF_trunks)

@@ -58,3 +58,5 @@ let xenstore_data params = Cli_args.view "xenstore-data" params
 
 (* Set-valued: read with Cli_args.keys. *)
 let tags params = Cli_args.view "tags" params
+
+let dns params = Cli_args.view "dns" params

@@ -20,13 +20,14 @@ let create ~__context ~device ~network ~vM ?(mAC = "00:00:00:00:00:00")
     ?(currently_attached = false) ?(other_config = [])
     ?(locking_mode = `unlocked) ?(ipv4_allowed = []) ?(ipv6_allowed = [])
     ?(ipv4_configuration_mode = `None) ?(ipv4_addresses = [])
-    ?(ipv4_gateway = "") ?(ipv6_configuration_mode = `None)
-    ?(ipv6_addresses = []) ?(ipv6_gateway = "") ?(trunks = []) () =
+    ?(ipv4_gateway = "") ?(ipv4_dns = []) ?(ipv6_configuration_mode = `None)
+    ?(ipv6_addresses = []) ?(ipv6_gateway = "") ?(ipv6_dns = []) ?(trunks = [])
+    () =
   Xapi_vif_helpers.create ~__context ~device ~network ~vM ~mAC ~mTU
     ~other_config ~qos_algorithm_type ~qos_algorithm_params ~currently_attached
     ~locking_mode ~ipv4_allowed ~ipv6_allowed ~ipv4_configuration_mode
-    ~ipv4_addresses ~ipv4_gateway ~ipv6_configuration_mode ~ipv6_addresses
-    ~ipv6_gateway ~trunks
+    ~ipv4_addresses ~ipv4_dns ~ipv4_gateway ~ipv6_configuration_mode
+    ~ipv6_addresses ~ipv6_gateway ~ipv6_dns ~trunks
 
 let test_create_ok () =
   let __context = T.make_test_database () in
@@ -36,6 +37,31 @@ let test_create_ok () =
   Alcotest.(check (Alcotest_comparators.ref ()))
     "test_create_ok testing get_VM" vM
     (Db.VIF.get_VM ~__context ~self:vif)
+
+let test_create_and_copy_preserves_dns () =
+  let __context = T.make_test_database () in
+  let vM = T.make_vm ~__context () in
+  let network = T.make_network ~__context () in
+  let ipv4_dns = ["192.0.2.53"; "198.51.100.53"] in
+  let ipv6_dns = ["2001:db8::53"; "2001:db8::54"] in
+  let vif = create ~__context ~device:"0" ~network ~vM ~ipv4_dns ~ipv6_dns () in
+  let copied_vm = T.make_vm ~__context () in
+  let copied_vif =
+    Xapi_vif_helpers.copy ~__context ~vm:copied_vm ~preserve_mac_address:true
+      vif
+  in
+  Alcotest.(check (list string))
+    "created IPv4 DNS" ipv4_dns
+    (Db.VIF.get_ipv4_dns ~__context ~self:vif) ;
+  Alcotest.(check (list string))
+    "created IPv6 DNS" ipv6_dns
+    (Db.VIF.get_ipv6_dns ~__context ~self:vif) ;
+  Alcotest.(check (list string))
+    "copied IPv4 DNS" ipv4_dns
+    (Db.VIF.get_ipv4_dns ~__context ~self:copied_vif) ;
+  Alcotest.(check (list string))
+    "copied IPv6 DNS" ipv6_dns
+    (Db.VIF.get_ipv6_dns ~__context ~self:copied_vif)
 
 let test_create_duplicate_device () =
   let __context = T.make_test_database () in
@@ -81,6 +107,10 @@ let test_create_with_pvs_proxy_not_ok () =
 let test =
   [
     ("test_create_ok", `Quick, test_create_ok)
+  ; ( "test_create_and_copy_preserves_dns"
+    , `Quick
+    , test_create_and_copy_preserves_dns
+    )
   ; ("test_create_duplicate_device", `Quick, test_create_duplicate_device)
   ; ("test_create_with_pvs_proxy_ok", `Quick, test_create_with_pvs_proxy_ok)
   ; ( "test_create_with_pvs_proxy_not_ok"

@@ -58,3 +58,5 @@ val xenstore_data : 'a Cli_args.t -> 'a Cli_args.t
 
 val tags : 'a Cli_args.t -> 'a Cli_args.t
 (** Set-valued: read the result with {!Cli_args.keys}. *)
+
+val dns : 'a Cli_args.t -> 'a Cli_args.t
