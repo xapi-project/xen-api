@@ -215,11 +215,18 @@ We treat logging and rate limiting differently:
 enabled) for any given request will trigger rate limiting and deduct tokens
 from its token bucket.
 
-The **most specific match** is the matching `Caller` record with the longest
-total prefix length across all fields. For example, a record that matches
-`user_agent` with a full value is more specific than one that matches only a
-short prefix. We resolve ties through a lexicographic ordering amongst fields:
-IP address first, then user agent.
+The **most specific match** is the first matching `Caller` record in this
+order:
+- records with fewer wildcard fields come first: a field matched exactly is
+  more specific than a prefix, and a prefix is more specific than an empty
+  pattern, which matches anything;
+- between records with the same wildcard fields, the longer prefix is more
+  specific, comparing the user agent first and then the IP address: for
+  example `XenCenter*` comes before `Xen*`;
+- remaining ties are broken lexicographically, user agent first.
+
+In particular, if one record matches a strict subset of the requests that
+another matches, it is the more specific of the two.
 
 This results in the statistics being stored by callers tracking everything that
 matches, but only the most specific rate limiter to any given request will be
