@@ -311,15 +311,32 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
     )
   in
 
+  let vm_VBDs_reverted =
+    filter_vbds_from_vdis vm_VBDs_all vm_disks_already_reverted
+  in
+
   let vm_vbds_to_be_destroyed =
     let ( +++ ) = VBDSet.union in
     filter_vbds_from_vdis vm_VBDs_all vm_disks_to_be_destroyed
     +++ filter_vbds_from_vdis vm_VBDs_all vm_disks_without_snapshot
     +++ vm_VBDs_CD
+    +++ vm_VBDs_reverted
   in
 
   let snap_VBDs_reverted =
     filter_vbds_from_vdis snap_VBDs_disk snap_disks_reverted
+  in
+
+  let reverted_disks =
+    let snap_VBDs_reverted =
+      snap_VBDs_reverted |> VBDSet.to_seq |> List.of_seq
+    in
+    List.map
+      (fun self ->
+        let vdi = Db.VBD.get_VDI ~__context ~self |> get_snapshot_of in
+        (self, vdi, false)
+      )
+      snap_VBDs_reverted
   in
 
   (*
@@ -417,7 +434,7 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   in
   let destroy_vdis_on_error = cloned_suspend_VDI :: destroy_vdis_on_error in
   let@ () = with_vdis_on_error ~vdis:destroy_vdis_on_error in
-  let vbds_to_copy = List.map fst cloned_disks @ cloned_CDs in
+  let vbds_to_copy = List.map fst cloned_disks @ cloned_CDs @ reverted_disks in
   TaskHelper.set_progress ~__context 0.6 ;
   if vbds_to_copy <> [] then debug "%s: Copying the VBDs" __FUNCTION__ ;
   let (_ : [`VBD] Ref.t list) =
