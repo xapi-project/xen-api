@@ -38,6 +38,15 @@ val delete : t -> unit
     again, as the limiter may have been replaced. *)
 exception Deleted
 
+(** Observes the delay of a request that cannot run at once; neither
+    function is called for a request that runs at once. [on_start] runs on
+    the submitting thread when the request is delayed. [on_end] runs when
+    the delay is over, just before the callback: on the worker thread for
+    [submit_async], on the submitting thread for [submit_sync]. An exception
+    from either is logged and ignored. For [submit_async], [on_start] runs
+    while the queue lock of the limiter is held, so it must return quickly
+    and must not call [delete], [submit_async] or [submit_sync] on the same
+    limiter. *)
 type delay_observer = {on_start: unit -> unit; on_end: unit -> unit}
 
 val submit_async :
