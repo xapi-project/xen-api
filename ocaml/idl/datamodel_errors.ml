@@ -1872,6 +1872,12 @@ let _ =
   error Api_errors.trusted_certificate_invalid []
     ~doc:"The provided certificate is not in a PEM-encoded X509 format." () ;
 
+  error Api_errors.trusted_certificate_purpose_needs_ca ["purpose"]
+    ~doc:"Only root CA certificates can be installed for this purpose." () ;
+
+  error Api_errors.trusted_certificate_purpose_has_no_ca ["purpose"]
+    ~doc:"No root CA certificate is installed for this purpose." () ;
+
   error Api_errors.vmpp_has_vm []
     ~doc:"There is at least one VM assigned to this protection policy." () ;
   error Api_errors.vmpp_archive_more_frequent_than_backup []
