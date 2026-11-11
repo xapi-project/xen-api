@@ -23,6 +23,20 @@ let test_bad_fill_rate () =
     (function Invalid_argument _ -> true | _ -> false)
     (fun () -> ignore (Token_bucket.create ~burst_size:1.0 ~fill_rate:(-1.0)))
 
+let test_non_finite_parameters () =
+  (* NaN fails every comparison, so a check of the form [x <= 0.] lets it
+     through. An infinite fill rate turns the token count into NaN. *)
+  List.iter
+    (fun (burst_size, fill_rate) ->
+      Alcotest.match_raises
+        (Printf.sprintf "Creating a token bucket with burst %g, rate %g fails"
+           burst_size fill_rate
+        )
+        (function Invalid_argument _ -> true | _ -> false)
+        (fun () -> ignore (Token_bucket.create ~burst_size ~fill_rate))
+    )
+    [(1.0, Float.nan); (1.0, Float.infinity); (Float.nan, 1.0)]
+
 let test_consume_removes_correct_amount () =
   let initial_time = Mtime.Span.of_uint64_ns 0L in
   let tb =
@@ -482,6 +496,7 @@ let test =
     , `Quick
     , test_consume_refills_before_removing
     )
+  ; ("Non-finite parameters", `Quick, test_non_finite_parameters)
   ; ("Peek respects burst size", `Quick, test_peek_respects_burst_size)
   ; ("Concurrent access", `Quick, test_concurrent_access)
   ; ("Refill after sleep", `Slow, test_sleep)

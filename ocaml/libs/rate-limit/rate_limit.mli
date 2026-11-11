@@ -21,8 +21,8 @@ type t
 val create : burst_size:float -> fill_rate:float -> t
 (** [create ~burst_size ~fill_rate] creates a new rate limiter with the given
     token bucket parameters.
-    @raises Invalid_argument if the parameters are invalid
-    (e.g. non-positive fill rate).
+    @raises Invalid_argument if the parameters are invalid: a fill rate
+    that is not a positive finite number, or a NaN burst size.
     @param burst_size Maximum number of tokens in the bucket
     @param fill_rate Number of tokens added per second *)
 

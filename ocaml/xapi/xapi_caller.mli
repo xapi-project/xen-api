@@ -20,6 +20,13 @@ val default_token_cost : float
 
 val get_token_cost : string -> float
 
+val load_token_costs : ?path:string -> unit -> unit
+(** [load_token_costs ~path ()] replaces the table of call costs with the
+    costs in the file [path] (default [!Xapi_globs.call_costs_file]), one
+    "Class.method = cost" per line. A cost that is not a finite number of
+    at least zero is ignored with a warning. If the file cannot be read, the
+    table is left empty. *)
+
 val submit_sync :
      ?parent:Tracing.Span.t
   -> user_agent:string

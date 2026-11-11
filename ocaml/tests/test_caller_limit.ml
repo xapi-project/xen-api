@@ -138,6 +138,88 @@ let test_group_totals_aggregate_callers () =
         "per-group token/call totals" ["g1:3:3"; "g2:2:2"] summary
   )
 
+(* Rate limit parameters must be positive finite numbers (an infinite burst
+   size is allowed). NaN fails every comparison, and an infinite fill rate
+   can turn the token count into NaN. *)
+let test_rate_limit_rejects_non_finite () =
+  let __context = Lazy.force context in
+  let invalid f =
+    match f () with
+    | (_ : API.ref_Rate_limit) ->
+        false
+    | exception Api_errors.Server_error (code, _) ->
+        code = Api_errors.invalid_value
+  in
+  let create ~burst_size ~fill_rate () =
+    Xapi_rate_limit.create ~__context ~name_label:"invalid" ~name_description:""
+      ~burst_size ~fill_rate
+  in
+  List.iter
+    (fun (burst_size, fill_rate) ->
+      Alcotest.(check bool)
+        (Printf.sprintf "burst %g, rate %g is INVALID_VALUE" burst_size
+           fill_rate
+        )
+        true
+        (invalid (create ~burst_size ~fill_rate))
+    )
+    [(1., Float.nan); (1., Float.infinity); (Float.nan, 1.); (0., 1.); (1., 0.)] ;
+  (* A refused create must not leave a row behind. *)
+  Alcotest.(check bool)
+    "no Rate_limit row holds an invalid parameter" true
+    (List.for_all
+       (fun self ->
+         let fill_rate = Db.Rate_limit.get_fill_rate ~__context ~self in
+         let burst_size = Db.Rate_limit.get_burst_size ~__context ~self in
+         Float.is_finite fill_rate && fill_rate > 0. && burst_size > 0.
+       )
+       (Db.Rate_limit.get_all ~__context)
+    ) ;
+  let r = create ~burst_size:1. ~fill_rate:1. () in
+  Alcotest.(check bool)
+    "set_fill_rate nan is INVALID_VALUE" true
+    (invalid (fun () ->
+         Xapi_rate_limit.set_fill_rate ~__context ~self:r ~value:Float.nan ;
+         r
+     )
+    ) ;
+  Alcotest.(check (float 0.))
+    "fill_rate unchanged" 1.
+    (Db.Rate_limit.get_fill_rate ~__context ~self:r) ;
+  Alcotest.(check bool)
+    "set_burst_size nan is INVALID_VALUE" true
+    (invalid (fun () ->
+         Xapi_rate_limit.set_burst_size ~__context ~self:r ~value:Float.nan ;
+         r
+     )
+    ) ;
+  Xapi_rate_limit.destroy ~__context ~self:r
+
+(* A negative call cost in the costs file is ignored: it would add tokens to
+   the caller's bucket on every call, and the caller would not be limited. *)
+let test_negative_call_cost_ignored () =
+  let path = Filename.temp_file "call-costs" ".conf" in
+  Fun.protect
+    ~finally:(fun () ->
+      Sys.remove path ;
+      Xapi_caller.load_token_costs ~path:"/nonexistent/call-costs.conf" ()
+    )
+    (fun () ->
+      Out_channel.with_open_text path (fun oc ->
+          output_string oc "VM.clone = -5\nVM.copy = 300\nVM.start = 0\n"
+      ) ;
+      Xapi_caller.load_token_costs ~path () ;
+      Alcotest.(check (float 0.))
+        "cost of VM.copy" 300.
+        (Xapi_caller.get_token_cost "VM.copy") ;
+      Alcotest.(check (float 0.))
+        "cost of VM.start" 0.
+        (Xapi_caller.get_token_cost "VM.start") ;
+      Alcotest.(check (float 0.))
+        "cost of VM.clone, negative in the file" Xapi_caller.default_token_cost
+        (Xapi_caller.get_token_cost "VM.clone")
+    )
+
 let test =
   [
     ( "test_evicts_least_recently_called"
@@ -157,4 +239,9 @@ let test =
     , `Quick
     , test_negative_limit_is_unbounded
     )
+  ; ( "test_rate_limit_rejects_non_finite"
+    , `Quick
+    , test_rate_limit_rejects_non_finite
+    )
+  ; ("test_negative_call_cost_ignored", `Quick, test_negative_call_cost_ignored)
   ]

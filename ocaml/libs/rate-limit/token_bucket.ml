@@ -16,9 +16,16 @@ type state = {tokens: float; last_refill: Mtime.span}
 
 type t = {burst_size: float; fill_rate: float; state: state Atomic.t}
 
+(* NaN fails every comparison, so check that the values are valid rather
+   than that they are invalid. An infinite fill rate is refused because the
+   refill computes 0 *. infinity = NaN when no time has passed, and a NaN
+   token count never admits a request again. A NaN burst size never admits
+   a request either. *)
 let create_with_timestamp timestamp ~burst_size ~fill_rate =
-  if fill_rate <= 0. then
-    invalid_arg "Token_bucket.create: fill_rate must be positive"
+  if not (Float.is_finite fill_rate && fill_rate > 0.) then
+    invalid_arg "Token_bucket.create: fill_rate must be positive and finite"
+  else if Float.is_nan burst_size then
+    invalid_arg "Token_bucket.create: burst_size must not be NaN"
   else
     let state = Atomic.make {tokens= burst_size; last_refill= timestamp} in
     {burst_size; fill_rate; state}
@@ -84,6 +91,9 @@ let get_delay_until_available tb amount =
    If there is no contention, it should only delay once. *)
 let rec delay_then_consume tb amount =
   if not (consume tb amount) then (
-    Thread.delay (get_delay_until_available tb amount) ;
+    (* Thread.delay fails with EINVAL for a delay that does not fit in a
+       timespec; the loop checks again after each sleep, so an hour at a
+       time is enough. *)
+    Thread.delay (Float.min 3600. (get_delay_until_available tb amount)) ;
     delay_then_consume tb amount
   )

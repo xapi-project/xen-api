@@ -42,13 +42,20 @@ let notify_caller_changed ~__context caller_ref =
 let find_bucket rate_limit_ref =
   with_mutex (fun () -> Hashtbl.find_opt buckets rate_limit_ref)
 
+(* NaN fails every comparison, so check that the values are valid rather
+   than that they are invalid. An infinite fill rate is refused because it
+   can turn the token count into NaN, which never admits a request again. *)
+let valid_fill_rate fill_rate = Float.is_finite fill_rate && fill_rate > 0.
+
+let valid_burst_size burst_size = burst_size > 0.
+
 let validate_params ~burst_size ~fill_rate =
-  if fill_rate <= 0. then
+  if not (valid_fill_rate fill_rate) then
     raise
       Api_errors.(
         Server_error (invalid_value, ["fill_rate"; string_of_float fill_rate])
       ) ;
-  if burst_size <= 0. then
+  if not (valid_burst_size burst_size) then
     raise
       Api_errors.(
         Server_error (invalid_value, ["burst_size"; string_of_float burst_size])
@@ -139,7 +146,7 @@ let register ~__context =
         let record = Db.Rate_limit.get_record ~__context ~self in
         let burst_size = record.API.rate_limit_burst_size in
         let fill_rate = record.API.rate_limit_fill_rate in
-        if fill_rate > 0. && burst_size > 0. then
+        if valid_fill_rate fill_rate && valid_burst_size burst_size then
           install_bucket ~self ~burst_size ~fill_rate
         else
           warn "Skipping rate_limit %s: invalid persisted parameters"

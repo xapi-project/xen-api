@@ -431,8 +431,16 @@ let add_cost_line line =
   match Config_file.parse_line line with
   | Some (name, value) -> (
     match float_of_string_opt (String.trim value) with
-    | Some cost ->
+    | Some cost when Float.is_finite cost && cost >= 0. ->
         Hashtbl.replace token_costs name cost
+    | Some cost when Float.is_finite cost ->
+        (* A negative cost would add tokens to the caller's bucket: every
+           such call would refill it, and the caller would not be limited. *)
+        warn "Ignoring call cost for %s: %S is negative" name value
+    | Some _ ->
+        (* A NaN cost never admits the call, and an infinite one leaves the
+           bucket in debt for ever. *)
+        warn "Ignoring call cost for %s: %S is not a finite number" name value
     | None ->
         warn "Ignoring call cost for %s: %S is not a number" name value
   )
