@@ -70,10 +70,11 @@ let get_vm_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   let get () =
     let ( let* ) = Option.bind in
     let* vm_uuid = List.assoc_opt "uuid" req.Http.Request.query in
-    let* old_rrd =
-      with_lock mutex (fun () -> Hashtbl.find_opt vm_rrds vm_uuid)
-    in
-    Some (Rrd.copy_rrd old_rrd.rrd)
+    (* The monitor thread updates RRDs in place: copy while holding the lock *)
+    with_lock mutex (fun () ->
+        Hashtbl.find_opt vm_rrds vm_uuid
+        |> Option.map (fun rrdi -> Rrd.copy_rrd rrdi.rrd)
+    )
   in
   rrd_handler req s (get ())
 
