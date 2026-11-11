@@ -19,8 +19,8 @@ module LL = Linked_list
 (** A store for key/value pairs of type ['k] and ['v]. The main store
       is [table] that maps a key to a key/value node. Every item in the
       store is also a member in the [queue]. The [queue] keeps track of
-      which elements are looked up most often. The first element in the
-      [queue] is the least used one. *)
+      the order in which elements were added or last looked up. The first
+      element in the [queue] is the least recently used one. *)
 type ('k, 'v) t = {
     table: ('k, ('k * 'v) LL.node) Hashtbl.t
   ; queue: ('k * 'v) LL.t
@@ -58,7 +58,7 @@ module Unsafe = struct
 
   (** [lookup] an entry based on its [key]; this may fail or succeeed.
       In the success case, the entry is moved to the tail of the
-      [queue]. Hnece, the least-used entry is at the front. *)
+      [queue]. Hence, the least recently used entry is at the front. *)
   let lookup' t key =
     match Hashtbl.find_opt t.table key with
     | Some v ->
@@ -78,20 +78,20 @@ module Unsafe = struct
     | None ->
         ()
 
-  (** [add] a new entry; do nothing if the entry exists. If the new
+  (** [add] a new entry; do nothing if the entry exists: its value and
+      its position in the [queue] are left as they are. If the new
       entry exceeds the capacity of the table, [true]
       is returned and [false] otherwise. It signals the caller to [trim]
       the table.*)
   let add' t key value =
-    match lookup' t key with
-    | None ->
-        let node = LL.node (key, value) in
-        Hashtbl.add t.table key node ;
-        t.entries <- t.entries + 1 ;
-        LL.append t.queue node ;
-        t.entries > t.cap
-    | Some _ ->
-        t.entries > t.cap
+    if Hashtbl.mem t.table key then
+      t.entries > t.cap
+    else
+      let node = LL.node (key, value) in
+      Hashtbl.add t.table key node ;
+      t.entries <- t.entries + 1 ;
+      LL.append t.queue node ;
+      t.entries > t.cap
 
   (** [lru] returns the least-recently-used key/value pair *)
   let lru' t = LL.first t.queue |> Option.map LL.value
@@ -112,7 +112,8 @@ module Unsafe = struct
         ()
 
   (** [trim] the table such that it does not exceed its capacity by
-    removing the least-used element repeatedly until this is achieved.
+    removing the least recently used element repeatedly until this is
+    achieved.
     If finalisation of values is required, use [drop_while] because
     [trim] does not provide it.  *)
 
