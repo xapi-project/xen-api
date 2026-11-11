@@ -318,9 +318,7 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   in
 
   let reverted_disks =
-    let snap_VBDs_reverted =
-      snap_VBDs_reverted |> VBDSet.to_seq |> List.of_seq
-    in
+    let snap_VBDs_reverted = VBDSet.elements snap_VBDs_reverted in
     List.map
       (fun self ->
         let vdi = Db.VBD.get_VDI ~__context ~self |> get_snapshot_of in
@@ -358,9 +356,7 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   let cloned_disks =
     (* the list of cloned VDIs maintains the order of the VBDs given, use this
        to correlate the VDI with the original VDI before the clone *)
-    let snap_VBDs_to_be_cloned =
-      snap_VBDs_to_be_cloned |> VBDSet.to_seq |> List.of_seq
-    in
+    let snap_VBDs_to_be_cloned = VBDSet.elements snap_VBDs_to_be_cloned in
     let snap_disks_previous_snapshot_of =
       snap_VBDs_to_be_cloned
       |> List.map (fun vbd ->
@@ -387,7 +383,7 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   in
   let@ () = with_vdis_on_error ~vdis:destroy_vdis_on_error in
   let cloned_CDs =
-    let snap_VBDs_CD = snap_VBDs_CD |> VBDSet.to_seq |> List.of_seq in
+    let snap_VBDs_CD = VBDSet.elements snap_VBDs_CD in
     Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone
       ~__context snap_VBDs_CD driver_params
   in
