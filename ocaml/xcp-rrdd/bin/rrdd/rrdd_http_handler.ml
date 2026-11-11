@@ -113,7 +113,8 @@ let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   rrd_handler req s (Some rrd)
 
 (* Get an XML/JSON document (as a string) representing the updates since the
-   specified start time. *)
+   specified start time. Only the extraction of values needs the lock;
+   serialising them dominates the cost and is done after releasing it. *)
 let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
     ~(cfopt : Rrd.cf_type option) ~(is_host : string) ~(vm_uuids : uuids_filter)
     ~(sr_uuids : uuids_filter) () =
@@ -154,8 +155,9 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
         in
         List.(concat [host_rrds; of_seq vm_rrds_altered; of_seq sr_rrds_altered])
       in
-      Rrd_updates.export ~json prefixandrrds start interval cfopt
+      Rrd_updates.create_multi prefixandrrds start interval cfopt
   )
+  |> Rrd_updates.to_string ~json
 
 (* Filter UUID of XAPI objet. If no object is passed in the query it returns EMPTY,
 *)

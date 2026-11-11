@@ -297,14 +297,19 @@ let create_multi prefixandrrds start interval cfopt =
 
   create rra_timestep rras first_rra last_cdp_time first_cdp_time start legends
 
-let export ?(json = false) prefixandrrds start interval cfopt =
-  let t = create_multi prefixandrrds start interval cfopt in
+(** Serialise the result of [create_multi]. [t] holds copies of the values,
+    not references into the RRDs, so callers can extract under a lock and
+    serialise after releasing it. *)
+let to_string ?(json = false) t =
   if json then
     json_of_t t
   else
-    let buffer = Buffer.create 10 in
+    let buffer = Buffer.create 4096 in
     let output = Xmlm.make_output (`Buffer buffer) in
     xml_of t output ; Buffer.contents buffer
+
+let export ?(json = false) prefixandrrds start interval cfopt =
+  create_multi prefixandrrds start interval cfopt |> to_string ~json
 
 let of_string s =
   let input = Xmlm.make_input (`String (0, s)) in
