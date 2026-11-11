@@ -44,7 +44,11 @@ module Key : sig
 end
 
 (** List of entries mapping patterns to values.
-    Lookups use wildcard matching with priority: exact > prefix > full wildcard. *)
+    Lookups use wildcard matching with priority: exact > prefix > full wildcard.
+    Each operation is atomic, and [insert] and [delete] may be called from
+    several threads at once. A sequence of operations, such as a delete
+    followed by an insert, is not atomic: callers that need that must
+    serialise it themselves. *)
 type 'a t
 
 val create : unit -> 'a t

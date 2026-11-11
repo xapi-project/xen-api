@@ -520,6 +520,47 @@ let test_get_ordered_after_delete_reinsert () =
     "ordered after re-insert in new position" [1; 30; 2]
     (Caller_table.get table ~caller_id:client)
 
+let test_concurrent_writers_lose_nothing () =
+  (* Writers from several threads, with no lock around the table: every
+     insert that returned true must be in the table afterwards. *)
+  let table = Caller_table.create () in
+  let threads = 8 and per_thread = 200 in
+  let inserted = Atomic.make 0 in
+  let writers =
+    Array.init threads (fun t ->
+        Thread.create
+          (fun () ->
+            for i = 1 to per_thread do
+              let pattern = pat (Printf.sprintf "agent-%d-%d" t i) in
+              if Caller_table.insert table ~pattern i then Atomic.incr inserted
+            done
+          )
+          ()
+    )
+  in
+  Array.iter Thread.join writers ;
+  Alcotest.(check int)
+    "every successful insert is in the table" (Atomic.get inserted)
+    (List.length (Caller_table.to_list table)) ;
+  Alcotest.(check int)
+    "every insert succeeded" (threads * per_thread) (Atomic.get inserted) ;
+  let deleters =
+    Array.init threads (fun t ->
+        Thread.create
+          (fun () ->
+            for i = 1 to per_thread do
+              Caller_table.delete table
+                ~pattern:(pat (Printf.sprintf "agent-%d-%d" t i))
+            done
+          )
+          ()
+    )
+  in
+  Array.iter Thread.join deleters ;
+  Alcotest.(check int)
+    "every delete took effect" 0
+    (List.length (Caller_table.to_list table))
+
 let test =
   [
     ("Create empty table", `Quick, test_create)
@@ -534,6 +575,10 @@ let test =
     , test_concurrent_insert_delete_stress
     )
   ; ("Get during delete race", `Quick, test_get_during_delete_race)
+  ; ( "Concurrent writers lose nothing"
+    , `Quick
+    , test_concurrent_writers_lose_nothing
+    )
   ; ( "Wildcard user_agent matches any"
     , `Quick
     , test_wildcard_user_agent_matches_any

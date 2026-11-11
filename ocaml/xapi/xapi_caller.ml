@@ -59,12 +59,11 @@ let caller_table : entry Caller_table.t = Caller_table.create ()
    has been reached without scanning the table. *)
 let auto_registered_count = ref 0
 
-(* Serialises ALL mutations of [caller_table] on the master. Caller_table
-   itself uses Atomic for lock-free reads, but its writers are non-CAS
-   Atomic.get/set pairs and its higher-level "delete then insert" refresh
-   is not atomic - two concurrent refreshes for the same caller can
-   otherwise interleave so that the later insert is silently refused
-   as a duplicate, leaving the table with stale state. Held around
+(* Serialises ALL mutations of [caller_table] on the master. Each
+   Caller_table operation is atomic on its own, but the higher-level
+   "delete then insert" refresh is not - two concurrent refreshes for the
+   same caller can otherwise interleave so that the later insert is silently
+   refused as a duplicate, leaving the table with stale state. Held around
    create/destroy/refresh_caller_rate_limit and the auto-create path.
    NOT held by [register] because that runs single-threaded at startup. *)
 let caller_table_mutex = Mutex.create ()
