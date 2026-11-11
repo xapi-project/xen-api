@@ -452,6 +452,34 @@ let test_submit_racing_delete () =
   Alcotest.(check bool) "the submission did not block" true finished ;
   Alcotest.(check bool) "the submission was refused" true (Atomic.get refused)
 
+let test_observer_order_async () =
+  (* With a fast refill the worker serves a queued item almost at once,
+     possibly before submit_async has returned. Its on_end must still come
+     after on_start. *)
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:1e6 in
+  let inversions = ref 0 and queued = ref 0 in
+  for _ = 1 to 2000 do
+    let started = Atomic.make false in
+    let observer =
+      Rate_limit.
+        {
+          on_start= (fun () -> Atomic.set started true)
+        ; on_end=
+            (fun () ->
+              incr queued ;
+              if not (Atomic.get started) then incr inversions
+            )
+        }
+    in
+    Rate_limit.submit_async rl ~observer
+      ~callback:(fun () -> ())
+      ~caller_details:"" 1.0
+  done ;
+  Rate_limit.delete rl ;
+  Alcotest.(check int)
+    (Printf.sprintf "on_end before on_start (of %d queued)" !queued)
+    0 !inversions
+
 let test =
   [
     ("Create invalid", `Quick, test_create_invalid)
@@ -480,6 +508,7 @@ let test =
   ; ("Observer exception isolated", `Slow, test_observer_exception_isolated)
   ; ("Long delay keeps the worker", `Quick, test_long_delay_keeps_worker)
   ; ("Submit racing delete", `Quick, test_submit_racing_delete)
+  ; ("Observer order when queued", `Quick, test_observer_order_async)
   ]
 
 let () = Alcotest.run "Rate limit library" [("Rate limit tests", test)]

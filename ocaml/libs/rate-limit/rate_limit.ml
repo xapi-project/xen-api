@@ -163,6 +163,9 @@ let submit_async
           Queue.is_empty process_queue && Token_bucket.consume bucket amount
         in
         if not immediate then (
+          (* Start observing before releasing the lock: from then on the
+             worker may take the item and call [on_worker_end]. *)
+          safe_observe "on_start" on_start ;
           Queue.add {cost= amount; callback; on_worker_end} process_queue ;
           Condition.signal worker_thread_cond
         ) ;
@@ -171,10 +174,8 @@ let submit_async
   in
   if run_immediately then
     callback ()
-  else (
-    D.debug "%s: rate limiting call from %s" __FUNCTION__ caller_details ;
-    safe_observe "on_start" on_start
-  )
+  else
+    D.debug "%s: rate limiting call from %s" __FUNCTION__ caller_details
 
 (* Block and execute on the same thread *)
 let submit_sync bucket_data ?observer ~callback ~caller_details amount =
