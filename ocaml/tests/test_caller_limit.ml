@@ -345,6 +345,41 @@ let test_submit_after_limiter_deleted () =
       Xapi_rate_limit.destroy ~__context ~self:changed
   )
 
+(* A rate-limited HTTP handler must have run, on the connection's own thread,
+   by the time the rate-limit wrapper returns: Http_svr reads the next request
+   from the connection, or closes it, as soon as the wrapper returns. *)
+let test_http_handler_runs_before_return () =
+  with_setup ~limit:100 (fun ~__context ->
+      let user_agent = "http-agent" and client_ip = "10.0.1.1" in
+      let caller =
+        Xapi_caller.create ~__context ~name_label:"http" ~name_description:""
+          ~user_agent ~client_ip
+      in
+      let rate_limit =
+        Xapi_rate_limit.create ~__context ~name_label:"http"
+          ~name_description:"" ~burst_size:1. ~fill_rate:20.
+      in
+      Xapi_rate_limit.add_caller ~__context ~self:rate_limit ~caller ;
+      let run_handler () =
+        let ran_on = ref None in
+        Xapi_http.rate_limit_handler ~name:"get_blob"
+          (Some (user_agent, client_ip))
+          (fun () -> ran_on := Some (Thread.id (Thread.self ())))
+          () ;
+        !ran_on
+      in
+      let this_thread = Some (Thread.id (Thread.self ())) in
+      (* The first request takes the only token, so the second one is
+         delayed until the bucket refills. *)
+      Alcotest.(check (option int))
+        "immediate handler ran on the calling thread" this_thread
+        (run_handler ()) ;
+      Alcotest.(check (option int))
+        "delayed handler ran on the calling thread before returning" this_thread
+        (run_handler ()) ;
+      Xapi_rate_limit.destroy ~__context ~self:rate_limit
+  )
+
 (* Changing a rate limit's parameters waits for the old limiter to serve its
    queue. Meanwhile, the dispatch path must still be able to look up other
    rate limits. *)
@@ -401,6 +436,39 @@ let test_rate_limit_update_does_not_stall_lookups () =
         true (elapsed < 1.) ;
       Xapi_rate_limit.destroy ~__context ~self:changed ;
       Xapi_rate_limit.destroy ~__context ~self:other
+  )
+
+(* The handlers of these actions dispatch API calls, and the dispatch
+   (Server_helpers) counts and charges every external call. The HTTP wrapper
+   must therefore leave them alone, or each call would be charged twice. *)
+let test_http_api_actions_charged_once () =
+  with_setup ~limit:100 (fun ~__context ->
+      let user_agent = "api-http-agent" and client_ip = "10.0.3.1" in
+      let caller =
+        Xapi_caller.create ~__context ~name_label:"api-http"
+          ~name_description:"" ~user_agent ~client_ip
+      in
+      let calls_counted_by_wrapper name =
+        let before = Xapi_caller.query_call_count ~__context ~self:caller in
+        let ran = ref false in
+        Xapi_http.rate_limit_handler ~name
+          (Some (user_agent, client_ip))
+          (fun () -> ran := true)
+          () ;
+        Alcotest.(check bool) (name ^ " handler ran") true !ran ;
+        Int64.sub (Xapi_caller.query_call_count ~__context ~self:caller) before
+      in
+      List.iter
+        (fun name ->
+          Alcotest.(check int64)
+            (name ^ " not counted by the HTTP wrapper")
+            0L
+            (calls_counted_by_wrapper name)
+        )
+        ["post_root"; "post_RPC2"; "post_json"; "post_jsonrpc"; "post_cli"] ;
+      Alcotest.(check int64)
+        "get_blob counted by the HTTP wrapper" 1L
+        (calls_counted_by_wrapper "get_blob")
   )
 
 (* A negative call cost in the costs file is ignored: it would add tokens to
@@ -491,9 +559,17 @@ let test =
     , `Quick
     , test_change_racing_destroy_installs_nothing
     )
+  ; ( "test_http_handler_runs_before_return"
+    , `Quick
+    , test_http_handler_runs_before_return
+    )
   ; ( "test_rate_limit_update_does_not_stall_lookups"
     , `Quick
     , test_rate_limit_update_does_not_stall_lookups
+    )
+  ; ( "test_http_api_actions_charged_once"
+    , `Quick
+    , test_http_api_actions_charged_once
     )
   ; ("test_negative_call_cost_ignored", `Quick, test_negative_call_cost_ignored)
   ; ( "test_add_caller_refuses_missing_rate_limit"
