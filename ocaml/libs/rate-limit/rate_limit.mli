@@ -30,7 +30,13 @@ val delete : t -> unit
 (** [delete t] signals the worker thread to terminate. The worker thread
     processes any remaining queued callbacks, then exits. Blocks the caller
     until the worker thread has finished. Subsequent calls to [submit_async]
-    or [submit_sync] will raise [Invalid_argument]. *)
+    or [submit_sync] will raise [Deleted]. *)
+
+(** Raised by [submit_async] and [submit_sync] on a rate limiter that
+    [delete] has been called on. The callback has been neither run nor
+    queued. A caller that looked the limiter up in a table can look it up
+    again, as the limiter may have been replaced. *)
+exception Deleted
 
 type delay_observer = {on_start: unit -> unit; on_end: unit -> unit}
 

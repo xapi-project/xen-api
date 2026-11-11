@@ -128,9 +128,15 @@ let delete data =
   ) ;
   Thread.join data.worker_thread
 
+exception Deleted
+
+(* Call with [process_queue_lock] held. [delete] sets the flag under the same
+   lock, and the worker exits only once it sees the flag with an empty queue,
+   so an item queued after a successful check is always served. Checked
+   without the lock, [delete] and the worker's exit can both happen between
+   the check and the enqueue, and the item would never be served. *)
 let check_not_terminated should_terminate =
-  if Atomic.get should_terminate then
-    invalid_arg "Rate_limit: submit called on a deleted rate limiter"
+  if Atomic.get should_terminate then raise Deleted
 
 (* The callback should return quickly - if it is a longer task it is
    responsible for creating a thread to do the task *)
@@ -143,7 +149,6 @@ let submit_async
     ; should_terminate
     ; _
     } ?observer ~callback ~caller_details amount =
-  check_not_terminated should_terminate ;
   let on_start, on_worker_end =
     match observer with
     | Some {on_start; on_end} ->
@@ -153,6 +158,7 @@ let submit_async
   in
   let run_immediately =
     with_lock process_queue_lock (fun () ->
+        check_not_terminated should_terminate ;
         let immediate =
           Queue.is_empty process_queue && Token_bucket.consume bucket amount
         in
@@ -172,7 +178,6 @@ let submit_async
 
 (* Block and execute on the same thread *)
 let submit_sync bucket_data ?observer ~callback ~caller_details amount =
-  check_not_terminated bucket_data.should_terminate ;
   let on_start, on_end =
     match observer with
     | Some {on_start; on_end} ->
@@ -182,6 +187,7 @@ let submit_sync bucket_data ?observer ~callback ~caller_details amount =
   in
   let channel_opt =
     with_lock bucket_data.process_queue_lock (fun () ->
+        check_not_terminated bucket_data.should_terminate ;
         if
           Queue.is_empty bucket_data.process_queue
           && Token_bucket.consume bucket_data.bucket amount

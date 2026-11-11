@@ -373,6 +373,24 @@ let test_observer_exception_isolated () =
   Alcotest.(check bool) "sync callback ran" true !sync_ran ;
   Rate_limit.delete rl
 
+(* Wait until [cond] holds, for at most [timeout] seconds; true iff it holds *)
+let wait_until timeout cond =
+  let start = Mtime_clock.counter () in
+  let elapsed () = Mtime.Span.to_float_ns (Mtime_clock.count start) *. 1e-9 in
+  while (not (cond ())) && elapsed () < timeout do
+    Thread.delay 0.01
+  done ;
+  cond ()
+
+(* Run [f] on another thread; true iff it returns within [timeout] seconds.
+   A test that would otherwise hang fails instead. *)
+let completes_within timeout f =
+  let finished = Atomic.make false in
+  let _ : Thread.t =
+    Thread.create (fun () -> f () ; Atomic.set finished true) ()
+  in
+  wait_until timeout (fun () -> Atomic.get finished)
+
 let test_long_delay_keeps_worker () =
   let uncaught = Atomic.make None in
   Thread.set_uncaught_exception_handler (fun e ->
@@ -391,6 +409,52 @@ let test_long_delay_keeps_worker () =
     "worker thread is still alive" None (Atomic.get uncaught)
 (* [rl] is not deleted: its worker waits for the debt to be repaid, and
    [delete] would wait with it. *)
+
+(* A submission racing [delete] is either served or refused with
+   Deleted; it is never left in the queue of a worker that has
+   exited. To place [delete] at the worst moment deterministically, a memprof
+   callback runs it in the submitting thread at that thread's first
+   allocation after entering [submit_sync], which is as if the submitter had
+   been descheduled there and another thread had deleted the limiter. *)
+let test_submit_racing_delete () =
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:0.001 in
+  (* Drain the bucket, so that the next submission has to be queued *)
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) ~caller_details:"" 1.0 ;
+  let armed = Atomic.make false and target = Atomic.make (-1) in
+  let deleted = Atomic.make false in
+  let tracker =
+    {
+      Gc.Memprof.null_tracker with
+      alloc_minor=
+        (fun _ ->
+          if Atomic.get armed && Thread.id (Thread.self ()) = Atomic.get target
+          then (
+            Atomic.set armed false ;
+            Rate_limit.delete rl ;
+            Atomic.set deleted true
+          ) ;
+          None
+        )
+    }
+  in
+  let _ = Gc.Memprof.start ~sampling_rate:1.0 ~callstack_size:0 tracker in
+  let refused = Atomic.make false in
+  let finished =
+    completes_within 5.0 (fun () ->
+        Atomic.set target (Thread.id (Thread.self ())) ;
+        Atomic.set armed true ;
+        try
+          Rate_limit.submit_sync rl
+            ~callback:(fun () -> ())
+            ~caller_details:"" 1.0
+        with Rate_limit.Deleted -> Atomic.set refused true
+    )
+  in
+  Gc.Memprof.stop () ;
+  Alcotest.(check bool)
+    "delete ran during the submission" true (Atomic.get deleted) ;
+  Alcotest.(check bool) "the submission did not block" true finished ;
+  Alcotest.(check bool) "the submission was refused" true (Atomic.get refused)
 
 let test =
   [
@@ -419,6 +483,7 @@ let test =
     )
   ; ("Observer exception isolated", `Slow, test_observer_exception_isolated)
   ; ("Long delay keeps the worker", `Quick, test_long_delay_keeps_worker)
+  ; ("Submit racing delete", `Quick, test_submit_racing_delete)
   ]
 
 let () = Alcotest.run "Rate limit library" [("Rate limit tests", test)]

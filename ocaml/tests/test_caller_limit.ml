@@ -198,6 +198,65 @@ let test_rate_limit_rejects_non_finite () =
     ) ;
   Xapi_rate_limit.destroy ~__context ~self:r
 
+(* A dispatch that found the limiter of a rate limit, and submits to it after
+   the rate limit was changed or destroyed, must not fail: its call runs
+   under the new limiter, or without limit. *)
+let test_submit_after_limiter_deleted () =
+  with_setup ~limit:100 (fun ~__context ->
+      (* The call returns the same result under a limiter and without limit,
+         so record what each submission to a limiter did: a call run under
+         the new limiter is refused once and then served. *)
+      let submissions = ref [] in
+      let submit_fn rl ?observer ~callback ~caller_details amount =
+        match
+          Rate_limit_lib.Rate_limit.submit_sync rl ?observer ~callback
+            ~caller_details amount
+        with
+        | result ->
+            submissions := "served" :: !submissions ;
+            result
+        | exception Rate_limit_lib.Rate_limit.Deleted ->
+            submissions := "refused" :: !submissions ;
+            raise Rate_limit_lib.Rate_limit.Deleted
+      in
+      let submit ~self rl =
+        submissions := [] ;
+        let result =
+          Xapi_caller.submit_to_limiter ~submit_fn ~rate_limit_ref:self
+            ~callback:(fun () -> "ran")
+            ~caller_details:"test" 1. rl
+        in
+        (result, List.rev !submissions)
+      in
+      let found ~self =
+        match Xapi_rate_limit.find_bucket self with
+        | Some rl ->
+            rl
+        | None ->
+            Alcotest.fail "no limiter is installed"
+      in
+      let changed =
+        Xapi_rate_limit.create ~__context ~name_label:"changed"
+          ~name_description:"" ~burst_size:10. ~fill_rate:1.
+      in
+      let old_limiter = found ~self:changed in
+      Xapi_rate_limit.set_fill_rate ~__context ~self:changed ~value:2. ;
+      Alcotest.(check (pair string (list string)))
+        "the call runs under the new limiter"
+        ("ran", ["refused"; "served"])
+        (submit ~self:changed old_limiter) ;
+      let destroyed =
+        Xapi_rate_limit.create ~__context ~name_label:"destroyed"
+          ~name_description:"" ~burst_size:10. ~fill_rate:1.
+      in
+      let old_limiter = found ~self:destroyed in
+      Xapi_rate_limit.destroy ~__context ~self:destroyed ;
+      Alcotest.(check (pair string (list string)))
+        "the call runs without limit" ("ran", ["refused"])
+        (submit ~self:destroyed old_limiter) ;
+      Xapi_rate_limit.destroy ~__context ~self:changed
+  )
+
 (* A negative call cost in the costs file is ignored: it would add tokens to
    the caller's bucket on every call, and the caller would not be limited. *)
 let test_negative_call_cost_ignored () =
@@ -225,7 +284,11 @@ let test_negative_call_cost_ignored () =
 
 let test =
   [
-    ( "test_evicts_least_recently_called"
+    ( "test_submit_after_limiter_deleted"
+    , `Quick
+    , test_submit_after_limiter_deleted
+    )
+  ; ( "test_evicts_least_recently_called"
     , `Quick
     , test_evicts_least_recently_called
     )
