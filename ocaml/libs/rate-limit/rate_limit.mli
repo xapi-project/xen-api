@@ -60,7 +60,13 @@ val submit_async :
     If tokens are immediately available and no callbacks are queued, the
     callback runs synchronously on the calling thread. Otherwise it is
     enqueued and will be executed by a worker thread when tokens become
-    available. Returns immediately. *)
+    available. Returns immediately.
+
+    A queued callback runs on the single worker thread of [t], which serves
+    every queued request of [t] in turn. It must therefore return quickly
+    (a long task should start its own thread), and it must not use anything
+    that the submitter releases once [submit_async] has returned, such as a
+    connection. Use [submit_sync] to run work on the submitting thread. *)
 
 val submit_sync :
      t

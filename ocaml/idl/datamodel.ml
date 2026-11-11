@@ -9184,7 +9184,7 @@ let http_actions =
 (* Actions that incorporate the rate limiter from Xapi_rate_limiting within
    their handler - handlers not listed here get rate limited when accessed *)
 let custom_rate_limit_http_actions =
-  ["post_root"; "post_RPC2"; "post_jsonrpc"; "post_cli"]
+  ["post_root"; "post_RPC2"; "post_json"; "post_jsonrpc"; "post_cli"]
 
 (* these public http actions will NOT be checked by RBAC *)
 (* they are meant to be used in exceptional cases where RBAC is already *)
