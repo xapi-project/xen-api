@@ -4,6 +4,8 @@ Requires=proc-xen.mount
 Wants=xapi-init-complete.target
 # xapi.service is needed for shutdown ordering
 After=remote-fs.target xapi-init-complete.target xapi.service
+# PBDs must be unplugged before blkdeactivate deactivates the block devices
+After=blk-availability.service
 
 [Service]
 Type=oneshot
