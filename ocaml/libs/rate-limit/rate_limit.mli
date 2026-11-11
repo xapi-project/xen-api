@@ -29,8 +29,11 @@ val create : burst_size:float -> fill_rate:float -> t
 val delete : t -> unit
 (** [delete t] signals the worker thread to terminate. The worker thread
     processes any remaining queued callbacks, then exits. Blocks the caller
-    until the worker thread has finished. Subsequent calls to [submit_async]
-    or [submit_sync] will raise [Deleted]. *)
+    until the worker thread has finished, except when called from a queued
+    callback of [t]: that runs on the worker thread itself, so [delete]
+    returns at once and the worker exits after the rest of the queue.
+    Subsequent calls to [submit_async] or [submit_sync] will raise
+    [Deleted]. *)
 
 (** Raised by [submit_async] and [submit_sync] on a rate limiter that
     [delete] has been called on. The callback has been neither run nor
@@ -66,7 +69,9 @@ val submit_async :
     every queued request of [t] in turn. It must therefore return quickly
     (a long task should start its own thread), and it must not use anything
     that the submitter releases once [submit_async] has returned, such as a
-    connection. Use [submit_sync] to run work on the submitting thread. *)
+    connection. Use [submit_sync] to run work on the submitting thread.
+    An exception raised by a queued callback is logged and otherwise
+    ignored; the worker goes on to serve the rest of the queue. *)
 
 val submit_sync :
      t
