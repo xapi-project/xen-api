@@ -607,6 +607,30 @@ let make_observer ~parent ~entry ~user_agent ~client_ip ~cost =
   let on_end () = ignore (Tracing.Tracer.finish !span) in
   {Rate_limit.on_start; on_end}
 
+(* A dispatch looks up the limiter of its rate limit before it submits to
+   it. If the rate limit is changed or destroyed in between, the limiter it
+   found has been deleted and refuses the call with Rate_limit.Deleted,
+   before running or queueing it. Look the limiter up again once: the rate
+   limit's new limiter, or none if the rate limit was destroyed, in which
+   case the call is no longer limited. *)
+let submit_to_limiter ~submit_fn ~rate_limit_ref ?observer ~callback
+    ~caller_details amount rl =
+  let unlimited () =
+    debug "%s: the rate limit of %s was removed; running the call" __FUNCTION__
+      caller_details ;
+    callback ()
+  in
+  try submit_fn rl ?observer ~callback ~caller_details amount
+  with Rate_limit.Deleted -> (
+    match Xapi_rate_limit.find_bucket rate_limit_ref with
+    | Some rl -> (
+      try submit_fn rl ?observer ~callback ~caller_details amount
+      with Rate_limit.Deleted -> unlimited ()
+    )
+    | None ->
+        unlimited ()
+  )
+
 let submit ~submit_fn ?parent ~user_agent ~client_ip ~callback ~task_create
     amount =
   if not !Xapi_globs.rate_limit_enabled then
@@ -628,7 +652,8 @@ let submit ~submit_fn ?parent ~user_agent ~client_ip ~callback ~task_create
         let caller_details =
           Printf.sprintf "client_ip: %s, user_agent: %s" client_ip user_agent
         in
-        submit_fn rl ?observer ~callback ~caller_details amount
+        submit_to_limiter ~submit_fn ~rate_limit_ref:entry.rate_limit_ref
+          ?observer ~callback ~caller_details amount rl
     | None ->
         callback ()
 

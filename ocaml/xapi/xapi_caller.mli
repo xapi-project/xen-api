@@ -39,6 +39,29 @@ val submit_sync :
     [xapi.rate_limit.delay] child span whenever the call is actually
     queued/delayed. No span is emitted when tokens are available immediately. *)
 
+val submit_to_limiter :
+     submit_fn:
+       (   Rate_limit_lib.Rate_limit.t
+        -> ?observer:Rate_limit_lib.Rate_limit.delay_observer
+        -> callback:(unit -> 'a)
+        -> caller_details:string
+        -> float
+        -> 'a
+       )
+  -> rate_limit_ref:API.ref_Rate_limit
+  -> ?observer:Rate_limit_lib.Rate_limit.delay_observer
+  -> callback:(unit -> 'a)
+  -> caller_details:string
+  -> float
+  -> Rate_limit_lib.Rate_limit.t
+  -> 'a
+(** [submit_to_limiter ~submit_fn ~rate_limit_ref ~callback ~caller_details
+    amount rl] submits [callback] to [rl], the limiter found for the rate
+    limit [rate_limit_ref], with [submit_fn]. If [rl] has been deleted since
+    it was found, because the rate limit was changed or destroyed, it looks
+    the rate limit's limiter up again and submits to it, or runs [callback]
+    without limit if the rate limit has none. *)
+
 val submit_async :
      ?parent:Tracing.Span.t
   -> user_agent:string
