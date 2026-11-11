@@ -35,8 +35,10 @@ module Key : sig
       [target]. Both fields must match independently. *)
 
   val compare : pattern_key -> pattern_key -> int
-  (** Total order on patterns: fewer wildcards first, then lexicographic
-      by patterns. *)
+  (** Total order on patterns, most specific first: fewer wildcards first;
+      then, comparing the user agent and then the client IP, the longer
+      prefix first; then lexicographic by patterns. If [p] matches a strict
+      subset of the callers that [q] matches, [p] comes first. *)
 
   val is_all_wildcard : pattern_key -> bool
   (** [is_all_wildcard k] returns true if every field of [k] is a full
