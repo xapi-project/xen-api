@@ -58,6 +58,8 @@ val login_with_password :
   -> originator:string
   -> [`session] Ref.t
 
+val client_certificate_permissions : __context:Context.t -> string list
+
 val change_password :
   __context:Context.t -> old_pwd:string -> new_pwd:string -> unit
 
