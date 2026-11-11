@@ -373,6 +373,25 @@ let test_observer_exception_isolated () =
   Alcotest.(check bool) "sync callback ran" true !sync_ran ;
   Rate_limit.delete rl
 
+let test_long_delay_keeps_worker () =
+  let uncaught = Atomic.make None in
+  Thread.set_uncaught_exception_handler (fun e ->
+      Atomic.set uncaught (Some (Printexc.to_string e))
+  ) ;
+  (* An oversized request is admitted from a full bucket and leaves a debt
+     of about 1e19 tokens. At 1 token/s the next request must wait about
+     1e19 s, longer than Thread.delay accepts. *)
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:1.0 in
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) ~caller_details:"" 1e19 ;
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) ~caller_details:"" 1.0 ;
+  Thread.delay 0.5 ;
+  Thread.set_uncaught_exception_handler
+    Thread.default_uncaught_exception_handler ;
+  Alcotest.(check (option string))
+    "worker thread is still alive" None (Atomic.get uncaught)
+(* [rl] is not deleted: its worker waits for the debt to be repaid, and
+   [delete] would wait with it. *)
+
 let test =
   [
     ("Create invalid", `Quick, test_create_invalid)
@@ -399,6 +418,7 @@ let test =
     , test_observer_fired_when_delayed_async
     )
   ; ("Observer exception isolated", `Slow, test_observer_exception_isolated)
+  ; ("Long delay keeps the worker", `Quick, test_long_delay_keeps_worker)
   ]
 
 let () = Alcotest.run "Rate limit library" [("Rate limit tests", test)]

@@ -43,6 +43,12 @@ let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let noop () = ()
 
+(* Thread.delay fails with EINVAL for a delay that does not fit in a timespec
+   (about 2^63 s), which a tiny fill rate or a large debt can produce. The
+   worker checks the bucket again after every sleep, so sleeping at most an
+   hour at a time does not change when a request is served. *)
+let max_delay = 3600.
+
 (* The worker thread is responsible for calling the callback when the token
    amount becomes available *)
 let rec worker_loop ~bucket ~process_queue ~process_queue_lock
@@ -67,7 +73,7 @@ let rec worker_loop ~bucket ~process_queue ~process_queue_lock
       (* Queue is empty only when termination was signalled *)
       D.debug "%s: queue empty in deleted rate limiter; exiting" __FUNCTION__
   | Some (cost, delay) ->
-      if delay > 0. then Thread.delay delay ;
+      if delay > 0. then Thread.delay (Float.min delay max_delay) ;
       let item_opt =
         with_lock process_queue_lock (fun () ->
             if Token_bucket.consume bucket cost then
