@@ -1,7 +1,7 @@
 (library
   (name xapi_aux)
   (modes best)
-  (modules :standard \ version_test)
+  (modules :standard \ version_test tar_helpers_test)
   (libraries
     astring
     clock
@@ -24,11 +24,11 @@
   (wrapped false)
 )
 
-; to run this test: dune exec ./version_test.exe
+; to run these tests: dune exec ./version_test.exe ./tar_helpers_test.exe
 (tests
- (names version_test)
+ (names version_test tar_helpers_test)
   (modes (best exe))
-  (modules version_test)
+  (modules version_test tar_helpers_test)
   (package xapi)
   (libraries
-    xapi_aux alcotest))
+    xapi_aux alcotest cstruct tar unix xapi-stdext-unix))
