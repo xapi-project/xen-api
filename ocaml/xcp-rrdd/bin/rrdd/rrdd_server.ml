@@ -85,14 +85,17 @@ let archive_rrd vm_uuid (remote_address : string option) : unit =
       )
       remote_address
   in
+  (* Only take the RRD out of the table under the lock: archiving serialises
+     it and, on pool members, streams it to the master over TLS. Once removed,
+     no other thread can reach this RRD. It is removed even if archiving
+     fails (CA-325582). *)
   with_lock mutex (fun () ->
-      match Hashtbl.find_opt vm_rrds vm_uuid with
-      | Some x ->
-          let rrd = x.rrd in
-          Hashtbl.remove vm_rrds vm_uuid ;
-          archive_rrd_internal ~transport ~uuid:vm_uuid ~rrd ()
-      | None ->
-          ()
+      let rrdi = Hashtbl.find_opt vm_rrds vm_uuid in
+      Hashtbl.remove vm_rrds vm_uuid ;
+      rrdi
+  )
+  |> Option.iter (fun rrdi ->
+      archive_rrd_internal ~transport ~uuid:vm_uuid ~rrd:rrdi.rrd ()
   )
 
 (** This functionality is used by xapi to backup rrds to local disk or to the
