@@ -122,30 +122,33 @@ let mem t ~caller_id =
   let entries = Atomic.get t in
   find_matches entries ~caller_id <> []
 
-let insert t ~pattern data =
+(* Writers build the new table from the one they read and install it with a
+   compare-and-set, retrying if another writer has replaced the table in the
+   meantime. A plain [Atomic.set] would drop that writer's change. *)
+let rec insert t ~pattern data =
   if Key.is_all_wildcard pattern then
     false
   (* Reject keys with both fields full wildcards. *)
   else
-    let {table; cache} = Atomic.get t in
+    let ({table; cache} as current) = Atomic.get t in
     if List.exists (fun (key, _) -> Key.equal_pattern key pattern) table then
       false
-    else (
-      Atomic.set t
+    else
+      let next =
         {
           table= insert_sorted (pattern, data) table
         ; cache= cache_without_matches ~pattern cache
-        } ;
-      true
-    )
+        }
+      in
+      Atomic.compare_and_set t current next || insert t ~pattern data
 
-let delete t ~pattern =
-  let {table; cache} = Atomic.get t in
+let rec delete t ~pattern =
+  let ({table; cache} as current) = Atomic.get t in
   match List.find_opt (fun (key, _) -> Key.equal_pattern key pattern) table with
   | None ->
       ()
   | Some _ ->
-      Atomic.set t
+      let next =
         {
           table=
             List.filter
@@ -153,6 +156,8 @@ let delete t ~pattern =
               table
         ; cache= cache_without_matches ~pattern cache
         }
+      in
+      if not (Atomic.compare_and_set t current next) then delete t ~pattern
 
 let get t ~caller_id =
   let entries = Atomic.get t in

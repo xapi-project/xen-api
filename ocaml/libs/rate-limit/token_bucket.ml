@@ -50,8 +50,13 @@ let peek tb = peek_with_timestamp (Mtime_clock.elapsed ()) tb
    is repaid at [fill_rate] before any later request can proceed. *)
 let consume_with_timestamp get_time tb amount =
   let rec try_consume () =
-    let timestamp = get_time () in
+    (* Read the state before the clock. A consume by another thread between
+       the two reads then makes the compare-and-set below fail, and we retry
+       with a fresh state. Read the other way round, the state could hold a
+       newer [last_refill] than [timestamp]: the interval between them would
+       be credited a second time, and [last_refill] would move backwards. *)
     let old_state = Atomic.get tb.state in
+    let timestamp = get_time () in
     let new_tokens =
       compute_tokens timestamp old_state ~burst_size:tb.burst_size
         ~fill_rate:tb.fill_rate
