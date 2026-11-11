@@ -387,6 +387,57 @@ let completes_within timeout f =
   done ;
   Atomic.get finished
 
+let test_raising_callback_keeps_worker () =
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:20.0 in
+  (* Drain the bucket, so that the next two submissions are queued *)
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) ~caller_details:"" 1.0 ;
+  Rate_limit.submit_async rl
+    ~callback:(fun () -> failwith "queued callback raised")
+    ~caller_details:"" 1.0 ;
+  let result = ref 0 in
+  let served =
+    completes_within 5.0 (fun () ->
+        result :=
+          Rate_limit.submit_sync rl
+            ~callback:(fun () -> 42)
+            ~caller_details:"" 1.0
+    )
+  in
+  Alcotest.(check bool)
+    "request queued behind a raising callback is served" true served ;
+  Alcotest.(check int) "it returns its result" 42 !result ;
+  Rate_limit.delete rl
+
+let test_delete_from_own_callback () =
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:20.0 in
+  (* Drain the bucket, so that the next submissions are queued *)
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) ~caller_details:"" 1.0 ;
+  let deleted = Atomic.make false and later = Atomic.make false in
+  Rate_limit.submit_async rl
+    ~callback:(fun () -> Rate_limit.delete rl ; Atomic.set deleted true)
+    ~caller_details:"" 1.0 ;
+  Rate_limit.submit_async rl
+    ~callback:(fun () -> Atomic.set later true)
+    ~caller_details:"" 1.0 ;
+  let start = Mtime_clock.counter () in
+  let elapsed () = Mtime.Span.to_float_ns (Mtime_clock.count start) *. 1e-9 in
+  while (not (Atomic.get later)) && elapsed () < 5.0 do
+    Thread.delay 0.01
+  done ;
+  Alcotest.(check bool)
+    "delete returned in the callback" true (Atomic.get deleted) ;
+  Alcotest.(check bool)
+    "the request queued behind it was served" true (Atomic.get later) ;
+  Alcotest.match_raises "submit after delete is refused"
+    (function Rate_limit.Deleted -> true | _ -> false)
+    (fun () ->
+      Rate_limit.submit_async rl ~callback:(fun () -> ()) ~caller_details:"" 1.0
+    ) ;
+  (* The worker has exited, so a second delete returns at once *)
+  Alcotest.(check bool)
+    "second delete returns" true
+    (completes_within 5.0 (fun () -> Rate_limit.delete rl))
+
 let test_long_delay_keeps_worker () =
   let uncaught = Atomic.make None in
   Thread.set_uncaught_exception_handler (fun e ->
@@ -509,6 +560,11 @@ let test =
   ; ("Long delay keeps the worker", `Quick, test_long_delay_keeps_worker)
   ; ("Submit racing delete", `Quick, test_submit_racing_delete)
   ; ("Observer order when queued", `Quick, test_observer_order_async)
+  ; ( "Raising callback keeps the worker"
+    , `Quick
+    , test_raising_callback_keeps_worker
+    )
+  ; ("Delete from own callback", `Quick, test_delete_from_own_callback)
   ]
 
 let () = Alcotest.run "Rate limit library" [("Rate limit tests", test)]

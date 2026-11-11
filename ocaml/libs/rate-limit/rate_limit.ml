@@ -85,7 +85,12 @@ let rec worker_loop ~bucket ~process_queue ~process_queue_lock
       Option.iter
         (fun {callback; on_worker_end; _} ->
           safe_observe "on_end" on_worker_end ;
-          callback ()
+          (* An exception must not end the worker thread: the requests
+             queued behind this one would never be served. *)
+          try callback ()
+          with e ->
+            D.warn "Rate_limit: queued callback raised: %s"
+              (Printexc.to_string e)
         )
         item_opt ;
       worker_loop ~bucket ~process_queue ~process_queue_lock ~worker_thread_cond
@@ -126,7 +131,11 @@ let delete data =
       Atomic.set data.should_terminate true ;
       Condition.signal data.worker_thread_cond
   ) ;
-  Thread.join data.worker_thread
+  (* Called from a queued callback, [delete] runs on the worker thread, which
+     cannot wait for itself: joining would deadlock. The worker exits by
+     itself once the callback has returned and the queue is empty. *)
+  if Thread.id (Thread.self ()) <> Thread.id data.worker_thread then
+    Thread.join data.worker_thread
 
 (* Call with [process_queue_lock] held. [delete] sets the flag under the same
    lock, and the worker exits only once it sees the flag with an empty queue,
