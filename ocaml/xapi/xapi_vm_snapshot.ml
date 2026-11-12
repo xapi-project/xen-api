@@ -233,6 +233,44 @@ module VBDSet = Set.Make (struct
   let compare = Ref.compare
 end)
 
+(* SR.scan reads snapshot_of back from the storage backend, so write it
+   there first. VM.revert runs on the host that received it, so go through
+   a host that has the SR plugged. *)
+let set_snapshot_of ~__context ~self ~value =
+  ( try
+      let vdi = Db.VDI.get_record ~__context ~self in
+      let rpc =
+        match Importexport.find_host_for_sr ~__context vdi.API.vDI_SR with
+        | host when host = Helpers.get_localhost ~__context ->
+            Storage_access.rpc
+        | host ->
+            Storage_utils.intra_pool_rpc_of_ip
+              ~srcstr:(Xcp_client.get_user_agent ())
+              ~dststr:"smapiv2"
+              ~ip:(Db.Host.get_address ~__context ~self:host)
+      in
+      let module C = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = rpc
+      end)) in
+      let location self =
+        Db.VDI.get_location ~__context ~self |> Storage_interface.Vdi.of_string
+      in
+      C.VDI.set_snapshot_metadata
+        (Context.string_of_task __context)
+        (Db.SR.get_uuid ~__context ~self:vdi.API.vDI_SR
+        |> Storage_interface.Sr.of_string
+        )
+        (location self) (location value)
+        (Clock.Date.to_rfc3339 vdi.API.vDI_snapshot_time)
+        vdi.API.vDI_is_a_snapshot
+    with e ->
+      warn
+        "%s: failed to update snapshot_of of VDI %s in its SR, SR.scan may \
+         reset it: %s"
+        __FUNCTION__ (Ref.string_of self) (Printexc.to_string e)
+  ) ;
+  Db.VDI.set_snapshot_of ~__context ~self ~value
+
 let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   let get_snapshot_of vdi = Db.VDI.get_snapshot_of ~__context ~self:vdi in
 
@@ -397,13 +435,15 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
             to the new cloned disk. *)
       let open Xapi_database.Db_filter_types in
       let all_snaps_in_tree =
-        Db.VDI.get_refs_where ~__context
-          ~expr:(Eq (Field "snapshot_of", Literal (Ref.string_of snapshot_of)))
+        (* a null snapshot_of would match every VDI that is not a snapshot *)
+        if snapshot_of = Ref.null then
+          []
+        else
+          Db.VDI.get_refs_where ~__context
+            ~expr:(Eq (Field "snapshot_of", Literal (Ref.string_of snapshot_of)))
       in
       List.iter
-        (fun snapshot ->
-          Db.VDI.set_snapshot_of ~__context ~self:snapshot ~value:cloned_disk
-        )
+        (fun self -> set_snapshot_of ~__context ~self ~value:cloned_disk)
         all_snaps_in_tree
     )
     cloned_disks ;
