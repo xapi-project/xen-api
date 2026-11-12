@@ -32,8 +32,27 @@ if ((Test-Path variable:XenServer_Environment_Initialized) -eq $true) {
     return
 }
 
+# The folder of the user's PowerShell profile. Only the host sets $PROFILE, so it is empty in a
+# ForEach-Object -Parallel block, a thread or background job, or a runspace created from code: use
+# the folder PowerShell keeps the profile in.
+if ($PROFILE) {
+    $xsProfileFolder = Split-Path $PROFILE
+}
+elseif ($PSVersionTable.PSEdition -eq "Desktop") {
+    $xsProfileFolder = Join-Path -Path ([Environment]::GetFolderPath("MyDocuments")) -ChildPath "WindowsPowerShell"
+}
+elseif ($IsWindows) {
+    $xsProfileFolder = Join-Path -Path ([Environment]::GetFolderPath("MyDocuments")) -ChildPath "PowerShell"
+}
+elseif ($env:XDG_CONFIG_HOME) {
+    $xsProfileFolder = Join-Path -Path $env:XDG_CONFIG_HOME -ChildPath "powershell"
+}
+else {
+    $xsProfileFolder = Join-Path -Path $HOME -ChildPath ".config/powershell"
+}
+
 $systemWideXsProfile = Join-Path -Path $PSHOME -ChildPath "XenServerProfile.ps1"
-$perUserXsProfile = Join-Path -Path (Split-Path $PROFILE) -ChildPath "XenServerProfile.ps1"
+$perUserXsProfile = Join-Path -Path $xsProfileFolder -ChildPath "XenServerProfile.ps1"
 
 if (Test-Path $systemWideXsProfile) {
     . $systemWideXsProfile
@@ -46,6 +65,8 @@ if (Test-Path $perUserXsProfile) {
 Remove-Item variable:systemWideXsProfile
 Remove-Item variable:perUserXsProfile
 
-$global:KnownServerCertificatesFilePath = Join-Path -Path (Split-Path $PROFILE) -ChildPath "XenServer_Known_Certificates.xml"
+$global:KnownServerCertificatesFilePath = Join-Path -Path $xsProfileFolder -ChildPath "XenServer_Known_Certificates.xml"
+
+Remove-Item variable:xsProfileFolder
 
 $XenServer_Environment_Initialized = $true
