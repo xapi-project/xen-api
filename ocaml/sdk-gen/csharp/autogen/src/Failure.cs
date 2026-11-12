@@ -31,7 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Resources;
-#if !(NET8_0_OR_GREATER)
+#if !(NET10_0_OR_GREATER)
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -90,7 +90,7 @@ namespace XenAPI
             ParseExceptionMessage();
         }
 
-#if !(NET8_0_OR_GREATER)
+#if !(NET10_0_OR_GREATER)
         protected Failure(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
@@ -178,7 +178,7 @@ namespace XenAPI
         {
             return Message;
         }
-#if !(NET8_0_OR_GREATER)
+#if !(NET10_0_OR_GREATER)
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             if (info == null)

@@ -453,6 +453,11 @@ module SMAPIv1 : Server_impl = struct
                           ~value:attach_info_v1.Smint.o_direct_reason
                   )
               ) ;
+              (* The SM backend may specify the datapath backend (e.g. "qdisk"
+                 for qemu); otherwise default to "vbd3". *)
+              let backend_type =
+                Option.value ~default:"vbd3" attach_info_v1.Smint.backend_kind
+              in
               {
                 implementations=
                   (* Use NBD if the config file prescribes it or if there is no other option *)
@@ -467,7 +472,7 @@ module SMAPIv1 : Server_impl = struct
                           {
                             params= attach_info_v1.Smint.params_nbd
                           ; extra= attach_info_v1.Smint.xenstore_data
-                          ; backend_type= "vbd3"
+                          ; backend_type
                           }
                       ; Nbd {uri= attach_info_v1.Smint.params_nbd}
                       ]
@@ -477,7 +482,7 @@ module SMAPIv1 : Server_impl = struct
                           {
                             params
                           ; extra= attach_info_v1.Smint.xenstore_data
-                          ; backend_type= "vbd3"
+                          ; backend_type
                           }
                       ; BlockDevice {path= params}
                       ; Nbd {uri= attach_info_v1.Smint.params_nbd}

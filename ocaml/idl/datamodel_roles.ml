@@ -12,8 +12,6 @@ let role_vm_operator = "vm-operator"
 
 let role_read_only = "read-only"
 
-let role_client_cert = "client-cert"
-
 let role_name (name, _, _) = name
 
 let role_name_with_description (name, description, _) = (name, description)
@@ -48,11 +46,6 @@ let ordered =
   ; ( role_vm_operator
     , "The VM Operator role can use VMs and interact with VM consoles"
     , false
-    )
-  ; ( role_client_cert
-    , "The Client Certificate role has access to functionality granted to \
-       those who authenticate using a client certificate"
-    , true
     )
   ; ( role_read_only
     , "The Read-Only role can log in with basic read-only access"
@@ -112,19 +105,3 @@ let _R_VM_OP = Some (roles_gte role_vm_operator)
 let _R_READ_ONLY = Some (roles_gte role_read_only) (* = all *)
 
 let _R_ALL = _R_READ_ONLY
-
-(* Only client-cert; added to one of the above where required in the datamodel *)
-let _R_CLIENT_CERT = Some [role_client_cert]
-
-let union a b =
-  match (a, b) with
-  | Some x, Some y ->
-      Some (x @ y)
-  | Some x, None ->
-      Some x
-  | None, Some y ->
-      Some y
-  | None, None ->
-      None
-
-let ( ++ ) = union

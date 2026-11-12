@@ -164,7 +164,21 @@ module DomainNameIncludeIP = struct
     )
 end
 
+let has_control_character s =
+  let is_control_character c =
+    let code = Char.code c in
+    code < 0x20 || code = 0x7f
+  in
+  String.exists is_control_character s
+
+let assert_no_control_chars ~url ~url_error =
+  if has_control_character url then (
+    error "Invalid url: it contains control character(s)" ;
+    raise Api_errors.(Server_error (url_error, [url]))
+  )
+
 let assert_url_is_valid ~url =
+  assert_no_control_chars ~url ~url_error:Api_errors.invalid_base_url ;
   try
     let uri = Uri.of_string url in
     match Uri.(scheme uri, host uri) with
@@ -265,6 +279,7 @@ let get_remote_pool_coordinator_ip url =
       raise Api_errors.(Server_error (invalid_base_url, [url]))
 
 let assert_remote_pool_url_is_valid ~url =
+  assert_no_control_chars ~url ~url_error:Api_errors.invalid_base_url ;
   ignore (get_remote_pool_coordinator_ip url : string)
 
 let with_pool_repositories f =
@@ -731,7 +746,7 @@ let get_pkgs_from_repoquery cmd params =
   )
   |> List.fold_left parse_line_of_repoquery []
 
-let get_updates_from_repoquery repositories =
+let get_updates_from_repoquery ~installed_pkgs repositories =
   List.iter (fun r -> clean_yum_cache r) repositories ;
   (* Use 'updates' to decrease the number of packages to apply 'is_obsoleted' *)
   let Pkg_mgr.{cmd; params} = Pkgs.repoquery_updates ~repositories in
@@ -742,6 +757,9 @@ let get_updates_from_repoquery repositories =
   let new_updates =
     get_pkgs_from_repoquery cmd params
     |> List.filter (fun x -> not (PkgSet.mem x updates_set))
+    |> List.filter (fun (pkg, _) ->
+        not (List.mem_assoc (Pkg.to_name_arch_string pkg) installed_pkgs)
+    )
     |> List.filter (fun (pkg, _) -> not (is_obsoleted pkg.Pkg.name repositories))
   in
   new_updates @ updates
@@ -776,6 +794,7 @@ module YumUpgradeOutput = struct
     in
     (* The following sections/separators come from
      * https://github.com/rpm-software-management/yum/blob/master/output.py#L1569-L1576
+     * https://github.com/rpm-software-management/dnf5/blob/main/libdnf5-cli/output/transaction_table.cpp
      *)
     at_end_of_input >>= function
     | false -> (
@@ -790,7 +809,26 @@ module YumUpgradeOutput = struct
           | "Downgrading:"
           | "Installing for dependencies:"
           | "Updating for dependencies:"
-          | "Removing for dependencies:" ) as section' -> (
+          | "Removing for dependencies:"
+          (* dnf5 only *)
+          | "Installing dependencies:"
+          | "Installing weak dependencies:"
+          | "Removing dependent packages:"
+          | "Removing unused dependencies:"
+          | "Changing reason:"
+          | "Installing groups:"
+          | "Installing groups dependencies:"
+          | "Removing groups:"
+          | "Changing reason of installed groups:"
+          | "Installing environmental groups:"
+          | "Removing environmental groups:"
+          | "Upgrading environmental groups:"
+          | "Enabling module streams:"
+          | "Disabling modules:"
+          | "Resetting modules:"
+          | "Switching module streams:"
+          | "Skipping packages with conflicts:"
+          | "Skipping packages with broken dependencies:" ) as section' -> (
           (* a new section *)
           match section with
           | Some s ->
@@ -905,7 +943,9 @@ module YumUpgradeOutput = struct
             | "Updating:"
             | "Upgrading:"
             | "Installing for dependencies:"
-            | "Updating for dependencies:" ->
+            | "Updating for dependencies:"
+            | "Installing dependencies:"
+            | "Installing weak dependencies:" ->
                 true
             | _ ->
                 false

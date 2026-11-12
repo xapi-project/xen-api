@@ -1223,6 +1223,12 @@ let trusted_certificate_not_valid_yet =
 
 let trusted_certificate_invalid = add_error "TRUSTED_CERTIFICATE_INVALID"
 
+let trusted_certificate_purpose_needs_ca =
+  add_error "TRUSTED_CERTIFICATE_PURPOSE_NEEDS_CA"
+
+let trusted_certificate_purpose_has_no_ca =
+  add_error "TRUSTED_CERTIFICATE_PURPOSE_HAS_NO_CA"
+
 let server_certificate_signature_not_supported =
   add_error "SERVER_CERTIFICATE_SIGNATURE_NOT_SUPPORTED"
 

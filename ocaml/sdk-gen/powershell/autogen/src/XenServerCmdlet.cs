@@ -86,7 +86,7 @@ namespace Citrix.XenServer.Commands
 
                     if (session == null)
                         ThrowTerminatingError(new ErrorRecord(
-                                                  new Exception("A default XenServer session has not beeen set."),
+                                                  new Exception("A default XenServer session has not been set."),
                                                   "",
                                                   ErrorCategory.InvalidArgument, null));
                 }

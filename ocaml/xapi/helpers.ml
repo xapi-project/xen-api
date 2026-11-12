@@ -2579,8 +2579,8 @@ let match_protected_key objname fieldname =
    lower-privileged sessions must be able to manipulate a subset of entries
    (those not protected by a more privileged role).
 *)
-let set_map_with_rbac ~__context ~self ~value ~get_fn ~set_fn ~match_protected
-    ~object_name ~field_name =
+let set_map_with_rbac' ~session_id ~__context ~self ~value ~get_fn ~set_fn
+    ~match_protected ~object_name ~field_name =
   let match_protected = match_protected field_name in
   let module S = Set.Make (String) in
   let create_lookup kvs =
@@ -2647,7 +2647,6 @@ let set_map_with_rbac ~__context ~self ~value ~get_fn ~set_fn ~match_protected
   in
   (* Find the first disallowed permission, indicating that we cannot
      perform the action. *)
-  let session_id = Context.get_session_id __context in
   match
     Rbac.find_first_disallowed_permission ~__context ~session_id ~permissions
   with
@@ -2663,3 +2662,101 @@ let set_map_with_rbac ~__context ~self ~value ~get_fn ~set_fn ~match_protected
         (Rbac.disallowed_permission_exn ~extra_dmsg ~extra_msg ~__context
            ~permission:disallowed ~action
         )
+
+let set_map_with_rbac ~__context ~self ~value ~get_fn ~set_fn ~match_protected
+    ~object_name ~field_name =
+  set_map_with_rbac'
+    ~session_id:(Context.get_session_id __context)
+    ~__context ~self ~value ~get_fn ~set_fn ~match_protected ~object_name
+    ~field_name
+
+(* Try to recover the original session from the task as it is still useful even
+   after passing the RBAC check in API message entry. For example, RBAC check
+   against some keys is only possible when the VM's metadata is received from an
+   input stream while the call has passed RBAC check in API message entry on
+   coordinator and has been forwarded to a supporter host. *)
+let original_session ~__context =
+  match Context.get_session_id __context with
+  | exception Failure _ ->
+      (* No session, check is not needed. *)
+      Ok None
+  | session_id ->
+      let is_forwarding_session =
+        (* Quick check on local session. *)
+        (not (Session_check.is_local_session __context session_id))
+        (* Quick check on forwarded_task as well. *)
+        && Context.forwarded_task __context
+        &&
+        let session = Db.Session.get_record ~__context ~self:session_id in
+        session.API.session_pool && session.API.session_is_local_superuser
+      in
+      if is_forwarding_session then (
+        let ( let* ) = Result.bind in
+        let* task_id =
+          if Context.task_in_database __context then
+            Ok (Context.get_task_id __context)
+          else (
+            warn "%s: no task" __FUNCTION__ ;
+            Error ()
+          )
+        in
+        match Db.Task.get_session ~__context ~self:task_id with
+        | session_id when session_id <> Ref.null ->
+            Ok (Some session_id)
+        | _ ->
+            warn "%s: no session" __FUNCTION__ ;
+            Error ()
+        | exception e ->
+            warn "%s: failed to get originating session: %s" __FUNCTION__
+              (Printexc.to_string e) ;
+            Error ()
+      ) else
+        Ok (Some session_id)
+
+(* With similar purpose of set_map_with_rbac, this is a pure checking function
+   to ensure the session is privileged enough to set values for the protected
+   keys if they present in the map [value]. *)
+let assert_map_with_rbac ~__context ~match_protected ~object_name ~field_name
+    ~value =
+  match original_session ~__context with
+  | Ok None ->
+      ()
+  | Ok (Some session_id) ->
+      set_map_with_rbac' ~session_id ~__context ~self:Ref.null ~value
+        ~get_fn:(fun ~__context:_ ~self:_ -> [])
+        ~set_fn:(fun ~__context:_ ~self:_ ~value:_ -> ())
+        ~match_protected ~object_name ~field_name
+  | Error () ->
+      let action = Printf.sprintf "%s.set_%s" object_name field_name in
+      raise
+        Api_errors.(
+          Server_error
+            ( rbac_permission_denied
+            , [action; "cannot determine the originating session"]
+            )
+        )
+
+(* With similar purpose of assert_map_with_rbac, check if setting a non-default
+   value on a field of an object is allowed. *)
+let assert_field_value_with_rbac ~__context ~object_name ~field_name ~is_default
+    =
+  if not is_default then
+    let action = Printf.sprintf "%s.set_%s" object_name field_name in
+    let permission = String.lowercase_ascii action in
+    match original_session ~__context with
+    | Ok None ->
+        ()
+    | Ok (Some session_id) ->
+        if not (Rbac.is_access_allowed ~__context ~session_id ~permission) then
+          raise
+            (Rbac.disallowed_permission_exn ~extra_dmsg:"" ~extra_msg:""
+               ~__context ~permission ~action
+            )
+    | Error () ->
+        raise
+          Api_errors.(
+            Server_error
+              ( rbac_permission_denied
+              , [action; "cannot determine the originating session"]
+              )
+          )

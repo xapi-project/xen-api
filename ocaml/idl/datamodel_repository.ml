@@ -80,8 +80,7 @@ let introduce =
         }
       ]
     ~result:(Ref _repository, "The ref of the created repository record.")
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let introduce_bundle =
   call ~name:"introduce_bundle" ~in_oss_since:None ~lifecycle:[]
@@ -92,8 +91,7 @@ let introduce_bundle =
       ; (String, "name_description", "The description of the repository")
       ]
     ~result:(Ref _repository, "The ref of the created repository record.")
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let introduce_remote_pool =
   call ~name:"introduce_remote_pool" ~in_oss_since:None ~lifecycle:[]
@@ -115,8 +113,7 @@ let introduce_remote_pool =
         )
       ]
     ~result:(Ref _repository, "The ref of the created repository record.")
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let forget =
   call ~name:"forget" ~in_oss_since:None
@@ -129,17 +126,14 @@ let forget =
         , "The repository to be removed from the database"
         )
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let apply =
   call ~name:"apply" ~in_oss_since:None
     ~lifecycle:[(Published, "1.301.0", "")]
     ~doc:"Apply updates on a host"
     ~params:[(Ref _host, "host", "The host to be updated")]
-    ~pool_internal:true ~hide_from_docs:true
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~pool_internal:true ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
 
 let apply_livepatch =
   call ~name:"apply_livepatch" ~in_oss_since:None ~lifecycle:[]
@@ -169,9 +163,7 @@ let apply_livepatch =
         , "The RPM release of the component after applying the livepatch"
         )
       ]
-    ~pool_internal:true ~hide_from_docs:true
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~pool_internal:true ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
 
 let set_gpgkey_path =
   call ~name:"set_gpgkey_path" ~in_oss_since:None ~lifecycle:[]
@@ -184,15 +176,14 @@ let set_gpgkey_path =
         , "The file name of the GPG public key of the repository"
         )
       ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ()
+    ~allowed_roles:_R_POOL_OP ()
 
 let t =
   create_obj ~name:_repository ~descr:"Repository for updates" ~doccomments:[]
     ~gen_constructor_destructor:false ~gen_events:true ~in_db:true
     ~lifecycle:[(Published, "1.301.0", "")]
     ~persist:PersistEverything ~in_oss_since:None
-    ~messages_default_allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~messages_default_allowed_roles:_R_POOL_OP
     ~messages:
       [
         introduce
@@ -208,8 +199,7 @@ let t =
         uid _repository ~lifecycle:[(Published, "1.301.0", "")]
       ; namespace ~name:"name"
           ~contents:
-            (names
-               ~writer_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+            (names ~writer_roles:_R_POOL_OP
                ~lifecycle:[(Published, rel_rio, "")]
                None RW
             )

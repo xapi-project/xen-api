@@ -39,6 +39,13 @@ val exec_with_subtask :
   -> (__context:Context.t -> 'b)
   -> 'b
 
+val can_own_task : ?session_id:API.ref_session -> API.ref_task -> bool
+(** [can_own_task ?session_id task] is true when [session_id] can handle
+    [task]. A task provided by a request is caller-controlled, so it has to be
+    checked before anything is done with it. Only call this for a task
+    that is really in the database: the check cannot resolve a dummy ref and
+    would refuse every unprivileged caller. *)
+
 (* used by auto-generated code in server.ml *)
 val my_assoc : string -> (string * 'a) list -> 'a
 

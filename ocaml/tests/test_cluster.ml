@@ -141,6 +141,54 @@ let test_enable () =
   ) ;
   pool_destroy ~__context ~self:cluster
 
+let test_enable_survives_observer_failure () =
+  let __context = Test_common.make_test_database () in
+  let cluster = create_cluster ~__context () in
+  let calls = ref [] in
+  let observer_failing_rpc ~__context call =
+    calls := call.Rpc.name :: !calls ;
+    if String.starts_with ~prefix:"Observer." call.Rpc.name then
+      Rpc.failure (Rpc.String "observer unavailable")
+    else
+      test_clusterd_rpc ~__context call
+  in
+  Context.set_test_clusterd_rpc __context (observer_failing_rpc ~__context) ;
+  let self =
+    match
+      Xapi_clustering.find_cluster_host ~__context
+        ~host:Helpers.(get_localhost ~__context)
+    with
+    | Some self ->
+        self
+    | None ->
+        Alcotest.fail "Couldn't find freshly-created cluster_host"
+  in
+  Db.Cluster_host.set_enabled ~__context ~self ~value:false ;
+  Xapi_cluster_host.enable ~__context ~self ;
+  Alcotest.(check bool)
+    "cluster_host is enabled although clusterd rejected its tracing config" true
+    (Db.Cluster_host.get_enabled ~__context ~self) ;
+  let calls = List.rev !calls in
+  let find_index p =
+    List.to_seq calls
+    |> Seq.mapi (fun i name -> (i, name))
+    |> Seq.find (fun (_, name) -> p name)
+    |> Option.map fst
+  in
+  let first_observer_call =
+    find_index (String.starts_with ~prefix:"Observer.")
+  in
+  let enable_call = find_index (String.equal "enable") in
+  Alcotest.(check bool)
+    "clusterd is enabled before its tracing is configured" true
+    ( match (enable_call, first_observer_call) with
+    | Some e, Some o ->
+        e < o
+    | _ ->
+        false
+    ) ;
+  pool_destroy ~__context ~self:cluster
+
 let test_invalid_parameters () =
   let __context = Test_common.make_test_database () in
   let cluster_stack = "invalid_cluster_stack" in
@@ -242,6 +290,10 @@ let test =
   [
     ("test_create_destroy_service_status", `Quick, test_create_destroy_status)
   ; ("test_enable", `Quick, test_enable)
+  ; ( "test_enable_survives_observer_failure"
+    , `Quick
+    , test_enable_survives_observer_failure
+    )
   ; ("test_invalid_parameters", `Quick, test_invalid_parameters)
   ; ("test_create_cleanup", `Quick, test_create_cleanup)
   ; ("test_get_network_succeeds", `Quick, test_get_network_succeeds)

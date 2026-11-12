@@ -80,6 +80,8 @@ let of_purposes = function
 
 type trusted_store = {cert_dir: string; bundle: (string * string) option}
 
+let ca_bundle_name p = ps "%s-%s.pem" Constants.trusted_certs_root_prefix p
+
 let trusted_store_locations kind =
   let parent = library_path kind in
   match kind with
@@ -101,8 +103,7 @@ let trusted_store_locations kind =
         (fun p ->
           {
             cert_dir= parent // ps "ca-%s" p
-          ; bundle=
-              Some (parent, ps "%s-%s.pem" Constants.trusted_certs_root_prefix p)
+          ; bundle= Some (parent, ca_bundle_name p)
           }
         )
         (of_purposes purposes)
@@ -117,6 +118,10 @@ let trusted_store_locations kind =
           }
         )
         (of_purposes purposes)
+
+let ca_bundle_path purpose =
+  library_path (Root [purpose])
+  // ca_bundle_name (Record_util.certificate_purpose_to_string purpose)
 
 let with_cert_store kind f =
   trusted_store_locations kind
@@ -302,6 +307,8 @@ module Db_util : sig
        __context:Context.t
     -> [`ca | `pinned]
     -> (API.ref_Certificate * API.certificate_t) list
+
+  val has_trusted_ca : __context:Context.t -> API.certificate_purpose -> bool
 end = struct
   module Date = Clock.Date
 
@@ -433,6 +440,12 @@ end = struct
       And (type', name')
     in
     Db.Certificate.get_records_where ~__context ~expr
+
+  let has_trusted_ca ~__context purpose =
+    get_trusted_certs ~__context `ca
+    |> List.exists (fun (_, cert) ->
+        List.mem purpose cert.API.certificate_purpose
+    )
 end
 
 let local_list kind =

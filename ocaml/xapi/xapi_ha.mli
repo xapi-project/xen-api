@@ -67,6 +67,12 @@ val ha_stop_daemon : 'a -> 'b -> unit
 val emergency_ha_disable : 'a -> bool -> unit
 (** Emergency-mode API call to disarm localhost *)
 
+val release_local_ha_static_vdis : __context:Context.t -> unit
+(** Deactivate and detach any HA statefile or metadata VDI that is still
+    configured as a static VDI on this host (in /etc/xensource/static-vdis).
+    Used by ha_release_resources, and at startup to clean up VDIs left behind
+    when HA was disabled on the pool while we were offline. *)
+
 val ha_release_resources : Context.t -> 'a -> unit
 (** Internal API call to release any HA resources after the system has been
     shutdown. This call is idempotent. Modified for CA-48539 to call
