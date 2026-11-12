@@ -46,6 +46,7 @@ let () =
      ; ("Test_bios_strings", Test_bios_strings.test)
      ; ("Test_certificates", Test_certificates.test)
      ; ("Test_caller_limit", Test_caller_limit.test)
+     ; ("Test_message", Test_message.test)
      ]
     @ Test_guest_agent.tests
     @ Test_nm.tests
@@ -73,4 +74,8 @@ let () =
     @ Test_rfb_client_msgtype_parser.tests
     @ Test_tracked_user_agents.tests
     @ Test_cli_args.tests
+    @ Test_vm_protected_keys.tests
+    @ Test_vm_protected_fields.tests
+    @ Test_network_protected_keys.tests
+    @ Test_task_ownership.tests
     )
