@@ -66,18 +66,53 @@ let build_bucket ~burst_size ~fill_rate =
   with Invalid_argument msg ->
     raise Api_errors.(Server_error (invalid_value, [msg]))
 
-let install_bucket ~self ~burst_size ~fill_rate =
-  let bucket = build_bucket ~burst_size ~fill_rate in
-  with_mutex (fun () ->
-      Option.iter Rate_limit.delete (Hashtbl.find_opt buckets self) ;
-      Hashtbl.replace buckets self bucket
-  )
+(* Serialises the changes of the in-memory limiters: [install_bucket] and
+   [remove_bucket] each run as one step under it, and change the table
+   under [mutex] within that step. Take [change_mutex] before [mutex], never
+   the other way round. *)
+let change_mutex = Mutex.create ()
+
+let with_change_mutex f =
+  Mutex.lock change_mutex ;
+  Fun.protect ~finally:(fun () -> Mutex.unlock change_mutex) f
+
+(* Build the limiter of [self] from its parameters in the database, and
+   install it, both under [change_mutex]. Every change of a rate limit
+   writes the database before it installs a limiter, so the install that
+   runs last reads every change: concurrent changes of the burst size and
+   the fill rate cannot leave a limiter built from an older value. If the
+   rate limit has been destroyed, reading it raises and nothing is
+   installed.
+
+   [Rate_limit.delete] waits until the old worker has served every request
+   still queued on it, at the old rate. Call it after releasing both
+   mutexes: [find_bucket] takes [mutex] on every rate-limited dispatch. *)
+let install_bucket ~__context ~self =
+  let old =
+    with_change_mutex (fun () ->
+        let burst_size = Db.Rate_limit.get_burst_size ~__context ~self in
+        let fill_rate = Db.Rate_limit.get_fill_rate ~__context ~self in
+        let bucket = build_bucket ~burst_size ~fill_rate in
+        with_mutex (fun () ->
+            let old = Hashtbl.find_opt buckets self in
+            Hashtbl.replace buckets self bucket ;
+            old
+        )
+    )
+  in
+  Option.iter Rate_limit.delete old
 
 let remove_bucket ~self =
-  with_mutex (fun () ->
-      Option.iter Rate_limit.delete (Hashtbl.find_opt buckets self) ;
-      Hashtbl.remove buckets self
-  )
+  let old =
+    with_change_mutex (fun () ->
+        with_mutex (fun () ->
+            let old = Hashtbl.find_opt buckets self in
+            Hashtbl.remove buckets self ;
+            old
+        )
+    )
+  in
+  Option.iter Rate_limit.delete old
 
 let create ~__context ~name_label ~name_description ~burst_size ~fill_rate =
   validate_params ~burst_size ~fill_rate ;
@@ -85,19 +120,35 @@ let create ~__context ~name_label ~name_description ~burst_size ~fill_rate =
   let ref = Ref.make () in
   Db.Rate_limit.create ~__context ~ref ~uuid:(Uuidx.to_string uuid) ~name_label
     ~name_description ~burst_size ~fill_rate ;
-  install_bucket ~self:ref ~burst_size ~fill_rate ;
+  install_bucket ~__context ~self:ref ;
   ref
 
+(* Serialises [destroy] with [add_caller]. Without it, a caller attached
+   between [destroy]'s read of the callers and its deletion of the row would
+   keep a reference to the deleted row, and would run with no rate limit. *)
+let membership_mutex = Mutex.create ()
+
+let with_membership_mutex f =
+  Mutex.lock membership_mutex ;
+  Fun.protect ~finally:(fun () -> Mutex.unlock membership_mutex) f
+
 let destroy ~__context ~self =
-  let attached_callers = Db.Rate_limit.get_callers ~__context ~self in
-  List.iter
-    (fun caller ->
-      Db.Caller.set_rate_limit ~__context ~self:caller ~value:Ref.null ;
-      notify_caller_changed ~__context caller
-    )
-    attached_callers ;
-  remove_bucket ~self ;
-  Db.Rate_limit.destroy ~__context ~self
+  with_membership_mutex (fun () ->
+      let attached_callers = Db.Rate_limit.get_callers ~__context ~self in
+      List.iter
+        (fun caller ->
+          Db.Caller.set_rate_limit ~__context ~self:caller ~value:Ref.null ;
+          notify_caller_changed ~__context caller
+        )
+        attached_callers ;
+      (* Destroy the row first: a concurrent change that installs a limiter
+         after this point fails to read the row, and one that installed
+         before is removed below. *)
+      Db.Rate_limit.destroy ~__context ~self
+  ) ;
+  (* [remove_bucket] waits for the requests queued on the bucket: do not
+     hold [membership_mutex] meanwhile. No caller names the row any more. *)
+  remove_bucket ~self
 
 let add_caller ~__context ~self ~caller =
   (* One rate limit per caller. Set the new value directly: the datamodel's
@@ -106,10 +157,15 @@ let add_caller ~__context ~self ~caller =
      cleared to Ref.null first and then set the target, which briefly
      left the caller unlimited and triggered two full refreshes (each
      an extra DB read for the callback). *)
-  let previous = Db.Caller.get_rate_limit ~__context ~self:caller in
-  if previous <> self then (
-    Db.Caller.set_rate_limit ~__context ~self:caller ~value:self ;
-    notify_caller_changed ~__context caller
+  with_membership_mutex (fun () ->
+      (* The database stores any reference it is given: refuse one that
+         names no Rate_limit row (HANDLE_INVALID), rather than store it. *)
+      ignore (Db.Rate_limit.get_uuid ~__context ~self) ;
+      let previous = Db.Caller.get_rate_limit ~__context ~self:caller in
+      if previous <> self then (
+        Db.Caller.set_rate_limit ~__context ~self:caller ~value:self ;
+        notify_caller_changed ~__context caller
+      )
   )
 
 let remove_caller ~__context ~self ~caller =
@@ -128,13 +184,13 @@ let set_burst_size ~__context ~self ~value =
   let fill_rate = Db.Rate_limit.get_fill_rate ~__context ~self in
   validate_params ~burst_size:value ~fill_rate ;
   Db.Rate_limit.set_burst_size ~__context ~self ~value ;
-  install_bucket ~self ~burst_size:value ~fill_rate
+  install_bucket ~__context ~self
 
 let set_fill_rate ~__context ~self ~value =
   let burst_size = Db.Rate_limit.get_burst_size ~__context ~self in
   validate_params ~burst_size ~fill_rate:value ;
   Db.Rate_limit.set_fill_rate ~__context ~self ~value ;
-  install_bucket ~self ~burst_size ~fill_rate:value
+  install_bucket ~__context ~self
 
 let register ~__context =
   if not !Xapi_globs.rate_limit_enabled then
@@ -147,7 +203,7 @@ let register ~__context =
         let burst_size = record.API.rate_limit_burst_size in
         let fill_rate = record.API.rate_limit_fill_rate in
         if valid_fill_rate fill_rate && valid_burst_size burst_size then
-          install_bucket ~self ~burst_size ~fill_rate
+          install_bucket ~__context ~self
         else
           warn "Skipping rate_limit %s: invalid persisted parameters"
             record.API.rate_limit_uuid
