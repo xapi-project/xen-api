@@ -236,6 +236,8 @@ let rec choose_bridge_name bridges =
 
 let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
     ~managed ~tags =
+  Xapi_network_helpers.assert_protected_map_keys_allowed ~__context
+    ~field_name:"other_config" ~value:other_config ;
   with_lock mutex (fun () ->
       let networks = Db.Network.get_all ~__context in
       let bridges =

@@ -54,6 +54,7 @@
     xapi_database
     xapi_internal
     xml-light2
+    xmlm
   )
   (deps
     (source_tree test_data)

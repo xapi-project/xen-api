@@ -22,7 +22,7 @@ let write_to_file = Xapi_stdext_unix.Unixext.write_string_to_file ~perms:0o600
 
 let write_to_channel c s = output_string c s
 
-let equal = String.equal
+let equal = Eqaf.equal
 
 let length = String.length
 

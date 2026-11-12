@@ -1731,3 +1731,12 @@ let check_secureboot_certificates_state ~__context ~self :
         vm_uuid (Printexc.to_string e) ;
       `ok
   )
+
+let assert_protected_map_keys_allowed ~__context ~field_name ~value =
+  let match_protected = Helpers.match_protected_key "VM" in
+  Helpers.assert_map_with_rbac ~__context ~match_protected ~object_name:"vm"
+    ~field_name ~value
+
+let assert_protected_field_allowed ~__context ~field_name ~is_default =
+  Helpers.assert_field_value_with_rbac ~__context ~object_name:"vm" ~field_name
+    ~is_default

@@ -62,13 +62,19 @@ let rbac_assert_permission_fn = ref None
 
 let are_auth_user_ids_of_sessions_equal ~__context s1 s2 =
   Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
-  let s1_auth_user_sid =
-    Db_actions.DB_Action.Session.get_auth_user_sid ~__context ~self:s1
-  in
-  let s2_auth_user_sid =
-    Db_actions.DB_Action.Session.get_auth_user_sid ~__context ~self:s2
-  in
-  s1_auth_user_sid = s2_auth_user_sid
+  let open Db_actions.DB_Action.Session in
+  let s1_auth_user_sid = get_auth_user_sid ~__context ~self:s1 in
+  let s2_auth_user_sid = get_auth_user_sid ~__context ~self:s2 in
+  match s1_auth_user_sid = s2_auth_user_sid with
+  | false ->
+      false
+  | true when s1_auth_user_sid <> "" ->
+      true
+  | _ ->
+      (* Only local superuser and client-cert sessions have no sid, and a
+         session is exactly one of them. *)
+      let f = get_is_local_superuser ~__context in
+      f ~self:s1 = f ~self:s2
 
 let assert_op_valid ?(ok_if_no_session_in_context = false) ~__context task_id =
   let@ __context = Context.with_tracing ~__context __FUNCTION__ in

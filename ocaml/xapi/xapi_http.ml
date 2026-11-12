@@ -99,8 +99,8 @@ let create_session_for_client_cert req s =
 
 let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
     (req : Request.t) ic =
+  let task_id = ref_param_of_req req "task_id" in
   let rbac_raise permission msg exc =
-    let task_id = ref_param_of_req req "task_id" in
     ( match task_id with
     | None ->
         ()
@@ -114,6 +114,16 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
     raise exc
   in
   let rbac_check session_id =
+    ( match task_id with
+    | None ->
+        ()
+    | Some task_id ->
+        if not (Server_helpers.can_own_task ~session_id task_id) then (
+          error "Refusing the request: task %s is not owned by the caller"
+            (Ref.string_of task_id) ;
+          raise Http.Forbidden
+        )
+    ) ;
     let rbac_task_desc = "handler" in
     let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
     try
@@ -262,6 +272,8 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
             Xapi_session.consider_touching_session inet_rpc session_id () ;
           f __context
         in
+        (* The caller-supplied task is the one [f] runs under and reports into.
+           It must therefore belong to the caller. *)
         match task_id with
         | None ->
             Server_helpers.exec_with_new_task ?subtask_of ~session_id
@@ -269,9 +281,15 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
               ~origin:(Context.Http (req, s))
               label login_perform_logout
         | Some task_id ->
-            Server_helpers.exec_with_forwarded_task ~session_id
-              ~origin:(Context.Http (req, s))
-              task_id login_perform_logout
+            if Server_helpers.can_own_task ~session_id task_id then
+              Server_helpers.exec_with_forwarded_task ~session_id
+                ~origin:(Context.Http (req, s))
+                task_id login_perform_logout
+            else (
+              warn "Refusing the request: task %s is not owned by the caller"
+                (Ref.string_of task_id) ;
+              raise Http.Forbidden
+            )
       )
       (fun () ->
         if must_logout then
@@ -280,20 +298,9 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
             session_id
       )
   with Http.Unauthorised _ as e ->
-    let fail __context =
-      TaskHelper.failed ~__context
-        (Api_errors.Server_error (Api_errors.session_authentication_failed, []))
-    in
     debug
       "No authentication provided to http handler: returning 401 unauthorised" ;
-    (* Fail the task *)
-    ( match task_id with
-    | None ->
-        Server_helpers.exec_with_new_task ~task_in_database:(not dummy) label
-          fail
-    | Some task_id ->
-        Server_helpers.exec_with_forwarded_task task_id fail
-    ) ;
+    (* Do nothing here as authentication failed already. *)
     req.Request.close <- true ;
     raise e
 

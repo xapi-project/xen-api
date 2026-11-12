@@ -518,6 +518,14 @@ module VM : HandlerTools = struct
         in
         match import_action with
         | Replace (_, vm_record) | Clean_import vm_record ->
+            Xapi_vm_helpers.assert_protected_map_keys_allowed ~__context
+              ~field_name:"other_config" ~value:vm_record.API.vM_other_config ;
+            Xapi_vm_helpers.assert_protected_map_keys_allowed ~__context
+              ~field_name:"platform" ~value:vm_record.API.vM_platform ;
+            (* The appliance is cleared on import, so it isn't checked. *)
+            Xapi_vm_helpers.assert_protected_field_allowed ~__context
+              ~field_name:"ha_restart_priority"
+              ~is_default:(vm_record.API.vM_ha_restart_priority = "") ;
             if is_live config then assert_can_live_import __context vm_record ;
             ( if needs_cpu_check config vm_record then
                 let vmm_record =
@@ -1247,6 +1255,23 @@ module Net : HandlerTools = struct
     | Found_net _ ->
         handle_dry_run __context config rpc session_id state x precheck_result
     | Create net_record ->
+        (* The [session_id] passed to Client.Network.create_from_record
+           (and hence to Network.create) may have been created by
+           Helpers.call_api_functions with a higher privilege level than the
+           requesting client session. This is intentional, but it means the
+           per-key RBAC check inside Network.create would evaluate that
+           elevated session and let protected keys through. The import
+           metadata is caller-controlled, so enforce the check here instead,
+           where Helpers.assert_map_with_rbac can still resolve the
+           originating session. *)
+        Xapi_network_helpers.assert_protected_map_keys_allowed ~__context
+          ~field_name:"other_config" ~value:net_record.API.network_other_config ;
+        (* The bridge from the import is meaningless to this pool.
+           Network.create will choose the bridge. A network created during
+           import must be a managed one. *)
+        let net_record =
+          {net_record with API.network_bridge= ""; network_managed= true}
+        in
         let net =
           log_reraise
             ("failed to create Network with name_label "

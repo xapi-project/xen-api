@@ -56,6 +56,15 @@ let in_memory_cache_length_default = 256
 (* We use the timestamp to name the file. For consistency, use this function *)
 let timestamp_to_string f = Printf.sprintf "%0.5f" f
 
+let is_valid_uuid str = String.length str = 36 && Uuidx.is_uuid str
+
+let is_opaque_ref str =
+  let prefix = "OpaqueRef:" in
+  String.starts_with ~prefix str
+  &&
+  let n = String.length prefix in
+  is_valid_uuid (String.sub str n (String.length str - n))
+
 (************* Marshalling/unmarshalling functions ************)
 
 let to_xml output _ref gen message =
@@ -88,6 +97,10 @@ let to_xml output _ref gen message =
   tag "message" message_subtags ()
 
 let of_xml input =
+  let fn = __FUNCTION__ in
+  let bad_xml tag dat =
+    failwith (Printf.sprintf "%s: bad XML: tag:%s data:'%s'" fn tag dat)
+  in
   let current_elt = ref "" in
   let message =
     ref
@@ -124,17 +137,20 @@ let of_xml input =
             message :=
               {!message with API.message_cls= Record_util.cls_of_string dat}
         | "obj_uuid" ->
+            if not (is_valid_uuid dat) then bad_xml "obj_uuid" dat ;
             message := {!message with API.message_obj_uuid= dat}
         | "timestamp" ->
             message :=
               {!message with API.message_timestamp= Date.of_iso8601 dat}
         | "uuid" ->
+            if not (is_valid_uuid dat) then bad_xml "uuid" dat ;
             message := {!message with API.message_uuid= dat}
         | "body" ->
             message := {!message with API.message_body= dat}
         | "generation" ->
             gen := Int64.of_string dat
         | "ref" ->
+            if not (is_opaque_ref dat) then bad_xml "ref" dat ;
             _ref := dat
         | _ ->
             failwith "Bad XML!"
@@ -145,7 +161,15 @@ let of_xml input =
   in
   try
     f () ;
-    (!gen, Ref.of_string !_ref, !message)
+    let msg = !message in
+    (* See if any keys are missing. *)
+    [
+      ("ref", !_ref)
+    ; ("uuid", msg.API.message_uuid)
+    ; ("obj_uuid", msg.API.message_obj_uuid)
+    ]
+    |> List.iter (fun (tag, dat) -> if dat = "" then bad_xml tag dat) ;
+    (!gen, Ref.of_string !_ref, msg)
   with e -> Backtrace.is_important e ; raise e
 
 let export_xml messages =
@@ -826,6 +850,22 @@ let register_event_hook () =
   repopulate_cache () ;
   Xapi_event.Message.get_since_for_events := get_since_for_events
 
+let assert_query_matches_body ~cls ~uuid message =
+  let mismatch reason =
+    failwith (Printf.sprintf "Xapi_message.handler: %s" reason)
+  in
+  if message.API.message_cls <> cls then
+    mismatch
+      (Printf.sprintf "Message cls '%s' does not match query cls '%s'"
+         (Record_util.cls_to_string message.API.message_cls)
+         (Record_util.cls_to_string cls)
+      ) ;
+  if message.API.message_obj_uuid <> uuid then
+    mismatch
+      (Printf.sprintf "Message obj_uuid '%s' does not match query uuid '%s'"
+         message.API.message_obj_uuid uuid
+      )
+
 (** Handler for PUTing messages to a host.
     	Query params: { cls=<obj class>, uuid=<obj uuid> } *)
 let handler (req : Http.Request.t) fd _ =
@@ -875,6 +915,9 @@ let handler (req : Http.Request.t) fd _ =
             Xmlm.make_input (`Channel (Unix.in_channel_of_descr fd))
           in
           let messages = import_xml xml_in in
+          List.iter
+            (function _, _, m -> assert_query_matches_body ~cls ~uuid m)
+            messages ;
           List.iter
             (function _, r, m -> ignore (write ~__context ~_ref:r ~message:m))
             messages ;

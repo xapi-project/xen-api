@@ -2003,6 +2003,11 @@ module Network = struct
                   ("folder", _R_VM_OP)
                 ; ("XenCenter.CustomFields.*", _R_VM_OP)
                 ; ("XenCenterCreateInProgress", _R_VM_OP)
+                ; (* Host Internal Management Network markers. Redundant for
+                     the writer_roles, but they generate the per-key rules that
+                     Network.create checks, its default role being VM admin. *)
+                  ("is_guest_installer_network", _R_POOL_OP)
+                ; ("is_host_internal_management_network", _R_POOL_OP)
                 ]
               ~lifecycle:[(Published, rel_rio, "additional configuration")]
           ; field
