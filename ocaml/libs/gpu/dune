@@ -3,4 +3,4 @@
  (public_name xapi-gpu)
  (preprocess (pps ppx_deriving.std))
  (flags (:standard -w -39@8))
- (modules partition_mode gpu_partition_lifecycle))
+ (modules partition_mode gpu_partition_lifecycle gpu_capacity))
