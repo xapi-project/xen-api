@@ -1095,6 +1095,10 @@ let server_init () =
           ; ("Initialising random number generator", [], random_setup)
           ; ("Initialise TLS verification", [], init_tls_verification)
           ; ("Running startup check", [], startup_check)
+          ; ( "taking the host GPU lock if xenopsd takes it"
+            , [Startup.NoExnRaising]
+            , Xapi_host.set_gpu_lock_engaged_at_start
+            )
           ; ( "Initialize cgroups via tgroup"
             , []
             , fun () ->
@@ -1535,8 +1539,11 @@ let server_init () =
             , [Startup.NoExnRaising]
             , fun () -> Xapi_host.update_firewalld_service_status ~__context
             )
-          ; ( "Sync the GPU partitioning status of the host"
-            , [Startup.NoExnRaising]
+          ; (* On its own thread: releasing the host's GPU lock here can wait
+               tens of seconds for its holders, VF setups and PCI binds and
+               unbinds, and xapi's start must not wait for that *)
+            ( "Sync the GPU partitioning status of the host"
+            , [Startup.NoExnRaising; Startup.OnThread]
             , fun () ->
                 Xapi_host.sync_gpu_partitioning ~__context
                   ~after_boot:!Xapi_globs.on_system_boot

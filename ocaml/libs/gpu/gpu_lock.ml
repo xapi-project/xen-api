@@ -28,6 +28,8 @@ type key = Pending | On | Off
 (* stored in the lock file and read by GPU tools outside xapi: never renumber *)
 let key_of_label = function 1 -> On | 2 -> Off | _ -> Pending
 
+let label_of_key = function Pending -> 0 | On -> 1 | Off -> 2
+
 type reason = Busy of string | Stuck of string | Unusable of string
 
 type refusal = {reason: reason; holders: int option}
@@ -301,6 +303,16 @@ module Make (B : Lock_rw.S) = struct
           refuse t host (of_acquire_error "reading the key" e)
       | Ok h ->
           with_held h (fun h -> Ok (Some (key_of_label (B.label h))))
+
+    let set_key t ~timeout key =
+      let write h =
+        B.set_label h (label_of_key key)
+        |> Result.fold ~ok:Result.ok ~error:(fun why ->
+            refuse t host (Unusable why)
+        )
+      in
+      take t host Lock_rw.Exclusive (waiter t timeout) ~what:"setting the key"
+      |> Fun.flip Result.bind (fun h -> with_held h write)
 
     (* longer than a refusal's census, as a person waits for it *)
     let status_holders_timeout = Mtime.Span.(5 * refusal_holders_timeout)

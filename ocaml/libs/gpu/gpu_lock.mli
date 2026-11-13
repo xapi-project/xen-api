@@ -123,6 +123,11 @@ module Gate : sig
   (** Waits up to [timeout] while another holds the lock alone; never creates
       anything; [None] when there is no lock object. *)
 
+  val set_key : t -> timeout:Mtime.Span.t -> key -> (unit, refusal) result
+  (** Writes the key while it holds the lock alone, waiting up to [timeout];
+      like every taker, it creates a missing lock object or repairs a damaged
+      one. *)
+
   val holders : t -> (string list, string) result
   (** Every holder as a JSON object of one line: its "pid", process "name",
       the "state" letter of its main thread, its "mode" ("exclusive",

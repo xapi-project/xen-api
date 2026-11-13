@@ -132,6 +132,116 @@ let partition_modes_at_start (name, after_boot, before, after) =
   in
   (name, `Quick, test)
 
+let release_step = function
+  | Xapi_host.Turn_key_off ->
+      "turn key off"
+  | Disengage ->
+      "disengage"
+  | Warn_key_on ->
+      "warn key on"
+
+(* Each row: the key (None: no lock object), whether xapi or xenopsd takes the
+   lock, and the steps of the release in order. *)
+let gpu_lock_release_steps (name, key, engaged, steps) =
+  let test () =
+    Alcotest.(check (list string))
+      name
+      (List.map release_step steps)
+      (List.map release_step (Xapi_host.gpu_lock_release_steps ~key ~engaged))
+  in
+  (name, `Quick, test)
+
+(* Runs [f] while xapi takes the GPU lock or not, as [engaged] says, and its
+   engaged-file setting names a temporary file that exists or not; restores
+   both, and returns whether xapi takes the lock after [f]. *)
+let with_gpu_lock_engaged ~engaged ~exists f =
+  let set engaged =
+    Xapi_pgpu.set_gpu_lock_engaged ~timeout:Mtime.Span.zero engaged
+    |> Result.iter_error Alcotest.fail
+  in
+  let file = Filename.temp_file "gpu-lock-engaged" "" in
+  let default = !Xapi_globs.gpu_lock_engaged_file in
+  if not exists then Sys.remove file ;
+  set engaged ;
+  Xapi_globs.gpu_lock_engaged_file := file ;
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> f () |> Xapi_pgpu.gpu_lock_engaged)
+    (fun () ->
+      Xapi_globs.gpu_lock_engaged_file := default ;
+      set false ;
+      if exists then Sys.remove file
+    )
+
+(* Each row: whether xenopsd's engaged file exists when xapi starts. *)
+let gpu_lock_engaged_at_start (name, exists) =
+  let test () =
+    with_gpu_lock_engaged ~engaged:(not exists) ~exists
+      Xapi_host.set_gpu_lock_engaged_at_start
+    |> Alcotest.(check bool) name exists
+  in
+  (name, `Quick, test)
+
+(* The release acts on this machine's host GPU lock: a test that finds one
+   fails rather than change it *)
+let no_host_gpu_lock () =
+  match Gpu_lock.Gate.read_key Xapi_pgpu.gpu_lock ~timeout:Mtime.Span.zero with
+  | Ok None ->
+      ()
+  | Ok (Some (Gpu_lock.Pending | On | Off)) | Error (_ : Gpu_lock.refusal) ->
+      Alcotest.fail "needs a machine without a host GPU lock object"
+
+(* Each row: the stored status, whether xapi takes the GPU lock before and
+   xenopsd's engaged file exists, and xenopsd's answer to "stop taking it"
+   (None: the call fails); then whether xapi takes the lock, whether xapi
+   took it at each call to xenopsd, and the status written. *)
+let release_or_leave
+    (name, status, before, exists, answer, engaged, asked, written) =
+  let test () =
+    no_host_gpu_lock () ;
+    let __context = make_test_database () in
+    let self = Helpers.get_localhost ~__context in
+    (* a host stored as partitioning may hold MIG state: its NVIDIA GPU is
+       divided into partitions *)
+    ( match status with
+    | `entering | `active | `leaving ->
+        let pCI = make_pci ~__context ~host:self ~vendor_id:"10de" () in
+        let pgpu = make_pgpu ~__context ~pCI ~host:self () in
+        Db.PGPU.set_partition_mode ~__context ~self:pgpu ~value:`enabled
+    | `not_reported | `inactive ->
+        ()
+    ) ;
+    let calls = ref [] in
+    let xenopsd (_ : Rpc.call) =
+      calls := Xapi_pgpu.gpu_lock_engaged () :: !calls ;
+      match answer with
+      | Some now ->
+          Rpc.success (Rpc.Bool now)
+      | None ->
+          failwith "xenopsd unreachable"
+    in
+    let queues = !Xapi_xenops_queue.queue_override in
+    Db.Host.set_gpu_partitioning_status ~__context ~self ~value:status ;
+    Xapi_xenops_queue.queue_override :=
+      (!Xapi_globs.default_xenopsd, xenopsd) :: queues ;
+    let after =
+      Fun.protect
+        ~finally:(fun () -> Xapi_xenops_queue.queue_override := queues)
+        (fun () ->
+          with_gpu_lock_engaged ~engaged:before ~exists (fun () ->
+              Xapi_host.sync_gpu_partitioning ~__context ~after_boot:false
+          )
+        )
+    in
+    Alcotest.(check (triple bool (list bool) string))
+      name (engaged, asked, written)
+      ( after
+      , List.rev !calls
+      , API.host_gpu_partitioning_status_to_string
+          (Db.Host.get_gpu_partitioning_status ~__context ~self)
+      )
+  in
+  (name, `Quick, test)
+
 let test =
   ("test_host_join_restriction", `Quick, test_host_join_restriction)
   :: List.map sync_gpu_partitioning
@@ -162,4 +272,134 @@ let test =
         , division_evidence
         , Some `possibly_enabled
         )
+      ]
+  @ List.map gpu_lock_release_steps
+      Xapi_host.
+        [
+          ("release: no lock object, nothing locks", None, false, [])
+        ; ("release: no lock object, a daemon locks", None, true, [Disengage])
+        ; ("release: key off, nothing locks", Some Gpu_lock.Off, false, [])
+        ; ( "release: key off, a daemon locks"
+          , Some Gpu_lock.Off
+          , true
+          , [Disengage]
+          )
+        ; ( "release: a stale pending key"
+          , Some Gpu_lock.Pending
+          , false
+          , [Turn_key_off]
+          )
+        ; ( "release: key pending, a daemon locks"
+          , Some Gpu_lock.Pending
+          , true
+          , [Turn_key_off; Disengage]
+          )
+        ; ( "release: key on, a daemon locks"
+          , Some Gpu_lock.On
+          , true
+          , [Turn_key_off; Disengage]
+          )
+        ; ( "release: key on, nothing locks"
+          , Some Gpu_lock.On
+          , false
+          , [Warn_key_on]
+          )
+        ]
+  @ List.map release_or_leave
+      [
+        ( "release: xenopsd agrees, so neither daemon takes the lock"
+        , `inactive
+        , true
+        , true
+        , Some false
+        , false
+        , [false]
+        , "inactive"
+        )
+      ; ( "release: xenopsd still busy, so xapi keeps taking the lock"
+        , `inactive
+        , true
+        , true
+        , Some true
+        , true
+        , [false]
+        , "inactive"
+        )
+      ; ( "release: xenopsd busy, so xapi's change is undone (it was off)"
+        , `inactive
+        , false
+        , true
+        , Some true
+        , false
+        , [false]
+        , "inactive"
+        )
+      ; ( "release: the call to xenopsd fails, so xapi keeps taking the lock"
+        , `not_reported
+        , true
+        , true
+        , None
+        , true
+        , [false]
+        , "inactive"
+        )
+      ; ( "release: nothing engaged, so xenopsd is not asked"
+        , `inactive
+        , false
+        , false
+        , Some false
+        , false
+        , []
+        , "inactive"
+        )
+      ; ( "release: only xenopsd's file, so xenopsd is asked"
+        , `inactive
+        , false
+        , true
+        , Some false
+        , false
+        , [false]
+        , "inactive"
+        )
+      ; ( "release: only xapi engaged, so both stop"
+        , `inactive
+        , true
+        , false
+        , Some false
+        , false
+        , [false]
+        , "inactive"
+        )
+      ; ( "leave: an active host keeps its locks while it leaves"
+        , `active
+        , true
+        , true
+        , Some false
+        , true
+        , []
+        , "leaving"
+        )
+      ; ( "leave: an entering host leaves like an active one"
+        , `entering
+        , true
+        , true
+        , Some false
+        , true
+        , []
+        , "leaving"
+        )
+      ; ( "leave: a leaving host keeps its locks"
+        , `leaving
+        , true
+        , true
+        , Some false
+        , true
+        , []
+        , "leaving"
+        )
+      ]
+  @ List.map gpu_lock_engaged_at_start
+      [
+        ("start: the engaged file exists, so xapi takes the lock", true)
+      ; ("start: no engaged file, so xapi does not take the lock", false)
       ]

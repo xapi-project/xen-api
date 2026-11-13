@@ -501,8 +501,27 @@ val disable_display :
 
 val sync_display : __context:Context.t -> host:API.ref_host -> unit
 
+val set_gpu_lock_engaged_at_start : unit -> unit
+(** At xapi's start: VF enables take the host GPU lock if xenopsd's engaged
+    file exists, as xenopsd's PCI unbinds then do. *)
+
+(** What a host where GPU partitioning is not wanted undoes, in this order *)
+type gpu_lock_release_step =
+  | Turn_key_off  (** first: GPU tools run under the lock only while it is on *)
+  | Disengage  (** xapi and then xenopsd stop taking the lock *)
+  | Warn_key_on
+      (** a key on while xapi finds neither daemon engaged, which only a
+          change by hand causes: logged; the key stays on *)
+
+val gpu_lock_release_steps :
+  key:Gpu_lock.key option -> engaged:bool -> gpu_lock_release_step list
+(** For a host that holds no MIG state, from the key ([None]: no lock object,
+    and none is made) and whether xapi or xenopsd takes the lock *)
+
 val sync_gpu_partitioning : __context:Context.t -> after_boot:bool -> unit
 (** Computes this host's GPU partitioning status and reason and writes both;
+    on a host where partitioning is not wanted it first releases the GPU lock,
+    which can wait tens of seconds for the lock's holders and for xenopsd;
     [after_boot] is true only at the first xapi start after a host boot *)
 
 val apply_guest_agent_config : __context:Context.t -> host:API.ref_host -> unit
