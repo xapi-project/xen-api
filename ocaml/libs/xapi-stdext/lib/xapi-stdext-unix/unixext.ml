@@ -845,6 +845,13 @@ external set_sock_keepalives : Unix.file_descr -> int -> int -> int -> unit
 
 external fsync : Unix.file_descr -> unit = "stub_unixext_fsync"
 
+external flock_try : Unix.file_descr -> exclusive:bool -> bool
+  = "stub_unixext_flock_try"
+
+external flock_unlock : Unix.file_descr -> unit = "stub_unixext_flock_unlock"
+
+external open_tmpfile : string -> Unix.file_descr = "stub_unixext_open_tmpfile"
+
 external blkgetsize64 : Unix.file_descr -> int64 = "stub_unixext_blkgetsize64"
 
 external get_max_fd : unit -> int = "stub_unixext_get_max_fd"
