@@ -47,10 +47,19 @@ def doexec(args):
 
 ON_ERROR_LOG  = 1
 ON_ERROR_FAIL = 2
+ON_ERROR_FAIL_noDATAERR = 3
 
 def run(on_error, args):
     """Execute a subprocess and, on failure, either log (ON_ERROR_LOG) or throw (ON_ERROR_FAIL)"""
     (rc, stdout, stderr) = doexec(args)
+
+    if on_error == ON_ERROR_FAIL_noDATAERR:
+        if rc == os.EX_DATAERR:
+            send_to_syslog("%s exitted with EX_DATAERR (ignored): %s" % (" ".join(args), stderr.read()))
+            rc = 0
+        else:
+            on_error = ON_ERROR_FAIL
+
     if rc != 0:
         if on_error == ON_ERROR_FAIL:
              send_to_syslog("FATAL: %s exitted with %d: %s" % (" ".join(args), rc, stderr))
