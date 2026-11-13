@@ -329,8 +329,25 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
    *)
   let snap_VBDs_to_be_cloned =
     let ( --- ) = VBDSet.diff in
-    snap_VBDs_disk --- snap_VBDs_reverted
+    snap_VBDs_disk --- snap_VBDs_reverted |> VBDSet.to_seq |> List.of_seq
   in
+  let all_snaps_in_tree =
+    (* the list of cloned VDIs maintains the order of the VBDs given, use this
+       to correlate the VDI with the original VDI before the clone *)
+    snap_VBDs_to_be_cloned
+    |> List.map (fun vbd ->
+        let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+        let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:vdi in
+        (* Past corruption could have led snapshot VDIs to have snapshot_of=Ref.null
+           Don't change all such fields en masse since it'd corrupt non-snapshots *)
+        if snapshot_of <> Ref.null then
+          Db.VDI.get_refs_where ~__context
+            ~expr:(Eq (Field "snapshot_of", Literal (Ref.string_of snapshot_of)))
+        else
+          []
+    )
+  in
+
   if
     VBDSet.cardinal vm_vbds_to_be_destroyed <> 0
     || VDISet.cardinal vm_disks_to_be_destroyed <> 0
@@ -344,29 +361,16 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
     (safe_destroy_vdi ~__context ~rpc ~session_id)
     vm_disks_to_be_destroyed ;
   TaskHelper.set_progress ~__context 0.2 ;
-  if VBDSet.cardinal snap_VBDs_to_be_cloned <> 0 then
+  if snap_VBDs_to_be_cloned <> [] then
     debug "%s: Cloning the snapshotted disks" __FUNCTION__ ;
 
   let driver_params = Xapi_vm_clone.make_driver_params () in
   let cloned_disks =
-    (* the list of cloned VDIs maintains the order of the VBDs given, use this
-       to correlate the VDI with the original VDI before the clone *)
-    let snap_VBDs_to_be_cloned =
-      snap_VBDs_to_be_cloned |> VBDSet.to_seq |> List.of_seq
-    in
-    let snap_disks_previous_snapshot_of =
-      snap_VBDs_to_be_cloned
-      |> List.map (fun vbd ->
-          let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-          Db.VDI.get_snapshot_of ~__context ~self:vdi
-      )
-    in
-
     let cloned =
       Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone
         ~__context snap_VBDs_to_be_cloned driver_params
     in
-    List.combine cloned snap_disks_previous_snapshot_of
+    List.combine cloned all_snaps_in_tree
   in
   let destroy_vdis_on_error =
     List.filter_map
@@ -385,21 +389,16 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
       ~__context snap_VBDs_CD driver_params
   in
   TaskHelper.set_progress ~__context 0.5 ;
+
   if cloned_disks <> [] then
     debug "%s: Updating the snapshot_of fields for relevant VDIs" __FUNCTION__ ;
-
   List.iter
-    (fun ((_, cloned_disk, _), snapshot_of) ->
+    (fun ((_, cloned_disk, _), all_snaps_in_tree) ->
       (* For each snapshot disk which was just cloned:
          1) Find the value of snapshot_of
          2) Find all snapshots with the same snapshot_of
          3) Update each of these snapshots so that their snapshot_of points
             to the new cloned disk. *)
-      let open Xapi_database.Db_filter_types in
-      let all_snaps_in_tree =
-        Db.VDI.get_refs_where ~__context
-          ~expr:(Eq (Field "snapshot_of", Literal (Ref.string_of snapshot_of)))
-      in
       List.iter
         (fun snapshot ->
           Db.VDI.set_snapshot_of ~__context ~self:snapshot ~value:cloned_disk
@@ -407,6 +406,7 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
         all_snaps_in_tree
     )
     cloned_disks ;
+
   debug "Cloning the suspend VDI if needed" ;
   let cloned_suspend_VDI =
     if snap_suspend_VDI = Ref.null then
