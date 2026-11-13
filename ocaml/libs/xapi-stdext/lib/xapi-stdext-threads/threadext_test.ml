@@ -14,6 +14,8 @@
 
 module Delay = Xapi_stdext_threads.Threadext.Delay
 
+let mutex_execute_within = Xapi_stdext_threads.Threadext.mutex_execute_within
+
 let delay_wait_check ~min ~max delay timeout expected =
   let cnt = Mtime_clock.counter () in
   let res = Delay.wait delay timeout in
@@ -72,6 +74,42 @@ let tests =
   ; ("no_signal", `Quick, no_signal)
   ; ("collapsed", `Quick, collapsed)
   ; ("other_thread", `Quick, other_thread)
+  ]
+
+(* the function runs while the call holds the mutex: a second take fails *)
+let mutex_free_runs_and_is_released () =
+  let m = Mutex.create () in
+  let ran =
+    mutex_execute_within ~timeout:Mtime.Span.zero m (fun () -> Mutex.try_lock m)
+  in
+  Alcotest.(check (pair (option bool) bool))
+    "ran holding it, then released" (Some false, true)
+    (ran, Mutex.try_lock m)
+
+let mutex_held_runs_nothing () =
+  let m = Mutex.create () in
+  Mutex.lock m ;
+  let ran = mutex_execute_within ~timeout:Mtime.Span.(20 * ms) m Fun.id in
+  Alcotest.(check (option unit)) "not run" None ran
+
+(* another thread holds the mutex for 50 ms: the call waits, then runs *)
+let mutex_freed_in_time_runs () =
+  let m = Mutex.create () in
+  let held = Delay.make () in
+  let holder () =
+    Mutex.lock m ; Delay.signal held ; Thread.delay 0.05 ; Mutex.unlock m
+  in
+  let th = Thread.create holder () in
+  Alcotest.(check bool) "the holder took it" false (Delay.wait held 1.0) ;
+  let ran = mutex_execute_within ~timeout:Mtime.Span.(1 * s) m (Fun.const 1) in
+  Thread.join th ;
+  Alcotest.(check (option int)) "ran once freed" (Some 1) ran
+
+let mutex_tests =
+  [
+    ("a free mutex", `Quick, mutex_free_runs_and_is_released)
+  ; ("a mutex held too long", `Quick, mutex_held_runs_nothing)
+  ; ("a mutex freed within the timeout", `Quick, mutex_freed_in_time_runs)
   ]
 
 let test_create_ambient_storage () =
@@ -167,4 +205,8 @@ let tls_tests =
 
 let () =
   Alcotest.run "Threadext"
-    [("Delay", tests); ("ThreadRuntimeContext", tls_tests)]
+    [
+      ("Delay", tests)
+    ; ("mutex_execute_within", mutex_tests)
+    ; ("ThreadRuntimeContext", tls_tests)
+    ]
