@@ -1303,10 +1303,18 @@ module Ovs = struct
     let s = Semaphore.make 5
 
     let vsctl ?log args =
+      let on_error script args stdout stderr status =
+        match status with
+        | Unix.WEXITED 65 ->
+            warn "%s %s: ovs-vswitchd failed to set up an interface: %s" script
+              (String.concat " " args) stderr ;
+            stdout
+        | _ ->
+            error_handler script args stdout stderr status
+      in
       let execute = Xapi_stdext_threads.Threadext.Semaphore.execute in
       execute s (fun () ->
-          call_script ~on_error:error_handler ?log ovs_vsctl
-            ("--timeout=20" :: args)
+          call_script ~on_error ?log ovs_vsctl ("--timeout=20" :: args)
       )
 
     let ofctl ?log args =
