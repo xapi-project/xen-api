@@ -429,7 +429,66 @@ let suite_create_multi =
         )
     )
   in
-  ("no rrds", `Quick, test_no_rrds) :: valid_rrd_tests
+  (* Every cell must hold the CDP of the ring that its legend entry names,
+     looked up by name rather than by position *)
+  let test_values_match_legend () =
+    let gauge_rrd n_ds offset =
+      let dss =
+        Array.init n_ds (fun i ->
+            ds_create (Printf.sprintf "ds%d" i) ~min:neg_infinity ~max:infinity
+              ~mrhb:300. Gauge VT_Unknown
+        )
+      in
+      let rras = [|rra_create CF_Average 5 1 0.5; rra_create CF_Max 5 1 0.5|] in
+      let rrd = rrd_create dss rras 5L 0. in
+      for step = 1 to 8 do
+        ds_update rrd
+          (5. *. float_of_int step)
+          (Array.init n_ds (fun i ->
+               let v = offset +. float_of_int ((100 * step) + i) in
+               (i, {value= VT_Float v; transform= Identity})
+           )
+          )
+          false
+      done ;
+      rrd
+    in
+    let rrds = [("a", gauge_rrd 2 0.); ("b", gauge_rrd 3 0.5)] in
+    let t =
+      RU.create_multi (List.map (fun (p, r) -> (p ^ ":", r)) rrds) 0L 0L None
+    in
+    Alcotest.(check bool) "has rows" true (t.RU.data <> [||]) ;
+    Alcotest.(check int) "one column per ds per rra" 10 (Array.length t.legend) ;
+    t.RU.legend
+    |> Array.iteri (fun col legend ->
+        let cf, prefix, ds_name =
+          match String.split_on_char ':' legend with
+          | [cf; prefix; ds_name] ->
+              (cf, prefix, ds_name)
+          | _ ->
+              Alcotest.failf "unexpected legend entry %s" legend
+        in
+        let rrd = List.assoc prefix rrds in
+        let rra =
+          Array.to_list rrd.rrd_rras
+          |> List.find (fun rra -> cf_type_to_string rra.rra_cf = cf)
+        in
+        let ds =
+          Utils.find_index (fun ds -> ds.ds_name = ds_name) rrd.rrd_dss
+          |> Option.get
+        in
+        t.RU.data
+        |> Array.iteri (fun i row ->
+            Alcotest.(check (float 0.))
+              (Printf.sprintf "%s row %d" legend i)
+              (Fring.peek rra.rra_data.(ds) i)
+              row.RU.row_data.(col)
+        )
+    )
+  in
+  ("no rrds", `Quick, test_no_rrds)
+  :: ("values match legend", `Quick, test_values_match_legend)
+  :: valid_rrd_tests
 
 let rrd_suite rrd =
   [

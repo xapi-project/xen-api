@@ -65,16 +65,16 @@ let string_of t =
 (* Helper utility - use create_multi instead *)
 let create rra_timestep rras first_rra last_cdp_time first_cdp_time start
     legends =
+  (* One ring per output column, in legend order. This runs while rrdd holds
+     its global lock, so build each row directly as an unboxed float array. *)
+  let rings = Array.concat (List.map (fun rra -> rra.rra_data) rras) in
   let rec do_data i accum =
     let time = Int64.(sub last_cdp_time (mul (of_int i) rra_timestep)) in
     if time < start || i >= first_rra.rra_row_cnt then
       List.rev accum
     else
-      let extract_row rra =
-        List.map (fun ring -> Fring.peek ring i) (Array.to_list rra.rra_data)
-      in
-      let values = List.concat_map extract_row rras in
-      do_data (i + 1) ({time; row_data= Array.of_list values} :: accum)
+      let row_data = Array.map (fun ring -> Fring.peek ring i) rings in
+      do_data (i + 1) ({time; row_data} :: accum)
   in
 
   let data = Array.of_list (do_data 0 []) in
@@ -297,14 +297,19 @@ let create_multi prefixandrrds start interval cfopt =
 
   create rra_timestep rras first_rra last_cdp_time first_cdp_time start legends
 
-let export ?(json = false) prefixandrrds start interval cfopt =
-  let t = create_multi prefixandrrds start interval cfopt in
+(** Serialise the result of [create_multi]. [t] holds copies of the values,
+    not references into the RRDs, so callers can extract under a lock and
+    serialise after releasing it. *)
+let to_string ?(json = false) t =
   if json then
     json_of_t t
   else
-    let buffer = Buffer.create 10 in
+    let buffer = Buffer.create 4096 in
     let output = Xmlm.make_output (`Buffer buffer) in
     xml_of t output ; Buffer.contents buffer
+
+let export ?(json = false) prefixandrrds start interval cfopt =
+  create_multi prefixandrrds start interval cfopt |> to_string ~json
 
 let of_string s =
   let input = Xmlm.make_input (`String (0, s)) in
