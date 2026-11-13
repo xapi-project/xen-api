@@ -66,6 +66,8 @@ type trusted_store = {cert_dir: string; bundle: (string * string) option}
 
 val trusted_store_locations : t_trusted -> trusted_store list
 
+val ca_bundle_path : API.certificate_purpose -> string
+
 val sync_all_hosts : __context:Context.t -> API.ref_host list -> unit
 
 val db_type_of_category : [`Root | `Pinned] -> [`ca | `pinned]
@@ -104,4 +106,6 @@ module Db_util : sig
        __context:Context.t
     -> [`ca | `pinned]
     -> (API.ref_Certificate * API.certificate_t) list
+
+  val has_trusted_ca : __context:Context.t -> API.certificate_purpose -> bool
 end

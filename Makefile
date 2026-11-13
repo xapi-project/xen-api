@@ -15,6 +15,9 @@ build:
 # if available use external file, otherwise use built-in, this allows building XAPI without being root
 	if test -f $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml; then cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml; fi
 	dune build @ocaml/idl/update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote || dune build @ocaml/idl/update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote
+# check for breaking API changes before promoting the new message list
+	dune exec ocaml/idl/api_compat.exe -j $(JOBS) --profile=$(PROFILE) -- -check ocaml/idl/messages.ndjson
+	dune build @ocaml/idl/update-messages -j $(JOBS) --profile=$(PROFILE) --auto-promote || dune build @ocaml/idl/update-messages -j $(JOBS) --profile=$(PROFILE) --auto-promote
 	dune build -j $(JOBS) --profile=$(PROFILE) @install @ocaml/xapi-storage/python/xapi/storage/api/v5/python @ocaml/xapi-doc @ocaml/sdk-gen/sdkgen
 
 # Quickly verify that the code compiles, without actually building it

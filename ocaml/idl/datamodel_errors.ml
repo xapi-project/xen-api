@@ -1652,7 +1652,9 @@ let _ =
     () ;
 
   (* Pool errors *)
-  error Api_errors.host_is_slave ["Coordinator IP address"]
+  (* The Java SDK names the HostIsSlave field after this parameter
+     (masterIPAddress), so renaming it is a breaking change. *)
+  error Api_errors.host_is_slave ["Master IP address"]
     ~doc:
       "You cannot make regular API calls directly on a supporter. Please pass \
        API calls via the coordinator host."
@@ -1869,6 +1871,12 @@ let _ =
 
   error Api_errors.trusted_certificate_invalid []
     ~doc:"The provided certificate is not in a PEM-encoded X509 format." () ;
+
+  error Api_errors.trusted_certificate_purpose_needs_ca ["purpose"]
+    ~doc:"Only root CA certificates can be installed for this purpose." () ;
+
+  error Api_errors.trusted_certificate_purpose_has_no_ca ["purpose"]
+    ~doc:"No root CA certificate is installed for this purpose." () ;
 
   error Api_errors.vmpp_has_vm []
     ~doc:"There is at least one VM assigned to this protection policy." () ;

@@ -1,0 +1,15 @@
+Updating and loading repositories:
+Repositories loaded.
+Package                                        Arch   Version              Repository                                       Size
+Upgrading:
+ xenopsd-xc                                    x86_64 26.21.1-1.xs9        local-b7a5cf8d-c433-9483-1d8f-a50af8e64400  20.1 MiB
+   replacing xenopsd-xc                        x86_64 26.19.0-2.xs9        xcp:main                                    20.0 MiB
+Installing dependencies:
+ lldpd                                         x86_64 1.0.22-1.xs9         local-b7a5cf8d-c433-9483-1d8f-a50af8e64400 496.3 KiB
+
+Transaction Summary:
+ Installing:         1 package
+ Upgrading:          1 package
+ Replacing:          1 package
+
+Operation aborted by the user.

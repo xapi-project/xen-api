@@ -49,6 +49,8 @@ import org.apache.hc.core5.util.Timeout;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Date;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -226,12 +228,28 @@ public class JsonRpcClient {
      * Helper method to initialize jackson's ObjectMapper.
      */
     private void initializeObjectMapperConfiguration() {
+        configureObjectMapper(this.objectMapper);
+    }
+
+    /**
+     * Configure an ObjectMapper to read xapi's JSON-RPC responses.
+     * <br>
+     * xapi sends sets as JSON arrays, and some results depend on their order, such as the
+     * rows of Caller.query_all_usage. Sets are therefore read as LinkedHashSets, which keep
+     * the order of the array, instead of Jackson's default HashSet.
+     *
+     * @param objectMapper the ObjectMapper to configure
+     */
+    static void configureObjectMapper(ObjectMapper objectMapper) {
         var dateHandlerModule = new SimpleModule("DateHandler");
         dateHandlerModule.addDeserializer(Date.class, new CustomDateDeserializer());
-        this.objectMapper.enable(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS.mappedFeature());
-        this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        this.objectMapper.configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE, true);
-        this.objectMapper.registerModule(dateHandlerModule);
+        var orderedSetModule = new SimpleModule("OrderedSet");
+        orderedSetModule.addAbstractTypeMapping(Set.class, LinkedHashSet.class);
+        objectMapper.enable(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS.mappedFeature());
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        objectMapper.configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE, true);
+        objectMapper.registerModule(dateHandlerModule);
+        objectMapper.registerModule(orderedSetModule);
     }
 
     /**

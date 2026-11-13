@@ -652,7 +652,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
       let leaf = SMAPI.VDI.create dbg sr vdi_info in
 
       List.iter
-        (fun tag -> Local.VDI.add_tags dbg sr leaf.vdi tag)
+        (fun tag -> SMAPI.VDI.add_tags dbg sr leaf.vdi tag)
         vdi_info.tags ;
 
       D.info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf) ;

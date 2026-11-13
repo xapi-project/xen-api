@@ -140,11 +140,17 @@ let get_proxy_params ~__context =
   match (url, username, password_ref) with
   | url', username', password_ref'
     when url' <> "" && username' <> "" && password_ref' <> Ref.null ->
+      let password = Db.Secret.get_value ~__context ~self:password_ref' in
+      (* The secret value may change after being configured. Re-check it again. *)
+      if has_control_character password then (
+        error
+          "The password of the repository proxy contains control character(s)" ;
+        raise Api_errors.(Server_error (invalid_repository_proxy_credential, []))
+      ) ;
       [
         Printf.sprintf "proxy=%s" url'
       ; Printf.sprintf "proxy_username=%s" username'
-      ; Printf.sprintf "proxy_password=%s"
-          (Db.Secret.get_value ~__context ~self:password_ref')
+      ; Printf.sprintf "proxy_password=%s" password
       ]
   | url', "", _ when url' <> "" ->
       [Printf.sprintf "proxy=%s" url']
@@ -556,9 +562,7 @@ let get_host_updates_in_json ~__context ~installed =
           get_updates_from_updateinfo ~__context repositories
         in
         (* (name_arch, pkg) list *)
-        let installed_pkgs =
-          match installed with true -> get_installed_pkgs () | false -> []
-        in
+        let installed_pkgs = get_installed_pkgs () in
         let applied_livepatches_in_json =
           Livepatch.get_applied_livepatches () |> List.map Livepatch.to_json
         in
@@ -580,7 +584,9 @@ let get_host_updates_in_json ~__context ~installed =
           | None, None ->
               None
         in
-        let latest_updates'' = get_updates_from_repoquery repositories in
+        let latest_updates'' =
+          get_updates_from_repoquery ~installed_pkgs repositories
+        in
         (* To ensure the updating function will not strand, use redundant
          * functions to get the update/installation list.
          * Falling back to use "repoquery" when
@@ -597,6 +603,12 @@ let get_host_updates_in_json ~__context ~installed =
         let latest_updates_in_json =
           validate_latest_updates ~latest_updates ~accumulative_updates
           |> List.map (get_update_in_json ~installed_pkgs:[])
+        in
+        let installed_pkgs =
+          if installed then
+            installed_pkgs
+          else
+            []
         in
         let accumulative_updates_in_json =
           prune_accumulative_updates ~accumulative_updates ~latest_updates

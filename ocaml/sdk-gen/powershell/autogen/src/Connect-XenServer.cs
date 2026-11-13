@@ -31,7 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.Management.Automation;
 using System.Net;
-#if NET8_0_OR_GREATER
+#if NET10_0_OR_GREATER
 using System.Net.Http;
 #endif
 using System.Net.Security;
@@ -279,7 +279,7 @@ namespace Citrix.XenServer.Commands
             if (sslPolicyErrors == SslPolicyErrors.None)
                 return true;
 
-#if NET8_0_OR_GREATER
+#if NET10_0_OR_GREATER
             var requestMessage = sender as HttpRequestMessage;
             string hostname = requestMessage?.RequestUri?.Host ?? string.Empty;
 #else

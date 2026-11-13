@@ -515,7 +515,18 @@ let parse_attach_result (xml : Xml.xml) =
             (XMLRPC.From.structure (safe_assoc "xenstore_data" info))
         with _ -> []
       in
-      {params; params_nbd; o_direct; o_direct_reason; xenstore_data}
+      let backend_kind =
+        try Some (XMLRPC.From.string (safe_assoc "backend_kind" info))
+        with _ -> None
+      in
+      {
+        params
+      ; params_nbd
+      ; o_direct
+      ; o_direct_reason
+      ; xenstore_data
+      ; backend_kind
+      }
   )
 
 let parse_sr_get_driver_info driver (xml : Xml.xml) =

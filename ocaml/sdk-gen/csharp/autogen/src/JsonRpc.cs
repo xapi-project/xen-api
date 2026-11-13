@@ -31,7 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
@@ -165,7 +165,7 @@ namespace XenAPI
         private int _globalId;
         private string _userAgent;
 
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
         private static readonly Type ClassType = typeof(JsonRpcClient);
         private static readonly System.Reflection.AssemblyName ClassAssemblyName = ClassType?.Assembly?.GetName();
         private static readonly ActivitySource source = new ActivitySource(ClassAssemblyName.Name + "." + ClassType?.FullName, ClassAssemblyName.Version?.ToString());
@@ -237,7 +237,7 @@ namespace XenAPI
         public bool PreAuthenticate { get; set; }
         public CookieContainer Cookies { get; set; }
 
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
         public Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool> ServerCertificateValidationCallback { get; set; }
 #else
         public RemoteCertificateValidationCallback ServerCertificateValidationCallback { get; set; }
@@ -269,7 +269,7 @@ namespace XenAPI
             // therefore the latter will be done only in DEBUG mode
             using (var postStream = new MemoryStream())
             {
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
                 // the semantic convention is $package.$service/$method
                 using (Activity activity = source.CreateActivity("XenAPI/" + callName, ActivityKind.Client))
                 {
@@ -305,7 +305,7 @@ namespace XenAPI
 
                             using (var responseReader = new StreamReader(responseStream))
                             {
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
                                 activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcVersion, request.JsonRPC);
 #endif
                                 switch (JsonRpcVersion)
@@ -321,14 +321,14 @@ namespace XenAPI
                                         {
                                             var descr = new List<string> { res2.Error.Message };
                                             descr.AddRange(res2.Error.Data.ToObject<string[]>());
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
                                             activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcErrorCode, res2.Error.Code);
                                             activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcErrorMessage, descr);
                                             activity?.SetStatus(ActivityStatusCode.Error);
 #endif
                                             throw new Failure(descr);
                                         }
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
                                         activity?.SetStatus(ActivityStatusCode.Ok);
 #endif
                                         return res2.Result;
@@ -342,7 +342,7 @@ namespace XenAPI
                                         var errorArray = res1.Error?.ToObject<string[]>();
                                         if (errorArray != null)
                                         {
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
                                             activity?.SetStatus(ActivityStatusCode.Error);
                                             // we can't be sure whether we'll have a Code here
                                             // the exact format of an error object is not specified in JSONRPC v1
@@ -350,7 +350,7 @@ namespace XenAPI
 #endif
                                             throw new Failure(errorArray);
                                         }
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
                                         activity?.SetStatus(ActivityStatusCode.Ok);
 #endif
                                         return res1.Result;
@@ -358,7 +358,7 @@ namespace XenAPI
                             }
                         }
                     }
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
                 }
 #endif
             }
@@ -366,7 +366,7 @@ namespace XenAPI
 
         protected virtual void PerformPostRequest(Stream postStream, Stream responseStream)
         {
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
             HttpClient httpClient = null;
             HttpClientHandler httpHandler = null;
             HttpRequestMessage requestMessage = null;

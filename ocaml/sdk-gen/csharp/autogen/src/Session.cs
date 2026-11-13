@@ -31,7 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
 using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
 #endif
@@ -202,7 +202,7 @@ namespace XenAPI
             set => JsonRpcClient.Timeout = value;
         }
 
-#if (NET8_0_OR_GREATER)
+#if (NET10_0_OR_GREATER)
         public Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool> ServerCertificateValidationCallback
         {
             get => JsonRpcClient.ServerCertificateValidationCallback;

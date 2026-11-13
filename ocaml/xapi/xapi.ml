@@ -617,7 +617,14 @@ let resynchronise_ha_state () =
         | true, true ->
             info "HA is enabled on both localhost and the Pool"
         | false, false ->
-            info "HA is disabled on both localhost and the Pool"
+            info "HA is disabled on both localhost and the Pool" ;
+            (* We can be in a situation where HA has been disabled locally
+               because on_server_restart failed due to an invalid pool state.
+               While failing, it set ha.armed to false in the local database.
+               So the (true, false) case, which normally releases the HA
+               resources, is not taken. In this case the statefile and metadata
+               VDIs can be left behind, so we need to deal with that. *)
+            Xapi_ha.release_local_ha_static_vdis ~__context
         | true, false ->
             info
               "HA has been disabled on the Pool while we were offline; \
