@@ -260,6 +260,13 @@ let options =
     , "Action to take for VMs if QEMU crashes or dies unexpectedly: pause, \
        poweroff. Otherwise, no action (default)."
     )
+  ; ( "gpu-lock-engaged-file"
+    , Arg.String (fun file -> Xenops_utils.gpu_lock_engaged_path := Some file)
+    , Xenops_utils.gpu_lock_engaged_file
+    , "File whose presence makes xenopsd take the host GPU lock (default: \
+       gpu-lock-engaged in its root); keep it on a filesystem cleared at boot, \
+       and give xapi's gpu-lock-engaged-file the same path"
+    )
   ; ( "feature-flags-path"
     , Arg.Set_string feature_flags_path
     , (fun () -> !feature_flags_path)
