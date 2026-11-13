@@ -295,6 +295,11 @@ let test_get_nbd_info =
         ]
         ()
     in
+    let offline_host =
+      make_host ~hostname:"offline_host" sr_of_vdi
+        [(network_1, "92.40.98.99", [], true)]
+        ()
+    in
     let host1_cert =
       "-----BEGIN CERTIFICATE-----\n\
        MIIBwTCCASqgAwIBAgIJAKl3gkjAjMdWMA0GCSqGSIb3DQEBCwUAMBIxEDAOBgNV\n\
@@ -330,6 +335,9 @@ let test_get_nbd_info =
         host1_cert
       else if host = host2 then
         host2_cert
+      else if host = offline_host then
+        raise
+          Api_errors.(Server_error (host_offline, [Ref.string_of offline_host]))
       else
         failwith (Printf.sprintf "unexpected host: %s" (Ref.string_of host))
     in
