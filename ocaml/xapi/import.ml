@@ -2223,131 +2223,91 @@ let assert_filename_is hdr =
     raise (IFailure (Unexpected_file (expected, actual)))
   )
 
-(* We want to read tar headers from a file descriptor (possibly a socket/pipe),
-   and retry with decompression if that fails.
-   To be able to do that we store the first block that we read, and try to parse it with Tar first,
-   and if that fails try zstd/gzip.
-
-   We need a Tar HeaderReader that reads either from a buffer, and then continues reading from an FD
-*)
-module BufferOrFile = struct
-  type in_channel = {
-      mutable buffer: Cstruct.t option
-    ; fd: Unix.file_descr
-    ; retry_with_compression: bool ref
-  }
-
-  type 'a t = 'a
-
-  let make retry_with_compression buffer fd =
-    {buffer= Some buffer; retry_with_compression; fd}
-
-  let really_read t dest =
-    match t.buffer with
-    | Some first ->
-        t.buffer <- None ;
-        assert (Cstruct.length dest = Cstruct.length first) ;
-        Cstruct.blit first 0 dest 0 (Cstruct.length first)
-    | None ->
-        (* if we've successfully parsed the first block as a tar header, then don't retry:
-           we are going to read more from the file anyway.
-        *)
-        t.retry_with_compression := false ;
-        Tar_unix.really_read t.fd dest
-
-  let skip t n =
-    assert (Option.is_none t.buffer) ;
-    (* while reading headers we only skip small distances *)
-    let buf = Cstruct.create n in
-    (* can't seek, because the FD might be a socket/pipe *)
-    Tar_unix.really_read t.fd buf
-end
-
-module Direct = struct
-  type 'a t = 'a
-
-  let ( >>= ) x f = f x
-
-  let return x = x
-end
-
-module TarHeaderReader = Tar.HeaderReader (Direct) (BufferOrFile)
-
 (** Takes an fd and a function, tries first to read the first tar block
     and checks for the existence of 'ova.xml'. If that fails then pipe
     the lot through an appropriate decompressor and try again *)
-let with_open_archive fd ?length f =
-  (* Read the first header's worth into a buffer *)
-  let buffer = Cstruct.create Tar.Header.length in
-  let retry_with_compression = ref true in
-  try
-    Tar_unix.really_read fd buffer ;
-    (* we assume the first block is not all zeroes *)
-    let hdr =
-      TarHeaderReader.read (BufferOrFile.make retry_with_compression buffer fd)
-      |> Result.get_ok
-    in
-    assert_filename_is hdr ;
-    (* successfully opened uncompressed stream *)
-    retry_with_compression := false ;
-    let xml = read_xml hdr fd in
-    Tar_helpers.skip fd (Tar.Header.compute_zero_padding_length hdr) ;
-    f xml fd
-  with e ->
-    if not !retry_with_compression then raise e ;
-    let decompress =
-      (* If the file starts with the zstd magic string decompress with zstd;
-         otherwise fall back to trying gzip. *)
-      let zstd_magic = "\x28\xb5\x2f\xfd" in
-      let zstd =
-        Cstruct.equal
-          (Cstruct.of_string zstd_magic)
-          (Cstruct.sub buffer 0 (String.length zstd_magic))
-      in
-      if zstd then (
-        debug "Failed to directly open the archive; trying zstd" ;
-        Zstd.Default.decompress
-      ) else (
-        debug "Failed to directly open the archive; trying gzip" ;
-        Gzip.Default.decompress
-      )
-    in
-    let feeder pipe_in =
-      finally
-        (fun () ->
-          decompress pipe_in (fun compressed_in ->
-              (* Write the initial buffer *)
-              Unix.set_close_on_exec compressed_in ;
-              debug "Writing initial buffer" ;
-              Tar_unix.really_write compressed_in buffer ;
-              let limit =
-                Option.map
-                  (fun x -> Int64.sub x (Int64.of_int Tar.Header.length))
-                  length
+let with_open_archive fd ?length ?(drain = false) f =
+  match Tar_helpers.probe_header fd with
+  | Header {hdr; bytes_read} ->
+      (* uncompressed stream *)
+      assert_filename_is hdr ;
+      let xml = read_xml hdr fd in
+      let zero_pad = Tar.Header.compute_zero_padding_length hdr in
+      Tar_helpers.skip fd zero_pad ;
+      (* Consume the rest of the request body (end-of-archive markers and
+         record padding) so the client does not get EPIPE. Only valid when [f]
+         does not read past ova.xml. The compressed path needs no drain: its
+         feeder thread reads the whole body off [fd]. *)
+      ( if drain then
+          match length with
+          | Some len -> (
+              let consumed =
+                bytes_read + Int64.to_int hdr.Tar.Header.file_size + zero_pad
               in
-              let n = Unixext.copy_file ?limit fd compressed_in in
-              debug "Written a total of %d + %Ld bytes" Tar.Header.length n
+              let remaining = Int64.to_int len - consumed in
+              if remaining > 0 then
+                try Tar_helpers.skip fd remaining with End_of_file -> ()
+            )
+          | None ->
+              (* No Content-Length: skip only the end-of-archive markers. *)
+              Tar_helpers.skip fd (2 * Tar.Header.length)
+      ) ;
+      f xml fd
+  | Not_tar buffer ->
+      let decompress =
+        (* If the file starts with the zstd magic string decompress with zstd;
+           otherwise fall back to trying gzip. *)
+        let zstd_magic = "\x28\xb5\x2f\xfd" in
+        let zstd =
+          Cstruct.equal
+            (Cstruct.of_string zstd_magic)
+            (Cstruct.sub buffer 0 (String.length zstd_magic))
+        in
+        if zstd then (
+          debug "Failed to directly open the archive; trying zstd" ;
+          Zstd.Default.decompress
+        ) else (
+          debug "Failed to directly open the archive; trying gzip" ;
+          Gzip.Default.decompress
+        )
+      in
+      let feeder pipe_in =
+        finally
+          (fun () ->
+            decompress pipe_in (fun compressed_in ->
+                (* Write the initial buffer *)
+                Unix.set_close_on_exec compressed_in ;
+                debug "Writing initial buffer" ;
+                Tar_unix.really_write compressed_in buffer ;
+                let limit =
+                  Option.map
+                    (fun x -> Int64.sub x (Int64.of_int Tar.Header.length))
+                    length
+                in
+                let n = Unixext.copy_file ?limit fd compressed_in in
+                debug "Written a total of %d + %Ld bytes" Tar.Header.length n
+            )
           )
-        )
-        (fun () -> ignore_exn (fun () -> Unix.close pipe_in))
-    in
-    let consumer pipe_out feeder_t =
-      finally
-        (fun () ->
-          let hdr = Tar_unix.get_next_header pipe_out in
-          assert_filename_is hdr ;
-          let xml = read_xml hdr pipe_out in
-          Tar_helpers.skip pipe_out (Tar.Header.compute_zero_padding_length hdr) ;
-          f xml pipe_out
-        )
-        (fun () ->
-          ignore_exn (fun () -> Unix.close pipe_out) ;
-          Thread.join feeder_t
-        )
-    in
-    let pipe_out, pipe_in = Unix.pipe () in
-    let feeder_t = Thread.create feeder pipe_in in
-    consumer pipe_out feeder_t
+          (fun () -> ignore_exn (fun () -> Unix.close pipe_in))
+      in
+      let consumer pipe_out feeder_t =
+        finally
+          (fun () ->
+            let hdr = Tar_unix.get_next_header pipe_out in
+            assert_filename_is hdr ;
+            let xml = read_xml hdr pipe_out in
+            Tar_helpers.skip pipe_out
+              (Tar.Header.compute_zero_padding_length hdr) ;
+            f xml pipe_out
+          )
+          (fun () ->
+            ignore_exn (fun () -> Unix.close pipe_out) ;
+            Thread.join feeder_t
+          )
+      in
+      let pipe_out, pipe_in = Unix.pipe () in
+      let feeder_t = Thread.create feeder pipe_in in
+      consumer pipe_out feeder_t
 
 (** Remove "import" from the current operations of all created VMs, complete the
     task including the VM references *)
@@ -2488,11 +2448,9 @@ let metadata_handler (req : Request.t) s _ =
               ]
           in
           Http_svr.headers s headers ;
-          with_open_archive s ?length:req.Request.content_length
-            (fun metadata s ->
+          with_open_archive s ?length:req.Request.content_length ~drain:true
+            (fun metadata _s ->
               debug "Got XML" ;
-              (* Skip trailing two zero blocks *)
-              Tar_helpers.skip s (Tar.Header.length * 2) ;
               let header = metadata |> Xmlrpc.of_string |> header_of_rpc in
               assert_compatible ~__context header.version ;
               if full_restore then
