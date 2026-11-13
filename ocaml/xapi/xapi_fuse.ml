@@ -42,8 +42,21 @@ let once kind f =
       )
   )
 
+(* The exit may hang, and nothing else would kill the process if it did, so
+   add a timer that forces the process to exit. *)
+let force_exit_after_grace ~fuse_length ret_code =
+  let wait = fuse_length +. !Constants.fuse_exit_grace in
+  try
+    ignore (Thread.create (fun () -> Thread.delay wait ; Unix._exit ret_code) ()) ;
+    debug "%s: forcing exit %d if still running in %.0fs" __FUNCTION__ ret_code
+      wait
+  with e ->
+    warn "%s: could not start the exit timer: %s" __FUNCTION__
+      (Printexc.to_string e)
+
 let light_fuse_and_run ?(fuse_length = !Constants.fuse_time) () =
   once `Exit @@ fun () ->
+  force_exit_after_grace ~fuse_length Xapi_globs.restart_return_code ;
   debug
     "light_fuse_and_run: calling Rrdd.backup_rrds to save current RRDs locally" ;
   let delay_so_far =
@@ -82,7 +95,7 @@ let light_fuse_and_run ?(fuse_length = !Constants.fuse_time) () =
              "Caught an exception flushing database (perhaps it hasn't been \
               initialised yet): %s; restarting immediately"
              (ExnHelper.string_of_exn e) ;
-           exit Xapi_globs.restart_return_code
+           Unix._exit Xapi_globs.restart_return_code
        )
        ()
     )
@@ -116,6 +129,7 @@ let light_fuse_and_reboot ?(fuse_length = !Constants.fuse_time) () =
 
 let light_fuse_and_dont_restart ?(fuse_length = !Constants.fuse_time) () =
   once `Exit @@ fun () ->
+  force_exit_after_grace ~fuse_length 0 ;
   ignore
     (Thread.create
        (fun () ->
