@@ -598,8 +598,9 @@ module Ip = struct
     with _ -> ()
 
   let set_ipv6_link_local_addr dev =
-    let addr = get_ipv6_link_local_addr dev in
-    try ignore (call ["addr"; "add"; addr; "dev"; dev; "scope"; "link"])
+    try
+      let addr = get_ipv6_link_local_addr dev in
+      ignore (call ["addr"; "add"; addr; "dev"; dev; "scope"; "link"])
     with _ -> ()
 
   let flush_ip_addr ?(ipv6 = false) dev =
