@@ -23,12 +23,7 @@ let all_reasons =
 
 let ( let* ) = Result.bind
 
-let check ok reason =
-  if ok () then
-    Ok ()
-  else
-    Error reason
-
 let desired ~partitionable_gpu ~pool_enabled =
-  let* () = check partitionable_gpu No_partitionable_gpu in
-  check pool_enabled Pool_disabled
+  let open Xapi_stdext_pervasives.Pervasiveext in
+  let* () = ok_if_true (partitionable_gpu ()) ~error:No_partitionable_gpu in
+  ok_if_true (pool_enabled ()) ~error:Pool_disabled
