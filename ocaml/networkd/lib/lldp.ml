@@ -202,7 +202,7 @@ let management_ip_address =
   fun ~force () ->
     match (force, Atomic.get cache) with
     | true, seen | false, ([] as seen) -> (
-        let addrs =
+        let read () =
           Inventory.reread_inventory () ;
           match Inventory.lookup Inventory._management_interface with
           | "" ->
@@ -214,17 +214,26 @@ let management_ip_address =
               let open Network_utils in
               Ip.get_ipv4 iface @ Ip.get_ipv6 iface |> List.map fst
         in
-        match Atomic.compare_and_set cache seen addrs with
-        | true ->
-            debug "%s: set management IP address: [%s]" __FUNCTION__
-              (string_of_addresses addrs) ;
-            addrs
-        | false ->
-            let addrs = Atomic.get cache in
-            warn "%s: management IP address updated by others: [%s]"
-              __FUNCTION__
-              (string_of_addresses addrs) ;
-            addrs
+        match read () with
+        | exception e ->
+            (* For example, the old management bridge is already gone while
+               the inventory still names it. A later IP change refreshes it. *)
+            warn "%s: failed to get management IP address: %s, keep [%s]"
+              __FUNCTION__ (Printexc.to_string e) (string_of_addresses seen) ;
+            seen
+        | addrs -> (
+          match Atomic.compare_and_set cache seen addrs with
+          | true ->
+              debug "%s: set management IP address: [%s]" __FUNCTION__
+                (string_of_addresses addrs) ;
+              addrs
+          | false ->
+              let addrs = Atomic.get cache in
+              warn "%s: management IP address updated by others: [%s]"
+                __FUNCTION__
+                (string_of_addresses addrs) ;
+              addrs
+        )
       )
     | false, addrs ->
         addrs
