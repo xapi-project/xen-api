@@ -145,6 +145,7 @@ jobs:
         run: |
           xapi_version="${INPUTS_XAPI_VERSION}"
           xapi_version="${xapi_version//v/}"
+          sed -i "s/@SDK_VERSION@/$xapi_version-prerelease/" source/xen-api/src/main/java/com/xensource/xenapi/JsonRpcClient.java
           mkdir -p target && mvn -f source/xen-api/pom.xml -B -Drevision=$xapi_version-prerelease clean package && mv source/xen-api/target/*.jar target/
         env:
           INPUTS_XAPI_VERSION: ${{ inputs.xapi_version }}
@@ -190,6 +191,13 @@ jobs:
           --disable-build-servers `
           -p:DefineConstants=BUILD_FOR_TEST `
           --verbosity=normal
+
+      # The User-Agent the SDK sends names its version; an unreplaced placeholder is not a valid
+      # header value, and every call fails.
+      - name: Set the SDK version in the User-Agent
+        shell: pwsh
+        run: |
+          (Get-Content "source\src\Session.cs") -replace "@SDK_VERSION@","$env:XAPI_VERSION_NUMBER-prerelease-unsigned" | Set-Content -Path "source\src\Session.cs"
 
       - name: Build C# SDK
         shell: pwsh
@@ -248,6 +256,12 @@ jobs:
         run: |
           dotnet nuget add source --name local ${{ github.workspace }}\csharp
           dotnet add source/src package XenServer.NET --version $env:XAPI_VERSION_NUMBER-prerelease-unsigned
+
+      # As for the C# SDK: an unreplaced placeholder in the User-Agent fails every call.
+      - name: Set the SDK version in the User-Agent
+        shell: pwsh
+        run: |
+          (Get-Content "source\src\Connect-XenServer.cs") -replace "@SDK_VERSION@","$env:XAPI_VERSION_NUMBER-prerelease-unsigned" | Set-Content -Path "source\src\Connect-XenServer.cs"
 
       - name: Build PowerShell SDK (.NET ${{ matrix.dotnet }})
         shell: pwsh
