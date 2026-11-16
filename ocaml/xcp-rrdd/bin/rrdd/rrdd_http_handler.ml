@@ -239,7 +239,7 @@ let put_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
         else
           "VM uuid=" ^ uuid
       ) ;
-    archive_rrd_internal ~uuid ~rrd:(Rrd.copy_rrd rrd) ()
+    archive_rrd_internal ~uuid ~rrd ()
   ) else (
     debug "Receiving RRD for resident VM uuid=%s. Replacing in hashtable." uuid ;
     let domid = int_of_string (List.assoc "domid" query) in

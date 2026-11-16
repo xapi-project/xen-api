@@ -278,7 +278,7 @@ let push_rrd_remote uuid member_address : unit =
     in
     debug "Pushing RRD for VM uuid=%s to another pool member with %s" uuid
       (Xmlrpc_client.string_of_transport transport) ;
-    send_rrd ~transport ~to_archive:false ~uuid ~rrd:(Rrd.copy_rrd rrd) ()
+    send_rrd ~transport ~to_archive:false ~uuid ~rrd ()
   with _ -> ()
 
 (** Remove an RRD from the local filesystem, if it exists. *)
