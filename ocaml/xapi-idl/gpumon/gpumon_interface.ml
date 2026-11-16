@@ -756,6 +756,117 @@ module Partition_helper = struct
       [@@deriving rpcty]
     end
 
+    (* The name of a section a caller asks for with --sections, as the
+       snapshot that defines the section prints it. Only the functor below
+       makes one, and each snapshot applies it once, in its Sections, so a
+       raw or misspelt name, or a value of another enumeration, does not
+       compile where a name is expected. Applied anywhere else, the functor
+       would make names that no snapshot defines. A later snapshot keeps
+       this module, so its names have this type too *)
+    module Section_token : sig
+      type t = private string
+
+      (* The rest of a snapshot's Sections, from its variant of sections:
+         the enumeration's typ, each section's name, and a name read back
+         as a section *)
+      module Make_sections (Variant : sig
+        type section
+
+        val typ_of_section : section Rpc.Types.typ
+      end) : sig
+        val typ_of : Variant.section open_enum Rpc.Types.typ
+
+        val token : Variant.section -> t
+
+        val of_token : t -> Variant.section open_enum
+      end
+    end = struct
+      type t = string
+
+      module Make_sections (Variant : sig
+        type section
+
+        val typ_of_section : section Rpc.Types.typ
+      end) =
+      struct
+        let typ_of = typ_of_open_enum Variant.typ_of_section
+
+        let token section =
+          Rpcmarshal.marshal typ_of (Known section) |> Rpc.string_of_rpc
+
+        let of_token t =
+          Rpcmarshal.unmarshal typ_of (Rpc.String t)
+          |> Result.value ~default:(Unknown t)
+      end
+    end
+
+    (* The optional sections a probe writes only when the caller names them
+       in --sections; a helper skips a name it does not write. Known
+       Creatable is the creatable section; Unknown s is a name this reader
+       does not know, from a newer helper's --version *)
+    module Sections = struct
+      type known = Creatable [@@deriving rpcty]
+
+      type t = known open_enum
+
+      include Section_token.Make_sections (struct
+        type section = known
+
+        let typ_of_section = typ_of_known
+      end)
+
+      (* The same section in this snapshot's names; each later snapshot maps
+         every section of 1.0 to its own *)
+      let of_v1_0 (section : known) : known = section
+    end
+
+    (* For each GPU instance of the same reply, the vGPU types the driver says
+       it could create there when the helper read them, after the vgpu section.
+       It is not a promise that a VM of such a type starts *)
+    module Creatable = struct
+      type vgpu_type = {type_id: integer} [@@deriving rpcty]
+
+      (* Builds a vGPU type; here and in make_entry and make below, a member
+         added later is one more optional argument, so callers do not change *)
+      let make_vgpu_type ~type_id () = {type_id}
+
+      type nullable_vgpu_type_list = vgpu_type list nullable
+
+      let typ_of_nullable_vgpu_type_list =
+        typ_of_nullable (Rpc.Types.List typ_of_vgpu_type)
+
+      (* An entry answers for the GPU instance gi_id of the same reply, so
+         gi_id is never null. vgpu_types is null unless status is ok, and []
+         when the driver can create none there; library_call is the failed
+         call, null unless status is error *)
+      type entry = {
+          gi_id: integer
+        ; status: Section_status.t
+        ; kind: Kind.nullable
+        ; library_call: Envelope.nullable_library_call
+        ; vgpu_types: nullable_vgpu_type_list
+      }
+      [@@deriving rpcty]
+
+      let make_entry ~gi_id ~status ~kind ~library_call ~vgpu_types () =
+        {gi_id; status; kind; library_call; vgpu_types}
+
+      type nullable_entry_list = entry list nullable
+
+      let typ_of_nullable_entry_list =
+        typ_of_nullable (Rpc.Types.List typ_of_entry)
+
+      (* The section as page 1 carries it *)
+      type t = {
+          status: Section_status.t
+        ; kind: Kind.nullable
+        ; gpu_instances: nullable_entry_list
+      }
+      [@@deriving rpcty]
+
+      let make ~status ~kind ~gpu_instances () = {status; kind; gpu_instances}
+    end
+
     (* The reply to a probe of one card: its sections, and the case it found *)
     module Probe = struct
       (* The case the probe found; named Case, as Result would hide Stdlib's
@@ -778,14 +889,15 @@ module Partition_helper = struct
           mig_mode: Mig_mode.t option
         ; geometry: Geometry.t option
         ; vgpu: Vgpu.t option
+        ; creatable: Creatable.t option
         ; probe: t option
       }
       [@@deriving rpcty]
 
       (* Builds a probe's data; a member added later is one more optional
          argument, so its callers do not change *)
-      let make_data ?mig_mode ?geometry ?vgpu ?probe () =
-        {mig_mode; geometry; vgpu; probe}
+      let make_data ?mig_mode ?geometry ?vgpu ?creatable ?probe () =
+        {mig_mode; geometry; vgpu; creatable; probe}
 
       include Envelope.Reply (struct
         type t = data
@@ -817,17 +929,21 @@ module Partition_helper = struct
       }
       [@@deriving rpcty]
 
+      (* sections lists the sections the helper writes when a caller names
+         them in --sections; a helper that lists none, as one older than this
+         member, leaves it out *)
       type data = {
           schema_versions: (integer * integer) list
         ; verbs: verb list
         ; page_encodings: string list
+        ; sections: Sections.t list option
       }
       [@@deriving rpcty]
 
       (* Builds a --version reply's data; a member added later is one more
          optional argument, so its callers do not change *)
-      let make_data ~schema_versions ~verbs ~page_encodings () =
-        {schema_versions; verbs; page_encodings}
+      let make_data ~schema_versions ~verbs ~page_encodings ?sections () =
+        {schema_versions; verbs; page_encodings; sections}
 
       include Envelope.Reply (struct
         type t = data

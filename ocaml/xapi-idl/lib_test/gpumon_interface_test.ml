@@ -231,6 +231,33 @@ let usage_error =
   ; error= Value (reply_error Kind.Usage "--schema=<major> is mandatory" Null)
   }
 
+let creatable_type type_id = Creatable.make_vgpu_type ~type_id ()
+
+(* Partitions' GPU instance 3, which can create two vGPU types *)
+let entry_read =
+  Creatable.make_entry ~gi_id:3 ~status:(Known Section_status.Ok) ~kind:Null
+    ~library_call:Null
+    ~vgpu_types:(Value [creatable_type 1561; creatable_type 1562])
+    ()
+
+(* A GPU instance whose read failed in the helper itself, with no call *)
+let entry_internal =
+  Creatable.make_entry ~gi_id:4 ~status:(Known Section_status.Error)
+    ~kind:(Value (Known Kind.Internal)) ~library_call:Null ~vgpu_types:Null ()
+
+let creatable_read entries =
+  Creatable.make ~status:(Known Section_status.Ok) ~kind:Null
+    ~gpu_instances:(Value entries) ()
+
+let creatable_not_read status kind =
+  Creatable.make ~status:(Known status) ~kind ~gpu_instances:Null ()
+
+(* Partitions with a creatable section *)
+let with_creatable section =
+  {partitions with data= {partitions.data with creatable= Some section}}
+
+let one_read = with_creatable (creatable_read [entry_read])
+
 (* The canonical rpc format: members sorted by name *)
 let rec canonical = function
   | Rpc.Dict members ->
@@ -258,6 +285,26 @@ let rec edit rpc (path, value) =
         ((k, edit (List.assoc k ms) (path, value)) :: List.remove_assoc k ms)
   | _ ->
       Alcotest.failf "edit: no member at %s" (String.concat "." path)
+
+(* edit indexes no list, so a row that edits an item writes the whole list
+   again: its first item edited, then the others *)
+let first_edited typ path (first, others) edits =
+  let item = Rpcmarshal.marshal typ in
+  ( path
+  , Some
+      (Rpc.Enum (List.fold_left edit (item first) edits :: List.map item others))
+  )
+
+(* The one entry of a creatable section, edited *)
+let entry_edited entry =
+  first_edited Creatable.typ_of_entry
+    ["data"; "creatable"; "gpu_instances"]
+    (entry, [])
+
+(* The first vGPU type of entry_read, edited *)
+let type_edited =
+  first_edited Creatable.typ_of_vgpu_type ["vgpu_types"]
+    (creatable_type 1561, [creatable_type 1562])
 
 (* What the reader makes of a written reply after the edits. Each case also
    checks whether Envelope.Core reads it. *)
@@ -358,7 +405,30 @@ let cases =
     , [major_2; (["data"], None)]
     , Core_only
     )
+  ; ( "a creatable section not attempted reads back as written"
+    , with_creatable (creatable_not_read Section_status.Not_attempted Null)
+    , [(["data"; "creatable"; "gpu_instances"], Some Rpc.Null)]
+    , Kept
+    )
+  ; ( "a creatable entry without gi_id: only Core reads the reply"
+    , one_read
+    , [entry_edited entry_read [(["gi_id"], None)]]
+    , Core_only
+    )
+  ; ( "a creatable type id beyond an OCaml int: only Core reads the reply"
+    , one_read
+    , [
+        entry_edited entry_read
+          [type_edited [(["type_id"], Some (Rpc.Int Int64.max_int))]]
+      ]
+    , Core_only
+    )
   ]
+
+let version_data sections =
+  Version.make_data
+    ~schema_versions:[(0, 0)]
+    ~verbs:[] ~page_encodings:["identity"] ?sections ()
 
 let version_cases =
   [
@@ -451,6 +521,93 @@ let samples =
   ; carries_v1_0 "a usage error" usage_error.schema_version
   ]
 
+(* The names of the members a value is written with, sorted *)
+let members_written = function
+  | Rpc.Dict members ->
+      List.sort String.compare (List.map fst members)
+  | rpc ->
+      Alcotest.failf "written as %s, not as an object" (Rpc.to_string rpc)
+
+let creatable_not_written_by_default () =
+  Alcotest.(check (list string))
+    "members written" []
+    (members_written (Rpcmarshal.marshal Probe.typ_of_data (Probe.make_data ())))
+
+(* The creatable section exactly as it goes on the wire, written by hand. The
+   helper that writes this reply is another program, so these member names
+   and nulls are a protocol that the types cannot check: a renamed field, a
+   [@key], or a missing list written as [] instead of null still compiles and
+   still reads back unchanged, and only this literal fails then. Members are
+   compared sorted by name, so their order does not matter *)
+let creatable_on_the_wire () =
+  Alcotest.(check string)
+    "creatable section"
+    (json
+       (Jsonrpc.of_string
+          {|{"status": "ok", "kind": null,
+             "gpu_instances": [
+               {"gi_id": 3, "status": "ok", "kind": null,
+                "library_call": null,
+                "vgpu_types": [{"type_id": 1561}, {"type_id": 1562}]},
+               {"gi_id": 4, "status": "error", "kind": "internal",
+                "library_call": null, "vgpu_types": null}]}|}
+       )
+    )
+    (json
+       (Rpcmarshal.marshal Creatable.typ_of
+          (creatable_read [entry_read; entry_internal])
+       )
+    )
+
+let sections_not_written_by_default () =
+  Alcotest.(check (list string))
+    "members written"
+    ["page_encodings"; "schema_versions"; "verbs"]
+    (members_written
+       (Rpcmarshal.marshal Version.typ_of_data (version_data None))
+    )
+
+(* The newest check, written once and never edited when a snapshot is
+   added: it follows every section of 1.0 into the newest snapshot. It
+   names the newest snapshot on purpose: it is a check, not a view. A
+   snapshot that adds sections adds the same check for them *)
+module Newest = Gpumon_interface.Partition_helper
+
+(* Every section of 1.0, read from the typ of its sections, so that a
+   section added to 1.0 is in the newest check with no edit here *)
+let sections_of_1_0 () =
+  match Sections.typ_of_known with
+  | Rpc.Types.Variant {variants; _} ->
+      List.map
+        (fun (Rpc.Types.BoxedTag {Rpc.Types.tname; _}) ->
+          ok (Rpcmarshal.unmarshal Sections.typ_of_known (Rpc.String tname))
+        )
+        variants
+  | Rpc.Types.Basic _ | Rpc.Types.Struct _ | Rpc.Types.Abstract _ ->
+      Alcotest.fail "the typ of the sections of 1.0 is not a variant"
+
+(* Checked when this compiles: the newest Version lists sections in the
+   newest snapshot's names *)
+let _version_lists_newest_sections (sections : Newest.Sections.t list option)
+    (data : Newest.Version.data) : Newest.Version.data =
+  {data with sections}
+
+let newest_name section =
+  (Newest.Sections.token (Newest.Sections.of_v1_0 section) :> string)
+
+let newest_reads_1_0_names () =
+  List.iter
+    (fun section ->
+      match Newest.Sections.of_token (Sections.token section) with
+      | Newest.Member.Known read ->
+          Alcotest.(check string)
+            "section" (newest_name section)
+            (Newest.Sections.token read :> string)
+      | Newest.Member.Unknown name ->
+          Alcotest.failf "read back as an unknown section: %s" name
+    )
+    (sections_of_1_0 ())
+
 let values =
   [
     ("enabled is a known mode", reads Mig_mode.Mode.typ_of "enabled" ~known:true)
@@ -498,6 +655,25 @@ let values =
     , read Version.typ_of_verb
         {|{"command":"--version","status":"supported","max_duration_ms":3.5}|}
         (verb "--version")
+    )
+  ; ( "probe data built without the creatable argument writes no creatable \
+       member"
+    , creatable_not_written_by_default
+    )
+  ; ( "a creatable section is written with its wire names and nulls"
+    , creatable_on_the_wire
+    )
+  ; ( "a --version reply's sections read back as written"
+    , read Version.typ_of_data
+        {|{"schema_versions": [[0, 0]], "verbs": [],
+           "page_encodings": ["identity"], "sections": ["creatable"]}|}
+        (version_data (Some [Known Sections.Creatable]))
+    )
+  ; ( "--version data built without the sections argument has none"
+    , sections_not_written_by_default
+    )
+  ; ( "the newest snapshot reads every section name of 1.0 back as that section"
+    , newest_reads_1_0_names
     )
   ]
 
