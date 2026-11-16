@@ -60,3 +60,17 @@ let free_slots geometry request =
       Some 0
   | Unreadable _ ->
       None
+
+(* Best fit: keep the candidate with the fewest free slots; on a tie keep the
+   earlier one, so the answer depends only on the input. *)
+let choose_instance ~geometry ~request =
+  let pick best (instance, handle) =
+    match (free_in request instance, best) with
+    | 0, _ ->
+        best
+    | free, Some (best_free, _) when best_free <= free ->
+        best
+    | free, _ ->
+        Some (free, handle)
+  in
+  List.fold_left pick None geometry |> Option.map snd

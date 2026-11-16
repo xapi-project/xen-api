@@ -27,3 +27,9 @@
  (package xapi-gpu)
  (modules test_gpu_capacity)
  (libraries gpu mig_fixtures alcotest))
+
+(test
+ (name test_gpu_choose_instance)
+ (package xapi-gpu)
+ (modules test_gpu_choose_instance)
+ (libraries gpu mig_fixtures alcotest))
