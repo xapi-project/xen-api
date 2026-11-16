@@ -691,9 +691,9 @@ let make_cluster_and_hosts ~__context extra_hosts =
 
 let make_observer ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(name_label = "") ?(name_description = "") ?(hosts = []) ?(enabled = false)
-    ?(attributes = []) ?(endpoints = []) ?(components = []) () =
+    ?(attributes = []) ?(endpoints = []) ?(components = []) ?(purpose = []) () =
   Db.Observer.create ~__context ~ref ~uuid ~name_label ~name_description ~hosts
-    ~attributes ~endpoints ~components ~enabled ;
+    ~attributes ~endpoints ~components ~purpose ~enabled ;
   ref
 
 let make_vm_group ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())

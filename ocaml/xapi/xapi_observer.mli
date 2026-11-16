@@ -28,6 +28,7 @@ val create :
   -> attributes:(string * string) list
   -> endpoints:string list
   -> components:string list
+  -> purpose:string list
   -> enabled:bool
   -> API.ref_Observer
 
@@ -65,3 +66,9 @@ val set_endpoints :
 
 val set_components :
   __context:Context.t -> self:API.ref_Observer -> value:string list -> unit
+
+val set_purpose :
+  __context:Context.t -> self:API.ref_Observer -> value:string list -> unit
+(** Validates [value] and stores it in the database. Purposes are not
+    forwarded to xenopsd, xapi-clusterd or SMApi, and a purpose labels a
+    trace without changing where it is exported. *)

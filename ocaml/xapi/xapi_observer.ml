@@ -536,15 +536,16 @@ let register ~__context ~self =
   |> register_components ~__context ~self
 
 let create ~__context ~name_label ~name_description ~hosts ~attributes
-    ~endpoints ~components ~enabled =
+    ~endpoints ~components ~purpose ~enabled =
   assert_valid_components components ;
+  Xapi_observer_purpose.assert_valid_purpose purpose ;
   assert_valid_endpoints ~__context endpoints ;
   assert_valid_hosts ~__context hosts ;
   assert_valid_attributes attributes ;
   let ref = Ref.make () in
   let uuid = Uuidx.to_string (Uuidx.make ()) in
   Db.Observer.create ~__context ~ref ~uuid ~name_label ~name_description ~hosts
-    ~enabled ~attributes ~endpoints ~components ;
+    ~enabled ~attributes ~endpoints ~components ~purpose ;
   ref
 
 let unregister_components ~__context ~self =
@@ -748,3 +749,11 @@ let set_components ~__context ~self ~value =
       to_add
   in
   do_set_op ~__context ~self ~observation_fn ~db_fn
+
+(* Unlike the other setters, this is a database write only: purposes are
+   not forwarded to xenopsd, xapi-clusterd or SMApi, and there is nothing to
+   register or unregister, because a purpose labels a trace rather than
+   choosing where it goes. *)
+let set_purpose ~__context ~self ~value =
+  Xapi_observer_purpose.assert_valid_purpose value ;
+  Db.Observer.set_purpose ~__context ~self ~value

@@ -6030,6 +6030,33 @@ let observer_record rpc session_id observer =
               ~value
           )
           ()
+      ; make_field ~name:"purpose"
+          ~get:(fun () -> map_and_concat Fun.id (x ()).API.observer_purpose)
+          ~set:(fun s ->
+            Client.Observer.set_purpose ~rpc ~session_id ~self:observer
+              ~value:(get_words ',' s)
+          )
+          ~get_set:(fun () -> (x ()).API.observer_purpose)
+          ~remove_from_set:(fun purpose ->
+            let purposes =
+              Client.Observer.get_purpose ~rpc ~session_id ~self:observer
+            in
+            let value = List.filter (( <> ) purpose) purposes in
+            Client.Observer.set_purpose ~rpc ~session_id ~self:observer ~value
+          )
+          ~add_to_set:(fun purpose ->
+            let purposes =
+              Client.Observer.get_purpose ~rpc ~session_id ~self:observer
+            in
+            let value =
+              if List.mem purpose purposes then
+                purposes
+              else
+                purpose :: purposes
+            in
+            Client.Observer.set_purpose ~rpc ~session_id ~self:observer ~value
+          )
+          ()
       ; make_field ~name:"enabled"
           ~get:(fun () -> string_of_bool (x ()).API.observer_enabled)
           ~set:(fun s ->

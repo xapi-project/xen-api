@@ -8325,9 +8325,13 @@ module Observer = struct
       Cli_args.get_opt "components" params
       |> Option.fold ~none:[] ~some:(String.split_on_char ',')
     in
+    let purpose =
+      Cli_args.get_opt "purpose" params
+      |> Option.fold ~none:[] ~some:(String.split_on_char ',')
+    in
     let observer =
       Client.Observer.create ~rpc ~session_id ~name_label ~name_description
-        ~hosts ~attributes ~endpoints ~components ~enabled
+        ~hosts ~attributes ~endpoints ~components ~purpose ~enabled
     in
     let uuid = Client.Observer.get_uuid ~rpc ~session_id ~self:observer in
     printer (Cli_printer.PList [uuid])

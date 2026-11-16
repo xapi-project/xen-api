@@ -458,6 +458,25 @@ let observer_components_all =
   ; observer_component_smapi
   ]
 
+(* Observer purposes: what a trace is FOR, orthogonal to the components
+   axis above (where it came from). A purpose is a label, not a destination:
+   it does not change where any span is exported. *)
+let observer_purpose_performance = "performance"
+
+let observer_purpose_functional = "functional"
+
+let observer_purpose_audit = "audit"
+
+let observer_purpose_boundary = "boundary"
+
+let observer_purpose_all =
+  [
+    observer_purpose_performance
+  ; observer_purpose_functional
+  ; observer_purpose_audit
+  ; observer_purpose_boundary
+  ]
+
 let tgroups_enabled = ref false
 
 let when_tgroups_enabled f =

@@ -3910,6 +3910,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
           ; "attributes"
           ; "endpoints"
           ; "components"
+          ; "purpose"
           ]
       ; help=
           "Create a new observer (A High level object that manages data \

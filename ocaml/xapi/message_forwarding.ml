@@ -6918,11 +6918,11 @@ functor
       end)
 
       let create ~__context ~name_label ~name_description ~hosts ~attributes
-          ~endpoints ~components ~enabled =
+          ~endpoints ~components ~purpose ~enabled =
         info "Observer.create: name_label=%s" name_label ;
         let self =
           Local.Observer.create ~__context ~name_label ~name_description ~hosts
-            ~attributes ~endpoints ~components ~enabled
+            ~attributes ~endpoints ~components ~purpose ~enabled
         in
         let local_fn =
           Local.Observer.register ~self ~host:(Helpers.get_localhost ~__context)
@@ -7033,6 +7033,15 @@ functor
           do_op_on ~__context ~host ~local_fn ~remote_fn
         in
         Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
+
+      (* A database write on the coordinator only: unlike set_components, no
+         host has anything to (un)register, and purposes are deliberately
+         not forwarded to the other daemons. *)
+      let set_purpose ~__context ~self ~value =
+        info "Observer.set_purpose: self=%s value=%s"
+          (observer_uuid ~__context self)
+          (value |> String.concat ",") ;
+        Local.Observer.set_purpose ~__context ~self ~value
     end
 
     module Caller = Xapi_caller

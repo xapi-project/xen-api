@@ -103,6 +103,23 @@ let set_components =
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let set_purpose =
+  call ~name:"set_purpose" ~in_oss_since:None ~lifecycle:[]
+    ~doc:
+      "Set the purposes of the observer: the purposes its traces are for, i.e. \
+       performance, functional, audit, boundary. A purpose labels a trace; it \
+       does not change where the trace is exported."
+    ~params:
+      [
+        (Ref _observer, "self", "The observer")
+      ; ( Set String
+        , "value"
+        , "The purposes the observer is enabled for. An empty list means all \
+           purposes"
+        )
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 let t =
   create_obj ~name:_observer
     ~descr:
@@ -136,6 +153,12 @@ let t =
             "The list of xenserver components the observer will broadcast. An \
              empty list means all components"
             ~default_value:(Some (VSet []))
+        ; field ~qualifier:StaticRO ~ty:(Set String) ~lifecycle:[] "purpose"
+            "The list of purposes (what a trace is for: performance, \
+             functional, audit, boundary) the observer is enabled for. An \
+             empty list means all purposes. A purpose labels a trace; it does \
+             not change where the trace is exported"
+            ~default_value:(Some (VSet []))
         ; field ~qualifier:StaticRO ~ty:Bool ~lifecycle:[] "enabled"
             "This denotes if the observer is enabled. true if it is enabled \
              and false if it is disabled"
@@ -151,5 +174,6 @@ let t =
       ; set_attributes
       ; set_endpoints
       ; set_components
+      ; set_purpose
       ]
     ()

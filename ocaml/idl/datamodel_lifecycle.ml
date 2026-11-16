@@ -89,6 +89,8 @@ let prototyped_of_field = function
       Some "24.19.1"
   | "Observer", "enabled" ->
       Some "23.14.0"
+  | "Observer", "purpose" ->
+      Some "26.18.0-next"
   | "Observer", "components" ->
       Some "23.14.0"
   | "Observer", "endpoints" ->
@@ -315,6 +317,8 @@ let prototyped_of_message = function
       Some "25.2.0"
   | "Host_driver", "select" ->
       Some "25.2.0"
+  | "Observer", "set_purpose" ->
+      Some "26.18.0-next"
   | "Observer", "set_components" ->
       Some "23.14.0"
   | "Observer", "set_endpoints" ->
