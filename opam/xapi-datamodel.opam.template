@@ -18,6 +18,7 @@ depends: [
   "base-threads"
   "sexplib0"
   "xapi-consts"
+  "xapi-gpu"
   "xapi-schema"
   "clock"
   "xapi-stdext-std"

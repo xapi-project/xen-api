@@ -74,6 +74,8 @@ val mxgpu_vf_setup : __context:Context.t -> unit
 val nvidia_vf_setup :
   __context:Context.t -> pf:API.ref_PCI -> enable:bool -> unit
 
+val has_nvidia_gpu : __context:Context.t -> host:API.ref_host -> bool
+
 (* Sets [PGPU.partition_mode] from the observed state of each partition axis
  * of the card, where [None] is an axis that could not be read. *)
 val update_partition_mode :
