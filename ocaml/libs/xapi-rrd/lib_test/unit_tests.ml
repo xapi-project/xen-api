@@ -490,9 +490,23 @@ let suite_create_multi =
   :: ("values match legend", `Quick, test_values_match_legend)
   :: valid_rrd_tests
 
+let test_query_all_ds rrd () =
+  let now = rrd.last_updated in
+  let all = query_all_ds rrd now CF_Average in
+  Alcotest.(check (list string))
+    "names, in order" (ds_names rrd) (List.map fst all) ;
+  all
+  |> List.iter (fun (ds_name, value) ->
+      Alcotest.(check (float 0.))
+        ds_name
+        (query_named_ds rrd now ds_name CF_Average)
+        value
+  )
+
 let rrd_suite rrd =
   [
     ("Save xml to disk", `Quick, test_marshall ~json:false rrd)
+  ; ("Query all data sources", `Quick, test_query_all_ds rrd)
   ; ("Save json to disk", `Quick, test_marshall ~json:true rrd)
   ; (* there is no json deserializer implementation *)
     ("Save and restore from disk", `Quick, test_marshall_unmarshall rrd)

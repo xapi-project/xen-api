@@ -733,18 +733,32 @@ let find_best_rras rrd pdp_interval cf start =
     in
     List.filter (contains_time newstarttime) rras
 
+(** The RRA whose most recent row [query_named_ds] and [query_all_ds] read *)
+let latest_rra rrd as_of_time cf =
+  match find_best_rras rrd 0 (Some cf) (Int64.of_float as_of_time) with
+  | [] ->
+      raise No_RRA_Available
+  | rra :: _ ->
+      rra
+
 let query_named_ds rrd as_of_time ds_name cf =
   match Utils.find_index (fun ds -> ds.ds_name = ds_name) rrd.rrd_dss with
   | None ->
       raise (Invalid_data_source ds_name)
-  | Some n -> (
-      let rras = find_best_rras rrd 0 (Some cf) (Int64.of_float as_of_time) in
-      match rras with
-      | [] ->
-          raise No_RRA_Available
-      | rra :: _ ->
-          Fring.peek rra.rra_data.(n) 0
-    )
+  | Some n ->
+      Fring.peek (latest_rra rrd as_of_time cf).rra_data.(n) 0
+
+(** [query_all_ds rrd as_of_time cf] is the name and latest value of every
+    data source in [rrd], in [rrd_dss] order: the values [query_named_ds]
+    returns for each name. It finds the RRA once and reads each ring by
+    position, instead of once per data source after a search by name. *)
+let query_all_ds rrd as_of_time cf =
+  if Array.length rrd.rrd_dss = 0 then
+    []
+  else
+    let rra = latest_rra rrd as_of_time cf in
+    Array.to_list rrd.rrd_dss
+    |> List.mapi (fun n ds -> (ds.ds_name, Fring.peek rra.rra_data.(n) 0))
 
 (******************************************************************************)
 (* Marshalling/Unmarshalling functions                                        *)

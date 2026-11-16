@@ -472,11 +472,10 @@ let generate_json rrd =
   | None ->
       `Assoc []
   | Some rrdi ->
+      let now = Unix.gettimeofday () in
       `Assoc
-        (Rrd.ds_names rrdi.rrd
-        |> List.map (fun ds_name ->
-            (ds_name, convert_value (query ds_name rrdi))
-        )
+        (Rrd.query_all_ds rrdi.rrd now Rrd.CF_Average
+        |> List.map (fun (ds_name, value) -> (ds_name, convert_value value))
         )
 
 let write_json_to_file file json =
