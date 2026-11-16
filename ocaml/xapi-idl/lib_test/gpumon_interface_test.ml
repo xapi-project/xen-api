@@ -240,6 +240,13 @@ let entry_read =
     ~vgpu_types:(Value [creatable_type 1561; creatable_type 1562])
     ()
 
+(* The same GPU instance when its read failed, with the call of the sample
+   above *)
+let entry_failed =
+  Creatable.make_entry ~gi_id:3 ~status:(Known Section_status.Error)
+    ~kind:(Value (Known Kind.Library_error)) ~library_call:(Value library_call)
+    ~vgpu_types:Null ()
+
 (* A GPU instance whose read failed in the helper itself, with no call *)
 let entry_internal =
   Creatable.make_entry ~gi_id:4 ~status:(Known Section_status.Error)
@@ -608,6 +615,145 @@ let newest_reads_1_0_names () =
     )
     (sections_of_1_0 ())
 
+let types ids = Member.Value (List.map creatable_type ids)
+
+(* An ok entry on page 1 *)
+let ok_entry ~gi_id ids =
+  Creatable.make_entry ~gi_id ~status:(Known Section_status.Ok) ~kind:Null
+    ~library_call:Null ~vgpu_types:(types ids) ()
+
+(* The slices of entries on the pages after the first, built from this one
+   value by record update, so that a member added to Creatable.Next.entry
+   changes one literal *)
+let base_slice : Creatable.Next.entry =
+  {gi_id= 0; status= None; kind= None; library_call= None; vgpu_types= Value []}
+
+(* An entry of page 1 as a later page holds it for GPU instance gi_id: the
+   slice that continues it, with only its list, or the slice that starts it,
+   with every member. gi_id is passed in, not read from the entry, so that
+   the GPU instances a case names come from the case, not from
+   Creatable.make_entry *)
+let continuing ~gi_id (e : Creatable.entry) =
+  {base_slice with gi_id; vgpu_types= e.vgpu_types}
+
+let starting ~gi_id (e : Creatable.entry) =
+  {
+    (continuing ~gi_id e) with
+    status= Some e.status
+  ; kind= Some e.kind
+  ; library_call= Some e.library_call
+  }
+
+(* A slice that continues an entry, and a slice that starts an ok entry *)
+let slice ~gi_id ids = continuing ~gi_id (ok_entry ~gi_id ids)
+
+let start ~gi_id ids = starting ~gi_id (ok_entry ~gi_id ids)
+
+let pages first next : Creatable.pages = {first; next}
+
+(* A page that carries the section, read *)
+let carried section = Ok (Some section)
+
+(* Page 1 with an ok section of these entries *)
+let page_1 entries = carried (creatable_read entries)
+
+(* Page 1 with GPU instance 1's ok entry, which lists type 10 *)
+let page_1_gi_1 = page_1 [ok_entry ~gi_id:1 [10]]
+
+(* Page 1 with a section not attempted, which opens no list *)
+let page_1_not_attempted =
+  carried (creatable_not_read Section_status.Not_attempted Null)
+
+(* A page after the first that holds these slices of the list *)
+let later slices = carried {Creatable.Next.gpu_instances= Some slices}
+
+let unreadable = Error (`Msg "unreadable")
+
+let listed ids = Creatable.Listed (List.map creatable_type ids)
+
+let every gi_ids (read : Creatable.read) =
+  List.map (fun gi_id -> (gi_id, read)) gi_ids
+
+(* A view as a failing check prints it *)
+let string_of_view v = json (Rpcmarshal.marshal Creatable.typ_of_view v)
+
+let view = Alcotest.testable (Fmt.of_to_string string_of_view) ( = )
+
+(* What these pages give for these GPU instances, read for a run that asked
+   for these sections: per_gi, and the ids that name no GPU instance *)
+let view_of ~asked ~gi_ids pages ~unmatched per_gi () =
+  Alcotest.check view "view"
+    {per_gi; unmatched= Creatable.First_met.of_list Fun.id unmatched}
+    (Creatable.per_gpu_instance ~asked ~gi_ids pages)
+
+(* For a run that asked for the creatable section, where no entry is left
+   unmatched *)
+let view_reads =
+  view_of ~asked:[Sections.token Sections.Creatable] ~unmatched:[]
+
+(* For a run that did not ask for it: every GPU instance reads as not
+   asked *)
+let view_not_asked ~gi_ids pages =
+  view_of ~asked:[] ~gi_ids pages ~unmatched:[]
+    (every gi_ids (Not_read Not_asked))
+
+(* One named case per value *)
+let each name test values = List.map (fun v -> (name v, test v)) values
+
+(* Where a case puts e, the entry of GPU instance gi_id that it reads.
+   On_page_1: e alone on page 1. Starts_on_page_2: page 1 holds GPU instance
+   1's ok entry, which lists type 10 and is read too, so gi_id must not be 1;
+   page 2 starts e, with every member. Continues_on_page_2: page 1 holds an
+   ok entry of gi_id that lists type 10; page 2 continues it with e's list,
+   and e's other members are not used *)
+type layout = On_page_1 | Starts_on_page_2 | Continues_on_page_2
+
+(* What GPU instance gi_id reads as, with its entry e laid out so *)
+let entry_reads laid_out ~gi_id (e : Creatable.entry) expected =
+  match laid_out with
+  | On_page_1 ->
+      view_reads ~gi_ids:[gi_id] (pages (page_1 [e]) []) [(gi_id, expected)]
+  | Starts_on_page_2 ->
+      view_reads ~gi_ids:[1; gi_id]
+        (pages page_1_gi_1 [later [starting ~gi_id e]])
+        [(1, listed [10]); (gi_id, expected)]
+  | Continues_on_page_2 ->
+      view_reads ~gi_ids:[gi_id]
+        (pages (page_1 [ok_entry ~gi_id [10]]) [later [continuing ~gi_id e]])
+        [(gi_id, expected)]
+
+(* Pages that give no GPU instance a list: each one asked about reads as not
+   read, for cause *)
+let none_read ~gi_ids pages cause =
+  view_reads ~gi_ids pages (every gi_ids (Not_read cause))
+
+(* Page 1 alone, with a section of this status, kind and list *)
+let section_reads ~gi_ids ~status ~kind ~gpu_instances cause =
+  none_read ~gi_ids
+    (pages (carried (Creatable.make ~status ~kind ~gpu_instances ())) [])
+    cause
+
+(* What entry_failed reads as *)
+let failed_read =
+  Creatable.Failed
+    {kind= Known Kind.Library_error; library_call= Some library_call}
+
+(* GPU instance 1's ok entry with a null list *)
+let null_list_entry = {(ok_entry ~gi_id:1 []) with vgpu_types= Null}
+
+(* The type ids just outside 0 .. 2^32 - 1, then those bounds, each the one
+   type of GPU instance 1's ok entry on page 1 *)
+let type_id_bounds =
+  let one_type id = entry_reads On_page_1 ~gi_id:1 (ok_entry ~gi_id:1 [id]) in
+  each
+    (Printf.sprintf "a type id of %d reads as out of range")
+    (fun id -> one_type id (Not_read Out_of_range))
+    [-1; 4294967296]
+  @ each
+      (Printf.sprintf "a type id of %d reads as its list")
+      (fun id -> one_type id (listed [id]))
+      [0; 4294967295]
+
 let values =
   [
     ("enabled is a known mode", reads Mig_mode.Mode.typ_of "enabled" ~known:true)
@@ -675,7 +821,258 @@ let values =
   ; ( "the newest snapshot reads every section name of 1.0 back as that section"
     , newest_reads_1_0_names
     )
+  ; ( "one page gives each GPU instance its list"
+    , view_reads ~gi_ids:[1; 2]
+        (pages (page_1 [ok_entry ~gi_id:1 [10; 11]; ok_entry ~gi_id:2 []]) [])
+        [(1, listed [10; 11]); (2, listed [])]
+    )
+  ; ( "an entry continued on the next page reads as one list, in page order"
+    , view_reads ~gi_ids:[1; 2]
+        (pages
+           (page_1 [ok_entry ~gi_id:1 [10; 11]])
+           [later [slice ~gi_id:1 [12]; start ~gi_id:2 [20]]]
+        )
+        [(1, listed [10; 11; 12]); (2, listed [20])]
+    )
+  ; ( "an entry continued over three pages reads as one list"
+    , view_reads ~gi_ids:[1; 2]
+        (pages page_1_gi_1
+           [
+             later [slice ~gi_id:1 [11]]
+           ; later [slice ~gi_id:1 [12]; start ~gi_id:2 []]
+           ]
+        )
+        [(1, listed [10; 11; 12]); (2, listed [])]
+    )
+  ; ( "a GPU instance named twice on one page reads as a duplicate"
+    , view_reads ~gi_ids:[1; 2]
+        (pages
+           (page_1
+              [
+                ok_entry ~gi_id:1 [5]
+              ; ok_entry ~gi_id:1 [6]
+              ; ok_entry ~gi_id:2 []
+              ]
+           )
+           []
+        )
+        [(1, Not_read Duplicate_entry); (2, listed [])]
+    )
+  ; ( "a continued ok entry with a null list is malformed"
+    , entry_reads Continues_on_page_2 ~gi_id:1 null_list_entry
+        (Not_read Entry_malformed)
+    )
+  ; ( "a section asked for that no page carries reads as absent"
+    , none_read ~gi_ids:[1; 2] (pages (Ok None) [Ok None]) Section_absent
+    )
+  ; ( "an ok section whose list is null on page 1 is malformed"
+    , section_reads ~gi_ids:[1] ~status:(Known Section_status.Ok) ~kind:Null
+        ~gpu_instances:Null Section_malformed
+    )
+  ; ( "a section not attempted reads as not attempted for every GPU instance"
+    , section_reads ~gi_ids:[1; 2] ~status:(Known Section_status.Not_attempted)
+        ~kind:Null ~gpu_instances:Null Section_not_attempted
+    )
+  ; ( "a failed section reads with its kind for every GPU instance"
+    , section_reads ~gi_ids:[1; 2] ~status:(Known Section_status.Error)
+        ~kind:(Value (Known Kind.Not_supported)) ~gpu_instances:Null
+        (Section_failed (Known Kind.Not_supported))
+    )
+  ; ( "a failed section without a kind is malformed"
+    , section_reads ~gi_ids:[1] ~status:(Known Section_status.Error) ~kind:Null
+        ~gpu_instances:Null Section_malformed
+    )
+  ; ( "a newer helper's section status reads as unknown"
+    , section_reads ~gi_ids:[1] ~status:(Unknown "x_future") ~kind:Null
+        ~gpu_instances:Null (Section_status_unknown "x_future")
+    )
+  ; ( "a GPU instance without an entry reads as no entry"
+    , view_reads ~gi_ids:[1; 2] (pages page_1_gi_1 [])
+        [(1, listed [10]); (2, Not_read No_entry)]
+    )
+  ; ( "a failed entry reads with its kind and its call"
+    , entry_reads On_page_1 ~gi_id:3 entry_failed failed_read
+    )
+  ; ( "a failed entry without a kind is malformed"
+    , entry_reads On_page_1 ~gi_id:3
+        {entry_failed with kind= Null}
+        (Not_read Entry_malformed)
+    )
+  ; ( "a failed entry without a call reads with its kind alone"
+    , entry_reads On_page_1 ~gi_id:4 entry_internal
+        (Failed {kind= Known Kind.Internal; library_call= None})
+    )
+  ; ( "an entry not attempted reads as not attempted"
+    , entry_reads On_page_1 ~gi_id:1
+        {null_list_entry with status= Known Section_status.Not_attempted}
+        (Not_read Entry_not_attempted)
+    )
+  ; ( "a newer helper's entry status reads as unknown"
+    , entry_reads On_page_1 ~gi_id:1
+        {(ok_entry ~gi_id:1 [10]) with status= Unknown "x_future"}
+        (Not_read (Entry_status_unknown "x_future"))
+    )
   ]
+  @ type_id_bounds
+  @ [
+      ( "the entries of a section that is not ok are not read"
+      , section_reads ~gi_ids:[1] ~status:(Known Section_status.Error)
+          ~kind:(Value (Known Kind.Not_supported))
+          ~gpu_instances:(Value [ok_entry ~gi_id:9 [1]])
+          (Section_failed (Known Kind.Not_supported))
+      )
+    ; ( "results come in the order of the GPU instances given"
+      , view_reads ~gi_ids:[2; 1]
+          (pages (page_1 [ok_entry ~gi_id:1 [10]; ok_entry ~gi_id:2 [20]]) [])
+          [(2, listed [20]); (1, listed [10])]
+      )
+    ; ( "an entry that starts on page 2 reads as its list"
+      , entry_reads Starts_on_page_2 ~gi_id:2 (ok_entry ~gi_id:2 [20])
+          (listed [20])
+      )
+    ; ( "pages of a run that did not ask read as not asked for every GPU \
+         instance"
+      , view_not_asked ~gi_ids:[1; 2] (pages (Ok None) [Ok None])
+      )
+    ; ( "a creatable section a run did not ask for is not read"
+      , view_not_asked ~gi_ids:[1; 2]
+          (pages (page_1 [ok_entry ~gi_id:1 [10]; ok_entry ~gi_id:2 []]) [])
+      )
+    ; ( "a GPU instance the reply names twice reads as a duplicate when its \
+         entries are on two pages"
+      , view_reads ~gi_ids:[1; 2; 1]
+          (pages page_1_gi_1 [later [slice ~gi_id:1 [11]; start ~gi_id:2 []]])
+          [
+            (1, Not_read Duplicate_entry)
+          ; (2, listed [])
+          ; (1, Not_read Duplicate_entry)
+          ]
+      )
+    ; ( "a creatable section unreadable on page 1 is malformed, never absent"
+      , none_read ~gi_ids:[1] (pages unreadable []) Section_malformed
+      )
+    ; ( "a failed entry that starts on page 2 reads with its kind and its call"
+      , entry_reads Starts_on_page_2 ~gi_id:3 entry_failed failed_read
+      )
+    ; ( "a slice that continues a failed entry is malformed"
+      , view_reads ~gi_ids:[3]
+          (pages (page_1 [entry_failed]) [later [slice ~gi_id:3 [1]]])
+          [(3, Not_read Entry_malformed)]
+      )
+    ; ( "an entry that starts on a later page without its kind is malformed"
+      , view_reads ~gi_ids:[1; 2]
+          (pages page_1_gi_1 [later [{(start ~gi_id:2 [20]) with kind= None}]])
+          [(1, listed [10]); (2, Not_read Entry_malformed)]
+      )
+    ; ( "an entry that starts on pages 2 and 3 reads as a duplicate"
+      , view_reads ~gi_ids:[1; 2]
+          (pages page_1_gi_1
+             [later [start ~gi_id:2 [20]]; later [start ~gi_id:2 [21]]]
+          )
+          [(1, listed [10]); (2, Not_read Duplicate_entry)]
+      )
+    ; ( "a slice whose page before ends with another GPU instance reads as a \
+         slice without a start"
+      , view_reads ~gi_ids:[1; 2]
+          (pages
+             (page_1 [ok_entry ~gi_id:1 [10]; ok_entry ~gi_id:2 [20]])
+             [later [slice ~gi_id:1 [11]]]
+          )
+          [(1, Not_read Slice_without_start); (2, listed [20])]
+      )
+    ; ( "a type id out of range in a later slice reads as out of range"
+      , entry_reads Continues_on_page_2 ~gi_id:1
+          (ok_entry ~gi_id:1 [4294967296])
+          (Not_read Out_of_range)
+      )
+    ; ( "a slice naming no GPU instance is reported once, also over several \
+         pages"
+      , view_of
+          ~asked:[Sections.token Sections.Creatable]
+          ~gi_ids:[1]
+          (pages
+             (page_1 [ok_entry ~gi_id:9 [1]])
+             [later [slice ~gi_id:9 [2]; start ~gi_id:1 []]]
+          )
+          ~unmatched:[9]
+          [(1, listed [])]
+      )
+    ; ( "ids are kept once each, in the order first met"
+      , fun () ->
+          Alcotest.(check (list int))
+            "ids" [8; 9; 7]
+            (Creatable.First_met.of_list Fun.id [8; 9; 8; 7; 9] :> int list)
+      )
+    ; ( "a slice on page 3 after a page that does not carry the list reads as \
+         a slice without a start"
+      , view_reads ~gi_ids:[1]
+          (pages page_1_gi_1 [Ok None; later [slice ~gi_id:1 [11]]])
+          [(1, Not_read Slice_without_start)]
+      )
+    ; ( "an entry that starts on page 1 and again on page 2 reads as a duplicate"
+      , view_reads ~gi_ids:[1]
+          (pages page_1_gi_1 [later [start ~gi_id:1 [11]]])
+          [(1, Not_read Duplicate_entry)]
+      )
+    ; ( "a slice on a later page with a kind but no status is malformed"
+      , view_reads ~gi_ids:[1]
+          (pages page_1_gi_1
+             [later [{(slice ~gi_id:1 [11]) with kind= Some Null}]]
+          )
+          [(1, Not_read Entry_malformed)]
+      )
+    ; ( "a slice without status that is not the first of its page's list reads \
+         as a slice without a start"
+      , view_reads ~gi_ids:[1; 2]
+          (pages page_1_gi_1 [later [start ~gi_id:2 [20]; slice ~gi_id:1 [11]]])
+          [(1, Not_read Slice_without_start); (2, listed [20])]
+      )
+    ; ( "a later page without the section reads as no slice there"
+      , view_reads ~gi_ids:[1] (pages page_1_gi_1 [Ok None]) [(1, listed [10])]
+      )
+    ; ( "a later page whose section cannot be read makes the section malformed"
+      , none_read ~gi_ids:[1] (pages page_1_gi_1 [unreadable]) Section_malformed
+      )
+    ; ( "slices on a later page when page 1's section is not attempted make \
+         the section malformed"
+      , none_read ~gi_ids:[1]
+          (pages page_1_not_attempted [later [start ~gi_id:1 [10]]])
+          Section_malformed
+      )
+    ; ( "slices on a later page when page 1 has no section make the section \
+         malformed"
+      , none_read ~gi_ids:[1]
+          (pages (Ok None) [later [start ~gi_id:1 [10]]])
+          Section_malformed
+      )
+    ; ( "an empty later list after a section not attempted reads as not \
+         attempted"
+      , none_read ~gi_ids:[1]
+          (pages page_1_not_attempted [later []])
+          Section_not_attempted
+      )
+    ; ( "a later section without its list, with no section on page 1, reads as \
+         absent"
+      , none_read ~gi_ids:[1]
+          (pages (Ok None) [carried {Creatable.Next.gpu_instances= None}])
+          Section_absent
+      )
+    ; ( "an ok entry with a kind and a failed call reads as its list"
+      , entry_reads On_page_1 ~gi_id:1
+          {
+            (ok_entry ~gi_id:1 [10]) with
+            kind= Value (Known Kind.Internal)
+          ; library_call= Value library_call
+          }
+          (listed [10])
+      )
+    ; ( "an ok entry whose list is null on page 1 is malformed"
+      , entry_reads On_page_1 ~gi_id:1 null_list_entry (Not_read Entry_malformed)
+      )
+    ; ( "unreadable pages of a run that did not ask read as not asked"
+      , view_not_asked ~gi_ids:[1] (pages unreadable [unreadable])
+      )
+    ]
 
 let tests =
   !C.implementation
