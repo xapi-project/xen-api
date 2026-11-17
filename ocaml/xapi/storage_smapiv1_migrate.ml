@@ -365,15 +365,24 @@ module Copy = struct
                   D.debug "Resize remote clone VDI to %Ld: result %Ld"
                     local_vdi.virtual_size new_size
               ) ;
+              (* A SMAPIv1 clone inherits the content_id but a SMAPIv3 clone
+                 does not, and copy_into_vdi needs it to find the base *)
+              Remote.VDI.set_content_id dbg dest vdi_clone.vdi vdi.content_id ;
               vdi_clone
           | None ->
               D.debug "Creating a blank remote VDI" ;
               Remote.VDI.create dbg dest {local_vdi with sm_config= []}
         in
         let remote_copy =
-          copy_into_vdi ~task ~dbg ~sr ~vdi ~vm ~url ~dest
-            ~dest_vdi:remote_base.vdi ~verify_dest
-          |> vdi_info
+          try
+            copy_into_vdi ~task ~dbg ~sr ~vdi ~vm ~url ~dest
+              ~dest_vdi:remote_base.vdi ~verify_dest
+            |> vdi_info
+          with e ->
+            D.log_and_ignore_exn (fun () ->
+                Remote.VDI.destroy dbg dest remote_base.vdi
+            ) ;
+            raise e
         in
         let snapshot = Remote.VDI.snapshot dbg dest remote_copy in
         Remote.VDI.destroy dbg dest remote_copy.vdi ;
@@ -701,6 +710,9 @@ module MIRROR : SMAPIv2_MIRROR = struct
                 D.debug "Resize clone VDI to %Ld: result %Ld"
                   vdi_info.virtual_size new_size
             ) ;
+            (* A SMAPIv1 clone inherits the content_id but a SMAPIv3 clone
+               does not, and copy_into_vdi needs it to find the base *)
+            SMAPI.VDI.set_content_id dbg sr vdi_clone.vdi vdi.content_id ;
             vdi_clone
         | None -> (
             D.debug "Creating a blank remote VDI" ;
