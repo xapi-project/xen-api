@@ -219,17 +219,20 @@ let create ~__context ~name_label ~name_description ~user_agent ~client_ip =
   )
 
 (* Body of [destroy]; assumes [caller_table_mutex] is held. Also used by the
-   eviction path. Keeps [auto_registered_count] in step with the table. *)
+   eviction path. Keeps [auto_registered_count] in step with the table. The
+   database can hold two rows with one pattern (see [register_caller_locked]),
+   and only one of them has the table entry: the entry is deleted only if it is
+   [self]'s. *)
 let destroy_locked ~__context ~self =
   let record = Db.Caller.get_record ~__context ~self in
   let pattern_key = pattern_key_of_record record in
   ( match Caller_table.get_exact caller_table ~pattern:pattern_key with
-  | Some entry when entry.auto_registered ->
-      decr auto_registered_count
-  | _ ->
+  | Some entry when entry.caller_ref = self ->
+      if entry.auto_registered then decr auto_registered_count ;
+      Caller_table.delete caller_table ~pattern:pattern_key
+  | Some _ | None ->
       ()
   ) ;
-  Caller_table.delete caller_table ~pattern:pattern_key ;
   Db.Caller.destroy ~__context ~self
 
 let destroy ~__context ~self =

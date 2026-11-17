@@ -215,6 +215,54 @@ let test_register_prefers_administrator_callers () =
         [("early", early); ("dup-a", dup_a); ("dup-b", dup_b)]
   )
 
+(* A [Caller.create] served before [Xapi_caller.register] finds no entry for
+   the pattern of an administrator's caller that is not in the table yet, so
+   it creates a second administrator's row, and [register] cannot insert the
+   first one. Destroying that first row must leave the entry of the second. *)
+let test_destroy_keeps_entry_of_other_row () =
+  with_setup ~limit:(-1) (fun ~__context ->
+      let user_agent = "admin" and client_ip = "10.0.6.1" in
+      let first = Ref.make () in
+      Db.Caller.create ~__context ~ref:first
+        ~uuid:Uuidx.(to_string (make () : [`Caller] t))
+        ~name_label:"first" ~name_description:"" ~user_agent ~client_ip
+        ~last_access:Clock.Date.epoch ~groups:[] ~rate_limit:Ref.null
+        ~auto_registered:false ;
+      let second =
+        Xapi_caller.create ~__context ~name_label:"second" ~name_description:""
+          ~user_agent ~client_ip
+      in
+      Xapi_caller.register ~__context ;
+      check_user_agents ~__context "two administrators' rows, one pattern"
+        ["admin"; "admin"] ;
+      Xapi_caller.destroy ~__context ~self:first ;
+      call ~__context ~user_agent ~client_ip ;
+      check_user_agents ~__context "no caller auto-registered" ["admin"] ;
+      Alcotest.(check int64)
+        "the call is counted on the remaining row" 1L
+        (Xapi_caller.query_call_count ~__context ~self:second)
+  ) ;
+  (* Before [register], a call from the client of an administrator's row that
+     is only in the database auto-registers a caller for its pattern.
+     Destroying the administrator's row must leave that caller counted against
+     the cap: with a cap of one, the next client's call evicts it. *)
+  with_setup ~limit:1 (fun ~__context ->
+      let user_agent = "admin" and client_ip = "10.0.6.2" in
+      let first = Ref.make () in
+      Db.Caller.create ~__context ~ref:first
+        ~uuid:Uuidx.(to_string (make () : [`Caller] t))
+        ~name_label:"first" ~name_description:"" ~user_agent ~client_ip
+        ~last_access:Clock.Date.epoch ~groups:[] ~rate_limit:Ref.null
+        ~auto_registered:false ;
+      call ~__context ~user_agent ~client_ip ;
+      check_user_agents ~__context "a caller auto-registered for the pattern"
+        ["admin"; "admin"] ;
+      Xapi_caller.destroy ~__context ~self:first ;
+      call ~__context ~user_agent:"other" ~client_ip:"10.0.6.3" ;
+      check_user_agents ~__context
+        "the auto-registered caller is evicted at the cap" ["other"]
+  )
+
 (* Rate limit parameters must be positive finite numbers (an infinite burst
    size is allowed). NaN fails every comparison, and an infinite fill rate
    can turn the token count into NaN. *)
@@ -627,6 +675,10 @@ let test =
   ; ( "test_register_prefers_administrator_callers"
     , `Quick
     , test_register_prefers_administrator_callers
+    )
+  ; ( "test_destroy_keeps_entry_of_other_row"
+    , `Quick
+    , test_destroy_keeps_entry_of_other_row
     )
   ; ( "test_rate_limit_rejects_non_finite"
     , `Quick
