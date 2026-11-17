@@ -139,6 +139,53 @@ let test_rename_key_seen_through_shared_records () =
   ignore (get "z" derived) ;
   check_unused "and marking through it reaches the original" ["b"] t
 
+let test_get_bool () =
+  let t = t_of [("yes", "true"); ("no", "0"); ("bad", "maybe")] in
+  Alcotest.(check bool) "true" true (get_bool "yes" t) ;
+  Alcotest.(check bool) "0" false (get_bool "no" t) ;
+  Alcotest.(check bool) "absent" false (get_bool "absent" t) ;
+  Alcotest.(check bool)
+    "absent, with a default" true
+    (get_bool "absent" ~default:true t) ;
+  Alcotest.check_raises "not a boolean"
+    (Record_util.Record_failure
+       "Failed to parse parameter 'bad': Expected \
+        'true','t','yes','y','1','false','f','no','n','0' got maybe"
+    ) (fun () -> ignore (get_bool "bad" t)
+  )
+
+let test_get_float () =
+  let t = t_of [("x", "1.5"); ("bad", "abc")] in
+  let check msg expected actual =
+    Alcotest.(check (float 0.)) msg expected actual
+  in
+  check "a float" 1.5 (get_float "x" ~default:0. t) ;
+  check "absent" 2. (get_float "absent" ~default:2. t) ;
+  check "not a float" 2. (get_float "bad" ~default:2. t)
+
+let test_get_set () =
+  let t = t_of [("s", "a,b,c")] in
+  Alcotest.check strings "comma-separated" ["a"; "b"; "c"] (get_set "s" t) ;
+  Alcotest.check strings "absent" [] (get_set "absent" t) ;
+  Alcotest.check strings "absent, with a default" ["d"]
+    (get_set "absent" ~default:["d"] t)
+
+let test_get_map () =
+  let pairs = Alcotest.(list (pair string string)) in
+  let t = t_of [("m", "a:1,b,c:2,d:3:4")] in
+  Alcotest.check pairs "pairs, other items left out"
+    [("a", "1"); ("c", "2")]
+    (get_map "m" t) ;
+  Alcotest.check pairs "absent" [] (get_map "absent" t)
+
+let test_get_unique () =
+  let t = t_of [("once", "1"); ("twice", "2"); ("twice", "3")] in
+  Alcotest.(check (option string)) "once" (Some "1") (get_unique "once" t) ;
+  Alcotest.(check (option string)) "absent" None (get_unique "absent" t) ;
+  Alcotest.check_raises "twice" (Multiple_definitions "twice") (fun () ->
+      ignore (get_unique "twice" t)
+  )
+
 let tests =
   [
     ( "Cli_args"
@@ -180,6 +227,11 @@ let tests =
         , `Quick
         , test_rename_key_seen_through_shared_records
         )
+      ; ("get_bool", `Quick, test_get_bool)
+      ; ("get_float", `Quick, test_get_float)
+      ; ("get_set", `Quick, test_get_set)
+      ; ("get_map", `Quick, test_get_map)
+      ; ("get_unique", `Quick, test_get_unique)
       ]
     )
   ]

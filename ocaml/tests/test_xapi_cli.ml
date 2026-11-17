@@ -37,9 +37,7 @@ let tests =
         ( "parameter defined multiple times"
         , `Quick
         , check_reported "multiple definitions"
-            (Cli_util.Cli_failure
-               "Parameter k is defined multiple times, define it only once."
-            )
+            (Cli_args.Multiple_definitions "k")
             "Error: Parameter k is defined multiple times, define it only once.\n"
         )
       ; ( "record failure"

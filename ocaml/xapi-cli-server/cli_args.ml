@@ -108,6 +108,51 @@ let get_all key t =
 
 let exists key t = Option.is_some (get_opt key t)
 
+(* Typed readers of string parameters *)
+
+exception Multiple_definitions of string
+
+let parse_bool key value =
+  try Record_util.bool_of_string value
+  with Record_util.Record_failure msg as e ->
+    let msg = Printf.sprintf "Failed to parse parameter '%s': %s" key msg in
+    Backtrace.reraise e (Record_util.Record_failure msg)
+
+let get_bool ?(default = false) key t =
+  get_opt key t |> Option.map (parse_bool key) |> Option.value ~default
+
+let get_float ~default key t =
+  get_opt key t
+  |> Fun.flip Option.bind float_of_string_opt
+  |> Option.value ~default
+
+let get_set ?(default = []) key t =
+  get_opt key t
+  |> Option.map (String.split_on_char ',')
+  |> Option.value ~default
+
+let get_map ?(default = []) key t =
+  let pairs x =
+    String.split_on_char ',' x
+    |> List.filter_map (fun x ->
+        match String.split_on_char ':' x with
+        | [k; v] ->
+            Some (k, v)
+        | _ ->
+            None
+    )
+  in
+  get_opt key t |> Option.map pairs |> Option.value ~default
+
+let get_unique key t =
+  match get_all key t with
+  | [] ->
+      None
+  | [value] ->
+      Some value
+  | _ :: _ :: _ ->
+      raise (Multiple_definitions key)
+
 let keys t = List.map fst (visible t)
 
 (* Mark every visible entry of [t] as read, and return [t]. Underlies

@@ -381,6 +381,12 @@ let exception_handler s e =
       param_error "Required parameter not found" str s
   | Cli_operations.Multiple_failure errs ->
       multiple_error errs s
+  | Cli_args.Multiple_definitions key ->
+      other_error
+        (Printf.sprintf
+           "Parameter %s is defined multiple times, define it only once." key
+        )
+        s
   | Cli_util.Cli_failure str ->
       other_error str s
   | Api_errors.Server_error (code, params) ->
@@ -433,7 +439,7 @@ let handler (req : Http.Request.t) (s : Unix.file_descr) _ =
     | `Error (e, bt) ->
         exception_handler s e ;
         (* Command execution errors can use --trace *)
-        if Cli_operations.get_bool_param (get_params cmd) "trace" then (
+        if Cli_args.get_bool "trace" (get_params cmd) then (
           marshal s
             (Command
                (PrintStderr (Printf.sprintf "Raised %s\n" (Printexc.to_string e))

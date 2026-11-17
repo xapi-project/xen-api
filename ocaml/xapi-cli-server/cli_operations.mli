@@ -18,8 +18,6 @@ type rpc = Rpc.call -> Rpc.response
 
 exception ExitWithError of int
 
-val get_bool_param : string Cli_args.t -> ?default:bool -> string -> bool
-
 val diagnostic_timing_stats : op
 
 val user_password_change : op

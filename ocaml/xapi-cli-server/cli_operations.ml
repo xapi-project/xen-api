@@ -35,65 +35,15 @@ let failwithfmt fmt = Printf.ksprintf failwith fmt
 
 exception ExitWithError of int
 
-let bool_of_string param string =
-  try Record_util.bool_of_string string
-  with Record_util.Record_failure msg as e ->
-    let msg = Printf.sprintf "Failed to parse parameter '%s': %s" param msg in
-    Backtrace.reraise e (Record_util.Record_failure msg)
-
-let get_bool_param params ?(default = false) param =
-  Cli_args.get_opt param params
-  |> Option.map (bool_of_string param)
-  |> Option.value ~default
-
-let get_float_param params param ~default =
-  Cli_args.get_opt param params
-  |> Fun.flip Option.bind float_of_string_opt
-  |> Option.value ~default
-
 let get_param params param ~default =
   Option.value ~default (Cli_args.get_opt param params)
-
-let get_set_param params ?(default = []) param =
-  Cli_args.get_opt param params
-  |> Option.map (String.split_on_char ',')
-  |> Option.value ~default
-
-let get_map_param params ?(default = []) param =
-  let get_map x =
-    String.split_on_char ',' x
-    |> List.filter_map (fun x ->
-        match String.split_on_char ':' x with
-        | [k; v] ->
-            Some (k, v)
-        | _ ->
-            None
-    )
-  in
-  Cli_args.get_opt param params |> Option.map get_map |> Option.value ~default
-
-(** [get_unique_param param params] is intended to replace [List.assoc_opt] in
-    the cases where a parameter can only exist once, as repeating it might
-    force the CLI to make choices the user didn't foresee. In those cases
-    raises an exception to warn the user to input it only once *)
-let get_unique_param param params =
-  match Cli_args.get_all param params with
-  | [] ->
-      None
-  | [value] ->
-      Some value
-  | _ :: _ :: _ ->
-      failwith
-        (Printf.sprintf
-           "Parameter %s is defined multiple times, define it only once." param
-        )
 
 let no_force_msg =
   "This operation is dangerous and may cause data loss. This operation must be \
    forced (use --force)."
 
 let fail_without_force params =
-  if not (get_bool_param params "force") then failwith no_force_msg
+  if not (Cli_args.get_bool "force" params) then failwith no_force_msg
 
 open Client
 
@@ -178,7 +128,7 @@ let get_file_or_fail fd desc filename =
       chunks
 
 let diagnostic_timing_stats printer rpc session_id params =
-  let counts = get_bool_param params "counts" in
+  let counts = Cli_args.get_bool "counts" params in
   let sort = List.sort (fun (x, _) (y, _) -> String.compare x y) in
   let table_of_host host =
     [
@@ -578,7 +528,7 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
         let records =
           List.fold_left filter_records_on_fields all_recs filter_params
         in
-        let print_all = get_bool_param params "all" in
+        let print_all = Cli_args.get_bool "all" params in
         let print_params =
           select_fields params
             ( if print_all then
@@ -1638,7 +1588,7 @@ let pool_management_reconfigure (_ : printer) rpc session_id params =
 
 let pool_join printer rpc session_id params =
   try
-    let force = get_bool_param params "force" in
+    let force = Cli_args.get_bool "force" params in
     let master_address = Cli_args.get "master-address" params in
     let master_username = Cli_args.get "master-username" params in
     let master_password = Cli_args.get "master-password" params in
@@ -1672,7 +1622,7 @@ let pool_join printer rpc session_id params =
 let pool_eject fd printer rpc session_id params =
   let uuid = Cli_args.get "host-uuid" params in
   let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid in
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   let go () =
     Client.Pool.eject ~rpc ~session_id ~host ;
     printer
@@ -1770,7 +1720,7 @@ let pool_emergency_reset_master printer rpc session_id params =
     )
 
 let pool_emergency_transition_to_master printer rpc session_id params =
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   if (not (Pool_role.is_master ())) || force then (
     Client.Pool.emergency_transition_to_master ~rpc ~session_id ;
     printer
@@ -1863,7 +1813,7 @@ let pool_install_ca_certificate fd _printer rpc session_id params =
 
 let pool_uninstall_ca_certificate _printer rpc session_id params =
   let name = Cli_args.get "name" params in
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   Client.Pool.uninstall_ca_certificate ~rpc ~session_id ~name ~force
 
 let pool_certificate_list printer rpc session_id _params =
@@ -1923,13 +1873,13 @@ let pool_disable_client_certificate_auth _printer rpc session_id params =
 
 let pool_set_lldp_enabled _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
-  let value = bool_of_string "value" (Cli_args.get "value" params) in
-  let force = get_bool_param params "force" in
+  let value = Cli_args.parse_bool "value" (Cli_args.get "value" params) in
+  let force = Cli_args.get_bool "force" params in
   Client.Pool.set_lldp_enabled ~rpc ~session_id ~self:pool ~value ~force
 
 let pool_sync_updates printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   let token = get_param params "token" ~default:"" in
   let token_id = get_param params "token-id" ~default:"" in
   let username = get_param params "username" ~default:"" in
@@ -1985,13 +1935,13 @@ let pool_configure_update_sync _printer rpc session_id params =
 
 let pool_set_update_sync_enabled _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
-  let value = get_bool_param params "value" in
+  let value = Cli_args.get_bool "value" params in
   Client.Pool.set_update_sync_enabled ~rpc ~session_id ~self:pool ~value
 
 let pool_install_trusted_certificate fd _printer rpc session_id params =
   let self = get_pool_with_default rpc session_id params "uuid" in
   let filename = Cli_args.get "filename" params in
-  let ca = get_bool_param params ~default:true "ca" in
+  let ca = Cli_args.get_bool "ca" ~default:true params in
   let purpose =
     Cli_args.get_opt "purpose" params
     |> Option.map (fun ss ->
@@ -2047,7 +1997,7 @@ let vdi_create printer rpc session_id params =
     else
       `user
   in
-  let sharable = get_bool_param params "sharable" in
+  let sharable = Cli_args.get_bool "sharable" params in
   let sm_config = map_contents (Cli_maps.sm_config params) in
   let tags = Cli_args.keys (Cli_args.consume (Cli_maps.tags params)) in
   let vdi =
@@ -2073,14 +2023,14 @@ let vdi_introduce printer rpc session_id params =
       ""
   in
   let _type = vdi_type_of_string (Cli_args.get "type" params) in
-  let sharable = get_bool_param params "sharable" in
-  let read_only = get_bool_param params "read-only" in
+  let sharable = Cli_args.get_bool "sharable" params in
+  let read_only = Cli_args.get_bool "read-only" params in
   (* NB call is new so backwards compat other-config- not required *)
   let other_config = map_contents (Cli_maps.other_config params) in
   let xenstore_data = map_contents (Cli_maps.xenstore_data params) in
   let sm_config = map_contents (Cli_maps.sm_config params) in
   let location = Cli_args.get "location" params in
-  let managed = get_bool_param params "managed" in
+  let managed = Cli_args.get_bool "managed" params in
   let virtual_size = 0L and physical_utilisation = 0L in
   let metadata_of_pool = Ref.null in
   let is_a_snapshot = false in
@@ -2467,7 +2417,7 @@ let vbd_create printer rpc session_id params =
       Client.VDI.get_by_uuid ~rpc ~session_id
         ~uuid:(Cli_args.get "vdi-uuid" params)
   in
-  let bootable = get_bool_param params "bootable" in
+  let bootable = Cli_args.get_bool "bootable" params in
   let mode =
     if Cli_args.exists "mode" params then
       match String.lowercase_ascii (Cli_args.get "mode" params) with
@@ -2498,7 +2448,7 @@ let vbd_create printer rpc session_id params =
     else
       `Disk
   in
-  let unpluggable = get_bool_param params ~default:true "unpluggable" in
+  let unpluggable = Cli_args.get_bool "unpluggable" ~default:true params in
   if _type = `Disk && empty then
     failwith "Empty VBDs can only be made for type=CD" ;
   let vbd =
@@ -2549,7 +2499,7 @@ let vbd_unplug _printer rpc session_id params =
     else
       0.
   in
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   let start = Unix.gettimeofday () in
   try
     ( if force then
@@ -2608,7 +2558,7 @@ let parse_host_uuid ?(default_master = true) rpc session_id params =
 let sr_create fd _printer rpc session_id params =
   let name_label = Cli_args.get "name-label" params in
   let name_description = Cli_args.get_default "name-description" params "" in
-  let shared = get_bool_param params "shared" in
+  let shared = Cli_args.get_bool "shared" params in
   let host = parse_host_uuid ~default_master:shared rpc session_id params in
   let physical_size =
     try
@@ -2653,7 +2603,7 @@ let sr_introduce printer rpc session_id params =
   let _type = Cli_args.get "type" params in
   let content_type = Cli_args.get_default "content-type" params "" in
   let uuid = Cli_args.get "uuid" params in
-  let shared = get_bool_param params "shared" in
+  let shared = Cli_args.get_bool "shared" params in
   let sm_config = map_contents (Cli_maps.sm_config params) in
   let _ =
     Client.SR.introduce ~rpc ~session_id ~uuid ~name_label ~name_description
@@ -2860,7 +2810,7 @@ let vif_plug _printer rpc session_id params =
 let vif_unplug _printer rpc session_id params =
   let uuid = Cli_args.get "uuid" params in
   let vif = Client.VIF.get_by_uuid ~rpc ~session_id ~uuid in
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   ( if force then
       Client.VIF.unplug_force
     else
@@ -2915,7 +2865,7 @@ let net_create printer rpc session_id params =
       1500L
   in
   let bridge = Cli_args.get_default "bridge" params "" in
-  let managed = get_bool_param params ~default:true "managed" in
+  let managed = Cli_args.get_bool "managed" ~default:true params in
   let net =
     Client.Network.create ~rpc ~session_id ~name_label:network
       ~name_description:descr ~mTU ~other_config:[] ~bridge ~managed ~tags:[]
@@ -3428,7 +3378,7 @@ let do_vm_op ?(include_control_vms = false) ?(include_template_vms = false)
     | [vm] ->
         [op vm]
     | _ ->
-        if multiple && get_bool_param params "multiple" then
+        if multiple && Cli_args.get_bool "multiple" params then
           do_multiple op vms
         else
           failwith
@@ -3454,7 +3404,7 @@ let do_host_op rpc session_id op params ?(multiple = true) ignore_params =
   | 1 ->
       [op 1 (List.hd hosts)]
   | len ->
-      if multiple && get_bool_param params "multiple" then
+      if multiple && Cli_args.get_bool "multiple" params then
         do_multiple (op len) hosts
       else
         failwith
@@ -3474,7 +3424,7 @@ let do_sr_op rpc session_id op params ?(multiple = true) ignore_params =
   | [sr] ->
       [op sr]
   | _ ->
-      if multiple && get_bool_param params "multiple" then
+      if multiple && Cli_args.get_bool "multiple" params then
         do_multiple op srs
       else
         failwith
@@ -3876,7 +3826,7 @@ let host_install_server_certificate fd _printer rpc session_id params =
     Cli_args.get "private-key" params |> get_file_or_fail fd "private key"
   in
   let certificate_chain =
-    get_unique_param "certificate-chain" params
+    Cli_args.get_unique "certificate-chain" params
     |> Option.fold ~none:"" ~some:(get_file_or_fail fd "certificate chain")
   in
   ignore
@@ -3918,7 +3868,7 @@ let host_get_thread_diagnostics printer rpc session_id params =
 
 let host_sm_dp_destroy _printer rpc session_id params =
   let dp = Cli_args.get "dp" params in
-  let allow_leak = get_bool_param params "allow-leak" in
+  let allow_leak = Cli_args.get_bool "allow-leak" params in
   ignore
     (do_host_op rpc session_id ~multiple:false
        (fun _ host ->
@@ -3957,8 +3907,8 @@ let vm_query_services printer rpc session_id params =
     )
 
 let vm_start printer rpc session_id params =
-  let force = get_bool_param params "force" in
-  let start_paused = get_bool_param params "paused" in
+  let force = Cli_args.get_bool "force" params in
+  let start_paused = Cli_args.get_bool "paused" params in
   ignore
     (do_vm_op ~include_control_vms:true printer rpc session_id
        (fun vm ->
@@ -3994,7 +3944,7 @@ let vm_suspend printer rpc session_id params =
     )
 
 let vm_resume printer rpc session_id params =
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   ignore
     (do_vm_op printer rpc session_id
        (fun vm ->
@@ -4402,7 +4352,7 @@ let vm_uninstall_common fd _printer rpc session_id params vms =
   List.iter choose_objects_to_delete vms ;
   marshal fd (Command (Print "The following items are about to be destroyed")) ;
   List.iter (fun s -> marshal fd (Command (Print s))) !toprint ;
-  if get_bool_param params "force" then (
+  if Cli_args.get_bool "force" params then (
     List.iter (fun f -> f ()) !toremove ;
     marshal fd (Command (Print "All objects destroyed"))
   ) else if user_says_yes fd then (
@@ -4603,7 +4553,7 @@ let snapshot_reset_powerstate _printer rpc session_id params =
   Client.VM.power_state_reset ~rpc ~session_id ~vm:snapshot
 
 let vm_shutdown printer rpc session_id params =
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   ignore
     ( if force then
         do_vm_op printer rpc session_id
@@ -4622,7 +4572,7 @@ let vm_shutdown printer rpc session_id params =
     )
 
 let vm_reboot printer rpc session_id params =
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   ignore
     ( if force then
         do_vm_op printer rpc session_id
@@ -4638,7 +4588,7 @@ let vm_compute_maximum_memory printer rpc session_id params =
   let total =
     Record_util.bytes_of_string "total" (Cli_args.get "total" params)
   in
-  let approximate = get_bool_param params "approximate" in
+  let approximate = Cli_args.get_bool "approximate" params in
   ignore
     (do_vm_op printer rpc session_id
        (fun vm ->
@@ -4716,7 +4666,7 @@ let vm_migrate printer rpc session_id params =
        "true"/"false". *)
     let bool_option key =
       let raw = Cli_args.get_opt key params |> Option.value ~default:"false" in
-      (key, string_of_bool (bool_of_string key raw))
+      (key, string_of_bool (Cli_args.parse_bool key raw))
     in
     compress @ List.map bool_option ["force"; "live"; "copy"]
   in
@@ -5039,7 +4989,7 @@ let vm_migrate printer rpc session_id params =
             )
           |> List.hd
         in
-        if get_bool_param params "copy" then
+        if Cli_args.get_bool "copy" params then
           printer (Cli_printer.PList [remote Client.VM.get_uuid ~self:new_vm])
       )
       (fun () ->
@@ -5343,7 +5293,7 @@ let vm_cd_insert printer rpc session_id params =
 let host_careful_op op warnings fd _printer rpc session_id params =
   let uuid = Cli_args.get "uuid" params in
   let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid in
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   let go () = ignore (op ~rpc ~session_id ~self:host) in
   if force then
     go ()
@@ -5592,7 +5542,7 @@ let vdi_import fd _printer rpc session_id params =
     else
       ""
   in
-  let progress_bar = get_bool_param params "progress" in
+  let progress_bar = Cli_args.get_bool "progress" params in
   let make_command task_id =
     let prefix = uri_of_someone rpc session_id Master in
     let uri =
@@ -5625,7 +5575,7 @@ let vdi_export fd _printer rpc session_id params =
     else
       ""
   in
-  let progress_bar = get_bool_param params "progress" in
+  let progress_bar = Cli_args.get_bool "progress" params in
   let make_command task_id =
     let prefix = uri_of_someone rpc session_id Master in
     let uri =
@@ -5773,10 +5723,10 @@ let vm_import fd _printer rpc session_id params =
             (Cli_util.Cli_failure "No SR specified and Pool default SR is null")
   in
   let _type = get_param ~default:"default" params "type" in
-  let full_restore = get_bool_param params "preserve" in
-  let vm_metadata_only = get_bool_param params "metadata" in
-  let force = get_bool_param params "force" in
-  let dry_run = get_bool_param params "dry-run" in
+  let full_restore = Cli_args.get_bool "preserve" params in
+  let vm_metadata_only = Cli_args.get_bool "metadata" params in
+  let force = Cli_args.get_bool "force" params in
+  let dry_run = Cli_args.get_bool "dry-run" params in
   let vdi_map = map_contents (Cli_maps.vdi params) in
   if Cli_args.exists "url" params && Cli_args.exists "filename" params then (
     marshal fd
@@ -5997,7 +5947,7 @@ let blob_put fd _printer rpc session_id params =
 let blob_create printer rpc session_id params =
   let name = Cli_args.get "name" params in
   let mime_type = Cli_args.get_default "mime-type" params "" in
-  let public = get_bool_param params "public" in
+  let public = Cli_args.get_bool "public" params in
   if Cli_args.exists "vm-uuid" params then
     let uuid = Cli_args.get "vm-uuid" params in
     let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
@@ -6049,8 +5999,8 @@ let blob_create printer rpc session_id params =
 
 let export_common fd _printer rpc session_id params filename num ?task_uuid
     compression preserve_power_state vm =
-  let vm_metadata_only = get_bool_param params "metadata" in
-  let export_snapshots = get_bool_param params "include-snapshots" in
+  let vm_metadata_only = Cli_args.get_bool "metadata" params in
+  let export_snapshots = Cli_args.get_bool "include-snapshots" params in
   let uri, extra_args =
     if vm_metadata_only then
       ( Constants.export_metadata_uri
@@ -6112,7 +6062,7 @@ let get_compression_algorithm params =
 let vm_export fd printer rpc session_id params =
   let filename = Cli_args.get "filename" params in
   let compression = get_compression_algorithm params in
-  let preserve_power_state = get_bool_param params "preserve-power-state" in
+  let preserve_power_state = Cli_args.get_bool "preserve-power-state" params in
   let task_uuid = Cli_args.get_opt "task-uuid" params in
   let num = Atomic.make 1 in
   let op vm =
@@ -6134,7 +6084,7 @@ let vm_export fd printer rpc session_id params =
 let vm_export_aux obj_type fd printer rpc session_id params =
   let filename = Cli_args.get "filename" params in
   let compression = get_compression_algorithm params in
-  let preserve_power_state = get_bool_param params "preserve-power-state" in
+  let preserve_power_state = Cli_args.get_bool "preserve-power-state" params in
   let uuid = Cli_args.get (obj_type ^ "-uuid") params in
   let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
   let is_template () = Client.VM.get_is_a_template ~rpc ~session_id ~self:vm in
@@ -6244,7 +6194,7 @@ let with_database_vdi rpc session_id params f =
     (fun () -> Client.Session.logout ~rpc ~session_id:database_session)
 
 let vm_recover _printer rpc session_id params =
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   let uuid = Cli_args.get "uuid" params in
   with_database_vdi rpc session_id params (fun database_session ->
       let vm = Client.VM.get_by_uuid ~rpc ~session_id:database_session ~uuid in
@@ -6275,7 +6225,7 @@ let vm_get_secureboot_readiness printer rpc session_id params =
     (Cli_printer.PMsg (Record_util.vm_secureboot_readiness_to_string result))
 
 let vm_update_secureboot_certificates_on_boot printer rpc session_id params =
-  let mark = get_bool_param params "mark" in
+  let mark = Cli_args.get_bool "mark" params in
   ignore
     (do_vm_op printer rpc session_id
        (fun vm ->
@@ -6642,7 +6592,7 @@ let pif_set_lldp_mode _printer rpc session_id params =
   let value =
     Record_util.pif_lldp_mode_of_string (Cli_args.get "value" params)
   in
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   Client.PIF.set_lldp_mode ~rpc ~session_id ~self:pif ~value ~force
 
 let pif_unplug _printer rpc session_id params =
@@ -6670,7 +6620,7 @@ let pif_introduce printer rpc session_id params =
   let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid:host_uuid in
   let mAC = Cli_args.get_default "mac" params "" in
   let device = Cli_args.get "device" params in
-  let managed = get_bool_param params ~default:true "managed" in
+  let managed = Cli_args.get_bool "managed" ~default:true params in
   let pif = Client.PIF.introduce ~rpc ~session_id ~host ~mAC ~device ~managed in
   let uuid = Client.PIF.get_uuid ~rpc ~session_id ~self:pif in
   printer (Cli_printer.PList [uuid])
@@ -6723,7 +6673,7 @@ let bond_set_mode _printer rpc session_id params =
   Client.Bond.set_mode ~rpc ~session_id ~self:bond ~value:mode
 
 let host_disable _printer rpc session_id params =
-  let auto_enable = get_bool_param ~default:true params "auto-enable" in
+  let auto_enable = Cli_args.get_bool "auto-enable" ~default:true params in
   ignore
     (do_host_op rpc session_id
        (fun _ host ->
@@ -6984,8 +6934,8 @@ let pool_disable_external_auth _printer rpc session_id params =
 
 let pool_external_auth_set_ldaps _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
-  let ldaps = get_bool_param params "ldaps" in
-  let force = get_bool_param params ~default:false "force" in
+  let ldaps = Cli_args.get_bool "ldaps" params in
+  let force = Cli_args.get_bool "force" ~default:false params in
   Client.Pool.external_auth_set_ldaps ~rpc ~session_id ~pool ~ldaps ~force
 
 let pool_get_guest_secureboot_readiness printer rpc session_id params =
@@ -7169,8 +7119,8 @@ let host_disable_external_auth _printer rpc session_id params =
 let host_external_auth_set_ldaps _printer rpc session_id params =
   let host_uuid = Cli_args.get "host-uuid" params in
   let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid:host_uuid in
-  let ldaps = get_bool_param params "ldaps" in
-  let force = get_bool_param params ~default:false "force" in
+  let ldaps = Cli_args.get_bool "ldaps" params in
+  let force = Cli_args.get_bool "force" ~default:false params in
   Client.Host.external_auth_set_ldaps ~rpc ~session_id ~host ~ldaps ~force
 
 let host_refresh_pack_info _printer rpc session_id params =
@@ -7396,7 +7346,7 @@ let host_emergency_management_reconfigure _printer rpc session_id params =
   Client.Host.local_management_reconfigure ~rpc ~session_id ~interface
 
 let host_emergency_ha_disable _printer rpc session_id params =
-  let soft = get_bool_param params "soft" in
+  let soft = Cli_args.get_bool "soft" params in
   fail_without_force params ;
   Client.Host.emergency_ha_disable ~rpc ~session_id ~soft
 
@@ -7609,7 +7559,7 @@ let vmss_create printer rpc session_id params =
   let schedule = map_contents (Cli_maps.schedule params) in
   (* optional parameters with default values *)
   let name_description = get "name-description" ~default:"" in
-  let enabled = get_bool_param ~default:true params "enabled" in
+  let enabled = Cli_args.get_bool "enabled" ~default:true params in
   let retained_snapshots =
     Int64.of_string (get "retained-snapshots" ~default:"7")
   in
@@ -7646,13 +7596,13 @@ let vm_appliance_destroy _printer rpc session_id params =
 
 let vm_appliance_start _printer rpc session_id params =
   let uuid = Cli_args.get "uuid" params in
-  let paused = get_bool_param params "paused" in
+  let paused = Cli_args.get_bool "paused" params in
   let ref = Client.VM_appliance.get_by_uuid ~rpc ~session_id ~uuid in
   Client.VM_appliance.start ~rpc ~session_id ~self:ref ~paused
 
 let vm_appliance_shutdown _printer rpc session_id params =
   let uuid = Cli_args.get "uuid" params in
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   let ref = Client.VM_appliance.get_by_uuid ~rpc ~session_id ~uuid in
   if force then
     Client.VM_appliance.hard_shutdown ~rpc ~session_id ~self:ref
@@ -7660,7 +7610,7 @@ let vm_appliance_shutdown _printer rpc session_id params =
     Client.VM_appliance.clean_shutdown ~rpc ~session_id ~self:ref
 
 let vm_appliance_recover _printer rpc session_id params =
-  let force = get_bool_param params "force" in
+  let force = Cli_args.get_bool "force" params in
   let uuid = Cli_args.get "uuid" params in
   with_database_vdi rpc session_id params (fun database_session ->
       let appliance =
@@ -8078,12 +8028,12 @@ module Cluster = struct
       Client.Network.get_by_uuid ~rpc ~session_id ~uuid:network_uuid
     in
     let token_timeout =
-      get_float_param params "token-timeout"
-        ~default:Constants.default_token_timeout_s
+      Cli_args.get_float "token-timeout"
+        ~default:Constants.default_token_timeout_s params
     in
     let token_timeout_coefficient =
-      get_float_param params "token-timeout-coefficient"
-        ~default:Constants.default_token_timeout_coefficient_s
+      Cli_args.get_float "token-timeout-coefficient"
+        ~default:Constants.default_token_timeout_coefficient_s params
     in
     let cluster =
       Client.Cluster.pool_create ~rpc ~session_id ~network ~cluster_stack
@@ -8120,14 +8070,16 @@ module Cluster = struct
       get_param params "cluster-stack"
         ~default:Constants.default_smapiv3_cluster_stack
     in
-    let pool_auto_join = get_bool_param params "pool-auto-join" ~default:true in
+    let pool_auto_join =
+      Cli_args.get_bool "pool-auto-join" ~default:true params
+    in
     let token_timeout =
-      get_float_param params "token-timeout"
-        ~default:Constants.default_token_timeout_s
+      Cli_args.get_float "token-timeout"
+        ~default:Constants.default_token_timeout_s params
     in
     let token_timeout_coefficient =
-      get_float_param params "token-timeout-coefficient"
-        ~default:Constants.default_token_timeout_coefficient_s
+      Cli_args.get_float "token-timeout-coefficient"
+        ~default:Constants.default_token_timeout_coefficient_s params
     in
     let cluster =
       Client.Cluster.create ~rpc ~session_id ~pIF ~cluster_stack ~pool_auto_join
@@ -8187,7 +8139,7 @@ module Repository = struct
     let name_description = get_param params "name-description" ~default:"" in
     let binary_url = Cli_args.get "binary-url" params in
     let source_url = Cli_args.get "source-url" params in
-    let update = get_bool_param params "update" in
+    let update = Cli_args.get_bool "update" params in
     let gpgkey_path = get_param params "gpgkey-path" ~default:"" in
     let ref =
       Client.Repository.introduce ~rpc ~session_id ~name_label ~name_description
@@ -8289,7 +8241,8 @@ module VTPM = struct
     let vm_uuid = Cli_args.get "vm-uuid" params in
     let vM = Client.VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
     let is_unique =
-      get_bool_param params "is_unique" || get_bool_param params "is-unique"
+      Cli_args.get_bool "is_unique" params
+      || Cli_args.get_bool "is-unique" params
     in
     let ref = Client.VTPM.create ~rpc ~session_id ~vM ~is_unique in
     let uuid = Client.VTPM.get_uuid ~rpc ~session_id ~self:ref in
@@ -8306,12 +8259,12 @@ module Observer = struct
   let create printer rpc session_id params =
     let name_label = Cli_args.get "name-label" params in
     let hosts =
-      get_set_param params "host-uuids"
+      Cli_args.get_set "host-uuids" params
       |> List.map (fun uuid -> Client.Host.get_by_uuid ~rpc ~session_id ~uuid)
     in
     let name_description = get_param ~default:"" params "name-description" in
-    let enabled = get_bool_param params "enabled" in
-    let attributes = get_map_param params "attributes" in
+    let enabled = Cli_args.get_bool "enabled" params in
+    let attributes = Cli_args.get_map "attributes" params in
     let endpoints =
       Cli_args.get_opt "endpoints" params
       |> Option.fold ~none:[Tracing.bugtool_name]
