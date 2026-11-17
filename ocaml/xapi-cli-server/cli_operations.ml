@@ -35,9 +35,6 @@ let failwithfmt fmt = Printf.ksprintf failwith fmt
 
 exception ExitWithError of int
 
-let get_param params param ~default =
-  Option.value ~default (Cli_args.get_opt param params)
-
 let no_force_msg =
   "This operation is dangerous and may cause data loss. This operation must be \
    forced (use --force)."
@@ -1880,10 +1877,10 @@ let pool_set_lldp_enabled _printer rpc session_id params =
 let pool_sync_updates printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   let force = Cli_args.get_bool "force" params in
-  let token = get_param params "token" ~default:"" in
-  let token_id = get_param params "token-id" ~default:"" in
-  let username = get_param params "username" ~default:"" in
-  let password = get_param params "password" ~default:"" in
+  let token = Cli_args.get "token" ~default:"" params in
+  let token_id = Cli_args.get "token-id" ~default:"" params in
+  let username = Cli_args.get "username" ~default:"" params in
+  let password = Cli_args.get "password" ~default:"" params in
   let hash =
     Client.Pool.sync_updates ~rpc ~session_id ~self:pool ~force ~token ~token_id
       ~username ~password
@@ -1893,8 +1890,8 @@ let pool_sync_updates printer rpc session_id params =
 let pool_configure_repository_proxy _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   let url = Cli_args.get "proxy-url" params in
-  let username = get_param params "proxy-username" ~default:"" in
-  let password = get_param params "proxy-password" ~default:"" in
+  let username = Cli_args.get "proxy-username" ~default:"" params in
+  let password = Cli_args.get "proxy-password" ~default:"" params in
   Client.Pool.configure_repository_proxy ~rpc ~session_id ~self:pool ~url
     ~username ~password
 
@@ -5722,7 +5719,7 @@ let vm_import fd _printer rpc session_id params =
           raise
             (Cli_util.Cli_failure "No SR specified and Pool default SR is null")
   in
-  let _type = get_param ~default:"default" params "type" in
+  let _type = Cli_args.get "type" ~default:"default" params in
   let full_restore = Cli_args.get_bool "preserve" params in
   let vm_metadata_only = Cli_args.get_bool "metadata" params in
   let force = Cli_args.get_bool "force" params in
@@ -6005,7 +6002,7 @@ let export_common fd _printer rpc session_id params filename num ?task_uuid
     if vm_metadata_only then
       ( Constants.export_metadata_uri
       , Printf.sprintf "&excluded_device_types=%s"
-          (get_param params ~default:"" "excluded-device-types")
+          (Cli_args.get "excluded-device-types" ~default:"" params)
       )
     else
       (Constants.export_uri, "")
@@ -8021,8 +8018,8 @@ module Cluster = struct
   let pool_create printer rpc session_id params =
     let network_uuid = Cli_args.get "network-uuid" params in
     let cluster_stack =
-      get_param params "cluster-stack"
-        ~default:Constants.default_smapiv3_cluster_stack
+      Cli_args.get "cluster-stack"
+        ~default:Constants.default_smapiv3_cluster_stack params
     in
     let network =
       Client.Network.get_by_uuid ~rpc ~session_id ~uuid:network_uuid
@@ -8067,8 +8064,8 @@ module Cluster = struct
     let pif_uuid = Cli_args.get "pif-uuid" params in
     let pIF = Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:pif_uuid in
     let cluster_stack =
-      get_param params "cluster-stack"
-        ~default:Constants.default_smapiv3_cluster_stack
+      Cli_args.get "cluster-stack"
+        ~default:Constants.default_smapiv3_cluster_stack params
     in
     let pool_auto_join =
       Cli_args.get_bool "pool-auto-join" ~default:true params
@@ -8136,11 +8133,11 @@ end
 module Repository = struct
   let introduce printer rpc session_id params =
     let name_label = Cli_args.get "name-label" params in
-    let name_description = get_param params "name-description" ~default:"" in
+    let name_description = Cli_args.get "name-description" ~default:"" params in
     let binary_url = Cli_args.get "binary-url" params in
     let source_url = Cli_args.get "source-url" params in
     let update = Cli_args.get_bool "update" params in
-    let gpgkey_path = get_param params "gpgkey-path" ~default:"" in
+    let gpgkey_path = Cli_args.get "gpgkey-path" ~default:"" params in
     let ref =
       Client.Repository.introduce ~rpc ~session_id ~name_label ~name_description
         ~binary_url ~source_url ~update ~gpgkey_path
@@ -8150,7 +8147,7 @@ module Repository = struct
 
   let introduce_bundle printer rpc session_id params =
     let name_label = Cli_args.get "name-label" params in
-    let name_description = get_param params "name-description" ~default:"" in
+    let name_description = Cli_args.get "name-description" ~default:"" params in
     let ref =
       Client.Repository.introduce_bundle ~rpc ~session_id ~name_label
         ~name_description
@@ -8160,7 +8157,7 @@ module Repository = struct
 
   let introduce_remote_pool fd printer rpc session_id params =
     let name_label = Cli_args.get "name-label" params in
-    let name_description = get_param params "name-description" ~default:"" in
+    let name_description = Cli_args.get "name-description" ~default:"" params in
     let binary_url = Cli_args.get "binary-url" params in
     let certificate =
       Cli_args.get "certificate-file" params
@@ -8262,7 +8259,7 @@ module Observer = struct
       Cli_args.get_set "host-uuids" params
       |> List.map (fun uuid -> Client.Host.get_by_uuid ~rpc ~session_id ~uuid)
     in
-    let name_description = get_param ~default:"" params "name-description" in
+    let name_description = Cli_args.get "name-description" ~default:"" params in
     let enabled = Cli_args.get_bool "enabled" params in
     let attributes = Cli_args.get_map "attributes" params in
     let endpoints =
@@ -8311,14 +8308,14 @@ end
 
 module Caller = struct
   let create printer rpc session_id params =
-    let user_agent = get_param params "user-agent" ~default:"" in
-    let client_ip = get_param params "client-ip" ~default:"" in
+    let user_agent = Cli_args.get "user-agent" ~default:"" params in
+    let client_ip = Cli_args.get "client-ip" ~default:"" params in
 
     if user_agent = "" && client_ip = "" then
       failwith "Either user-agent or client-ip must be specified" ;
 
-    let name_label = get_param params "name-label" ~default:"" in
-    let name_description = get_param params "name-description" ~default:"" in
+    let name_label = Cli_args.get "name-label" ~default:"" params in
+    let name_description = Cli_args.get "name-description" ~default:"" params in
     let ref =
       Client.Caller.create ~rpc ~session_id ~name_label ~name_description
         ~user_agent ~client_ip
@@ -8384,8 +8381,8 @@ end
 
 module Rate_limit = struct
   let create printer rpc session_id params =
-    let name_label = get_param params "name-label" ~default:"" in
-    let name_description = get_param params "name-description" ~default:"" in
+    let name_label = Cli_args.get "name-label" ~default:"" params in
+    let name_description = Cli_args.get "name-description" ~default:"" params in
     let burst_size = float_of_string (Cli_args.get "burst-size" params) in
     let fill_rate = float_of_string (Cli_args.get "fill-rate" params) in
     let ref =
