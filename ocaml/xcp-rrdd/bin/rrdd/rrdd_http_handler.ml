@@ -70,10 +70,11 @@ let get_vm_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   let get () =
     let ( let* ) = Option.bind in
     let* vm_uuid = List.assoc_opt "uuid" req.Http.Request.query in
-    let* old_rrd =
-      with_lock mutex (fun () -> Hashtbl.find_opt vm_rrds vm_uuid)
-    in
-    Some (Rrd.copy_rrd old_rrd.rrd)
+    (* The monitor thread updates RRDs in place: copy while holding the lock *)
+    with_lock mutex (fun () ->
+        Hashtbl.find_opt vm_rrds vm_uuid
+        |> Option.map (fun rrdi -> Rrd.copy_rrd rrdi.rrd)
+    )
   in
   rrd_handler req s (get ())
 
@@ -112,11 +113,20 @@ let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   in
   rrd_handler req s (Some rrd)
 
+(* Lets one rrd_updates request at a time extract and serialise, without
+   holding [mutex] during serialisation. Concurrent serialisations would
+   interleave on the runtime lock and finish together, which keeps periodic
+   pollers in step, and each would hold its own large intermediate heap.
+   Always taken before [mutex], never while holding it. *)
+let rrd_updates_m = Mutex.create ()
+
 (* Get an XML/JSON document (as a string) representing the updates since the
-   specified start time. *)
+   specified start time. Only the extraction of values needs the lock;
+   serialising them dominates the cost and is done after releasing it. *)
 let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
     ~(cfopt : Rrd.cf_type option) ~(is_host : string) ~(vm_uuids : uuids_filter)
     ~(sr_uuids : uuids_filter) () =
+  with_lock rrd_updates_m @@ fun () ->
   with_lock mutex (fun () ->
       let apply_uuids_filter filter seq =
         match filter with
@@ -154,8 +164,9 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
         in
         List.(concat [host_rrds; of_seq vm_rrds_altered; of_seq sr_rrds_altered])
       in
-      Rrd_updates.export ~json prefixandrrds start interval cfopt
+      Rrd_updates.create_multi prefixandrrds start interval cfopt
   )
+  |> Rrd_updates.to_string ~json
 
 (* Filter UUID of XAPI objet. If no object is passed in the query it returns EMPTY,
 *)
@@ -228,7 +239,7 @@ let put_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
         else
           "VM uuid=" ^ uuid
       ) ;
-    archive_rrd_internal ~uuid ~rrd:(Rrd.copy_rrd rrd) ()
+    archive_rrd_internal ~uuid ~rrd ()
   ) else (
     debug "Receiving RRD for resident VM uuid=%s. Replacing in hashtable." uuid ;
     let domid = int_of_string (List.assoc "domid" query) in

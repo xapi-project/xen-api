@@ -85,14 +85,17 @@ let archive_rrd vm_uuid (remote_address : string option) : unit =
       )
       remote_address
   in
+  (* Only take the RRD out of the table under the lock: archiving serialises
+     it and, on pool members, streams it to the master over TLS. Once removed,
+     no other thread can reach this RRD. It is removed even if archiving
+     fails (CA-325582). *)
   with_lock mutex (fun () ->
-      match Hashtbl.find_opt vm_rrds vm_uuid with
-      | Some x ->
-          let rrd = x.rrd in
-          Hashtbl.remove vm_rrds vm_uuid ;
-          archive_rrd_internal ~transport ~uuid:vm_uuid ~rrd ()
-      | None ->
-          ()
+      let rrdi = Hashtbl.find_opt vm_rrds vm_uuid in
+      Hashtbl.remove vm_rrds vm_uuid ;
+      rrdi
+  )
+  |> Option.iter (fun rrdi ->
+      archive_rrd_internal ~transport ~uuid:vm_uuid ~rrd:rrdi.rrd ()
   )
 
 (** This functionality is used by xapi to backup rrds to local disk or to the
@@ -275,7 +278,7 @@ let push_rrd_remote uuid member_address : unit =
     in
     debug "Pushing RRD for VM uuid=%s to another pool member with %s" uuid
       (Xmlrpc_client.string_of_transport transport) ;
-    send_rrd ~transport ~to_archive:false ~uuid ~rrd:(Rrd.copy_rrd rrd) ()
+    send_rrd ~transport ~to_archive:false ~uuid ~rrd ()
   with _ -> ()
 
 (** Remove an RRD from the local filesystem, if it exists. *)
@@ -469,11 +472,10 @@ let generate_json rrd =
   | None ->
       `Assoc []
   | Some rrdi ->
+      let now = Unix.gettimeofday () in
       `Assoc
-        (Rrd.ds_names rrdi.rrd
-        |> List.map (fun ds_name ->
-            (ds_name, convert_value (query ds_name rrdi))
-        )
+        (Rrd.query_all_ds rrdi.rrd now Rrd.CF_Average
+        |> List.map (fun (ds_name, value) -> (ds_name, convert_value value))
         )
 
 let write_json_to_file file json =
