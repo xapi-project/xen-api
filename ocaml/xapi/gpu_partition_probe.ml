@@ -144,9 +144,15 @@ type next_page = {next: Next_view.t}
 (* The pages of one reply, page 1 first *)
 type pages = {first: first_page; next: next_page list}
 
-type request = {bdf: string; page_size: int}
+type request = {
+    bdf: string
+  ; page_size: int
+  ; sections: Wire.Section_token.t list
+}
 
-let request ~page_size bdf = {bdf; page_size}
+let request ~page_size bdf = {bdf; page_size; sections= []}
+
+let with_sections sections r = {r with sections}
 
 type reply = {probe: t}
 
@@ -156,7 +162,7 @@ type run_result = (output, xapi_kind) result
 
 let schema_major = fst Wire.schema_version
 
-let helper_args {bdf; page_size; _} =
+let helper_args {bdf; page_size; sections; _} =
   [
     "mig"
   ; "--id=" ^ bdf
@@ -165,6 +171,12 @@ let helper_args {bdf; page_size; _} =
   ; Printf.sprintf "--page-size=%d" page_size
   ; "--page-encodings=identity"
   ]
+  @
+  match (sections : Wire.Section_token.t list :> string list) with
+  | [] ->
+      []
+  | _ :: _ as names ->
+      ["--sections=" ^ String.concat "," names]
 
 let axes = function
   | Partitions {mode; _} | None_carved {mode; _} ->

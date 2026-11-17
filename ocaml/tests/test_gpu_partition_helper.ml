@@ -753,4 +753,29 @@ let starting_up =
         `Quick a_reason_of_the_host_does_not_copy_the_first_gpus_mode
     ]
 
-let test = starting_up @ decoding
+let asking_no_section_adds_no_sections_argument () =
+  helper_args (request ~page_size:4096 card)
+  |> List.filter (String.starts_with ~prefix:"--sections")
+  |> Alcotest.(check (list string)) "the --sections arguments" []
+
+let asking_creatable_adds_its_name_last () =
+  let creatable = Wire.Sections.(token Creatable) in
+  let args =
+    helper_args (with_sections [creatable] (request ~page_size:4096 card))
+  in
+  Alcotest.(check (option string))
+    "the last argument"
+    (Some ("--sections=" ^ (creatable :> string)))
+    (List.nth_opt (List.rev args) 0)
+
+let asking =
+  Alcotest.
+    [
+      test_case "asking for no section adds no --sections argument" `Quick
+        asking_no_section_adds_no_sections_argument
+    ; test_case
+        "asking for the creatable section adds its name last, in --sections"
+        `Quick asking_creatable_adds_its_name_last
+    ]
+
+let test = starting_up @ decoding @ asking

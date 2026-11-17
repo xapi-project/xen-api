@@ -46,7 +46,11 @@ type t =
 
 (** One GPU's question to the helper, made once: its arguments and the
     decoding both read it *)
-type request = private {bdf: string; page_size: int}
+type request = private {
+    bdf: string
+  ; page_size: int
+  ; sections: Gpumon_interface.Partition_helper.V1_0.Section_token.t list
+}
 
 (** One GPU's decoded reply, a record so that a field added later changes
     none of its readers *)
@@ -59,7 +63,14 @@ type output = {exit: int option; stdout: string}
 type run_result = (output, xapi_kind) result
 
 val request : page_size:int -> string -> request
-(** The question for the GPU at a PCI address, in pages of [page_size] bytes *)
+(** The question for the GPU at a PCI address, in pages of [page_size] bytes,
+    asking for no optional section *)
+
+val with_sections :
+     Gpumon_interface.Partition_helper.V1_0.Section_token.t list
+  -> request
+  -> request
+(** The same question, asking the helper for these optional sections *)
 
 val helper_args : request -> string list
 (** The helper's arguments for the GPU at a PCI address *)
