@@ -22,6 +22,8 @@ module Date = Clock.Date
 module Listext = Xapi_stdext_std.Listext.List
 module Unixext = Xapi_stdext_unix.Unixext
 
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
