@@ -52,9 +52,12 @@ type request = private {
   ; sections: Gpumon_interface.Partition_helper.V1_0.Section_token.t list
 }
 
+(** The checked pages of a reply whose case was read *)
+type pages
+
 (** One GPU's decoded reply, a record so that a field added later changes
     none of its readers *)
-type reply = private {probe: t}
+type reply = private {probe: t; pages: pages option; request: request}
 
 (** What the helper printed and its exit code, [None] on a signal *)
 type output = {exit: int option; stdout: string}
@@ -83,3 +86,15 @@ val decode : request -> run_result -> reply
     none. Output that rpclib's parser accepts but cannot convert, such as a
     parenthesised list, which JSON does not allow, raises an exception that
     rpclib does not export *)
+
+(** What a reader of a decoded reply can ask about the GPU *)
+type _ question =
+  | Mode : t question  (** the case and the partition mode: [reply.probe] *)
+  | Creatable :
+      Gpumon_interface.Partition_helper.V1_0.Creatable.view option question
+      (** each GPU instance's creatable vGPU types, read with the sections
+          the request asked for; [None] when the case was not read, and
+          [Mode] says why *)
+
+val ask : 'a question -> reply -> 'a
+(** The answer to a question about a decoded reply *)
