@@ -338,7 +338,8 @@ let param_error s t sock =
     ) ;
   marshal sock (Command (PrintStderr "For usage run: 'xe help'\n"))
 
-let other_error msg sock = marshal sock (Command (PrintStderr (msg ^ "\n")))
+let other_error msg sock =
+  marshal sock (Command (PrintStderr ("Error: " ^ msg ^ "\n")))
 
 let multiple_error errs sock =
   List.iter
@@ -381,7 +382,7 @@ let exception_handler s e =
   | Cli_operations.Multiple_failure errs ->
       multiple_error errs s
   | Cli_util.Cli_failure str ->
-      other_error ("Error: " ^ str) s
+      other_error str s
   | Api_errors.Server_error (code, params) ->
       if code = Api_errors.session_authentication_failed then
         let uname = List.hd params in
@@ -394,7 +395,7 @@ let exception_handler s e =
   | Records.CLI_failed_to_find_param name ->
       Cli_util.server_error "Missing parameter" [name] s
   | Record_util.Record_failure str ->
-      other_error ("Error: " ^ str) s
+      other_error str s
   | Xml.Error exn ->
       Cli_util.server_error Api_errors.internal_error
         ["XML error: " ^ Xml.error exn]
