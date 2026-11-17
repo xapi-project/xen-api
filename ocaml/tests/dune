@@ -50,6 +50,7 @@
     xapi-tracing
     xapi-types
     xapi_xenopsd
+    xapi-cli-protocol
     xapi_cli_server
     xapi_database
     xapi_internal

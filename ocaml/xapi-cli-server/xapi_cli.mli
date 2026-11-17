@@ -19,3 +19,7 @@ val register_rpc_fun :
 
 val handler : Http.Request.t -> Unix.file_descr -> 'a -> unit
 (** [handler req s _] runs the xe command received in [req] on [s]. *)
+
+val exception_handler : Unix.file_descr -> exn -> unit
+(** [exception_handler s e] reports [e] to the xe client on [s]. Exposed for
+    testing the messages the client prints. *)
