@@ -138,6 +138,83 @@ let test_group_totals_aggregate_callers () =
         "per-group token/call totals" ["g1:3:3"; "g2:2:2"] summary
   )
 
+(* Calls are served before [Xapi_caller.register] runs at startup, so a call
+   can auto-register a caller for the exact pattern of an administrator's
+   caller that is not in the table yet, and such a row persists across a
+   restart. [register] gives the pattern to the administrator's caller and
+   destroys the auto-registered duplicate, whichever of the two it meets
+   first. It meets the rows in the order of [Db.Caller.get_all], which is that
+   of their references, so the persisted pairs get chosen references. *)
+let test_register_prefers_administrator_callers () =
+  with_setup ~limit:(-1) (fun ~__context ->
+      let client_ip = "10.0.5.1" in
+      let row ?(ref = Ref.make ()) ~user_agent ~auto_registered () =
+        let uuid = Uuidx.(to_string (make () : [`Caller] t)) in
+        Db.Caller.create ~__context ~ref ~uuid ~name_label:user_agent
+          ~name_description:"" ~user_agent ~client_ip
+          ~last_access:Clock.Date.epoch ~groups:[] ~rate_limit:Ref.null
+          ~auto_registered ;
+        ref
+      in
+      let ref_number n =
+        Ref.of_string
+          (Printf.sprintf "%s00000000-0000-0000-0000-%012d" Ref.ref_prefix n)
+      in
+      (* An administrator's row that the table does not have yet, as before
+         [register]: a call from its client auto-registers a duplicate. *)
+      let early = row ~user_agent:"early" ~auto_registered:false () in
+      call ~__context ~user_agent:"early" ~client_ip ;
+      (* Duplicates left in the database by such calls: in one pair the
+         auto-registered row has the lower reference, in the other the
+         administrator's. *)
+      let auto_a =
+        row ~ref:(ref_number 1) ~user_agent:"dup-a" ~auto_registered:true ()
+      in
+      let dup_a =
+        row ~ref:(ref_number 2) ~user_agent:"dup-a" ~auto_registered:false ()
+      in
+      let dup_b =
+        row ~ref:(ref_number 3) ~user_agent:"dup-b" ~auto_registered:false ()
+      in
+      let auto_b =
+        row ~ref:(ref_number 4) ~user_agent:"dup-b" ~auto_registered:true ()
+      in
+      check_user_agents ~__context "a duplicate row for each administrator"
+        ["dup-a"; "dup-a"; "dup-b"; "dup-b"; "early"; "early"] ;
+      let order = Db.Caller.get_all ~__context in
+      let rec position i self = function
+        | [] ->
+            -1
+        | r :: rs ->
+            if r = self then
+              i
+            else
+              position (i + 1) self rs
+      in
+      let admin_first (admin, auto) =
+        position 0 admin order < position 0 auto order
+      in
+      Alcotest.(check bool)
+        "register meets one pair's administrator first, the other's last" true
+        (admin_first (dup_a, auto_a) <> admin_first (dup_b, auto_b)) ;
+      Xapi_caller.register ~__context ;
+      check_user_agents ~__context "the auto-registered duplicates destroyed"
+        ["dup-a"; "dup-b"; "early"] ;
+      List.iter
+        (fun (user_agent, self) ->
+          call ~__context ~user_agent ~client_ip ;
+          Alcotest.(check bool)
+            (user_agent ^ ": the administrator's row is registered")
+            false
+            (Db.Caller.get_auto_registered ~__context ~self) ;
+          Alcotest.(check int64)
+            (user_agent ^ ": the call is counted on the administrator's row")
+            1L
+            (Xapi_caller.query_call_count ~__context ~self)
+        )
+        [("early", early); ("dup-a", dup_a); ("dup-b", dup_b)]
+  )
+
 (* Rate limit parameters must be positive finite numbers (an infinite burst
    size is allowed). NaN fails every comparison, and an infinite fill rate
    can turn the token count into NaN. *)
@@ -546,6 +623,10 @@ let test =
   ; ( "test_negative_limit_is_unbounded"
     , `Quick
     , test_negative_limit_is_unbounded
+    )
+  ; ( "test_register_prefers_administrator_callers"
+    , `Quick
+    , test_register_prefers_administrator_callers
     )
   ; ( "test_rate_limit_rejects_non_finite"
     , `Quick

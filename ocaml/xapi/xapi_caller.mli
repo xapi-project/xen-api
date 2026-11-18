@@ -106,4 +106,6 @@ val group_totals : unit -> (string * float * int) list
 val register : __context:Context.t -> unit
 (** Populate caller_table from persisted Caller rows and install
     [Xapi_rate_limit]'s caller-refresh callback. Must run after
-    [Xapi_rate_limit.register] so that bucket lookups succeed. *)
+    [Xapi_rate_limit.register] so that bucket lookups succeed. Of two rows with
+    the same pattern, an administrator's keeps it and an auto-registered one is
+    destroyed. *)
