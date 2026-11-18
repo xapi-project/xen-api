@@ -916,6 +916,11 @@ let nvidia_sriov_manage_script = ref "/usr/lib/nvidia/sriov-manage"
 
 let gpu_partition_helper = ref "/opt/xensource/libexec/gpu-partition-helper"
 
+(* xenopsd's engaged file at its default path: the file moves with xenopsd's
+   own setting or its database-path, which xapi does not read *)
+let gpu_lock_engaged_file =
+  ref "/var/run/nonpersistent/xenopsd/classic/gpu-lock-engaged"
+
 let igd_passthru_vendor_whitelist = ref []
 
 let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
@@ -1485,6 +1490,11 @@ let other_options =
     , Arg.Set_string init_complete
     , (fun () -> !init_complete)
     , "touch specified file when xapi init process is complete"
+    )
+  ; ( "gpu-lock-engaged-file"
+    , Arg.Set_string gpu_lock_engaged_file
+    , (fun () -> !gpu_lock_engaged_file)
+    , "xenopsd's file whose presence makes xapi take the host GPU lock at start"
     )
   ; ( "nowatchdog"
     , Arg.Set nowatchdog

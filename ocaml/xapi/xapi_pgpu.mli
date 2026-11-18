@@ -74,6 +74,16 @@ val mxgpu_vf_setup : __context:Context.t -> unit
 val nvidia_vf_setup :
   __context:Context.t -> pf:API.ref_PCI -> enable:bool -> unit
 
+val gpu_lock : Gpu_lock.t
+(** The host GPU lock, taken around VF enables while engaged *)
+
+val gpu_lock_engaged : unit -> bool
+(** Whether VF enables take the host GPU lock *)
+
+val set_gpu_lock_engaged : timeout:Mtime.Span.t -> bool -> (bool, string) result
+(** Sets [gpu_lock_engaged] once running VF setups end, waiting for them up
+    to [timeout]; returns its previous value. *)
+
 val has_nvidia_gpu : __context:Context.t -> host:API.ref_host -> bool
 
 val nvidia_cards :

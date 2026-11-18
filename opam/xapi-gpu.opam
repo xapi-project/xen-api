@@ -8,6 +8,7 @@ bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.20"}
   "astring" {with-test}
+  "clock"
   "forkexec"
   "mtime"
   "ppx_deriving"

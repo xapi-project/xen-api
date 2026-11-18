@@ -40,6 +40,9 @@ type refusal
 val transient : refusal -> bool
 (** [true] when the lock was busy: the same call may succeed later. *)
 
+val describe : refusal -> string
+(** How [Refused] is printed. *)
+
 (** Printed as the reason, the number of holders, and where to find who they
     are. *)
 exception Refused of refusal
@@ -64,6 +67,33 @@ val sriov_manage :
     sriov-manage, run with [-e] or [-d] on [card], where the lock is engaged.
     @raise Killed when it times out. *)
 
+(** What an unbind found when it set a card's driver unbind lock, a flag that
+    it may clear only if it set it. [Busy]'s [tries] counts the tries where
+    the lock is engaged. *)
+type unbind_lock = private
+  | Set_by_us
+  | Already_set
+  | Busy of {tries: int option}
+
+val grab_unbind_lock :
+     bounds
+  -> Xcp_pci.address
+  -> Mtime.Span.t
+  -> tries:int
+  -> read:(unit -> string)
+  -> write:(string -> unit)
+  -> unbind_lock
+(** [grab_unbind_lock bounds card span ~tries ~read ~write] sets [card]'s flag
+    and reads it back. Where the lock is engaged, each try reads the flag
+    first, and the tries go on, backing off from 100 ms to 400 ms, until
+    [tries] tries or a try that fails once [span] has passed: a try that
+    sleeps in the driver cannot be cut short. Elsewhere it tries once, as
+    without the lock: the flag, not read first, counts as [Already_set], and
+    a failure is [Busy {tries= None}]. *)
+
+val release_unbind_lock : unbind_lock -> write:(string -> unit) -> unit
+(** Clears the flag only if it was [Set_by_us]. *)
+
 val with_lock :
      t
   -> local
@@ -75,3 +105,33 @@ val with_lock :
     the lock; a missing or damaged lock object is repaired once.
     @raise Refused when [timeout] runs out or the object stays unusable; the
     function has not run. *)
+
+(** The gate key kept in the lock object: what GPU tools may do. A value this
+    version does not know reads as [Pending], the most restrictive; every
+    creation or repair sets [Pending]. *)
+type key = Pending | On | Off
+
+(** The gate: the lock object and its key, which tells GPU tools what
+    they may do. These work whether or not [engaged]. *)
+module Gate : sig
+  val ensure : t -> timeout:Mtime.Span.t -> (unit, refusal) result
+  (** Makes the lock object usable: creates it, takes over one whose creator
+      did not finish setting it up, or confirms it; never deletes or renames
+      one. *)
+
+  val read_key : t -> timeout:Mtime.Span.t -> (key option, refusal) result
+  (** Waits up to [timeout] while another holds the lock alone; never creates
+      anything; [None] when there is no lock object. *)
+
+  val set_key : t -> timeout:Mtime.Span.t -> key -> (unit, refusal) result
+  (** Writes the key while it holds the lock alone, waiting up to [timeout];
+      like every taker, it creates a missing lock object or repairs a damaged
+      one. *)
+
+  val holders : t -> (string list, string) result
+  (** Every holder as a JSON object of one line: its "pid", process "name",
+      the "state" letter of its main thread, its "mode" ("exclusive",
+      "shared", or "open" for an older lock file it has open), the lock
+      "file" as device:inode, and its "d_threads" that wait in the kernel; or
+      why they could not be listed. Later versions may add members. *)
+end

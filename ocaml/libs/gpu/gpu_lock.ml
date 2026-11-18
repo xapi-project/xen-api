@@ -23,6 +23,13 @@ type local =
   | Vf_enable of Xcp_pci.address
   | Vf_disable of Xcp_pci.address
 
+type key = Pending | On | Off
+
+(* stored in the lock file and read by GPU tools outside xapi: never renumber *)
+let key_of_label = function 1 -> On | 2 -> Off | _ -> Pending
+
+let label_of_key = function Pending -> 0 | On -> 1 | Off -> 2
+
 type reason = Busy of string | Stuck of string | Unusable of string
 
 type refusal = {reason: reason; holders: int option}
@@ -39,7 +46,8 @@ let reason_text = function
       "the GPU lock is unusable: " ^ why
 
 let describe r =
-  Printf.sprintf "%s; holders: %s (see the host's log)" (reason_text r.reason)
+  Printf.sprintf "%s; holders: %s (see the host's log or gpu-lock-cli status)"
+    (reason_text r.reason)
     (Option.fold ~none:"unknown" ~some:string_of_int r.holders)
 
 exception Refused of refusal
@@ -136,6 +144,49 @@ let sriov_manage bounds ~enable card run =
       flag
       (Xcp_pci.string_of_address card)
       Mtime.Span.pp sriov_manage_timeout left
+
+type unbind_lock = Set_by_us | Already_set | Busy of {tries: int option}
+
+(* Where engaged, each try reads the flag first, so that a flag set by another
+   unbinder during the back-off is not taken for ours *)
+let grab_unbind_lock bounds card span ~tries ~read ~write =
+  let bdf = Xcp_pci.string_of_address card in
+  let is_set () = String.equal (read ()) "1\n" in
+  let set grab =
+    write "1\n" ;
+    match is_set () with true -> Ok grab | false -> Error ()
+  in
+  match bounds with
+  | Unbounded ->
+      (* not read first: we can't tell it was ours, so never clear it *)
+      Result.value (set Already_set) ~default:(Busy {tries= None})
+  | Bounded -> (
+      let timer = Clock.Timer.start ~duration:span in
+      let tried = ref 0 in
+      let stop () = !tried >= tries || Clock.Timer.has_expired timer in
+      let try_once () =
+        incr tried ;
+        if !tried = 2 then D.debug "unbindLock of %s busy at first try" bdf ;
+        if is_set () then (
+          D.warn "unbindLock of %s already set before write" bdf ;
+          set Already_set
+        ) else
+          set Set_by_us
+      in
+      let delay = Mtime.Span.(100 * ms) in
+      let max_delay = Mtime.Span.(400 * ms) in
+      match Threadext.retry ~delay ~max_delay ~stop try_once with
+      | Ok grab ->
+          if !tried > 1 then
+            D.debug "unbindLock of %s set, busy tries: %d" bdf (!tried - 1) ;
+          grab
+      | Error () ->
+          D.error "unbindLock of %s busy, tries: %d" bdf !tried ;
+          Busy {tries= Some !tried}
+    )
+
+let release_unbind_lock grab ~write =
+  match grab with Set_by_us -> write "0\n" | Already_set | Busy _ -> ()
 
 let host = "host"
 
@@ -240,6 +291,37 @@ module Make (B : Lock_rw.S) = struct
       |> Result.fold
            ~ok:(fun h -> with_held h use)
            ~error:(fun r -> raise (Refused r))
+
+  module Gate = struct
+    let ensure t ~timeout = repair t host (waiter t timeout) ~reason:"ensure"
+
+    let read_key t ~timeout =
+      match B.acquire t.backend host Shared (waiter t timeout) with
+      | Error `Absent ->
+          Ok None
+      | Error e ->
+          refuse t host (of_acquire_error "reading the key" e)
+      | Ok h ->
+          with_held h (fun h -> Ok (Some (key_of_label (B.label h))))
+
+    let set_key t ~timeout key =
+      let write h =
+        B.set_label h (label_of_key key)
+        |> Result.fold ~ok:Result.ok ~error:(fun why ->
+            refuse t host (Unusable why)
+        )
+      in
+      take t host Lock_rw.Exclusive (waiter t timeout) ~what:"setting the key"
+      |> Fun.flip Result.bind (fun h -> with_held h write)
+
+    (* longer than a refusal's census, as a person waits for it *)
+    let status_holders_timeout = Mtime.Span.(5 * refusal_holders_timeout)
+
+    let holders t =
+      B.holders t.backend host (waiter t status_holders_timeout)
+      |> Result.map
+           (List.map (fun h -> Jsonrpc.to_string (Json.rpc_of_holder h)))
+  end
 end
 
 include Make (Flock)

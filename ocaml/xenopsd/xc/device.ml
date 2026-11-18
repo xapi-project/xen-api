@@ -1585,6 +1585,14 @@ module PCI = struct
      off in about 1 s, measured once, on one card *)
   let persistence_off_timeout = Mtime.Span.(30 * s)
 
+  (* How long and how many times an unbind under the host GPU lock tries to
+     set the driver's unbind lock while a GPU tool has the GPU open: nvidia-smi
+     queries timed on a test host ran for 45-379 ms each, and each try may
+     sleep in the driver *)
+  let unbind_lock_grab_timeout = Mtime.Span.(2 * s)
+
+  let unbind_lock_grab_tries = 8
+
   let unbind_from_nvidia devstr =
     debug "pci: attempting to lock device %s before unbinding from nvidia"
       devstr ;
@@ -1644,15 +1652,22 @@ module PCI = struct
           devstr
     ) ;
     let unbind_lock_path = find_gpu (Array.to_list gpus) // "unbindLock" in
-    (* Grab the unbind lock. *)
-    write_string_to_file unbind_lock_path "1\n" ;
-    (* Unbind if we grabbed the lock; fail otherwise. *)
-    if Unixext.string_of_file unbind_lock_path = "1\n" then
-      unbind devstr (Supported Nvidia)
-    else
-      failwith (Printf.sprintf "Couldn't lock GPU with device ID %s" devstr)
-
-  let bind_lock = Mutex.create ()
+    (* Unbind if we grabbed the unbind lock; fail otherwise. *)
+    match
+      Gpu_lock.grab_unbind_lock bounds card unbind_lock_grab_timeout
+        ~tries:unbind_lock_grab_tries
+        ~read:(fun () -> Unixext.string_of_file unbind_lock_path)
+        ~write:(write_string_to_file unbind_lock_path)
+    with
+    | Gpu_lock.Set_by_us | Already_set ->
+        unbind devstr (Supported Nvidia)
+    | Busy {tries= None} ->
+        Printf.ksprintf failwith "Couldn't lock GPU with device ID %s" devstr
+    | Busy {tries= Some tries} ->
+        Printf.ksprintf failwith
+          "Couldn't lock GPU with device ID %s; unbindLock busy, tries: %d \
+           (see the host's log)"
+          devstr tries
 
   let bind devices new_driver =
     let bind_to devstr = function
@@ -1673,7 +1688,7 @@ module PCI = struct
       | driver ->
           unbind devstr driver
     in
-    with_lock bind_lock (fun () ->
+    with_lock pci_bind_mutex (fun () ->
         List.iter
           (fun device ->
             let devstr = Xenops_interface.Pci.string_of_address device in

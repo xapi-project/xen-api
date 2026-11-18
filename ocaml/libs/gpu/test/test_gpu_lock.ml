@@ -71,6 +71,11 @@ let hold path =
   assert (Unixext.flock_try fd ~exclusive:true) ;
   fd
 
+let hold_shared path =
+  let fd = Unix.openfile path [O_RDONLY; O_CLOEXEC] 0 in
+  assert (Unixext.flock_try fd ~exclusive:false) ;
+  fd
+
 let hold_elsewhere path =
   let ready, held = Unix.pipe () in
   match Unix.fork () with
@@ -158,6 +163,100 @@ let refusal_counts_holders () =
   Unix.close other ;
   check "counted" true (says "; holders: 1 " refusal)
 
+let comm () = String.trim (Unixext.string_of_file "/proc/self/comm")
+
+let rename name =
+  Out_channel.with_open_bin "/proc/self/comm" (Fun.flip output_string name)
+
+(* whether the holders of [lock] list this process under [name] *)
+let listed lock name =
+  let me = Printf.sprintf {|{"pid":%d,"name":"%s"|} (Unix.getpid ()) name in
+  Result.map (List.exists (String.starts_with ~prefix:me)) (L.Gate.holders lock)
+  = Ok true
+
+(* a holder's name that a terminal may act on is listed escaped *)
+let escaped_name () =
+  let path, lock = world () in
+  check "ensured" true (L.Gate.ensure lock ~timeout:(ms 300) = Ok ()) ;
+  let reader = hold_shared path in
+  let name = comm () in
+  Fun.protect
+    ~finally:(fun () -> rename name ; Unix.close reader)
+    (fun () ->
+      rename "\xc2\x9b8m" ;
+      check "printed escaped" true (listed lock {|\\194\\1558m|})
+    )
+
+let read_key_now lock = L.Gate.read_key lock ~timeout:(ms 0)
+
+(* the operator's view: no lock object until ensured, then the key pending,
+   read beside a shared holder, who is listed *)
+let key_view () =
+  let path, lock = world () in
+  check "none, nothing made" true
+    (read_key_now lock = Ok None && not (Sys.file_exists path)) ;
+  check "ensured" true (L.Gate.ensure lock ~timeout:(ms 300) = Ok ()) ;
+  let reader = hold_shared path in
+  Fun.protect
+    ~finally:(fun () -> Unix.close reader)
+    (fun () ->
+      check "pending, listed" true
+        (read_key_now lock = Ok (Some L.Pending) && listed lock (comm ()))
+    )
+
+let busy n = Printf.sprintf "busy, tries: %d" n
+
+let text = function
+  | L.Set_by_us ->
+      "set by us"
+  | Already_set ->
+      "already set"
+  | Busy {tries} ->
+      Option.fold ~none:"busy" ~some:busy tries
+
+(* An unbind's grab with 2 tries in [span] of a flag whose reads give [reads],
+   then "0" (writes never change it), then the release as after a failed
+   unbind: the grab, and all it wrote *)
+let grab_then_release ~engaged reads span =
+  let _, lock = world ~engaged () in
+  let reads = Queue.of_seq (String.to_seq reads) in
+  let written = ref "" in
+  let read () =
+    Printf.sprintf "%c\n" (Option.value (Queue.take_opt reads) ~default:'0')
+  in
+  let write s = written := !written ^ s in
+  L.with_lock lock (Unbind card) ~timeout:(ms 300) @@ fun ~keep_fds:_ ~bounds ->
+  let grab = L.grab_unbind_lock bounds card span ~tries:2 ~read ~write in
+  L.release_unbind_lock grab ~write ;
+  (text grab, !written)
+
+(* An unbind clears only a flag it set, and gives up after its tries or its
+   time where the lock is engaged; elsewhere it writes and reads once *)
+let unbind_lock_rows =
+  let row (name, engaged, reads, span, grab, written) =
+    Alcotest.test_case name `Quick @@ fun () ->
+    Alcotest.(check (pair string string))
+      name (grab, written)
+      (grab_then_release ~engaged reads span)
+  in
+  List.map row
+    [
+      ("set by us, cleared", true, "01", ms 1000, "set by us", "1\n0\n")
+    ; ("set before, kept", true, "11", ms 1000, "already set", "1\n")
+    ; ("set by another, kept", true, "0011", ms 1000, "already set", "1\n1\n")
+    ; ("busy: 2 tries", true, "", ms 1000, busy 2, "1\n1\n")
+    ; ("busy: time out", true, "", ms 0, busy 1, "1\n")
+    ; ("not engaged: once", false, "", ms 1000, "busy", "1\n")
+    ; ("not engaged: not read first", false, "1", ms 1000, "already set", "1\n")
+    ]
+
+(* the key read back is the one written last, over another one *)
+let key_written (before, key) () =
+  let _, lock = world () in
+  let set key = L.Gate.set_key lock ~timeout:(ms 300) key in
+  check "written, read back" true
+    (set before = Ok () && set key = Ok () && read_key_now lock = Ok (Some key))
+
 let () =
   Alcotest.run "gpu_lock"
     [
@@ -171,6 +270,12 @@ let () =
           ; ("the same blocker fails fast", same_blocker_fails_fast)
           ; ("older lock held: refused, then adopted", no_mark_while_old_held)
           ; ("a refusal counts holders, names none", refusal_counts_holders)
+          ; ("a name with C1 control characters is listed escaped", escaped_name)
+          ; ("the operator's view", key_view)
+          ; ("key on written over pending", key_written (L.Pending, L.On))
+          ; ("key off written over on", key_written (L.On, L.Off))
+          ; ("key pending written over off", key_written (L.Off, L.Pending))
           ]
       )
+    ; ("unbind lock", unbind_lock_rows)
     ]
