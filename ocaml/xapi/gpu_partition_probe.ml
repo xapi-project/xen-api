@@ -64,6 +64,22 @@ module Next_view = struct
   type t = {device: Mode_view.device; data: data} [@@deriving rpcty]
 end
 
+(* The creatable section of page 1, read after the core. A fault in it is
+   logged and costs only the creatable answer *)
+module Creatable_view = struct
+  type data = {creatable: Wire.Creatable.t option} [@@deriving rpcty]
+
+  type t = {data: data} [@@deriving rpcty]
+end
+
+(* The slice of the creatable section that a page after the first holds,
+   which it leaves out when it holds none *)
+module Creatable_next_view = struct
+  type data = {creatable: Wire.Creatable.Next.t option} [@@deriving rpcty]
+
+  type t = {data: data} [@@deriving rpcty]
+end
+
 type xapi_kind =
   | Helper_absent
   | Helper_not_executable
@@ -136,19 +152,32 @@ type t =
   | Not_applicable
 
 (* Page 1 as read, built only by [read_page] *)
-type first_page = {core: Wire.Envelope.Core.t; mode: Mode_view.t}
+type first_page = {
+    core: Wire.Envelope.Core.t
+  ; mode: Mode_view.t
+  ; creatable: (Wire.Creatable.t option, [`Msg of string]) result
+}
 
 (* A page after the first as read, built only by [read_next_page] *)
-type next_page = {next: Next_view.t}
+type next_page = {
+    next: Next_view.t
+  ; creatable: (Wire.Creatable.Next.t option, [`Msg of string]) result
+}
 
 (* The pages of one reply, page 1 first *)
 type pages = {first: first_page; next: next_page list}
 
-type request = {bdf: string; page_size: int}
+type request = {
+    bdf: string
+  ; page_size: int
+  ; sections: Wire.Section_token.t list
+}
 
-let request ~page_size bdf = {bdf; page_size}
+let request ~page_size bdf = {bdf; page_size; sections= []}
 
-type reply = {probe: t}
+let with_sections sections r = {r with sections}
+
+type reply = {probe: t; pages: pages option; request: request}
 
 type output = {exit: int option; stdout: string}
 
@@ -156,7 +185,7 @@ type run_result = (output, xapi_kind) result
 
 let schema_major = fst Wire.schema_version
 
-let helper_args {bdf; page_size; _} =
+let helper_args {bdf; page_size; sections; _} =
   [
     "mig"
   ; "--id=" ^ bdf
@@ -165,6 +194,12 @@ let helper_args {bdf; page_size; _} =
   ; Printf.sprintf "--page-size=%d" page_size
   ; "--page-encodings=identity"
   ]
+  @
+  match (sections : Wire.Section_token.t list :> string list) with
+  | [] ->
+      []
+  | _ :: _ as names ->
+      ["--sections=" ^ String.concat "," names]
 
 let axes = function
   | Partitions {mode; _} | None_carved {mode; _} ->
@@ -284,13 +319,28 @@ let read_view typ_of ~bdf ~no_document rpc =
   Rpcmarshal.unmarshal typ_of rpc
   |> Result.map_error (data_unreadable ~bdf ~no_document)
 
+(* A section the run may not have asked for, read from every page whatever
+   the run asked: a fault in it is logged as a view's is, and kept as the
+   result, so it never fails the page *)
+let read_section typ_of ~bdf rpc =
+  Rpcmarshal.unmarshal typ_of rpc
+  |> Result.map_error (fun e -> data_unreadable ~bdf ~no_document:e e)
+
+let first_creatable ~bdf rpc =
+  read_section Creatable_view.typ_of ~bdf rpc
+  |> Result.map (fun ({data= {creatable}} : Creatable_view.t) -> creatable)
+
+let next_creatable ~bdf rpc =
+  read_section Creatable_next_view.typ_of ~bdf rpc
+  |> Result.map (fun ({data= {creatable}} : Creatable_next_view.t) -> creatable)
+
 let read_page ~bdf ~no_document (core, rpc) =
   let* mode = read_view Mode_view.typ_of ~bdf ~no_document rpc in
-  Ok {core; mode}
+  Ok {core; mode; creatable= first_creatable ~bdf rpc}
 
 let read_next_page ~bdf ~no_document (_, rpc) =
   let* next = read_view Next_view.typ_of ~bdf ~no_document rpc in
-  Ok ({next} : next_page)
+  Ok ({next; creatable= next_creatable ~bdf rpc} : next_page)
 
 (* One reply per line, each shorter than the page size asked for; its core is
    read first, and its views only once every page's core is checked *)
@@ -386,7 +436,7 @@ let case_of_pages ~bdf {first; next} =
   else
     decode_failed
 
-let decode {bdf; page_size; _} run =
+let decode ({bdf; page_size; _} as request) run =
   let pages =
     let* {exit; stdout} = Result.map_error (fun kind -> Xapi kind) run in
     (* Without a document, the exit code says why. An exec can fail after the
@@ -408,4 +458,52 @@ let decode {bdf; page_size; _} run =
   in
   let case = Result.bind pages (case_of_pages ~bdf) in
   let unreadable reason = Unreadable {mode= None; reason} in
-  {probe= Result.fold ~ok:Fun.id ~error:unreadable case}
+  {
+    probe= Result.fold ~ok:Fun.id ~error:unreadable case
+  ; pages= Result.to_option (Result.bind case (fun (_ : t) -> pages))
+  ; request
+  }
+
+(* The GPU instances of a reply's pages, page 1's first *)
+let gpu_instance_ids {first; next} =
+  let on_first =
+    match first.mode.data.geometry with
+    | Some {gpu_instances= Value l; _} ->
+        l
+    | Some {gpu_instances= Null; _} | None ->
+        []
+  in
+  let on_next (p : next_page) =
+    match p.next.data.geometry with
+    | Some {gpu_instances= Some l; _} ->
+        l
+    | Some {gpu_instances= None; _} | None ->
+        []
+  in
+  List.map
+    (fun (gi : Wire.Geometry.gpu_instance) -> gi.gi_id)
+    (on_first @ List.concat_map on_next next)
+
+(* The creatable section of each page, page 1's first *)
+let creatable_sections {first; next} =
+  {
+    Wire.Creatable.first= first.creatable
+  ; next= List.map (fun (p : next_page) -> p.creatable) next
+  }
+
+type _ question =
+  | Mode : t question
+  | Creatable : Wire.Creatable.view option question
+
+let ask : type a. a question -> reply -> a =
+ fun question reply ->
+  match question with
+  | Mode ->
+      reply.probe
+  | Creatable ->
+      Option.map
+        (fun pages ->
+          Wire.Creatable.per_gpu_instance ~asked:reply.request.sections
+            ~gi_ids:(gpu_instance_ids pages) (creatable_sections pages)
+        )
+        reply.pages
