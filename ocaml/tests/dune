@@ -17,6 +17,7 @@
     cstruct
     digestif
     fmt
+    forkexec
     http_lib
     httpsvr
     ipaddr

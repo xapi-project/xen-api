@@ -249,4 +249,85 @@ let test_set_GPU_group =
     )
   ]
 
-let test = test_can_run_vgpu @ test_remaining_capacity @ test_set_GPU_group
+(* sriov-manage exits 1 with this when the NVIDIA driver refuses the lock *)
+let unbind_lock_refused pf =
+  Forkhelpers.Spawn_internal_error
+    ( Printf.sprintf "Cannot obtain unbindLock for %s\n" pf
+    , Printf.sprintf "Enabling VFs on %s\n" pf
+    , Unix.WEXITED 1
+    )
+
+(* [f] fails with [exn] the first [failures] times it is called *)
+let failing_n_times failures exn =
+  let calls = ref 0 in
+  let f () =
+    incr calls ;
+    if !calls <= failures then
+      raise exn
+    else
+      "done"
+  in
+  (calls, f)
+
+let retry = Xapi_pgpu.retry_on_unbind_lock ~delay:0.01
+
+let test_unbind_lock_retried () =
+  let calls, f = failing_n_times 2 (unbind_lock_refused "0000:b3:00.0") in
+  let result = retry ~timeout:5. f in
+  Alcotest.(check string) "result of the successful call" "done" result ;
+  Alcotest.(check int) "two refusals, then success" 3 !calls
+
+let test_unbind_lock_gives_up () =
+  let calls, f = failing_n_times max_int (unbind_lock_refused "0000:b3:00.0") in
+  let started = Unix.gettimeofday () in
+  ( match retry ~timeout:0.2 f with
+  | exception Forkhelpers.Spawn_internal_error _ ->
+      ()
+  | _ ->
+      Alcotest.fail "expected the last refusal to be raised"
+  ) ;
+  let elapsed = Unix.gettimeofday () -. started in
+  Alcotest.(check bool) "retried more than once" true (!calls > 1) ;
+  (* allow for a slow test machine oversleeping *)
+  Alcotest.(check bool) "gave up around the timeout" true (elapsed < 1.)
+
+let test_other_errors_not_retried () =
+  let other =
+    Forkhelpers.Spawn_internal_error
+      ("sriov-manage: no such device\n", "", Unix.WEXITED 1)
+  in
+  let calls, f = failing_n_times 1 other in
+  ( match retry ~timeout:5. f with
+  | exception Forkhelpers.Spawn_internal_error _ ->
+      ()
+  | _ ->
+      Alcotest.fail "expected the error to be raised"
+  ) ;
+  Alcotest.(check int) "called once" 1 !calls
+
+let test_no_retry_when_timeout_is_zero () =
+  let calls, f = failing_n_times 1 (unbind_lock_refused "0000:b3:00.0") in
+  ( match retry ~timeout:0. f with
+  | exception Forkhelpers.Spawn_internal_error _ ->
+      ()
+  | _ ->
+      Alcotest.fail "expected the refusal to be raised"
+  ) ;
+  Alcotest.(check int) "called once" 1 !calls
+
+let test_retry_on_unbind_lock =
+  [
+    ("test_unbind_lock_retried", `Quick, test_unbind_lock_retried)
+  ; ("test_unbind_lock_gives_up", `Quick, test_unbind_lock_gives_up)
+  ; ("test_other_errors_not_retried", `Quick, test_other_errors_not_retried)
+  ; ( "test_no_retry_when_timeout_is_zero"
+    , `Quick
+    , test_no_retry_when_timeout_is_zero
+    )
+  ]
+
+let test =
+  test_can_run_vgpu
+  @ test_remaining_capacity
+  @ test_set_GPU_group
+  @ test_retry_on_unbind_lock
