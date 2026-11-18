@@ -45,6 +45,7 @@ let () =
      ; ("Test_vgpu_type", Test_vgpu_type.test)
      ; ("Test_gpu_partition_wiring", Test_gpu_partition_wiring.test)
      ; ("Test_vgpu_copy", Test_vgpu_copy.test)
+     ; ("Test_vgpu_clone_copy_revert", Test_vgpu_clone_copy_revert.test)
      ; ("Test_storage_migrate_state", Test_storage_migrate_state.test)
      ; ("Test_bios_strings", Test_bios_strings.test)
      ; ("Test_certificates", Test_certificates.test)
