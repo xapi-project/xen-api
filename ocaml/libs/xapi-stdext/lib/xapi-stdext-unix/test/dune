@@ -40,6 +40,13 @@
 
 (test
  (modes exe)
+ (name test_flock)
+ (package xapi-stdext-unix)
+ (modules test_flock)
+ (libraries alcotest astring unix xapi-stdext-unix))
+
+(test
+ (modes exe)
  (name test_read_small)
  (package xapi-stdext-unix)
  (modules test_read_small)

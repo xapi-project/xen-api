@@ -4,6 +4,7 @@
   (modules :standard \ ipq scheduler threadext_test ipq_test scheduler_test)
   (libraries
     ambient-context.thread_local
+    clock
     mtime
     mtime.clock.os
     threads.posix

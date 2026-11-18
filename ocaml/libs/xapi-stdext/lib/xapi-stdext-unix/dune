@@ -11,6 +11,7 @@
     unix-errno.unix
     astring
     xapi-stdext-pervasives)
+  (modules_without_implementation lock_rw)
   (foreign_stubs
     (language c)
     (names

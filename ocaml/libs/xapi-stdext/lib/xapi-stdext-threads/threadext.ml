@@ -78,6 +78,21 @@ module Delay = struct
           invalid_arg "Time specified too big"
 end
 
+let retry ?(delay = Mtime.Span.(50 * ms)) ?(max_delay = delay) ~stop f =
+  let rec go delay last =
+    match f () with
+    | Ok _ as ok ->
+        ok
+    | Error _ as error when stop () ->
+        Option.value last ~default:error
+    | Error _ as error ->
+        Thread.delay (Clock.Timer.span_to_s delay) ;
+        let ns = Mtime.Span.to_uint64_ns in
+        let next = Int64.min (ns max_delay) (ns Mtime.Span.(2 * delay)) in
+        (go [@tailcall]) (Mtime.Span.of_uint64_ns next) (Some error)
+  in
+  go delay None
+
 let wait_timed_read fd timeout =
   match Xapi_stdext_unix.Unixext.select [fd] [] [] timeout with
   | [], _, _ ->

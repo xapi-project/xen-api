@@ -423,8 +423,16 @@ let safe_close_and_exec ?tracing ?env stdin stdout stderr
       ~syslog_stdout ~redirect_stderr_to_stdout args
 
 let execute_command_get_output_inner ?tracing ?env ?stdin
-    ?(syslog_stdout = NoSyslogging) ?(redirect_stderr_to_stdout = false) timeout
-    cmd args =
+    ?(syslog_stdout = NoSyslogging) ?(redirect_stderr_to_stdout = false)
+    ?(keep_fds = []) timeout cmd args =
+  let keep_fds =
+    List.map (fun fd -> (Uuidx.(to_string (make ())), fd)) keep_fds
+  in
+  (* The vfork path clears their close-on-exec for the child: set it again
+     once the child is spawned, so that no other child inherits them *)
+  let cloexec_kept () =
+    List.iter (fun (_, fd) -> Unix.set_close_on_exec fd) keep_fds
+  in
   let to_close = ref [] in
   let close fd =
     if List.mem fd !to_close then (
@@ -451,9 +459,10 @@ let execute_command_get_output_inner ?tracing ?env ?stdin
             @@ fun tracing ->
             with_logfile_fd "execute_command_get_err" (fun err_fd ->
                 let waiter, pid =
+                  Fun.protect ~finally:cloexec_kept @@ fun () ->
                   safe_close_and_exec ?tracing ?env
                     (Option.map (fun (_, fd, _) -> fd) stdinandpipes)
-                    (Some out_fd) (Some err_fd) [] ~syslog_stdout
+                    (Some out_fd) (Some err_fd) keep_fds ~syslog_stdout
                     ~redirect_stderr_to_stdout cmd args
                 in
                 Option.iter
@@ -510,10 +519,10 @@ let execute_command_get_output_inner ?tracing ?env ?stdin
     (fun () -> List.iter Unix.close !to_close)
 
 let execute_command_get_output ?tracing ?env ?(syslog_stdout = NoSyslogging)
-    ?(redirect_stderr_to_stdout = false) ?timeout cmd args =
+    ?(redirect_stderr_to_stdout = false) ?timeout ?keep_fds cmd args =
   with_tracing ~tracing ~name:__FUNCTION__ @@ fun tracing ->
   execute_command_get_output_inner ?tracing ?env ?stdin:None ~syslog_stdout
-    ~redirect_stderr_to_stdout timeout cmd args
+    ~redirect_stderr_to_stdout ?keep_fds timeout cmd args
 
 let execute_command_get_output_send_stdin ?tracing ?env
     ?(syslog_stdout = NoSyslogging) ?(redirect_stderr_to_stdout = false)
