@@ -667,33 +667,66 @@ let evacuate ~__context ~host ~network ~evacuate_batch_size =
     let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
     let destroy = Client.Client.Task.destroy in
     let fail task msg =
-      Helpers.internal_error "%s, %s" (Ref.string_of task) msg
+      Some
+        Api_errors.(
+          Server_error
+            (internal_error, [Printf.sprintf "%s, %s" (Ref.string_of task) msg])
+        )
     in
 
-    let assert_success task =
+    let task_failure task =
       match Db.Task.get_status ~__context ~self:task with
       | `success ->
-          ()
+          None
       | `failure -> (
         match Db.Task.get_error_info ~__context ~self:task with
         | [] ->
             fail task "couldn't extract error result from task"
         | code :: _ when code = Api_errors.vm_bad_power_state ->
-            ()
+            None
         | code :: params ->
-            raise (Api_errors.Server_error (code, params))
+            Some (Api_errors.Server_error (code, params))
       )
       | _ ->
           fail task "unexpected status of migration task"
     in
 
     Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+    (* All the migrations share this session, which is logged out when we
+       return. So when one fails, start no more but wait for the others to
+       finish before raising the first failure. *)
+    let first_failure = ref None in
+    let record_failure (exn, bt) =
+      match !first_failure with
+      | None ->
+          warn
+            "Host.evacuate: %s; not starting any more migrations, waiting for \
+             those in progress"
+            (ExnHelper.string_of_exn exn) ;
+          first_failure := Some (exn, bt)
+      | Some _ ->
+          warn "Host.evacuate: another migration failed: %s"
+            (ExnHelper.string_of_exn exn)
+    in
+    let start x =
+      match api_fn ~rpc ~session_id x with
+      | task ->
+          Ok task
+      | exception exn ->
+          Error (exn, Printexc.get_raw_backtrace ())
+    in
     ( match take n xs with
     | [], _ ->
         ()
     | head, tasks_left ->
         let tasks_left = ref tasks_left in
-        let initial_task_batch = List.map (api_fn ~rpc ~session_id) head in
+        let initial_task_batch =
+          match Xapi_stdext_std.Listext.List.try_map_collect start head with
+          | Ok tasks ->
+              tasks
+          | Error (tasks, failure) ->
+              record_failure failure ; tasks
+        in
         let tasks_pending =
           ref
             (List.fold_left
@@ -704,8 +737,11 @@ let evacuate ~__context ~host ~network ~evacuate_batch_size =
 
         let single_task_progress = 1.0 /. plans_length in
         let on_each_task_completion completed_task_count completed_task =
-          (* Clean up the completed task *)
-          assert_success completed_task ;
+          (* Clean up the completed task. A failed one has no local
+             backtrace, its own is kept in the task record. *)
+          Option.iter
+            (fun exn -> record_failure (exn, Printexc.get_callstack 0))
+            (task_failure completed_task) ;
           destroy ~rpc ~session_id ~self:completed_task ;
           tasks_pending := Tasks.TaskSet.remove completed_task !tasks_pending ;
 
@@ -715,15 +751,19 @@ let evacuate ~__context ~host ~network ~evacuate_batch_size =
           in
           TaskHelper.set_progress ~__context progress ;
 
-          (* Schedule a new task, if there are any left *)
-          match !tasks_left with
-          | [] ->
+          (* Schedule a new task, if there are any left and none has failed *)
+          match (!first_failure, !tasks_left) with
+          | Some _, _ | None, [] ->
               []
-          | task_to_schedule :: left ->
+          | None, task_to_schedule :: left -> (
               tasks_left := left ;
-              let new_task = api_fn ~rpc ~session_id task_to_schedule in
-              tasks_pending := Tasks.TaskSet.add new_task !tasks_pending ;
-              [new_task]
+              match start task_to_schedule with
+              | Ok new_task ->
+                  tasks_pending := Tasks.TaskSet.add new_task !tasks_pending ;
+                  [new_task]
+              | Error failure ->
+                  record_failure failure ; []
+            )
         in
         finally
           (fun () ->
@@ -736,6 +776,9 @@ let evacuate ~__context ~host ~network ~evacuate_batch_size =
               !tasks_pending
           )
     ) ;
+    Option.iter
+      (fun (exn, bt) -> Printexc.raise_with_backtrace exn bt)
+      !first_failure ;
     TaskHelper.set_progress ~__context 1.0
   in
 
