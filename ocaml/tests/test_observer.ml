@@ -125,7 +125,8 @@ let test_create ~__context ?(name_label = "test-observer") ?(enabled = false) ()
     =
   let self =
     Xapi_observer.create ~__context ~name_label ~name_description:"" ~hosts:[]
-      ~attributes:[] ~endpoints:["bugtool"] ~components:["xapi"] ~enabled
+      ~attributes:[] ~endpoints:["bugtool"] ~components:["xapi"] ~purpose:[]
+      ~enabled
   in
   let host = !Xapi_globs.localhost_ref in
   Xapi_observer.register ~__context ~self ~host ;
@@ -622,6 +623,196 @@ let test_spanid' () =
   let actual = expected |> Span_id.of_string |> Span_id.to_string in
   Alcotest.V1.(check' string ~expected ~actual ~msg:"roundtrip(str)")
 
+(* Observer purposes *)
+
+module P = Xapi_observer_purpose
+
+let purpose_testable = Alcotest.testable (Fmt.of_to_string P.to_string) ( = )
+
+let test_purpose_roundtrip () =
+  Alcotest.(check int) "four purposes" 4 (List.length P.all) ;
+  List.iter
+    (fun p ->
+      Alcotest.(check (option purpose_testable))
+        ("roundtrip " ^ P.to_string p)
+        (Some p)
+        (P.of_string (P.to_string p))
+    )
+    P.all ;
+  Alcotest.(check (list string))
+    "strings match Constants" Constants.observer_purpose_all
+    (List.map P.to_string P.all) ;
+  Alcotest.(check (option purpose_testable))
+    "unknown string" None (P.of_string "bogus")
+
+let check_invalid_purpose ~msg ~bad f =
+  Alcotest.check_raises msg
+    Api_errors.(Server_error (invalid_value, ["purpose"; bad]))
+    f
+
+let test_purpose_invalid_value () =
+  P.assert_valid_purpose [] ;
+  P.assert_valid_purpose Constants.observer_purpose_all ;
+  check_invalid_purpose ~msg:"assert_valid rejects bogus" ~bad:"bogus"
+    (fun () -> P.assert_valid_purpose ["audit"; "bogus"]
+  ) ;
+  check_invalid_purpose ~msg:"case-sensitive" ~bad:"Audit" (fun () ->
+      P.assert_valid_purpose ["Audit"]
+  ) ;
+  let __context = Test_common.make_test_database () in
+  check_invalid_purpose ~msg:"Observer.create rejects bogus" ~bad:"bogus"
+    (fun () ->
+      ignore
+        (Xapi_observer.create ~__context ~name_label:"o" ~name_description:""
+           ~hosts:[] ~attributes:[] ~endpoints:["bugtool"] ~components:[]
+           ~purpose:["bogus"] ~enabled:false
+        )
+  ) ;
+  let self =
+    Xapi_observer.create ~__context ~name_label:"o" ~name_description:""
+      ~hosts:[] ~attributes:[] ~endpoints:["bugtool"] ~components:[]
+      ~purpose:["audit"] ~enabled:false
+  in
+  Alcotest.(check (list string))
+    "create stores purposes" ["audit"]
+    (Db.Observer.get_purpose ~__context ~self) ;
+  check_invalid_purpose ~msg:"set_purpose rejects bogus" ~bad:"bogus" (fun () ->
+      Xapi_observer.set_purpose ~__context ~self ~value:["bogus"]
+  ) ;
+  Alcotest.(check (list string))
+    "a rejected set leaves the value unchanged" ["audit"]
+    (Db.Observer.get_purpose ~__context ~self) ;
+  Xapi_observer.set_purpose ~__context ~self ~value:["performance"; "boundary"] ;
+  Alcotest.(check (slist string String.compare))
+    "set_purpose stores the value"
+    ["performance"; "boundary"]
+    (Db.Observer.get_purpose ~__context ~self)
+
+let test_purpose_truth_table () =
+  let open P in
+  let cases =
+    [
+      ("no observers", [], [])
+    ; ("one disabled, empty list", [(false, [])], [])
+    ; ("one disabled, audit", [(false, ["audit"])], [])
+    ; ("one enabled, empty list means all", [(true, [])], all)
+    ; ("one enabled, audit", [(true, ["audit"])], [Audit])
+    ; ( "one enabled, two purposes"
+      , [(true, ["performance"; "boundary"])]
+      , [Performance; Boundary]
+      )
+    ; ("enabled audit + disabled all", [(true, ["audit"]); (false, [])], [Audit])
+    ; ( "N observers, union of the enabled ones"
+      , [
+          (true, ["audit"])
+        ; (false, ["performance"])
+        ; (true, ["functional"])
+        ; (false, [])
+        ]
+      , [Functional; Audit]
+      )
+    ; ("enabled all + enabled audit", [(true, []); (true, ["audit"])], all)
+    ; ( "unknown values are ignored"
+      , [(true, ["audit"; "a-future-purpose"])]
+      , [Audit]
+      )
+    ; ("only unknown values is not all", [(true, ["a-future-purpose"])], [])
+    ]
+  in
+  List.iter
+    (fun (name, observers, expected) ->
+      List.iter
+        (fun purpose ->
+          Alcotest.(check bool)
+            (Printf.sprintf "%s: %s" name (to_string purpose))
+            (List.mem purpose expected)
+            (is_enabled ~observers ~purpose)
+        )
+        all
+    )
+    cases
+
+(* The enable-check must be pure: a per-span caller cannot afford a task and
+   a scan of every Observer record per call, which is what
+   Xapi_observer_components.is_component_enabled does. Two checks prove it:
+   - the caller's fetch, a counting fake, runs exactly once however many
+     times the predicate is evaluated;
+   - after that one fetch every Observer row is destroyed, and the answers
+     do not change: anything that read live database state would see the
+     change. The control arm shows the check is sensitive: the existing
+     components check, which does read the database, does change its answer
+     under the same mutation. *)
+let test_purpose_is_enabled_zero_db_calls () =
+  let __context = Test_common.make_test_database () in
+  let mk ~enabled ~purpose =
+    Test_common.make_observer ~__context ~enabled ~purpose ()
+  in
+  let refs =
+    [
+      mk ~enabled:true ~purpose:["audit"]
+    ; mk ~enabled:false ~purpose:[]
+    ; mk ~enabled:true ~purpose:["performance"]
+    ]
+  in
+  let fetches = ref 0 in
+  let fetch () =
+    incr fetches ;
+    Db.Observer.get_all_records ~__context
+  in
+  let observers = P.observers_of_records (fetch ()) in
+  let answers () =
+    List.map (fun purpose -> P.is_enabled ~observers ~purpose) P.all
+  in
+  let expected = [true; false; true; false] in
+  Alcotest.(check (list bool))
+    "answers before the mutation" expected (answers ()) ;
+  let component_before =
+    Xapi_observer_components.is_component_enabled ~component:Xapi
+  in
+  List.iter (fun self -> Db.Observer.destroy ~__context ~self) refs ;
+  Alcotest.(check int)
+    "the mutation took effect" 0
+    (List.length (Db.Observer.get_all ~__context)) ;
+  let iterations = 10_000 in
+  for _ = 1 to iterations do
+    Alcotest.(check (list bool))
+      "answers unchanged after every Observer row is destroyed" expected
+      (answers ())
+  done ;
+  Alcotest.(check int) "the caller fetched exactly once" 1 !fetches ;
+  (* Control arm: a check that reads the database does see the mutation. *)
+  Alcotest.(check bool)
+    "control: components check true before" true component_before ;
+  Alcotest.(check bool)
+    "control: components check false after" false
+    (Xapi_observer_components.is_component_enabled ~component:Xapi)
+
+let test_purpose_fetch_exception_not_swallowed () =
+  let fetch () = failwith "database unavailable" in
+  Alcotest.check_raises "a failing fetch is not turned into false"
+    (Failure "database unavailable") (fun () ->
+      ignore
+        (P.is_enabled
+           ~observers:(P.observers_of_records (fetch ()))
+           ~purpose:P.Audit
+        )
+  )
+
+let purpose_tests =
+  [
+    ("test_purpose_roundtrip", `Quick, test_purpose_roundtrip)
+  ; ("test_purpose_invalid_value", `Quick, test_purpose_invalid_value)
+  ; ("test_purpose_truth_table", `Quick, test_purpose_truth_table)
+  ; ( "test_purpose_is_enabled_zero_db_calls"
+    , `Quick
+    , test_purpose_is_enabled_zero_db_calls
+    )
+  ; ( "test_purpose_fetch_exception_not_swallowed"
+    , `Quick
+    , test_purpose_fetch_exception_not_swallowed
+    )
+  ]
+
 let test =
   [
     ( "test_observer_create_and_destroy"
@@ -644,4 +835,5 @@ let test =
 
 let () =
   Suite_init.harness_init () ;
-  Alcotest.run "Tracing" [("Tracing lifetime", test)]
+  Alcotest.run "Tracing"
+    [("Tracing lifetime", test); ("Observer purposes", purpose_tests)]
