@@ -35,6 +35,9 @@ type axis = private {
 val absent : axis
 (** The state of an axis the card does not have *)
 
+val axis : enabled:bool -> after:bool -> axis
+(** The state of an axis the card has *)
+
 val combine_axis : axis -> axis -> axis
 (** Pointwise OR, with [absent] as the identity *)
 
@@ -76,3 +79,19 @@ val to_api :
      | `unknown ]
 (** The value of [PGPU.partition_mode] for a composite, with [None] as
     [`unknown] *)
+
+(** Values of [PGPU.partition_mode] that show the card may still be divided *)
+type division_evidence =
+  [`enable_on_reboot | `enabled | `disable_on_reboot | `possibly_enabled]
+
+(** The other values of [PGPU.partition_mode] *)
+type no_division_evidence =
+  [`not_supported | `disabled | `unknown | `not_checked | `not_in_use]
+
+val possibly_enabled_or :
+     otherwise:([> `possibly_enabled] as 'a)
+  -> [< division_evidence | no_division_evidence]
+  -> 'a
+(** [possibly_enabled_or ~otherwise current] is the value of a card whose
+    division is not known now, from its value [current]: [`possibly_enabled]
+    over evidence that it may still be divided, else [otherwise] *)
