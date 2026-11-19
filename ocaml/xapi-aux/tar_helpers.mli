@@ -15,6 +15,6 @@ type probe =
 
 val probe_header : Unix.file_descr -> probe
 (** Read the first tar header of a stream that cannot be rewound, such as a
-    socket. The first block decides the format: if the parse fails before any
-    byte past it is read, return [Not_tar] with that block; if it fails later,
-    raise. *)
+    socket. The first block decides the format: if it is not a valid tar
+    header block, return [Not_tar] with that block; if a later part of the
+    header is broken, raise. *)

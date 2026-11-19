@@ -54,30 +54,27 @@ type probe =
   | Header of {hdr: Tar.Header.t; bytes_read: int}
   | Not_tar of Cstruct.t
 
-(* Serves the unread part of the first block, then reads from the fd. *)
+(* Serves the first block once, then reads from the fd. *)
 module ProbeInput = struct
   type in_channel = {
       fd: Unix.file_descr
-    ; mutable peeked_buf: Cstruct.t
-    ; mutable read_past_peeked: bool
+    ; mutable first_block: Cstruct.t option
+          (* [None] once the tar reader has taken it *)
     ; mutable bytes_read: int
   }
 
   type 'a t = 'a Identity.t
 
   let really_read t dest =
-    let want = Cstruct.length dest in
-    let from_peeked = min want (Cstruct.length t.peeked_buf) in
-    if from_peeked > 0 then (
-      Cstruct.blit t.peeked_buf 0 dest 0 from_peeked ;
-      t.peeked_buf <- Cstruct.shift t.peeked_buf from_peeked
-    ) ;
-    let remaining = want - from_peeked in
-    if remaining > 0 then (
-      t.read_past_peeked <- true ;
-      t.bytes_read <- t.bytes_read + remaining ;
-      really_read t.fd (Cstruct.sub dest from_peeked remaining)
-    )
+    match t.first_block with
+    | Some first_block ->
+        t.first_block <- None ;
+        (* Tar.HeaderReader reads the first header as one whole block. *)
+        assert (Cstruct.length dest = Cstruct.length first_block) ;
+        Cstruct.blit first_block 0 dest 0 (Cstruct.length first_block)
+    | None ->
+        t.bytes_read <- t.bytes_read + Cstruct.length dest ;
+        really_read t.fd dest
 
   let skip t n = really_read t (Cstruct.create n)
 end
@@ -85,21 +82,22 @@ end
 module HR = Tar.HeaderReader (Identity) (ProbeInput)
 
 let probe_header fd =
-  let first = Cstruct.create Tar.Header.length in
-  really_read fd first ;
-  let input =
-    ProbeInput.
-      {
-        fd
-      ; peeked_buf= first
-      ; read_past_peeked= false
-      ; bytes_read= Tar.Header.length
-      }
-  in
-  try
-    let hdr = HR.read input |> Result.get_ok in
-    Header {hdr; bytes_read= input.bytes_read}
-  with _ when not input.read_past_peeked -> Not_tar first
+  let first_block = Cstruct.create Tar.Header.length in
+  really_read fd first_block ;
+  match Tar.Header.unmarshal first_block with
+  | (exception _) | None ->
+      Not_tar first_block
+  | Some _ -> (
+      let input =
+        ProbeInput.
+          {fd; first_block= Some first_block; bytes_read= Tar.Header.length}
+      in
+      match HR.read input with
+      | Ok hdr ->
+          Header {hdr; bytes_read= input.bytes_read}
+      | Error `Eof ->
+          raise End_of_file
+    )
 
 let copy_n ifd ofd n =
   let buffer = Bytes.create 65536 in
