@@ -1373,6 +1373,8 @@ module MD = struct
     ; pci_power_mgmt= false
     ; has_vendor_device= vm.API.vM_has_vendor_device
     ; generation_id
+    ; pxe_dhcp_ipv4_allowed= vm.API.vM_pxe_dhcp_ipv4_allowed
+    ; pxe_dhcp_ipv6_allowed= vm.API.vM_pxe_dhcp_ipv6_allowed
     }
 end
 
