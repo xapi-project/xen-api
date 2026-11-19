@@ -2201,7 +2201,7 @@ let assert_filename_is hdr =
 (** Takes an fd and a function, tries first to read the first tar block
     and checks for the existence of 'ova.xml'. If that fails then pipe
     the lot through an appropriate decompressor and try again *)
-let with_open_archive fd ?length ?(drain = false) f =
+let with_open_archive fd ?length ?(metadata_only = false) f =
   match Tar_helpers.probe_header fd with
   | Header {hdr; bytes_read} ->
       (* uncompressed stream *)
@@ -2209,20 +2209,25 @@ let with_open_archive fd ?length ?(drain = false) f =
       let xml = read_xml hdr fd in
       let zero_pad = Tar.Header.compute_zero_padding_length hdr in
       Tar_helpers.skip fd zero_pad ;
-      (* Consume the rest of the request body (end-of-archive markers and
-         record padding) so the client does not get EPIPE. Only valid when [f]
-         does not read past ova.xml. The compressed path needs no drain: its
-         feeder thread reads the whole body off [fd]. *)
-      ( if drain then
+      (* A metadata-only archive has nothing after ova.xml for [f] to read, so
+         consume the rest of the request body (end-of-archive markers and
+         record padding) to keep the client from getting EPIPE. The compressed
+         path needs no drain: its feeder thread reads the whole body off
+         [fd]. *)
+      ( if metadata_only then
           match length with
-          | Some len -> (
+          | Some len ->
               let consumed =
                 bytes_read + Int64.to_int hdr.Tar.Header.file_size + zero_pad
               in
               let remaining = Int64.to_int len - consumed in
               if remaining > 0 then
                 try Tar_helpers.skip fd remaining with End_of_file -> ()
-            )
+              else if remaining < 0 then
+                warn
+                  "%s: Content-Length %Ld is smaller than the %d bytes already \
+                   read"
+                  __FUNCTION__ len consumed
           | None ->
               (* No Content-Length: skip only the end-of-archive markers. *)
               Tar_helpers.skip fd (2 * Tar.Header.length)
@@ -2423,8 +2428,8 @@ let metadata_handler (req : Request.t) s _ =
               ]
           in
           Http_svr.headers s headers ;
-          with_open_archive s ?length:req.Request.content_length ~drain:true
-            (fun metadata _s ->
+          with_open_archive s ?length:req.Request.content_length
+            ~metadata_only:true (fun metadata _s ->
               debug "Got XML" ;
               let header = metadata |> Xmlrpc.of_string |> header_of_rpc in
               assert_compatible ~__context header.version ;
