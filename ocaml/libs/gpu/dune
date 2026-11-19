@@ -3,7 +3,7 @@
  (public_name xapi-gpu)
  (preprocess (pps ppx_deriving.std))
  (flags (:standard -w -39@8))
- (modules partition_mode gpu_partition_lifecycle host_partitioning)
+ (modules partition_mode gpu_partition_lifecycle host_partitioning gpu_capacity)
  (libraries xapi-stdext-pervasives))
 
 (library
