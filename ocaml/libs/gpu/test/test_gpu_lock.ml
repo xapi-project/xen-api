@@ -76,13 +76,15 @@ let hold_shared path =
   assert (Unixext.flock_try fd ~exclusive:false) ;
   fd
 
-let hold_elsewhere path =
+let hold_elsewhere ~span path =
   let ready, held = Unix.pipe () in
   match Unix.fork () with
   | 0 ->
       (* the child never returns to the tests *)
       (try ignore (hold path : Unix.file_descr) with _ -> Unix._exit 1) ;
-      Unix.close held ; Unix.sleep 60 ; Unix._exit 0
+      Unix.close held ;
+      Unix.sleepf (Clock.Timer.span_to_s span) ;
+      Unix._exit 0
   | child ->
       Unix.close held ;
       ignore (Unix.read ready (Bytes.create 1) 0 1 : int) ;
@@ -136,11 +138,13 @@ let same_blocker_fails_fast () =
   refused ~busy:true "behind its own hold" (run lock) ;
   check "own: waited again" true (waited (ms 250)) ;
   Unix.close own ;
-  Fun.protect ~finally:(hold_elsewhere path) (fun () ->
+  Fun.protect
+    ~finally:(hold_elsewhere ~span:(ms 60_000) path)
+    (fun () ->
       refused ~busy:true "a try" (run ~timeout:(ms 0) lock) ;
       check "waited" true (waited (ms 250)) ;
       check "at once" false (waited ~timeout:(ms 5000) (ms 2500))
-  )
+    )
 
 let no_mark_while_old_held () =
   let path, lock = world () in
@@ -203,6 +207,26 @@ let key_view () =
       check "pending, listed" true
         (read_key_now lock = Ok (Some L.Pending) && listed lock (comm ()))
     )
+
+(* a key read behind a writer waits its whole timeout, then is refused as
+   busy, as xapi's release_gpu_lock is when a VF enable outlasts its wait *)
+let key_read_waits () =
+  let path, lock = world () in
+  check "ensured" true (L.Gate.ensure lock ~timeout:(ms 300) = Ok ()) ;
+  let writer = hold path in
+  let timer = Clock.Timer.start ~duration:(ms 300) in
+  let read = L.Gate.read_key lock ~timeout:(ms 300) in
+  Unix.close writer ;
+  refused ~busy:true "refused, busy" read ;
+  check "waited it all" true (Clock.Timer.has_expired timer)
+
+(* and it reads the key once a writer of another process leaves within it *)
+let key_read_after_wait () =
+  let path, lock = world () in
+  check "ensured" true (L.Gate.ensure lock ~timeout:(ms 300) = Ok ()) ;
+  Fun.protect ~finally:(hold_elsewhere ~span:(ms 200) path) @@ fun () ->
+  check "read" true
+    (L.Gate.read_key lock ~timeout:(ms 5000) = Ok (Some L.Pending))
 
 let busy n = Printf.sprintf "busy, tries: %d" n
 
@@ -310,6 +334,8 @@ let () =
           ; ("a refusal counts holders, names none", refusal_counts_holders)
           ; ("a name with C1 control characters is listed escaped", escaped_name)
           ; ("the operator's view", key_view)
+          ; ("a key read waits for a writer, then refuses", key_read_waits)
+          ; ("a key read waits until a writer leaves", key_read_after_wait)
           ; ("key on written over pending", key_written (L.Pending, L.On))
           ; ("key off written over on", key_written (L.On, L.Off))
           ; ("key pending written over off", key_written (L.Off, L.Pending))
