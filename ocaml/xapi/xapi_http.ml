@@ -350,6 +350,24 @@ let bind inetaddr =
       info "Successfully bound socket to: %s" description ;
       s
 
+(* Rate-limit the HTTP handler [handler] of the action [name]. The handler
+   always runs on the calling thread, which owns the connection: Http_svr
+   reads the next request from the connection, or closes it, as soon as the
+   handler returns. A delayed request therefore blocks its connection thread
+   until the caller has enough tokens. *)
+let rate_limit_handler ~name (client_id_opt : (string * string) option) handler
+    () =
+  if List.mem name Datamodel.custom_rate_limit_http_actions then
+    handler ()
+  else
+    match client_id_opt with
+    | None ->
+        handler ()
+    | Some (user_agent, client_ip) ->
+        Xapi_caller.submit_sync ~user_agent ~client_ip ~callback:handler
+          ~task_create:(Server_helpers.exec_with_new_task "Add new caller")
+          Xapi_caller.default_token_cost
+
 let add_handler (name, handler) =
   let action =
     try List.assoc name Datamodel.http_actions
@@ -359,18 +377,6 @@ let add_handler (name, handler) =
       failwith (Printf.sprintf "Unregistered HTTP handler: %s" name)
   in
   let check_rbac = Rbac.is_rbac_enabled_for_http_action name in
-  let rate_limit (client_id_opt : (string * string) option) handler () =
-    if List.mem name Datamodel.custom_rate_limit_http_actions then
-      handler ()
-    else
-      match client_id_opt with
-      | None ->
-          handler ()
-      | Some (user_agent, client_ip) ->
-          Xapi_caller.submit_async ~user_agent ~client_ip ~callback:handler
-            ~task_create:(Server_helpers.exec_with_new_task "Add new caller")
-            Xapi_caller.default_token_cost
-  in
   let h req ic () =
     let client_info = Http_svr.client_of_req_and_fd req ic in
     let client = Option.map Http_svr.string_of_client client_info in
@@ -381,7 +387,9 @@ let add_handler (name, handler) =
       | _ ->
           None
     in
-    let rate_limited_handler = rate_limit client_id (handler req ic) in
+    let rate_limited_handler =
+      rate_limit_handler ~name client_id (handler req ic)
+    in
     Debug.with_thread_associated ?client name
       (fun () ->
         try

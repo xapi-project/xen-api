@@ -52,13 +52,24 @@ module Key = struct
   let is_all_wildcard k =
     k.user_agent_pattern = Prefix "" && k.client_ip_pattern = Prefix ""
 
-  (** Total order: fewer wildcards first, then lexicographic by patterns *)
+  (* Of two prefixes for the same field, the longer one is more specific:
+     [Prefix "ab"] matches a subset of what [Prefix "a"] matches, so it must
+     sort first. Otherwise compare lexicographically, for a total order. *)
+  let compare_field a b =
+    match (a, b) with
+    | Prefix x, Prefix y when String.length x <> String.length y ->
+        Int.compare (String.length y) (String.length x)
+    | _ ->
+        compare a b
+
+  (** Total order: fewer wildcards first, then the longer prefix, then
+      lexicographic by patterns; user agent before client IP. *)
   let compare a b =
     match compare (compare_wildcard a) (compare_wildcard b) with
     | 0 -> (
-      match compare a.user_agent_pattern b.user_agent_pattern with
+      match compare_field a.user_agent_pattern b.user_agent_pattern with
       | 0 ->
-          compare a.client_ip_pattern b.client_ip_pattern
+          compare_field a.client_ip_pattern b.client_ip_pattern
       | n ->
           n
     )
@@ -122,30 +133,33 @@ let mem t ~caller_id =
   let entries = Atomic.get t in
   find_matches entries ~caller_id <> []
 
-let insert t ~pattern data =
+(* Writers build the new table from the one they read and install it with a
+   compare-and-set, retrying if another writer has replaced the table in the
+   meantime. A plain [Atomic.set] would drop that writer's change. *)
+let rec insert t ~pattern data =
   if Key.is_all_wildcard pattern then
     false
   (* Reject keys with both fields full wildcards. *)
   else
-    let {table; cache} = Atomic.get t in
+    let ({table; cache} as current) = Atomic.get t in
     if List.exists (fun (key, _) -> Key.equal_pattern key pattern) table then
       false
-    else (
-      Atomic.set t
+    else
+      let next =
         {
           table= insert_sorted (pattern, data) table
         ; cache= cache_without_matches ~pattern cache
-        } ;
-      true
-    )
+        }
+      in
+      Atomic.compare_and_set t current next || insert t ~pattern data
 
-let delete t ~pattern =
-  let {table; cache} = Atomic.get t in
+let rec delete t ~pattern =
+  let ({table; cache} as current) = Atomic.get t in
   match List.find_opt (fun (key, _) -> Key.equal_pattern key pattern) table with
   | None ->
       ()
   | Some _ ->
-      Atomic.set t
+      let next =
         {
           table=
             List.filter
@@ -153,6 +167,8 @@ let delete t ~pattern =
               table
         ; cache= cache_without_matches ~pattern cache
         }
+      in
+      if not (Atomic.compare_and_set t current next) then delete t ~pattern
 
 let get t ~caller_id =
   let entries = Atomic.get t in

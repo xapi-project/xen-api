@@ -449,9 +449,9 @@ let test_get_ordered_specificity_ladder () =
     (Caller_table.get table ~caller_id:client)
 
 let test_get_ordered_tiebreak_lex () =
-  (* When wildcard scores are identical, ties break lexicographically by
-     user_agent then client_ip. All three patterns are ua-prefix + ip-exact
-     (score (1,1,0)) and all match the client "abc/foo". *)
+  (* When wildcard scores are identical, the longer user_agent prefix is
+     more specific and comes first. All three patterns are ua-prefix +
+     ip-exact (score (1,1,0)) and all match the client "abc/foo". *)
   let table = Caller_table.create () in
   let p_a =
     {user_agent_pattern= Prefix "a"; client_ip_pattern= Full "10.0.0.1"}
@@ -462,20 +462,27 @@ let test_get_ordered_tiebreak_lex () =
   let p_abc =
     {user_agent_pattern= Prefix "abc"; client_ip_pattern= Full "10.0.0.1"}
   in
-  (* Insert in reverse lex order *)
-  let _ = Caller_table.insert table ~pattern:p_abc 30 in
-  let _ = Caller_table.insert table ~pattern:p_ab 20 in
+  (* Insert in the opposite order *)
   let _ = Caller_table.insert table ~pattern:p_a 10 in
+  let _ = Caller_table.insert table ~pattern:p_ab 20 in
+  let _ = Caller_table.insert table ~pattern:p_abc 30 in
   let client = {user_agent= "abc/foo"; client_ip= "10.0.0.1"} in
-  (* Lex order: "a" < "ab" < "abc" *)
   Alcotest.(check (list int))
-    "equal wildcard scores tie-break by user_agent lex order" [10; 20; 30]
-    (Caller_table.get table ~caller_id:client)
+    "equal wildcard scores: longer user_agent prefix first" [30; 20; 10]
+    (Caller_table.get table ~caller_id:client) ;
+  (* Same length: lexicographic order decides *)
+  let p_abd =
+    {user_agent_pattern= Prefix "abd"; client_ip_pattern= Full "10.0.0.1"}
+  in
+  let _ = Caller_table.insert table ~pattern:p_abd 40 in
+  Alcotest.(check (list int))
+    "same length tie-breaks by lex order" [30; 40; 20; 10]
+    (List.map snd (Caller_table.to_list table))
 
 let test_get_ordered_tiebreak_client_ip () =
-  (* Ties on user_agent fall through to client_ip lex order. Patterns
-     have identical user_agent and the same wildcard scores, so client_ip
-     decides. *)
+  (* Ties on user_agent fall through to client_ip, where the longer prefix
+     is more specific. Patterns have identical user_agent and the same
+     wildcard scores, so client_ip decides. *)
   let table = Caller_table.create () in
   let p1 =
     {user_agent_pattern= Full "curl/1.2"; client_ip_pattern= Prefix "10.0."}
@@ -487,9 +494,28 @@ let test_get_ordered_tiebreak_client_ip () =
   let _ = Caller_table.insert table ~pattern:p1 100 in
   let client = {user_agent= "curl/1.2"; client_ip= "10.0.0.5"} in
   Alcotest.(check (list int))
-    "equal user_agent + equal scores tie-break by client_ip lex order"
-    [100; 200]
+    "equal user_agent + equal scores: longer client_ip prefix first" [200; 100]
     (Caller_table.get table ~caller_id:client)
+
+let test_narrow_prefix_rule_first () =
+  (* A caller rule "XenCenter*" is more specific than "Xen*", whichever is
+     created first; xapi charges the first matching rule with a limit. *)
+  let xen = {user_agent_pattern= Prefix "Xen"; client_ip_pattern= Prefix ""} in
+  let xencenter =
+    {user_agent_pattern= Prefix "XenCenter"; client_ip_pattern= Prefix ""}
+  in
+  let client = {user_agent= "XenCenter/2025"; client_ip= "192.0.2.7"} in
+  List.iter
+    (fun order ->
+      let table = Caller_table.create () in
+      List.iter
+        (fun (p, v) -> ignore (Caller_table.insert table ~pattern:p v))
+        order ;
+      Alcotest.(check (list int))
+        "XenCenter* before Xen*" [1; 2]
+        (Caller_table.get table ~caller_id:client)
+    )
+    [[(xen, 2); (xencenter, 1)]; [(xencenter, 1); (xen, 2)]]
 
 let test_get_ordered_after_delete_reinsert () =
   (* Sorting is preserved across mutation: delete a middle entry and
@@ -520,6 +546,47 @@ let test_get_ordered_after_delete_reinsert () =
     "ordered after re-insert in new position" [1; 30; 2]
     (Caller_table.get table ~caller_id:client)
 
+let test_concurrent_writers_lose_nothing () =
+  (* Writers from several threads, with no lock around the table: every
+     insert that returned true must be in the table afterwards. *)
+  let table = Caller_table.create () in
+  let threads = 8 and per_thread = 200 in
+  let inserted = Atomic.make 0 in
+  let writers =
+    Array.init threads (fun t ->
+        Thread.create
+          (fun () ->
+            for i = 1 to per_thread do
+              let pattern = pat (Printf.sprintf "agent-%d-%d" t i) in
+              if Caller_table.insert table ~pattern i then Atomic.incr inserted
+            done
+          )
+          ()
+    )
+  in
+  Array.iter Thread.join writers ;
+  Alcotest.(check int)
+    "every successful insert is in the table" (Atomic.get inserted)
+    (List.length (Caller_table.to_list table)) ;
+  Alcotest.(check int)
+    "every insert succeeded" (threads * per_thread) (Atomic.get inserted) ;
+  let deleters =
+    Array.init threads (fun t ->
+        Thread.create
+          (fun () ->
+            for i = 1 to per_thread do
+              Caller_table.delete table
+                ~pattern:(pat (Printf.sprintf "agent-%d-%d" t i))
+            done
+          )
+          ()
+    )
+  in
+  Array.iter Thread.join deleters ;
+  Alcotest.(check int)
+    "every delete took effect" 0
+    (List.length (Caller_table.to_list table))
+
 let test =
   [
     ("Create empty table", `Quick, test_create)
@@ -534,6 +601,11 @@ let test =
     , test_concurrent_insert_delete_stress
     )
   ; ("Get during delete race", `Quick, test_get_during_delete_race)
+  ; ("Narrow prefix rule first", `Quick, test_narrow_prefix_rule_first)
+  ; ( "Concurrent writers lose nothing"
+    , `Quick
+    , test_concurrent_writers_lose_nothing
+    )
   ; ( "Wildcard user_agent matches any"
     , `Quick
     , test_wildcard_user_agent_matches_any

@@ -23,6 +23,49 @@ let test_bad_fill_rate () =
     (function Invalid_argument _ -> true | _ -> false)
     (fun () -> ignore (Token_bucket.create ~burst_size:1.0 ~fill_rate:(-1.0)))
 
+let test_non_finite_parameters () =
+  (* NaN fails every comparison, so a check of the form [x <= 0.] lets it
+     through. An infinite fill rate turns the token count into NaN. *)
+  List.iter
+    (fun (burst_size, fill_rate) ->
+      Alcotest.match_raises
+        (Printf.sprintf "Creating a token bucket with burst %g, rate %g fails"
+           burst_size fill_rate
+        )
+        (function Invalid_argument _ -> true | _ -> false)
+        (fun () -> ignore (Token_bucket.create ~burst_size ~fill_rate))
+    )
+    [(1.0, Float.nan); (1.0, Float.infinity); (Float.nan, 1.0)]
+
+let test_concurrent_consume_does_not_overcredit () =
+  (* Thread A reads the clock at 4 s, then thread B consumes at 5 s, then A
+     consumes with its 4 s reading. The injected clock runs B's consume
+     inside A's clock read, which is where B could run if A were
+     descheduled. *)
+  let ms n = Mtime.Span.(n * ms) in
+  let tb =
+    Token_bucket.create_with_timestamp (ms 0) ~burst_size:10.0 ~fill_rate:1.0
+  in
+  Alcotest.(check bool)
+    "empty the bucket at 0 s" true
+    (Token_bucket.consume_with_timestamp (fun () -> ms 0) tb 10.0) ;
+  let reads = ref 0 in
+  let clock_of_a () =
+    incr reads ;
+    if !reads = 1 then (
+      ignore (Token_bucket.consume_with_timestamp (fun () -> ms 5000) tb 1.0) ;
+      ms 4000
+    ) else
+      ms 5000
+  in
+  Alcotest.(check bool)
+    "A's consume succeeds" true
+    (Token_bucket.consume_with_timestamp clock_of_a tb 1.0) ;
+  (* 5 s at 1 token/s refill 5 tokens, and A and B took one each *)
+  Alcotest.(check (float 1e-9))
+    "tokens at 5 s" 3.0
+    (Token_bucket.peek_with_timestamp (ms 5000) tb)
+
 let test_consume_removes_correct_amount () =
   let initial_time = Mtime.Span.of_uint64_ns 0L in
   let tb =
@@ -481,6 +524,11 @@ let test =
   ; ( "Consume refills before removing"
     , `Quick
     , test_consume_refills_before_removing
+    )
+  ; ("Non-finite parameters", `Quick, test_non_finite_parameters)
+  ; ( "Concurrent consume does not over-credit"
+    , `Quick
+    , test_concurrent_consume_does_not_overcredit
     )
   ; ("Peek respects burst size", `Quick, test_peek_respects_burst_size)
   ; ("Concurrent access", `Quick, test_concurrent_access)
