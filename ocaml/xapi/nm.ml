@@ -894,11 +894,27 @@ let bring_pif_down ~__context ?(force = false) (pif : API.ref_PIF) =
                     )
                 in
                 let tunnels = Db.Tunnel.get_records_where ~__context ~expr in
+                (* A concurrent tunnel.destroy on another host may destroy a
+                   tunnel's access PIF while we are reading the list; a tunnel
+                   whose PIF is gone, or not on this host, is not plugged here. *)
+                let own_pifs =
+                  Db.PIF.get_refs_where ~__context
+                    ~expr:(Eq (Field "host", Literal (Ref.string_of host)))
+                in
                 let still_plugged_on_host (_, tunnel_rec) =
                   let pif_ref = tunnel_rec.API.tunnel_access_PIF in
-                  let pif_record = Db.PIF.get_record ~__context ~self:pif_ref in
-                  host = pif_record.API.pIF_host
-                  && pif_record.API.pIF_currently_attached
+                  if not (List.mem pif_ref own_pifs) then
+                    false
+                  else
+                    try
+                      Db.PIF.get_currently_attached ~__context ~self:pif_ref
+                    with
+                    | Db_exn.DBCache_NotFound ("missing reference", _, _)
+                    | Db_exn.DBCache_NotFound ("missing row", _, _) ->
+                        false
+                    | Api_errors.Server_error (code, _)
+                      when code = Api_errors.handle_invalid ->
+                        false
                 in
                 let no_more_vxlan =
                   not (List.exists still_plugged_on_host tunnels)
