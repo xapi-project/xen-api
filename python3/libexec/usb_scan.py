@@ -26,8 +26,10 @@
 
 import abc
 import argparse
+import glob
 import json
 import logging
+import os
 import re
 import sys
 
@@ -341,6 +343,7 @@ class Policy:
     """
 
     _PATH = "/etc/xensource/usb-policy.conf"
+    _DROPIN_DIR = "/etc/xensource/usb-policy.conf.d"
 
     _CLASS = "class"
     _SUBCLASS = "subclass"
@@ -376,20 +379,30 @@ class Policy:
         Note: hubs are never allowed to pass through
         """
         self.rule_list = []
-        try:
-            with open(self._PATH, encoding="utf-8", errors="backslashreplace") as f:
-                log.debug("=== policy file begin")
-                for line in f:
-                    log.debug(line[0:-1])
-                    self.parse_line(line)
-                log.debug("=== policy file end")
-        except OSError as e:
-            # without policy file, no device will be allowed to passed through
-            log_exit("Caught error {}, policy file error".format(str(e)))
+
+        # drop-in files are optionals and read first, so a rule in one of them
+        # can override a rule in the main file below.
+        if os.path.isdir(self._DROPIN_DIR):
+            for path in sorted(glob.glob(os.path.join(self._DROPIN_DIR, "*.conf"))):
+                self._parse_file(path)
+
+        self._parse_file(self._PATH)
 
         log.debug("=== rule list begin")
         log_list(self.rule_list)
         log.debug("=== rule list end")
+
+    def _parse_file(self, path):
+        try:
+            with open(path, encoding="utf-8", errors="backslashreplace") as f:
+                log.debug("=== policy file begin: " + path)
+                for line in f:
+                    log.debug(line[0:-1])
+                    self.parse_line(line)
+                log.debug("=== policy file end: " + path)
+        except OSError as e:
+            # without policy file, no device will be allowed to passed through
+            log_exit("Caught error {}, policy file error".format(str(e)))
 
     def check_hex_length(self, name, value):
         if name in [self._CLASS, self._SUBCLASS, self._PROTOCOL]:
