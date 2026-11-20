@@ -1024,6 +1024,8 @@ let ignore_vtpm_unimplemented = ref false
 
 let evacuation_batch_size = ref 10
 
+let nvidia_sriov_manage_retry_timeout = ref 15.0
+
 (* Max size limit of bundle file: 1 GB*)
 let bundle_max_size_limit = ref (Int64.of_int (1024 * 1024 * 1024))
 
@@ -1772,6 +1774,12 @@ let other_options =
     , Arg.Set_int evacuation_batch_size
     , (fun () -> string_of_int !evacuation_batch_size)
     , "The number of VMs evacauted from a host in parallel."
+    )
+  ; ( "nvidia-sriov-manage-retry-timeout"
+    , Arg.Set_float nvidia_sriov_manage_retry_timeout
+    , (fun () -> string_of_float !nvidia_sriov_manage_retry_timeout)
+    , "Seconds for which to keep retrying sriov-manage when the NVIDIA driver \
+       refuses the GPU's unbind lock. 0 disables retries."
     )
   ; ( "ignore-vtpm-unimplemented"
     , Arg.Set ignore_vtpm_unimplemented

@@ -66,6 +66,12 @@ val disable_dom0_access :
  * and that those entries have the "physical_function" field set correctly. *)
 val mxgpu_vf_setup : __context:Context.t -> unit
 
+val retry_on_unbind_lock : ?delay:float -> timeout:float -> (unit -> 'a) -> 'a
+(** [retry_on_unbind_lock ~timeout f] runs [f], and runs it again with a
+    doubling [delay] (default 0.5s, at most 4s) while it fails because
+    sriov-manage could not obtain the NVIDIA unbind lock, for up to [timeout]
+    seconds. Exposed for testing. *)
+
 (* For nvidia vgpu. Acts on the local host only.  Ensures that the
  * nvidia VFs are created on localhost, that PCI DB entries exist for
  * the VF PCI devices, and that those entries have the
