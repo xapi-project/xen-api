@@ -574,6 +574,53 @@ let remove_stale_pcis ~__context ~vm =
   in
   List.iter remove stale_pcis
 
+let sync_vgpu_pcis_from_xenopsd ~__context ~vm ~queue_name ~dbg id =
+  let open Xapi_xenops_queue in
+  let module Client = (val make_client queue_name : XENOPS) in
+  let localhost = Helpers.get_localhost ~__context in
+  let vgpu_of_device =
+    Db.VM.get_VGPUs ~__context ~self:vm
+    |> List.map (fun self -> (Db.VGPU.get_device ~__context ~self, self))
+  in
+  let local_pcis =
+    Db.Host.get_PCIs ~__context ~self:localhost
+    |> List.filter_map (fun pci ->
+        try
+          Some
+            ( Db.PCI.get_pci_id ~__context ~self:pci
+              |> Xenops_interface.Pci.address_of_string
+            , pci
+            )
+        with _ -> None
+    )
+  in
+  Client.VGPU.list dbg id
+  |> List.iter (fun (vgpu_t, _) ->
+      let device = snd vgpu_t.Xenops_interface.Vgpu.id in
+      match
+        ( vgpu_t.Xenops_interface.Vgpu.virtual_pci_address
+        , List.assoc_opt device vgpu_of_device
+        )
+      with
+      | Some address, Some vgpu -> (
+          let current = Db.VGPU.get_PCI ~__context ~self:vgpu in
+          match List.assoc_opt address local_pcis with
+          | Some pci when pci <> current ->
+              debug "%s: VGPU %s of VM %s uses VF %s; setting VGPU.PCI from %s"
+                __FUNCTION__ (Ref.string_of vgpu) (Ref.string_of vm)
+                (Ref.string_of pci) (Ref.string_of current) ;
+              Db.VGPU.set_PCI ~__context ~self:vgpu ~value:pci
+          | Some _ ->
+              ()
+          | None ->
+              warn "%s: VGPU %s of VM %s uses VF %s, which is not on this host"
+                __FUNCTION__ (Ref.string_of vgpu) (Ref.string_of vm)
+                (Xenops_interface.Pci.string_of_address address)
+        )
+      | _ ->
+          ()
+  )
+
 (** Called on the destination side *)
 let pool_migrate_complete ~__context ~vm ~host:_ =
   let id = Db.VM.get_uuid ~__context ~self:vm in
@@ -584,6 +631,11 @@ let pool_migrate_complete ~__context ~vm ~host:_ =
   let dbg = Context.string_of_task __context in
   let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
   if Xapi_xenops.vm_exists_in_xenopsd queue_name dbg id then (
+    ( try sync_vgpu_pcis_from_xenopsd ~__context ~vm ~queue_name ~dbg id
+      with e ->
+        warn "%s: could not take the VM's vGPU VFs from xenopsd: %s"
+          __FUNCTION__ (Printexc.to_string e)
+    ) ;
     remove_stale_pcis ~__context ~vm ;
     Xapi_xenops.set_resident_on ~__context ~self:vm ;
     Xapi_xenops.Events_from_xenopsd.wait queue_name dbg id () ;
