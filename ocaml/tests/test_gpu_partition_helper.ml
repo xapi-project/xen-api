@@ -934,4 +934,69 @@ let answering =
       (per_gi [(1, Wire.Creatable.(Not_read Section_absent))])
   ]
 
-let test = starting_up @ decoding @ asking @ answering
+(* An observation's state, a start or a refusal, and the reason that its reply
+   gives for a GPU that could not be read *)
+let summary (seen : (unit, unit) Gpu_partition_helper.observation) =
+  ( Result.fold
+      ~ok:(fun _ -> "a start")
+      ~error:Gpu.Gpu_partition_order.string_of_refusal seen.state
+  , match seen.reply.probe with
+    | Unreadable {reason; _} ->
+        string_of_reason reason
+    | Partitions _ | None_carved _ | Not_applicable ->
+        ""
+  )
+
+(* The observation of the GPU at [card] with [vfs] VFs, whose helper writes
+   [replies] *)
+let observed ?(exit = 0) ~vfs replies =
+  Gpu_partition_helper.observe_card
+    ~num_vfs:(fun _ -> Ok vfs)
+    ~read_card:(fun bdf ->
+      decode
+        (request ~page_size:4096 bdf)
+        (Ok {exit= Some exit; stdout= lines replies})
+    )
+    (Xcp_pci.address_of_string card)
+
+let observes name ?exit ~vfs replies expected =
+  Alcotest.test_case name `Quick @@ fun () ->
+  observed ?exit ~vfs replies
+  |> summary
+  |> Alcotest.(check (pair string string)) "state, reason" expected
+
+let a_vf_count_that_cannot_be_read_raises_before_the_gpu_is_read () =
+  match
+    Gpu_partition_helper.observe_card
+      ~num_vfs:(fun _ -> Error "unreadable")
+      ~read_card:(fun _ -> Alcotest.fail "the GPU was read")
+      (Xcp_pci.address_of_string card)
+  with
+  | (_ : (unit, unit) Gpu_partition_helper.observation) ->
+      Alcotest.fail "the GPU was observed"
+  | exception Api_errors.Server_error (code, _) ->
+      Alcotest.(check string) "error" Api_errors.internal_error code
+
+let observing =
+  [
+    observes "a GPU with partitions and no VFs is refused" ~vfs:(Some 0)
+      [partitions]
+      ("Partitions_without_vfs", "")
+  ; observes "a GPU read after a reboot gets a start" ~vfs:(Some 0)
+      [none_carved] ("a start", "")
+  ; observes "a divided GPU read without VFs or partitions gets a start"
+      ~vfs:(Some 0) [mig_on_none_carved] ("a start", "")
+  ; observes "a divided GPU whose partitions were not read is refused" ~exit:75
+      ~vfs:(Some 16)
+      [with_probe ~reason:(Value (Known In_use)) (Known Unreadable) partitions]
+      ("Partitions_unreadable", "in_use")
+  ; observes "a GPU whose mode was not read is refused, with its reason"
+      ~exit:75 ~vfs:(Some 0)
+      [failed (Known Lock_timeout)]
+      ("Mode_unreadable", "lock_timeout")
+  ; Alcotest.test_case
+      "a VF count that cannot be read raises before the GPU is read" `Quick
+      a_vf_count_that_cannot_be_read_raises_before_the_gpu_is_read
+  ]
+
+let test = starting_up @ decoding @ asking @ answering @ observing
