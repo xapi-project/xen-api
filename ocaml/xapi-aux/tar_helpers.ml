@@ -50,6 +50,55 @@ let skip ifd n =
   in
   loop n
 
+type probe =
+  | Header of {hdr: Tar.Header.t; bytes_read: int}
+  | Not_tar of Cstruct.t
+
+(* Serves the first block once, then reads from the fd. *)
+module ProbeInput = struct
+  type in_channel = {
+      fd: Unix.file_descr
+    ; mutable first_block: Cstruct.t option
+          (* [None] once the tar reader has taken it *)
+    ; mutable bytes_read: int
+  }
+
+  type 'a t = 'a Identity.t
+
+  let really_read t dest =
+    match t.first_block with
+    | Some first_block ->
+        t.first_block <- None ;
+        (* Tar.HeaderReader reads the first header as one whole block. *)
+        assert (Cstruct.length dest = Cstruct.length first_block) ;
+        Cstruct.blit first_block 0 dest 0 (Cstruct.length first_block)
+    | None ->
+        t.bytes_read <- t.bytes_read + Cstruct.length dest ;
+        really_read t.fd dest
+
+  let skip t n = really_read t (Cstruct.create n)
+end
+
+module HR = Tar.HeaderReader (Identity) (ProbeInput)
+
+let probe_header fd =
+  let first_block = Cstruct.create Tar.Header.length in
+  really_read fd first_block ;
+  match Tar.Header.unmarshal first_block with
+  | (exception _) | None ->
+      Not_tar first_block
+  | Some _ -> (
+      let input =
+        ProbeInput.
+          {fd; first_block= Some first_block; bytes_read= Tar.Header.length}
+      in
+      match HR.read input with
+      | Ok hdr ->
+          Header {hdr; bytes_read= input.bytes_read}
+      | Error `Eof ->
+          raise End_of_file
+    )
+
 let copy_n ifd ofd n =
   let buffer = Bytes.create 65536 in
   let rec loop remaining =
