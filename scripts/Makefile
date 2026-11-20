@@ -17,6 +17,7 @@ install:
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/var/lib/xcp
 	mkdir -p $(DESTDIR)/usr/lib/systemd/system
+	mkdir -p $(DESTDIR)/usr/lib/systemd/system/chronyd.service.d
 	mkdir -p $(DESTDIR)/usr/lib/yum-plugins
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
 	mkdir -p $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/
@@ -83,6 +84,7 @@ install:
 	$(IDATA) xcp-rrdd-dcmi.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-dcmi.service
 	$(IDATA) xcp-rrdd-cpu.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-cpu.service
 	$(IDATA) xcp-rrdd-netdev.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-netdev.service
+	$(IDATA) xapi-wait-sync.conf $(DESTDIR)/usr/lib/systemd/system/chronyd.service.d/xapi-wait-sync.conf
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCXENDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCXENDIR)/master.d/03-mpathalert-daemon
