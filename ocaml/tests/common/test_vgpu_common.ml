@@ -39,6 +39,8 @@ let k100 =
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= ["GRID K100"]
+  ; partition_slices= None
+  ; partition_max_vgpus= None
   }
 
 let k140q =
@@ -66,6 +68,8 @@ let k140q =
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= ["GRID K140Q"]
+  ; partition_slices= None
+  ; partition_max_vgpus= None
   }
 
 let k200 =
@@ -93,6 +97,8 @@ let k200 =
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= ["GRID K200"]
+  ; partition_slices= None
+  ; partition_max_vgpus= None
   }
 
 let k240q =
@@ -120,6 +126,8 @@ let k240q =
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= ["GRID K240Q"]
+  ; partition_slices= None
+  ; partition_max_vgpus= None
   }
 
 let k260q =
@@ -147,6 +155,8 @@ let k260q =
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= ["GRID K260Q"]
+  ; partition_slices= None
+  ; partition_max_vgpus= None
   }
 
 let k1_vgpu_types = [k100; k140q; passthrough_gpu]
@@ -175,6 +185,8 @@ let gvt_g_041a =
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= []
+  ; partition_slices= None
+  ; partition_max_vgpus= None
   }
 
 let intel_041a_vgpu_types = [gvt_g_041a; passthrough_gpu]

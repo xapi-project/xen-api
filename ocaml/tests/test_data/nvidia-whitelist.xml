@@ -34,6 +34,49 @@
     <evenMoreData>0x6000000</evenMoreData>
     <multiVgpuSupported>0</multiVgpuSupported>
   </vgpuType>
+  <vgpuType id="30" name="TYPE PART2" class="Quadro">
+    <devId vendorId="0x10de" deviceId="0x1113" subsystemVendorId="0x10de" subsystemId="0x2230"></devId>
+    <framebuffer>0x10000000</framebuffer>
+    <numHeads>4</numHeads>
+    <display width="7680" height="4320"></display>
+    <gpuInstanceSize>2</gpuInstanceSize>
+    <multiVgpuSupported>0</multiVgpuSupported>
+    <maxInstancePerGI>3</maxInstancePerGI>
+  </vgpuType>
+  <vgpuType id="31" name="TYPE WHOLE" class="Quadro">
+    <devId vendorId="0x10de" deviceId="0x1113" subsystemVendorId="0x10de" subsystemId="0x2231"></devId>
+    <framebuffer>0x10000000</framebuffer>
+    <numHeads>4</numHeads>
+    <display width="7680" height="4320"></display>
+    <multiVgpuSupported>0</multiVgpuSupported>
+  </vgpuType>
+  <vgpuType id="32" name="TYPE GARBAGE" class="Quadro">
+    <devId vendorId="0x10de" deviceId="0x1113" subsystemVendorId="0x10de" subsystemId="0x2232"></devId>
+    <framebuffer>0x10000000</framebuffer>
+    <numHeads>4</numHeads>
+    <display width="7680" height="4320"></display>
+    <gpuInstanceSize>two</gpuInstanceSize>
+    <multiVgpuSupported>0</multiVgpuSupported>
+    <maxInstancePerGI></maxInstancePerGI>
+  </vgpuType>
+  <vgpuType id="33" name="TYPE ZERO" class="Quadro">
+    <devId vendorId="0x10de" deviceId="0x1113" subsystemVendorId="0x10de" subsystemId="0x2233"></devId>
+    <framebuffer>0x10000000</framebuffer>
+    <numHeads>4</numHeads>
+    <display width="7680" height="4320"></display>
+    <gpuInstanceSize>0</gpuInstanceSize>
+    <multiVgpuSupported>0</multiVgpuSupported>
+    <maxInstancePerGI>-1</maxInstancePerGI>
+  </vgpuType>
+  <vgpuType id="34" name="TYPE EMPTY" class="Quadro">
+    <devId vendorId="0x10de" deviceId="0x1113" subsystemVendorId="0x10de" subsystemId="0x2234"></devId>
+    <framebuffer>0x10000000</framebuffer>
+    <numHeads>4</numHeads>
+    <display width="7680" height="4320"></display>
+    <gpuInstanceSize/>
+    <multiVgpuSupported>0</multiVgpuSupported>
+    <maxInstancePerGI>12</maxInstancePerGI>
+  </vgpuType>
   <pgpu>
     <devId vendorId="0x10de" deviceId="0x3333" subsystemVendorId="0x10de" subsystemId="0x4444"></devId>
     <supportedVgpu vgpuId="11">
@@ -56,6 +99,29 @@
     </supportedVgpu>
     <supportedVgpu vgpuId="21">
       <maxVgpus>16</maxVgpus>
+      <digest type="signature">ignore me</digest>
+    </supportedVgpu>
+  </pgpu>
+  <pgpu>
+    <devId vendorId="0x10de" deviceId="0x3336" subsystemVendorId="0x10de" subsystemId="0x4446"></devId>
+    <supportedVgpu vgpuId="30">
+      <maxVgpus>24</maxVgpus>
+      <digest type="signature">ignore me</digest>
+    </supportedVgpu>
+    <supportedVgpu vgpuId="31">
+      <maxVgpus>4</maxVgpus>
+      <digest type="signature">ignore me</digest>
+    </supportedVgpu>
+    <supportedVgpu vgpuId="32">
+      <maxVgpus>4</maxVgpus>
+      <digest type="signature">ignore me</digest>
+    </supportedVgpu>
+    <supportedVgpu vgpuId="33">
+      <maxVgpus>4</maxVgpus>
+      <digest type="signature">ignore me</digest>
+    </supportedVgpu>
+    <supportedVgpu vgpuId="34">
+      <maxVgpus>4</maxVgpus>
       <digest type="signature">ignore me</digest>
     </supportedVgpu>
   </pgpu>
