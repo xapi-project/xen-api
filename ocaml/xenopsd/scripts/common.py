@@ -53,9 +53,9 @@ def run(on_error, args):
     (rc, stdout, stderr) = doexec(args)
     if rc != 0:
         if on_error == ON_ERROR_FAIL:
-             send_to_syslog("FATAL: %s exitted with %d: %s" % (" ".join(args), rc, stderr))
+             send_to_syslog("FATAL: %s exitted with %d: %s" % (" ".join(args), rc, stderr.read()))
              sys.exit(1)
-        send_to_syslog("%s exitted with %d: %s" % (" ".join(args), rc, stderr))
+        send_to_syslog("%s exitted with %d: %s" % (" ".join(args), rc, stderr.read()))
         if on_error != ON_ERROR_LOG:
              send_to_syslog("... and an unrecognised on_error code was used (%d)" % on_error)
 
