@@ -1,3 +1,7 @@
+(cram
+ (package xapi-gpu)
+ (deps (package xapi-gpu)))
+
 (test
  (name test_partition_mode)
  (package xapi-gpu)
