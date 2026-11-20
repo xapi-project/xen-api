@@ -688,12 +688,39 @@ let evacuate ~__context ~host ~network ~evacuate_batch_size =
     in
 
     Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+    (* All the migrations share this session, which is logged out when we
+       return. So when one fails, start no more but wait for the others to
+       finish before raising the first failure. *)
+    let first_failure = ref None in
+    let record_failure exn =
+      let bt = Printexc.get_raw_backtrace () in
+      if Option.is_none !first_failure then (
+        warn
+          "Host.evacuate: %s; not starting any more migrations, waiting for \
+           those in progress"
+          (ExnHelper.string_of_exn exn) ;
+        first_failure := Some (exn, bt)
+      )
+    in
+    let start x =
+      try Some (api_fn ~rpc ~session_id x)
+      with exn -> record_failure exn ; None
+    in
     ( match take n xs with
     | [], _ ->
         ()
     | head, tasks_left ->
         let tasks_left = ref tasks_left in
-        let initial_task_batch = List.map (api_fn ~rpc ~session_id) head in
+        let initial_task_batch =
+          List.filter_map
+            (fun x ->
+              if Option.is_none !first_failure then
+                start x
+              else
+                None
+            )
+            head
+        in
         let tasks_pending =
           ref
             (List.fold_left
@@ -705,7 +732,7 @@ let evacuate ~__context ~host ~network ~evacuate_batch_size =
         let single_task_progress = 1.0 /. plans_length in
         let on_each_task_completion completed_task_count completed_task =
           (* Clean up the completed task *)
-          assert_success completed_task ;
+          (try assert_success completed_task with exn -> record_failure exn) ;
           destroy ~rpc ~session_id ~self:completed_task ;
           tasks_pending := Tasks.TaskSet.remove completed_task !tasks_pending ;
 
@@ -715,15 +742,19 @@ let evacuate ~__context ~host ~network ~evacuate_batch_size =
           in
           TaskHelper.set_progress ~__context progress ;
 
-          (* Schedule a new task, if there are any left *)
-          match !tasks_left with
-          | [] ->
+          (* Schedule a new task, if there are any left and none has failed *)
+          match (!first_failure, !tasks_left) with
+          | Some _, _ | None, [] ->
               []
-          | task_to_schedule :: left ->
+          | None, task_to_schedule :: left -> (
               tasks_left := left ;
-              let new_task = api_fn ~rpc ~session_id task_to_schedule in
-              tasks_pending := Tasks.TaskSet.add new_task !tasks_pending ;
-              [new_task]
+              match start task_to_schedule with
+              | Some new_task ->
+                  tasks_pending := Tasks.TaskSet.add new_task !tasks_pending ;
+                  [new_task]
+              | None ->
+                  []
+            )
         in
         finally
           (fun () ->
@@ -736,6 +767,9 @@ let evacuate ~__context ~host ~network ~evacuate_batch_size =
               !tasks_pending
           )
     ) ;
+    Option.iter
+      (fun (exn, bt) -> Printexc.raise_with_backtrace exn bt)
+      !first_failure ;
     TaskHelper.set_progress ~__context 1.0
   in
 
