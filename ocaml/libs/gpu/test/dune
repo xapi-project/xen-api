@@ -21,6 +21,12 @@
  (libraries gpu alcotest))
 
 (test
+ (name test_gpu_partition_order)
+ (package xapi-gpu)
+ (modules test_gpu_partition_order)
+ (libraries gpu alcotest))
+
+(test
  (name test_host_partitioning)
  (package xapi-gpu)
  (modules test_host_partitioning)
