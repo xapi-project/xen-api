@@ -8486,20 +8486,4 @@ module Rate_limit = struct
         ~uuid:(Cli_args.get "caller-uuid" params)
     in
     Client.Rate_limit.remove_caller ~rpc ~session_id ~self ~caller
-
-  let set_burst_size _printer rpc session_id params =
-    let self =
-      Client.Rate_limit.get_by_uuid ~rpc ~session_id
-        ~uuid:(Cli_args.get "uuid" params)
-    in
-    let value = float_of_string (Cli_args.get "value" params) in
-    Client.Rate_limit.set_burst_size ~rpc ~session_id ~self ~value
-
-  let set_fill_rate _printer rpc session_id params =
-    let self =
-      Client.Rate_limit.get_by_uuid ~rpc ~session_id
-        ~uuid:(Cli_args.get "uuid" params)
-    in
-    let value = float_of_string (Cli_args.get "value" params) in
-    Client.Rate_limit.set_fill_rate ~rpc ~session_id ~self ~value
 end
