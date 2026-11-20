@@ -87,6 +87,8 @@ let pre_exit_hook () =
    ensure that they flush a consistent snapshot. Backends must also ensure that
    they do not hold the global db_lock whilst they are writing to non-local
    storage.
+   Exits use Unix._exit: the database is already flushed, and the flush_all in
+   Stdlib.exit can block forever on a stale channel while Db_lock is held.
 *)
 let flush_dirty_and_maybe_exit dbconn exit_spec =
   Db_conn_store.with_db_conn_lock dbconn (fun () ->
@@ -101,7 +103,7 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
           if refcount = 0 then (
             debug "refcount is 0; exiting" ;
             pre_exit_hook () ;
-            exit 0
+            Unix._exit 0
           ) else
             debug "refcount is %d; not exiting" refcount
       ) ;
@@ -111,7 +113,7 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
       | None ->
           ()
       | Some ret_code ->
-          pre_exit_hook () ; exit ret_code
+          pre_exit_hook () ; Unix._exit ret_code
       ) ;
       was_anything_flushed
   )
