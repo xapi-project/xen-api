@@ -1824,6 +1824,8 @@ module Vkbd = struct
 end
 
 module Vusb = struct
+  type controller = Legacy | Xhci
+
   let exec_usb_reset_script argv =
     try
       let stdout, stderr =
@@ -1895,7 +1897,8 @@ module Vusb = struct
     else
       []
 
-  let vusb_plug ~xs ~privileged ~domid ~id ~hostbus ~hostport ~version ~speed =
+  let vusb_plug ~xs ~privileged ~domid ~id ~hostbus ~hostport ~version ~speed
+      ~ctrl =
     debug "vusb_plug: plug VUSB device %s" id ;
     let get_bus () =
       let vusb_controller_plug ~driver ~driver_id =
@@ -1908,50 +1911,58 @@ module Vusb = struct
             )
           |> ignore
       in
-      let usb_bus0 = ("usb-bus.0", fun () -> ()) in
-      let ehci0 =
-        ( "ehci.0"
-        , fun () -> vusb_controller_plug ~driver:"usb-ehci" ~driver_id:"ehci"
+      match ctrl with
+      | Xhci ->
+          ( "xhci.0"
+          , fun () -> vusb_controller_plug ~driver:"qemu-xhci" ~driver_id:"xhci"
+          )
+      | Legacy -> (
+          let usb_bus0 = ("usb-bus.0", fun () -> ()) in
+          let ehci0 =
+            ( "ehci.0"
+            , fun () ->
+                vusb_controller_plug ~driver:"usb-ehci" ~driver_id:"ehci"
+            )
+          in
+          let speed_of_float x =
+            if x <= 0. then
+              `Unknown
+            else if x <= 1.5 then
+              `Low (* v1.0 *)
+            else if x <= 12. then
+              `Full (* v1.1 *)
+            else if x <= 480. then
+              `High (* v2.0 *)
+            else if x <= 5000. then
+              `Super (* v3.0 *)
+            else
+              `Unknown
+          in
+          let bus_from_speed =
+            match speed_of_float speed with
+            | `Unknown ->
+                None
+            | `Low | `Full ->
+                Some usb_bus0
+            | `High | `Super ->
+                Some ehci0
+          in
+          let get_bus_from_version () =
+            let major_version =
+              Scanf.sscanf version "%d.%d" (fun major _minor -> major)
+            in
+            match major_version with 1 -> usb_bus0 | _ -> ehci0
+          in
+          match bus_from_speed with
+          | Some x ->
+              x
+          | None ->
+              D.warn
+                "vusb_plug: failed to get bus from usb speed: %f, for VUSB \
+                 device %s. getting bus from version"
+                speed id ;
+              get_bus_from_version ()
         )
-      in
-      let speed_of_float x =
-        if x <= 0. then
-          `Unknown
-        else if x <= 1.5 then
-          `Low (* v1.0 *)
-        else if x <= 12. then
-          `Full (* v1.1 *)
-        else if x <= 480. then
-          `High (* v2.0 *)
-        else if x <= 5000. then
-          `Super (* v3.0 *)
-        else
-          `Unknown
-      in
-      let bus_from_speed =
-        match speed_of_float speed with
-        | `Unknown ->
-            None
-        | `Low | `Full ->
-            Some usb_bus0
-        | `High | `Super ->
-            Some ehci0
-      in
-      let get_bus_from_version () =
-        let major_version =
-          Scanf.sscanf version "%d.%d" (fun major _minor -> major)
-        in
-        match major_version with 1 -> usb_bus0 | _ -> ehci0
-      in
-      match bus_from_speed with
-      | Some x ->
-          x
-      | None ->
-          D.warn
-            "vusb_plug: failed to get bus from usb speed: %f, for VUSB device \
-             %s. getting bus from version"
-            speed id ;
-          get_bus_from_version ()
     in
     match Service.Qemu.pid ~xs domid with
     | Some pid ->
