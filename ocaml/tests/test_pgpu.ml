@@ -296,8 +296,190 @@ let test_partition_mode =
       )
     ]
 
+(*--- Xapi_pgpu.sync_held_back and sync_gpus ---*)
+
+(* The coordinator (this host) and a second host, both at one version; returns
+   both *)
+let pool_of_two ~gpu_partitioning =
+  let __context = T.make_test_database () in
+  let master = Helpers.get_localhost ~__context in
+  let other = T.make_host ~__context () in
+  List.iter
+    (fun host ->
+      T.set_host_version ~__context ~host ~key:Xapi_globs._platform_version
+        "1.0.0" ;
+      T.set_host_version ~__context ~host ~key:Xapi_globs._xapi_version "1.0"
+    )
+    [master; other] ;
+  Db.Pool.set_gpu_partitioning ~__context
+    ~self:(Helpers.get_pool ~__context)
+    ~value:gpu_partitioning ;
+  (__context, master, other)
+
+let ahead ~__context host =
+  T.set_host_version ~__context ~host ~key:Xapi_globs._xapi_version "99.0"
+
+let held_back name expected ~__context host =
+  Alcotest.(check bool) name expected (Xapi_pgpu.sync_held_back ~__context ~host)
+
+let test_held_back_disabled_behind_host_syncs () =
+  let __context, master, other = pool_of_two ~gpu_partitioning:`disabled in
+  ahead ~__context other ;
+  held_back "behind, setting disabled" false ~__context master
+
+let test_held_back_newest_host_syncs () =
+  let __context, _, other = pool_of_two ~gpu_partitioning:`enabled in
+  ahead ~__context other ;
+  held_back "newest host" false ~__context other
+
+let test_held_back_behind_host () =
+  let __context, master, other = pool_of_two ~gpu_partitioning:`enabled in
+  ahead ~__context other ;
+  held_back "behind host" true ~__context master
+
+(* default_policy means disabled in this version *)
+let test_held_back_default_policy_behind_host_syncs () =
+  let __context, master, other =
+    pool_of_two ~gpu_partitioning:`default_policy
+  in
+  ahead ~__context other ;
+  held_back "behind, setting default_policy" false ~__context master
+
+let test_held_back_same_versions () =
+  let __context, master, other = pool_of_two ~gpu_partitioning:`enabled in
+  held_back "coordinator" false ~__context master ;
+  held_back "other host" false ~__context other
+
+(* Edits the pool's row in the database, as a coordinator of another version
+   holds it *)
+let edit_pool_row ~__context edit =
+  let open Xapi_database.Db_cache_types in
+  let pool = Ref.string_of (Helpers.get_pool ~__context) in
+  let edit_pool = Table.update 0L pool Row.empty edit in
+  Xapi_database.Db_ref.update_database
+    (Context.database_of __context)
+    (Database.update (TableSet.update 0L "pool" Table.empty edit_pool))
+
+(* A coordinator of a version without the setting: it is read as not
+   enabled *)
+let test_held_back_no_field () =
+  let __context, master, other = pool_of_two ~gpu_partitioning:`enabled in
+  ahead ~__context other ;
+  edit_pool_row ~__context
+    (Xapi_database.Db_cache_types.Row.remove 0L "gpu_partitioning") ;
+  held_back "coordinator without the setting" false ~__context master
+
+(* A value of a later version: it is read as not enabled *)
+let test_held_back_unknown_value () =
+  let __context, master, other = pool_of_two ~gpu_partitioning:`enabled in
+  ahead ~__context other ;
+  edit_pool_row ~__context
+    (Xapi_database.Db_cache_types.Row.add 0L "gpu_partitioning"
+       (Schema.Value.String "a_later_value")
+    ) ;
+  held_back "a value this version does not know" false ~__context master
+
+let local_pgpus ~__context =
+  Db.Host.get_PGPUs ~__context ~self:(Helpers.get_localhost ~__context)
+  |> List.map Ref.string_of
+  |> List.sort String.compare
+
+let sync_result = function `Synced -> "synced" | `Held_back -> "held back"
+
+(* Held back, the sync does not run: it would remove the GPU records that the
+   test's machine does not have *)
+let test_sync_gpus_behind_host_held_back () =
+  let __context, master, other = pool_of_two ~gpu_partitioning:`enabled in
+  ahead ~__context other ;
+  let pCI = T.make_pci ~__context ~host:master ~vendor_id:"10de" () in
+  let (_ : API.ref_PGPU) = T.make_pgpu ~__context ~pCI ~host:master () in
+  let before = local_pgpus ~__context in
+  let result = Xapi_pgpu.sync_gpus ~__context () in
+  Alcotest.(check (pair string (list string)))
+    "held back, rows unchanged" ("held back", before)
+    (sync_result result, local_pgpus ~__context)
+
+(* The sync's mutex is released after a held-back sync *)
+let test_sync_gpus_held_back_twice () =
+  let __context, _, other = pool_of_two ~gpu_partitioning:`enabled in
+  ahead ~__context other ;
+  let first = Xapi_pgpu.sync_gpus ~__context () in
+  let second = Xapi_pgpu.sync_gpus ~__context () in
+  Alcotest.(check (pair string string))
+    "both held back" ("held back", "held back")
+    (sync_result first, sync_result second)
+
+(* Not held back, the sync runs. With no GPU rows it reads nothing of the
+   test's machine *)
+let test_sync_gpus_one_version_synced () =
+  let __context, _, _ = pool_of_two ~gpu_partitioning:`enabled in
+  Context.set_test_rpc __context (Mock_rpc.rpc __context) ;
+  Xapi_pgpu.sync_gpus ~__context ()
+  |> sync_result
+  |> Alcotest.(check string) "synced" "synced"
+
+(* A held-back sync keeps the row of a GPU that has left the PCI scan, whose
+   PCI record the start has removed *)
+let test_has_nvidia_gpu_pci_gone () =
+  let __context = T.make_test_database () in
+  let host = Helpers.get_localhost ~__context in
+  let pCI = T.make_pci ~__context ~host ~vendor_id:"10de" () in
+  let (_ : API.ref_PGPU) = T.make_pgpu ~__context ~pCI ~host () in
+  Db.PCI.destroy ~__context ~self:pCI ;
+  Xapi_pgpu.has_nvidia_gpu ~__context ~host
+  |> Alcotest.(check bool) "not counted" false
+
+let test_sync_held_back =
+  [
+    ( "held back: setting disabled, a behind host syncs as before"
+    , `Quick
+    , test_held_back_disabled_behind_host_syncs
+    )
+  ; ( "held back: setting enabled, the newest host syncs"
+    , `Quick
+    , test_held_back_newest_host_syncs
+    )
+  ; ( "held back: setting enabled, a behind host is held back"
+    , `Quick
+    , test_held_back_behind_host
+    )
+  ; ( "held back: setting default_policy, a behind host syncs as before"
+    , `Quick
+    , test_held_back_default_policy_behind_host_syncs
+    )
+  ; ( "held back: setting enabled, one version, no host is held back"
+    , `Quick
+    , test_held_back_same_versions
+    )
+  ; ( "held back: the coordinator's version has no setting, a behind host syncs"
+    , `Quick
+    , test_held_back_no_field
+    )
+  ; ( "held back: a stored value this version does not know, a behind host syncs"
+    , `Quick
+    , test_held_back_unknown_value
+    )
+  ; ( "sync_gpus: a behind host is held back and its rows are unchanged"
+    , `Quick
+    , test_sync_gpus_behind_host_held_back
+    )
+  ; ( "sync_gpus: a second sync after a held-back one is not blocked"
+    , `Quick
+    , test_sync_gpus_held_back_twice
+    )
+  ; ( "sync_gpus: hosts at one version, the sync runs"
+    , `Quick
+    , test_sync_gpus_one_version_synced
+    )
+  ; ( "has_nvidia_gpu: a GPU whose PCI record is gone is not counted"
+    , `Quick
+    , test_has_nvidia_gpu_pci_gone
+    )
+  ]
+
 let test =
   test_can_run_vgpu
   @ test_remaining_capacity
   @ test_set_GPU_group
   @ test_partition_mode
+  @ test_sync_held_back

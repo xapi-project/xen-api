@@ -396,7 +396,10 @@ let update_env __context sync_keys =
   switched_sync Xapi_globs.sync_chipset_info (fun () ->
       Create_misc.create_chipset_info ~__context info
   ) ;
-  switched_sync Xapi_globs.sync_gpus (fun () -> Xapi_pgpu.update_gpus ~__context) ;
+  switched_sync Xapi_globs.sync_gpus (fun () ->
+      let (_ : Xapi_pgpu.sync_result) = Xapi_pgpu.sync_gpus ~__context () in
+      ()
+  ) ;
   switched_sync Xapi_globs.sync_ssh_status (fun () ->
       let ssh_service = !Xapi_globs.ssh_service in
       let status = Fe_systemctl.is_active ~service:ssh_service in
