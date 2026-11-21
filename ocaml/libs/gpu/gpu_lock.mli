@@ -67,6 +67,17 @@ val sriov_manage :
     sriov-manage, run with [-e] or [-d] on [card], where the lock is engaged.
     @raise Killed when it times out. *)
 
+val num_vfs :
+     ?sysfs:string
+  -> ?err:(string -> string)
+  -> string
+  -> (int option, string) result
+(** [num_vfs pci] is the number of virtual functions (VFs) that the PCI
+    device named [pci] in [sysfs] has enabled, or [None] when it has no
+    SR-IOV (its sriov_numvfs file does not exist). A file that cannot be
+    read or parsed gives [Error "<err path>: <exception>"]; [err path] is
+    ["Can't read <path>"] by default. [sysfs] is for tests. *)
+
 (** What an unbind found when it set a card's driver unbind lock, a flag that
     it may clear only if it set it. [Busy]'s [tries] counts the tries where
     the lock is engaged. *)

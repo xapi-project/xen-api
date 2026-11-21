@@ -257,6 +257,44 @@ let key_written (before, key) () =
   check "written, read back" true
     (set before = Ok () && set key = Ok () && read_key_now lock = Ok (Some key))
 
+let pci = Xcp_pci.string_of_address card
+
+(* a sysfs in a new world's directory where the count file of the device named
+   [pci] holds the text, if any *)
+let sysfs_with text =
+  let sysfs = Filename.dirname (fst (world ())) in
+  let dir = Filename.concat sysfs pci in
+  Unixext.mkdir_rec dir 0o700 ;
+  Option.iter (Unixext.write_string_to_file (dir ^ "/sriov_numvfs")) text ;
+  sysfs
+
+(* the device's VF count; an [Error]'s reason, for logs, is not compared *)
+let num_vfs_rows =
+  let row (name, text, count) =
+    Alcotest.test_case name `Quick @@ fun () ->
+    Alcotest.(check (result (option int) pass))
+      name count
+      (L.num_vfs ~sysfs:(sysfs_with text) pci)
+  in
+  List.map row
+    [
+      ("a count is read", Some "4\n", Ok (Some 4))
+    ; ("no file reads as no SR-IOV", None, Ok None)
+    ; ("text that is not a count is an error", Some "four\n", Error "")
+    ]
+
+(* a caller's message for the count file starts the error, and the exception
+   follows it *)
+let num_vfs_err =
+  Alcotest.test_case "a caller's message starts the error" `Quick @@ fun () ->
+  let sysfs = sysfs_with (Some "four\n") in
+  let err path = "Can't count the VFs in " ^ path in
+  let path = Printf.sprintf "%s/%s/sriov_numvfs" sysfs pci in
+  Alcotest.(check (result (option int) string))
+    "the caller's message, then the exception"
+    (Error (err path ^ ": " ^ Printexc.to_string (Failure "int_of_string")))
+    (L.num_vfs ~sysfs ~err pci)
+
 let () =
   Alcotest.run "gpu_lock"
     [
@@ -278,4 +316,5 @@ let () =
           ]
       )
     ; ("unbind lock", unbind_lock_rows)
+    ; ("num_vfs", num_vfs_rows @ [num_vfs_err])
     ]
