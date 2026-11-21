@@ -2247,6 +2247,13 @@ let _ =
   error Api_errors.set_ssh_auto_mode_partially_failed ["hosts"]
     ~doc:"Some hosts failed to set SSH auto mode." () ;
 
+  error Api_errors.set_gpu_partitioning_partially_failed ["hosts"]
+    ~doc:
+      "The pool's GPU partitioning setting is stored, but these hosts did not \
+       apply it now. A host applies it at its next xapi start, or when the \
+       setting is set again."
+    () ;
+
   error Api_errors.gpu_partitioning_status_not_reported ["hosts"]
     ~doc:
       "GPU partitioning cannot be enabled while these hosts have not reported \

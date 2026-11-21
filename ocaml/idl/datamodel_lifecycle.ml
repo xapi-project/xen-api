@@ -411,6 +411,8 @@ let prototyped_of_message = function
       Some "25.2.0"
   | "host", "set_numa_affinity_policy" ->
       Some "24.0.0"
+  | "host", "apply_gpu_partitioning" ->
+      Some "26.24.0-next"
   | "VM", "sysprep" ->
       Some "25.24.0"
   | "VM", "update_secureboot_certificates_on_boot" ->

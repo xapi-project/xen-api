@@ -292,6 +292,16 @@ let refused name code f =
   | exception Api_errors.Server_error (actual, _) ->
       Alcotest.(check string) name code actual
 
+let test_set_enabled_stored () =
+  let __context = make_test_database () in
+  set_status ~__context `inactive ;
+  let host = Helpers.get_localhost ~__context in
+  let calls = set_gpu_partitioning ~__context `enabled in
+  Alcotest.(check (list (pair string string)))
+    "the host is called after the store"
+    [(Ref.string_of host, "enabled")]
+    (List.map (fun (h, seen) -> (Ref.string_of h, seen)) calls)
+
 let test_set_enabled_refused_in_rolling_upgrade () =
   let __context = make_test_database () in
   set_status ~__context `inactive ;
@@ -370,9 +380,127 @@ let test_set_default_policy_accepted_not_reported () =
   store ~__context `default_policy ;
   Alcotest.(check string) "stored" "default_policy" (gpu_partitioning ~__context)
 
+(* A repeated call with the same value makes every host apply it again *)
+let test_set_enabled_twice () =
+  let __context = make_test_database () in
+  set_status ~__context `inactive ;
+  let first = set_gpu_partitioning ~__context `enabled in
+  let second = set_gpu_partitioning ~__context `enabled in
+  Alcotest.(check (pair int int))
+    "every host called each time" (1, 1)
+    (List.length first, List.length second)
+
+(* The answer of a host whose evaluation is still running *)
+let busy host =
+  raise
+    Api_errors.(
+      Server_error (other_operation_in_progress, ["host"; Ref.string_of host])
+    )
+
+(* [fail] is the failing host's answer *)
+let test_set_failed_host_named fail () =
+  let __context = make_test_database () in
+  let failing = make_host ~__context () in
+  let apply host = if host = failing then fail host in
+  Alcotest.check_raises "the failed host is named"
+    Api_errors.(
+      Server_error
+        (set_gpu_partitioning_partially_failed, [Ref.string_of failing])
+    )
+    (fun () -> store ~apply ~__context `disabled) ;
+  Alcotest.(check string) "stored" "disabled" (gpu_partitioning ~__context)
+
+(* An offline host, or one of a version without the call, is not a failure:
+   the first applies the stored value at its next start, the second has
+   nothing to apply until it is upgraded *)
+let test_set_host_skipped code () =
+  let __context = make_test_database () in
+  let later = make_host ~__context () in
+  let apply host =
+    if host = later then
+      raise Api_errors.(Server_error (code, [Ref.string_of host]))
+  in
+  store ~apply ~__context `disabled ;
+  Alcotest.(check string) "stored" "disabled" (gpu_partitioning ~__context)
+
+(* With an NVIDIA GPU, the reason the host's evaluation writes. The evaluation
+   releases the GPU lock, so it runs as in the release cases: away from this
+   machine's GPU lock and xenopsd *)
+let nvidia_host_reason ~__context ?partition_mode evaluate =
+  no_host_gpu_lock () ;
+  let host = Helpers.get_localhost ~__context in
+  let pCI = make_pci ~__context ~host ~vendor_id:"10de" () in
+  let (_ : API.ref_PGPU) = make_pgpu ~__context ~pCI ~host ?partition_mode () in
+  let (_ : bool) =
+    with_gpu_lock_engaged ~engaged:false ~exists:false evaluate
+  in
+  Db.Host.get_gpu_partitioning_reason ~__context ~self:host
+
+let sync_reason ~__context () =
+  nvidia_host_reason ~__context (fun () ->
+      Xapi_host.sync_gpu_partitioning ~__context ~after_boot:false
+  )
+
+(* Until the evaluation reads the pool's setting, enabled changes nothing *)
+let test_sync_pool_enabled_still_pool_disabled () =
+  let __context = make_test_database () in
+  Db.Pool.set_gpu_partitioning ~__context
+    ~self:(Helpers.get_pool ~__context)
+    ~value:`enabled ;
+  sync_reason ~__context () |> Alcotest.(check string) "reason" "pool_disabled"
+
+let test_apply_leg_evaluates () =
+  let __context = make_test_database () in
+  nvidia_host_reason ~__context (fun () ->
+      Xapi_host.apply_gpu_partitioning ~__context
+        ~host:(Helpers.get_localhost ~__context)
+  )
+  |> Alcotest.(check string) "reason" "pool_disabled"
+
+(* The call evaluates as a xapi restart does, not as the first start after a
+   boot: the GPU keeps its partition_mode *)
+let test_apply_keeps_partition_mode () =
+  let __context = make_test_database () in
+  let host = Helpers.get_localhost ~__context in
+  let (_ : string) =
+    nvidia_host_reason ~__context ~partition_mode:`enabled (fun () ->
+        Xapi_host.apply_gpu_partitioning ~__context ~host
+    )
+  in
+  Db.Host.get_PGPUs ~__context ~self:host
+  |> List.map (fun self ->
+      API.partition_mode_to_string (Db.PGPU.get_partition_mode ~__context ~self)
+  )
+  |> Alcotest.(check (list string)) "kept" ["enabled"]
+
+let test_apply_leg_lock_held () =
+  let __context = make_test_database () in
+  let self = Helpers.get_localhost ~__context in
+  Xapi_stdext_threads.Threadext.Mutex.execute Xapi_host.gpu_partitioning_m
+    (fun () ->
+      Alcotest.check_raises "busy"
+        Api_errors.(
+          Server_error
+            (other_operation_in_progress, ["host"; Ref.string_of self])
+        )
+        (fun () ->
+          Xapi_host.apply_gpu_partitioning_within ~__context
+            ~timeout:Mtime.Span.(20 * ms)
+        )
+  ) ;
+  Alcotest.(check string)
+    "unchanged" "not_reported"
+    (API.host_gpu_partitioning_status_to_string
+       (Db.Host.get_gpu_partitioning_status ~__context ~self)
+    )
+
 let gpu_partitioning_tests =
   [
-    ( "set: enabled is refused while a rolling pool upgrade is marked"
+    ( "set: enabled is stored, then the host is called"
+    , `Quick
+    , test_set_enabled_stored
+    )
+  ; ( "set: enabled is refused while a rolling pool upgrade is marked"
     , `Quick
     , test_set_enabled_refused_in_rolling_upgrade
     )
@@ -404,6 +532,39 @@ let gpu_partitioning_tests =
   ; ( "set: default_policy is accepted while a host has not reported"
     , `Quick
     , test_set_default_policy_accepted_not_reported
+    )
+  ; ( "set: enabled twice, every host applies it each time"
+    , `Quick
+    , test_set_enabled_twice
+    )
+  ; ( "set: a host that fails is named, and the value stays stored"
+    , `Quick
+    , test_set_failed_host_named (fun _ -> failwith "unreachable")
+    )
+  ; ( "set: a busy host is named, not left to its next start"
+    , `Quick
+    , test_set_failed_host_named busy
+    )
+  ; ( "set: an offline host is left to its next start"
+    , `Quick
+    , test_set_host_skipped Api_errors.host_offline
+    )
+  ; ( "set: a host of a version without the call is not a failure"
+    , `Quick
+    , test_set_host_skipped Api_errors.message_method_unknown
+    )
+  ; ( "sync: the pool's setting enabled, an NVIDIA GPU still reads pool_disabled"
+    , `Quick
+    , test_sync_pool_enabled_still_pool_disabled
+    )
+  ; ("apply: the host's evaluation runs", `Quick, test_apply_leg_evaluates)
+  ; ( "apply: the GPU keeps its partition_mode, as at a xapi restart"
+    , `Quick
+    , test_apply_keeps_partition_mode
+    )
+  ; ( "apply: the lock held too long, it fails and changes nothing"
+    , `Quick
+    , test_apply_leg_lock_held
     )
   ]
 

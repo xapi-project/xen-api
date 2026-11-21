@@ -2796,10 +2796,10 @@ let release_gpu_lock ~__context =
    before the status, so a client that sees a new status sees its reason. *)
 let gpu_partitioning_m = Mutex.create ()
 
-let sync_gpu_partitioning ~__context ~after_boot =
+(* Callers hold gpu_partitioning_m *)
+let evaluate_gpu_partitioning ~__context ~after_boot =
   let self = Helpers.get_localhost ~__context in
   let fn = __FUNCTION__ in
-  with_lock gpu_partitioning_m @@ fun () ->
   match
     Gpu.Host_partitioning.desired
       ~partitionable_gpu:(fun () ->
@@ -2819,8 +2819,9 @@ let sync_gpu_partitioning ~__context ~after_boot =
             release_gpu_lock ~__context
             |> Result.iter_error
                  (warn
-                    "%s: the GPU lock's release stopped: %s; a toolstack \
-                     restart retries it"
+                    "%s: the GPU lock's release stopped: %s; setting the \
+                     pool's GPU partitioning again, or a toolstack restart, \
+                     retries it"
                     fn
                  ) ;
             `inactive
@@ -2833,12 +2834,46 @@ let sync_gpu_partitioning ~__context ~after_boot =
       Db.Host.set_gpu_partitioning_reason ~__context ~self ~value ;
       Db.Host.set_gpu_partitioning_status ~__context ~self ~value:status
   | Ok () ->
-      (* Unreachable until the pool can enable partitioning. The GPUs are read
-         under gpu_partitioning_m, so no other evaluation runs meanwhile *)
+      (* Unreachable for now: the pool's GPU partitioning setting is not read
+         here yet, so a pool with it enabled behaves as one with it disabled,
+         except that hosts behind the pool's newest version hold back their
+         start-up GPU sync. The GPUs are read under gpu_partitioning_m, so no
+         other evaluation runs meanwhile *)
       Gpu_partition_helper.(
         read_cards_at_start ~__context ~host:self
           ~read_card:(read_card ~run:run_helper ~lock_args:no_lock_args)
       )
+
+let sync_gpu_partitioning ~__context ~after_boot =
+  with_lock gpu_partitioning_m @@ fun () ->
+  evaluate_gpu_partitioning ~__context ~after_boot
+
+(* An evaluation can wait tens of seconds for the GPU lock's holders; a call
+   that finds one still running changes nothing, and the next start or a
+   repeated call applies the setting *)
+let gpu_partitioning_apply_timeout = Mtime.Span.(5 * s)
+
+let apply_gpu_partitioning_within ~__context ~timeout =
+  let evaluate () = evaluate_gpu_partitioning ~__context ~after_boot:false in
+  match
+    Xapi_stdext_threads.Threadext.mutex_execute_within ~timeout
+      gpu_partitioning_m evaluate
+  with
+  | Some () ->
+      ()
+  | None ->
+      let self = Helpers.get_localhost ~__context in
+      raise
+        Api_errors.(
+          Server_error
+            (other_operation_in_progress, ["host"; Ref.string_of self])
+        )
+
+(* The pool's setting is stored before the coordinator calls each host, so
+   the call carries no value: the host re-evaluates from the stored state *)
+let apply_gpu_partitioning ~__context ~host:_ =
+  apply_gpu_partitioning_within ~__context
+    ~timeout:gpu_partitioning_apply_timeout
 
 let apply_guest_agent_config ~__context ~host:_ =
   let pool = Helpers.get_pool ~__context in

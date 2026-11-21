@@ -524,6 +524,9 @@ val sync_gpu_partitioning : __context:Context.t -> after_boot:bool -> unit
     which can wait tens of seconds for the lock's holders and for xenopsd;
     [after_boot] is true only at the first xapi start after a host boot *)
 
+val apply_gpu_partitioning : __context:Context.t -> host:API.ref_host -> unit
+(** The coordinator's call to each host after the pool's setting is stored *)
+
 val apply_guest_agent_config : __context:Context.t -> host:API.ref_host -> unit
 
 (* See Xapi_pgpu.mxgpu_vf_setup *)
@@ -672,3 +675,15 @@ val get_ntp_synchronized : __context:Context.t -> self:API.ref_host -> bool
 
 val set_servertime :
   __context:Context.t -> self:API.ref_host -> value:Clock.Date.t -> unit
+
+(* Below exposed only for ease of testing *)
+
+val gpu_partitioning_m : Mutex.t
+(** Held by every evaluation of this host's GPU partitioning *)
+
+val apply_gpu_partitioning_within :
+  __context:Context.t -> timeout:Mtime.Span.t -> unit
+(** Evaluates as {!sync_gpu_partitioning} does, but if another evaluation
+    still holds the lock after [timeout], it fails with
+    OTHER_OPERATION_IN_PROGRESS and changes nothing. Production code calls
+    {!apply_gpu_partitioning} *)

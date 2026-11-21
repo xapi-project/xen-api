@@ -1498,12 +1498,12 @@ let pool_gpu_partitioning =
 let set_gpu_partitioning =
   call ~name:"set_gpu_partitioning" ~lifecycle:[]
     ~doc:
-      "Set whether GPU partitioning may be used on the pool's hosts. Enabling \
-       is refused during a pool update or upgrade, also while the hosts' \
-       versions differ with no rolling pool upgrade marked (the pool \
-       coordinator's log lists each host's versions), and while a host has not \
-       reported its GPU partitioning status. Enabling also needs a pool \
-       license that includes GPU features."
+      "Set whether GPU partitioning may be used on the pool's hosts, then make \
+       every host apply it. Enabling is refused during a pool update or \
+       upgrade, also while the hosts' versions differ with no rolling pool \
+       upgrade marked (the pool coordinator's log lists each host's versions), \
+       and while a host has not reported its GPU partitioning status. Enabling \
+       also needs a pool license that includes GPU features."
     ~params:
       [
         (Ref _pool, "self", "The pool")
@@ -1514,6 +1514,7 @@ let set_gpu_partitioning =
         Api_errors.feature_restricted
       ; Api_errors.not_supported_during_upgrade
       ; Api_errors.gpu_partitioning_status_not_reported
+      ; Api_errors.set_gpu_partitioning_partially_failed
       ]
     ~allowed_roles:_R_POOL_OP ()
 

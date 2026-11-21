@@ -4157,6 +4157,13 @@ functor
         let remote_fn = Client.Host.apply_guest_agent_config ~host in
         do_op_on ~local_fn ~__context ~host ~remote_fn
 
+      let apply_gpu_partitioning ~__context ~host =
+        info "Host.apply_gpu_partitioning: host = '%s'"
+          (host_uuid ~__context host) ;
+        let local_fn = Local.Host.apply_gpu_partitioning ~host in
+        let remote_fn = Client.Host.apply_gpu_partitioning ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
+
       let mxgpu_vf_setup ~__context ~host =
         info "Host.mxgpu_vf_setup: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.mxgpu_vf_setup ~host in

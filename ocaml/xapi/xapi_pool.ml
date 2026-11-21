@@ -4693,6 +4693,32 @@ let assert_every_host_reported_gpu_partitioning ~__context =
 (* Serialises the checks and the store of concurrent calls *)
 let set_gpu_partitioning_m = Mutex.create ()
 
+(* An offline host applies the stored value at its next xapi start, and a host
+   of a version without the call has nothing to apply until it is upgraded:
+   neither is a failure *)
+let call_apply_gpu_partitioning ~rpc ~session_id ~self:host =
+  match Client.Host.apply_gpu_partitioning ~rpc ~session_id ~host with
+  | () ->
+      ()
+  | exception Api_errors.Server_error (code, _)
+    when code = Api_errors.host_offline ->
+      info "%s: host %s applies the setting at its next start: %s" __FUNCTION__
+        (Ref.string_of host) code
+  | exception Api_errors.Server_error (code, _)
+    when code = Api_errors.message_method_unknown ->
+      info
+        "%s: host %s runs a version without this call; there is nothing to \
+         apply until it is upgraded"
+        __FUNCTION__ (Ref.string_of host)
+  | exception e ->
+      let fn = __FUNCTION__ in
+      Unixext.raise_with_preserved_backtrace e (fun () ->
+          warn "%s: host %s: %s" fn (Ref.string_of host) (Printexc.to_string e)
+      )
+
+(* The value is stored first: a host that does not apply it now, being
+   unreachable or busy, applies it at its next xapi start, or when the setting
+   is set again *)
 let set_gpu_partitioning ~__context ~self ~value =
   with_lock set_gpu_partitioning_m (fun () ->
       if Xapi_pgpu.gpu_partitioning_on value then (
@@ -4702,4 +4728,6 @@ let set_gpu_partitioning ~__context ~self ~value =
         assert_every_host_reported_gpu_partitioning ~__context
       ) ;
       Db.Pool.set_gpu_partitioning ~__context ~self ~value
-  )
+  ) ;
+  call_on_all_hosts ~__context ~action:call_apply_gpu_partitioning
+    ~error:Api_errors.set_gpu_partitioning_partially_failed

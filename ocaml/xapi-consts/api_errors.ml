@@ -1504,6 +1504,9 @@ let set_console_timeout_partially_failed =
 let set_ssh_auto_mode_partially_failed =
   add_error "SET_SSH_AUTO_MODE_PARTIALLY_FAILED"
 
+let set_gpu_partitioning_partially_failed =
+  add_error "SET_GPU_PARTITIONING_PARTIALLY_FAILED"
+
 let gpu_partitioning_status_not_reported =
   add_error "GPU_PARTITIONING_STATUS_NOT_REPORTED"
 

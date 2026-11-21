@@ -463,7 +463,8 @@ val set_gpu_partitioning :
   -> self:API.ref_pool
   -> value:API.pool_gpu_partitioning
   -> unit
-(** Stores the pool's GPU partitioning setting; enabling it is checked first *)
+(** Stores the pool's GPU partitioning setting, then makes every host apply
+    it; enabling it is checked first *)
 
 val install_trusted_certificate :
      __context:Context.t

@@ -1927,6 +1927,12 @@ let apply_guest_agent_config =
     ~params:[(Ref _host, "host", "The host")]
     ~hide_from_docs:true ~allowed_roles:_R_POOL_ADMIN ()
 
+let apply_gpu_partitioning =
+  call ~flags:[`Session] ~name:"apply_gpu_partitioning" ~lifecycle:[]
+    ~doc:"Make the host apply the pool's stored GPU partitioning setting now."
+    ~params:[(Ref _host, "host", "The host")]
+    ~hide_from_docs:true ~pool_internal:true ~allowed_roles:_R_POOL_OP ()
+
 let mxgpu_vf_setup =
   call ~name:"mxgpu_vf_setup"
     ~lifecycle:[(Published, rel_falcon, "")]
@@ -2482,6 +2488,7 @@ let t =
       ; disable_display
       ; set_ssl_legacy
       ; apply_guest_agent_config
+      ; apply_gpu_partitioning
       ; mxgpu_vf_setup
       ; nvidia_vf_setup
       ; allocate_resources_for_vm
