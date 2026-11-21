@@ -242,6 +242,171 @@ let release_or_leave
   in
   (name, `Quick, test)
 
+(* The pool's GPU partitioning setting and each host's call to apply it *)
+
+let gpu_partitioning ~__context =
+  Db.Pool.get_gpu_partitioning ~__context ~self:(Helpers.get_pool ~__context)
+  |> API.pool_gpu_partitioning_to_string
+
+let set_status ~__context value =
+  List.iter
+    (fun self -> Db.Host.set_gpu_partitioning_status ~__context ~self ~value)
+    (Db.Host.get_all ~__context)
+
+let mark_rolling_upgrade ~__context =
+  Db.Pool.add_to_other_config ~__context
+    ~self:(Helpers.get_pool ~__context)
+    ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"true"
+
+(* Runs the pool's setter with each host's call answered by [apply]; returns
+   the hosts called, in order, and the setting each saw stored *)
+let set_gpu_partitioning ?(apply = fun (_ : API.ref_host) -> ()) ~__context
+    value =
+  let calls = ref [] in
+  let rpc call =
+    match (call.Rpc.name, call.Rpc.params) with
+    | "host.apply_gpu_partitioning", [_session_id; host_rpc] ->
+        let host = API.ref_host_of_rpc host_rpc in
+        calls := (host, gpu_partitioning ~__context) :: !calls ;
+        apply host ;
+        Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
+    | _ ->
+        Mock_rpc.rpc __context call
+  in
+  Context.set_test_rpc __context rpc ;
+  Xapi_pool.set_gpu_partitioning ~__context
+    ~self:(Helpers.get_pool ~__context)
+    ~value ;
+  List.rev !calls
+
+let store ?apply ~__context value =
+  let (_ : (API.ref_host * string) list) =
+    set_gpu_partitioning ?apply ~__context value
+  in
+  ()
+
+let refused name code f =
+  match f () with
+  | (_ : (API.ref_host * string) list) ->
+      Alcotest.failf "%s: accepted" name
+  | exception Api_errors.Server_error (actual, _) ->
+      Alcotest.(check string) name code actual
+
+let test_set_enabled_refused_in_rolling_upgrade () =
+  let __context = make_test_database () in
+  set_status ~__context `inactive ;
+  mark_rolling_upgrade ~__context ;
+  refused "upgrade marked" Api_errors.not_supported_during_upgrade (fun () ->
+      set_gpu_partitioning ~__context `enabled
+  ) ;
+  Alcotest.(check string)
+    "unchanged" "default_policy"
+    (gpu_partitioning ~__context)
+
+(* No upgrade mark: a pool operator can remove it by hand *)
+let test_set_enabled_refused_versions_differ () =
+  let __context = make_test_database () in
+  let host = make_host ~__context () in
+  set_host_version ~__context ~host ~key:Xapi_globs._platform_version "99.0.0" ;
+  set_status ~__context `inactive ;
+  refused "versions differ" Api_errors.not_supported_during_upgrade (fun () ->
+      set_gpu_partitioning ~__context `enabled
+  )
+
+let test_set_enabled_refused_not_reported () =
+  let __context = make_test_database () in
+  let host = Helpers.get_localhost ~__context in
+  Alcotest.check_raises "the host is named"
+    Api_errors.(
+      Server_error (gpu_partitioning_status_not_reported, [Ref.string_of host])
+    )
+    (fun () -> store ~__context `enabled) ;
+  Alcotest.(check string)
+    "unchanged" "default_policy"
+    (gpu_partitioning ~__context)
+
+(* The license is checked first: the host has not reported and an upgrade is
+   marked too *)
+let test_set_enabled_refused_unlicensed () =
+  let __context = make_test_database ~features:[] () in
+  mark_rolling_upgrade ~__context ;
+  refused "unlicensed" Api_errors.feature_restricted (fun () ->
+      set_gpu_partitioning ~__context `enabled
+  ) ;
+  Alcotest.(check string)
+    "unchanged" "default_policy"
+    (gpu_partitioning ~__context)
+
+(* The upgrade is checked before the hosts' reports: during an upgrade from a
+   version that does not report GPU partitioning, the older hosts read
+   not_reported *)
+let test_set_enabled_refused_upgrade_before_not_reported () =
+  let __context = make_test_database () in
+  mark_rolling_upgrade ~__context ;
+  refused "upgrade first" Api_errors.not_supported_during_upgrade (fun () ->
+      set_gpu_partitioning ~__context `enabled
+  )
+
+let test_set_disabled_accepted_in_rolling_upgrade () =
+  let __context = make_test_database () in
+  mark_rolling_upgrade ~__context ;
+  store ~__context `disabled ;
+  Alcotest.(check string) "stored" "disabled" (gpu_partitioning ~__context)
+
+(* The license is checked only for enabled: a pool whose license has lapsed
+   can still switch GPU partitioning off *)
+let test_set_disabled_accepted_unlicensed () =
+  let __context = make_test_database ~features:[] () in
+  store ~__context `disabled ;
+  Alcotest.(check string) "stored" "disabled" (gpu_partitioning ~__context)
+
+let test_set_default_policy_accepted_not_reported () =
+  let __context = make_test_database () in
+  set_status ~__context `inactive ;
+  store ~__context `enabled ;
+  Db.Host.set_gpu_partitioning_status ~__context
+    ~self:(Helpers.get_localhost ~__context)
+    ~value:`not_reported ;
+  store ~__context `default_policy ;
+  Alcotest.(check string) "stored" "default_policy" (gpu_partitioning ~__context)
+
+let gpu_partitioning_tests =
+  [
+    ( "set: enabled is refused while a rolling pool upgrade is marked"
+    , `Quick
+    , test_set_enabled_refused_in_rolling_upgrade
+    )
+  ; ( "set: no upgrade mark, versions differ: enabled is refused"
+    , `Quick
+    , test_set_enabled_refused_versions_differ
+    )
+  ; ( "set: enabled is refused while a host has not reported"
+    , `Quick
+    , test_set_enabled_refused_not_reported
+    )
+  ; ( "set: enabled is refused on an unlicensed pool, before the other checks"
+    , `Quick
+    , test_set_enabled_refused_unlicensed
+    )
+  ; ( "set: enabled is refused while an upgrade is marked, before the \
+       not-reported check"
+    , `Quick
+    , test_set_enabled_refused_upgrade_before_not_reported
+    )
+  ; ( "set: disabled is accepted during a rolling pool upgrade"
+    , `Quick
+    , test_set_disabled_accepted_in_rolling_upgrade
+    )
+  ; ( "set: disabled is accepted on an unlicensed pool"
+    , `Quick
+    , test_set_disabled_accepted_unlicensed
+    )
+  ; ( "set: default_policy is accepted while a host has not reported"
+    , `Quick
+    , test_set_default_policy_accepted_not_reported
+    )
+  ]
+
 let test =
   ("test_host_join_restriction", `Quick, test_host_join_restriction)
   :: List.map sync_gpu_partitioning
@@ -403,3 +568,4 @@ let test =
         ("start: the engaged file exists, so xapi takes the lock", true)
       ; ("start: no engaged file, so xapi does not take the lock", false)
       ]
+  @ gpu_partitioning_tests

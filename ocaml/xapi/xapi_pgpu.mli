@@ -19,6 +19,13 @@ val update_gpus : __context:Context.t -> unit
 (** Synchronise the PGPU objects in the database with the actual devices
  *  in the local host. *)
 
+val gpu_partitioning_on : API.pool_gpu_partitioning -> bool
+(** Whether a value of the pool's GPU partitioning setting means enabled *)
+
+val assert_gpu_partitioning_can_be_enabled : __context:Context.t -> unit
+(** Raises NOT_SUPPORTED_DURING_UPGRADE while a rolling pool upgrade is marked
+    or the hosts' versions differ *)
+
 val add_enabled_VGPU_types :
   __context:Context.t -> self:API.ref_PGPU -> value:API.ref_VGPU_type -> unit
 (** Enable one of the VGPU types supported by the PGPU. *)

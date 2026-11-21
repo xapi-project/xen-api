@@ -56,7 +56,7 @@ let create_pool_record ~__context =
       ~license_server:[] ~ha_reboot_vm_on_internal_shutdown:true
       ~limit_console_sessions:false ~vm_console_idle_timeout:0L
       ~auto_update_vm_secureboot_certificates:false ~lldp_enabled:true
-      ~lldp_multicast_address:`nearestbridge
+      ~lldp_multicast_address:`nearestbridge ~gpu_partitioning:`default_policy
 
 let set_master_ip ~__context =
   let ip =

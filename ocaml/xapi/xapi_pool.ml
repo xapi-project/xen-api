@@ -4672,3 +4672,32 @@ let set_ssh_enabled_timeout = Ssh.set_enabled_timeout
 let set_console_idle_timeout = Ssh.set_console_timeout
 
 let set_ssh_auto_mode = Ssh.set_ssh_auto_mode
+
+let assert_every_host_reported_gpu_partitioning ~__context =
+  let not_reported self =
+    match Db.Host.get_gpu_partitioning_status ~__context ~self with
+    | `not_reported ->
+        Some (Ref.string_of self)
+    | `inactive | `entering | `active | `leaving ->
+        None
+  in
+  match List.filter_map not_reported (Db.Host.get_all ~__context) with
+  | [] ->
+      ()
+  | hosts ->
+      raise
+        Api_errors.(Server_error (gpu_partitioning_status_not_reported, hosts))
+
+(* Serialises the checks and the store of concurrent calls *)
+let set_gpu_partitioning_m = Mutex.create ()
+
+let set_gpu_partitioning ~__context ~self ~value =
+  with_lock set_gpu_partitioning_m (fun () ->
+      if Xapi_pgpu.gpu_partitioning_on value then (
+        if not (Pool_features.is_enabled ~__context Features.GPU) then
+          raise Api_errors.(Server_error (feature_restricted, [])) ;
+        Xapi_pgpu.assert_gpu_partitioning_can_be_enabled ~__context ;
+        assert_every_host_reported_gpu_partitioning ~__context
+      ) ;
+      Db.Pool.set_gpu_partitioning ~__context ~self ~value
+  )

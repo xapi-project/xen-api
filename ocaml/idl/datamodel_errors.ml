@@ -2247,6 +2247,12 @@ let _ =
   error Api_errors.set_ssh_auto_mode_partially_failed ["hosts"]
     ~doc:"Some hosts failed to set SSH auto mode." () ;
 
+  error Api_errors.gpu_partitioning_status_not_reported ["hosts"]
+    ~doc:
+      "GPU partitioning cannot be enabled while these hosts have not reported \
+       their GPU partitioning status."
+    () ;
+
   error Api_errors.host_driver_no_hardware ["driver variant"]
     ~doc:"No hardware present for this host driver variant" () ;
 

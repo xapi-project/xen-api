@@ -1256,6 +1256,12 @@ functor
           value ;
         Local.Pool.set_ssh_auto_mode ~__context ~self ~value
 
+      let set_gpu_partitioning ~__context ~self ~value =
+        info "Pool.set_gpu_partitioning: pool='%s' value='%s'"
+          (pool_uuid ~__context self)
+          (Record_util.pool_gpu_partitioning_to_string value) ;
+        Local.Pool.set_gpu_partitioning ~__context ~self ~value
+
       let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose =
         Xapi_pool_helpers.with_pool_operation ~__context
           ~op:`copy_primary_host_certs ~doc:"Pool.install_trusted_certificate"

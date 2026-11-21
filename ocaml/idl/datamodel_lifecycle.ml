@@ -237,6 +237,8 @@ let prototyped_of_field = function
       Some "23.18.0"
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
+  | "pool", "gpu_partitioning" ->
+      Some "26.24.0-next"
   | "pool", "lldp_multicast_address" ->
       Some "26.21.1"
   | "pool", "lldp_enabled" ->
@@ -433,6 +435,8 @@ let prototyped_of_message = function
       Some "26.13.0"
   | "pool", "install_trusted_certificate" ->
       Some "26.13.0"
+  | "pool", "set_gpu_partitioning" ->
+      Some "26.24.0-next"
   | "pool", "set_ssh_auto_mode" ->
       Some "25.27.0"
   | "pool", "set_console_idle_timeout" ->

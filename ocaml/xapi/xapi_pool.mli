@@ -458,6 +458,13 @@ val set_console_idle_timeout :
 val set_ssh_auto_mode :
   __context:Context.t -> self:API.ref_pool -> value:bool -> unit
 
+val set_gpu_partitioning :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> value:API.pool_gpu_partitioning
+  -> unit
+(** Stores the pool's GPU partitioning setting; enabling it is checked first *)
+
 val install_trusted_certificate :
      __context:Context.t
   -> self:API.ref_pool

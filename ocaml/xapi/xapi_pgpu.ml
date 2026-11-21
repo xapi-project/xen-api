@@ -261,6 +261,42 @@ let update_gpus ~__context =
         groups_to_update
   )
 
+(* GPU partitioning while a pool is updated or upgraded. Each host derives the
+   pool-wide GPU records (vGPU types, GPU groups) from its own driver, and a
+   host behind the pool's newest version may run an older one. So enabling the
+   pool's GPU partitioning setting is refused while a rolling pool upgrade is
+   marked or the hosts' versions differ, so that it is only enabled while every
+   host runs one version. *)
+
+(* The one place that says which values of the setting mean enabled *)
+let gpu_partitioning_on = function
+  | `enabled ->
+      true
+  | `disabled | `default_policy ->
+      false
+
+let versions_of ~__context host =
+  Helpers.Checks.RPU.get_software_versions ~__context (Helpers.LocalObject host)
+  |> Helpers.Checks.versions_string_of
+
+let assert_gpu_partitioning_can_be_enabled ~__context =
+  if
+    Helpers.rolling_upgrade_in_progress ~__context
+    || Helpers.Checks.RPU.pool_has_different_host_platform_versions ~__context
+  then (
+    info "%s: refused during a pool update or upgrade; host versions: [ %s ]"
+      __FUNCTION__
+      (Db.Host.get_all ~__context
+      |> List.map (fun host ->
+          Printf.sprintf "%s: %s"
+            (Db.Host.get_uuid ~__context ~self:host)
+            (versions_of ~__context host)
+      )
+      |> String.concat "; "
+      ) ;
+    raise Api_errors.(Server_error (not_supported_during_upgrade, []))
+  )
+
 let update_group_enabled_VGPU_types ~__context ~self =
   let group = Db.PGPU.get_GPU_group ~__context ~self in
   if Db.is_valid_ref __context group then
