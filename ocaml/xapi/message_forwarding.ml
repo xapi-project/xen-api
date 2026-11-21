@@ -4274,6 +4274,14 @@ functor
         info "Host.emergency_reenable_tls_verification" ;
         Local.Host.emergency_reenable_tls_verification ~__context
 
+      let emergency_disable_gpu_partitioning ~__context =
+        info "Host.emergency_disable_gpu_partitioning" ;
+        Local.Host.emergency_disable_gpu_partitioning ~__context
+
+      let emergency_reenable_gpu_partitioning ~__context =
+        info "Host.emergency_reenable_gpu_partitioning" ;
+        Local.Host.emergency_reenable_gpu_partitioning ~__context
+
       let apply_updates ~__context ~self ~hash =
         let uuid = host_uuid ~__context self in
         info "Host.apply_updates: host = '%s'; hash = '%s'" uuid hash ;

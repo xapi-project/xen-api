@@ -409,6 +409,10 @@ let prototyped_of_message = function
       Some "22.27.0"
   | "host", "rescan_drivers" ->
       Some "25.2.0"
+  | "host", "emergency_reenable_gpu_partitioning" ->
+      Some "26.24.0-next"
+  | "host", "emergency_disable_gpu_partitioning" ->
+      Some "26.24.0-next"
   | "host", "set_numa_affinity_policy" ->
       Some "24.0.0"
   | "host", "apply_gpu_partitioning" ->

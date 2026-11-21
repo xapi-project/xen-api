@@ -494,6 +494,135 @@ let test_apply_leg_lock_held () =
        (Db.Host.get_gpu_partitioning_status ~__context ~self)
     )
 
+(* Runs [f] with the force-off file setting naming a temporary path, where
+   [make] creates the file or not; restores the setting *)
+let with_forced_off_file ~make f =
+  let file = Filename.temp_file "gpu-partitioning-forced-off" "" in
+  let default = !Xapi_globs.gpu_partitioning_forced_off_file in
+  Sys.remove file ;
+  make file ;
+  Xapi_globs.gpu_partitioning_forced_off_file := file ;
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> f file)
+    (fun () ->
+      Xapi_globs.gpu_partitioning_forced_off_file := default ;
+      Xapi_stdext_unix.Unixext.unlink_safe file
+    )
+
+let holding contents file =
+  Xapi_stdext_unix.Unixext.write_string_to_file file contents
+
+let test_sync_forced_off () =
+  let __context = make_test_database () in
+  with_forced_off_file ~make:(holding "forced_off") (fun _ ->
+      sync_reason ~__context ()
+  )
+  |> Alcotest.(check string) "reason" "forced_off"
+
+(* A bounded read: the evaluation does not block on a FIFO *)
+let test_sync_forced_off_fifo () =
+  let __context = make_test_database () in
+  with_forced_off_file
+    ~make:(fun file -> Unix.mkfifo file 0o600)
+    (fun _ -> sync_reason ~__context ())
+  |> Alcotest.(check string) "reason" "forced_off"
+
+(* A bounded read: a file larger than the read's limit is not read *)
+let test_sync_forced_off_too_large () =
+  let __context = make_test_database () in
+  with_forced_off_file
+    ~make:(holding (String.make 65 'x'))
+    (fun _ -> sync_reason ~__context ())
+  |> Alcotest.(check string) "reason" "forced_off"
+
+let test_emergency_disable () =
+  let __context = make_test_database () in
+  with_forced_off_file ~make:ignore (fun file ->
+      let reason =
+        nvidia_host_reason ~__context (fun () ->
+            Xapi_host.emergency_disable_gpu_partitioning ~__context
+        )
+      in
+      (reason, Xapi_stdext_unix.Unixext.string_of_file file)
+  )
+  |> Alcotest.(check (pair string string))
+       "applied now, and kept"
+       ("forced_off", "forced_off")
+
+(* Another evaluation holds the lock too long: the file is kept, and the call
+   fails as busy, not as an internal error *)
+let test_emergency_disable_lock_held () =
+  let __context = make_test_database () in
+  let self = Helpers.get_localhost ~__context in
+  with_forced_off_file ~make:ignore (fun file ->
+      Xapi_stdext_threads.Threadext.Mutex.execute Xapi_host.gpu_partitioning_m
+        (fun () ->
+          Alcotest.check_raises "busy"
+            Api_errors.(
+              Server_error
+                (other_operation_in_progress, ["host"; Ref.string_of self])
+            )
+            (fun () ->
+              Xapi_host.set_gpu_partitioning_forced ~__context
+                ~timeout:Mtime.Span.(20 * ms)
+                Gpu.Host_partitioning.Forced
+            )
+      ) ;
+      Xapi_stdext_unix.Unixext.string_of_file file
+  )
+  |> Alcotest.(check string) "kept" "forced_off"
+
+let test_emergency_reenable () =
+  let __context = make_test_database () in
+  with_forced_off_file ~make:(holding "forced_off") (fun file ->
+      let reason =
+        nvidia_host_reason ~__context (fun () ->
+            Xapi_host.emergency_reenable_gpu_partitioning ~__context
+        )
+      in
+      (reason, Xapi_stdext_unix.Unixext.string_of_file file)
+  )
+  |> Alcotest.(check (pair string string))
+       "applied now, and kept"
+       ("pool_disabled", "not_forced")
+
+(* In emergency mode the call only writes the file *)
+let test_emergency_disable_in_emergency_mode () =
+  let __context = make_test_database () in
+  let self = Helpers.get_localhost ~__context in
+  with_forced_off_file ~make:ignore (fun file ->
+      Xapi_globs.slave_emergency_mode := true ;
+      Xapi_stdext_pervasives.Pervasiveext.finally
+        (fun () -> Xapi_host.emergency_disable_gpu_partitioning ~__context)
+        (fun () -> Xapi_globs.slave_emergency_mode := false) ;
+      ( Xapi_stdext_unix.Unixext.string_of_file file
+      , API.host_gpu_partitioning_status_to_string
+          (Db.Host.get_gpu_partitioning_status ~__context ~self)
+      )
+  )
+  |> Alcotest.(check (pair string string))
+       "written, not evaluated"
+       ("forced_off", "not_reported")
+
+(* Before xapi's start has synchronised the database, which sets
+   localhost_ref, the call only writes the file *)
+let test_emergency_disable_before_dbsync () =
+  let __context = make_test_database () in
+  let self = !Xapi_globs.localhost_ref in
+  with_forced_off_file ~make:ignore (fun file ->
+      Xapi_globs.localhost_ref := Ref.null ;
+      Xapi_stdext_pervasives.Pervasiveext.finally
+        (fun () -> Xapi_host.emergency_disable_gpu_partitioning ~__context)
+        (fun () -> Xapi_globs.localhost_ref := self) ;
+      ( Xapi_stdext_unix.Unixext.string_of_file file
+      , API.host_gpu_partitioning_status_to_string
+          (Db.Host.get_gpu_partitioning_status ~__context ~self)
+      )
+  )
+  |> Alcotest.(check (pair string string))
+       "written, not evaluated"
+       ("forced_off", "not_reported")
+
 let gpu_partitioning_tests =
   [
     ( "set: enabled is stored, then the host is called"
@@ -565,6 +694,41 @@ let gpu_partitioning_tests =
   ; ( "apply: the lock held too long, it fails and changes nothing"
     , `Quick
     , test_apply_leg_lock_held
+    )
+  ; ( "force-off: the file forces an NVIDIA GPU off"
+    , `Quick
+    , test_sync_forced_off
+    )
+  ; ( "force-off: a FIFO at the path reads as forced off"
+    , `Quick
+    , test_sync_forced_off_fifo
+    )
+  ; ( "force-off: a file over the size limit reads as forced off"
+    , `Quick
+    , test_sync_forced_off_too_large
+    )
+  ; ( "force-off: emergency disable writes the file and applies it"
+    , `Quick
+    , test_emergency_disable
+    )
+  ; ( "force-off: emergency reenable writes the file and applies it"
+    , `Quick
+    , test_emergency_reenable
+    )
+  ; ( "force-off: the lock held too long, the file is kept and the call fails \
+       as busy"
+    , `Quick
+    , test_emergency_disable_lock_held
+    )
+  ; ( "force-off: in emergency mode the file is written and nothing else is \
+       called"
+    , `Quick
+    , test_emergency_disable_in_emergency_mode
+    )
+  ; ( "force-off: before xapi's start has synchronised the database, the file \
+       is written and nothing else is called"
+    , `Quick
+    , test_emergency_disable_before_dbsync
     )
   ]
 

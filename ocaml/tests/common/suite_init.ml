@@ -9,6 +9,10 @@ let harness_init () =
   Printexc.record_backtrace true ;
   Inventory.inventory_filename :=
     Filename.concat Test_common.working_area "xapi-inventory" ;
+  (* the host's own setting that forces GPU partitioning off: a path that no
+     test writes, rather than this machine's *)
+  Xapi_globs.gpu_partitioning_forced_off_file :=
+    Filename.concat Test_common.working_area "gpu-partitioning-forced-off" ;
   Xcp_client.use_switch := false ;
   Pool_role.set_pool_role_for_test () ;
   Message_forwarding.register_callback_fns () ;

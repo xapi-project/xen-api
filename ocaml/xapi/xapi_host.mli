@@ -527,6 +527,16 @@ val sync_gpu_partitioning : __context:Context.t -> after_boot:bool -> unit
 val apply_gpu_partitioning : __context:Context.t -> host:API.ref_host -> unit
 (** The coordinator's call to each host after the pool's setting is stored *)
 
+val emergency_disable_gpu_partitioning : __context:Context.t -> unit
+(** Writes the host's own setting that forces GPU partitioning off, then
+    applies it, except in emergency mode or before xapi's start has
+    synchronised the database *)
+
+val emergency_reenable_gpu_partitioning : __context:Context.t -> unit
+(** Writes the host's own setting that ends the force-off, then applies it,
+    except in emergency mode or before xapi's start has synchronised the
+    database *)
+
 val apply_guest_agent_config : __context:Context.t -> host:API.ref_host -> unit
 
 (* See Xapi_pgpu.mxgpu_vf_setup *)
@@ -687,3 +697,13 @@ val apply_gpu_partitioning_within :
     still holds the lock after [timeout], it fails with
     OTHER_OPERATION_IN_PROGRESS and changes nothing. Production code calls
     {!apply_gpu_partitioning} *)
+
+val set_gpu_partitioning_forced :
+     __context:Context.t
+  -> timeout:Mtime.Span.t
+  -> Gpu.Host_partitioning.forced
+  -> unit
+(** As {!emergency_disable_gpu_partitioning} and
+    {!emergency_reenable_gpu_partitioning} do, with [timeout] in place of
+    their limit on the wait for another evaluation. Production code calls
+    those *)

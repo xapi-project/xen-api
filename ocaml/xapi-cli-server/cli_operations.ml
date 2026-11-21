@@ -7413,6 +7413,12 @@ let host_emergency_disable_tls_verification _printer rpc session_id _params =
 let host_emergency_reenable_tls_verification _printer rpc session_id _params =
   Client.Host.emergency_reenable_tls_verification ~rpc ~session_id
 
+let host_emergency_disable_gpu_partitioning _printer rpc session_id _params =
+  Client.Host.emergency_disable_gpu_partitioning ~rpc ~session_id
+
+let host_emergency_reenable_gpu_partitioning _printer rpc session_id _params =
+  Client.Host.emergency_reenable_gpu_partitioning ~rpc ~session_id
+
 let host_reset_server_certificate _printer rpc session_id params =
   ignore
     (do_host_op rpc session_id ~multiple:false

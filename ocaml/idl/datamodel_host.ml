@@ -939,6 +939,9 @@ let gpu_partitioning_reason_doc =
   let describe = function
     | No_partitionable_gpu ->
         "no GPU from a vendor whose GPUs this version can partition"
+    | Forced_off ->
+        "it is forced off on this host; see \
+         Host.emergency_reenable_gpu_partitioning"
     | Pool_disabled ->
         "it is not enabled for the pool"
   in
@@ -2118,6 +2121,32 @@ let emergency_reenable_tls_verification =
        emergency disabled"
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
+let emergency_disable_gpu_partitioning =
+  call ~flags:[`Session] ~name:"emergency_disable_gpu_partitioning"
+    ~lifecycle:[] ~in_oss_since:None ~params:[]
+    ~doc:
+      "Force GPU partitioning off on this host only, whatever the pool's \
+       setting, and apply it now. It is kept across restarts, and also if \
+       applying it now fails. In emergency mode, or before xapi's start has \
+       synchronised the pool database, the call only stores the change, which \
+       applies when xapi has finished its start. Otherwise, while the pool \
+       coordinator cannot be reached, the call waits for it, as calls that \
+       need the pool database do."
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
+
+let emergency_reenable_gpu_partitioning =
+  call ~flags:[`Session] ~name:"emergency_reenable_gpu_partitioning"
+    ~lifecycle:[] ~in_oss_since:None ~params:[]
+    ~doc:
+      "End a force-off of GPU partitioning on this host only, so that it \
+       follows the pool's setting again, and apply it now. It is kept, also if \
+       applying it now fails. In emergency mode, or before xapi's start has \
+       synchronised the pool database, the call only stores the change, which \
+       applies when xapi has finished its start. Otherwise, while the pool \
+       coordinator cannot be reached, the call waits for it, as calls that \
+       need the pool database do."
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
+
 let apply_updates =
   call ~name:"apply_updates" ~in_oss_since:None
     ~lifecycle:[(Published, "1.301.0", "")]
@@ -2504,6 +2533,8 @@ let t =
       ; set_numa_affinity_policy
       ; emergency_disable_tls_verification
       ; emergency_reenable_tls_verification
+      ; emergency_disable_gpu_partitioning
+      ; emergency_reenable_gpu_partitioning
       ; cert_distrib_atom
       ; apply_updates
       ; rescan_drivers
