@@ -4612,51 +4612,53 @@ let put_bundle_handler (req : Request.t) s _ =
           ()
   )
 
-module Ssh = struct
-  let operate ~__context ~action ~error =
-    let hosts = Db.Host.get_all ~__context in
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        let failed_hosts =
-          List.fold_left
-            (fun failed_hosts host ->
-              try
-                action ~rpc ~session_id ~self:host ;
-                failed_hosts
-              with _ -> Ref.string_of host :: failed_hosts
-            )
-            [] hosts
-        in
-        match failed_hosts with
-        | [] ->
-            ()
-        | _ ->
-            raise (Api_errors.Server_error (error, failed_hosts))
-    )
+(* Calls [action] on every host in turn, then raises [error] naming each host
+   whose call raised *)
+let call_on_all_hosts ~__context ~action ~error =
+  let hosts = Db.Host.get_all ~__context in
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      let failed_hosts =
+        List.fold_left
+          (fun failed_hosts host ->
+            try
+              action ~rpc ~session_id ~self:host ;
+              failed_hosts
+            with _ -> Ref.string_of host :: failed_hosts
+          )
+          [] hosts
+      in
+      match failed_hosts with
+      | [] ->
+          ()
+      | _ ->
+          raise (Api_errors.Server_error (error, failed_hosts))
+  )
 
+module Ssh = struct
   let enable ~__context ~self:_ =
-    operate ~__context ~action:Client.Host.enable_ssh
+    call_on_all_hosts ~__context ~action:Client.Host.enable_ssh
       ~error:Api_errors.enable_ssh_partially_failed
 
   let disable ~__context ~self:_ =
-    operate ~__context ~action:Client.Host.disable_ssh
+    call_on_all_hosts ~__context ~action:Client.Host.disable_ssh
       ~error:Api_errors.disable_ssh_partially_failed
 
   let set_enabled_timeout ~__context ~self:_ ~value =
-    operate ~__context
+    call_on_all_hosts ~__context
       ~action:(fun ~rpc ~session_id ~self ->
         Client.Host.set_ssh_enabled_timeout ~rpc ~session_id ~self ~value
       )
       ~error:Api_errors.set_ssh_timeout_partially_failed
 
   let set_console_timeout ~__context ~self:_ ~value =
-    operate ~__context
+    call_on_all_hosts ~__context
       ~action:(fun ~rpc ~session_id ~self ->
         Client.Host.set_console_idle_timeout ~rpc ~session_id ~self ~value
       )
       ~error:Api_errors.set_console_timeout_partially_failed
 
   let set_ssh_auto_mode ~__context ~self:_ ~value =
-    operate ~__context
+    call_on_all_hosts ~__context
       ~action:(fun ~rpc ~session_id ~self ->
         Client.Host.set_ssh_auto_mode ~rpc ~session_id ~self ~value
       )
