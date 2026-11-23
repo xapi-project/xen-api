@@ -327,6 +327,9 @@ let cli_report_ignored_parameters = ref Off
 (* the time taken to wait before restarting in a different mode for pool eject/join operations *)
 let fuse_time = ref 10.
 
+(* the time the fuse allows for flush and exit before forcing the process out *)
+let fuse_exit_grace = ref 60.
+
 (* Names of storage parameters *)
 let _sm_vm_hint = "vmhint"
 
