@@ -325,6 +325,8 @@ module type DEBUG = sig
 
   val critical : ('a, unit, string, unit) format4 -> 'a
 
+  val alert : ('a, unit, string, unit) format4 -> 'a
+
   val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
 
   val log_backtrace : exn -> unit
@@ -354,6 +356,8 @@ functor
     let error fmt = output Syslog.Err "error" fmt
 
     let critical fmt = output Syslog.Crit "critical" fmt
+
+    let alert fmt = output Syslog.Alert "alert" fmt
 
     let audit ?(raw = false) (fmt : ('a, unit, string, 'b) format4) =
       Printf.ksprintf
