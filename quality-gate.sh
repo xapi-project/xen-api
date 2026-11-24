@@ -144,6 +144,21 @@ unnecessary-length () {
   fi
 }
 
+partition-refs () {
+  # A VGPU's partition references can name a partition that has been
+  # destroyed, moved host or been re-divided, so only Xapi_gpu_partition reads
+  # them, through resolve_ref, which makes the caller decide what that means.
+  N=$(git grep -c -E \
+    'Db\.VGPU\.(get|set)_(resident_on_partition|scheduled_to_be_resident_on_partition|partition_layout_generation)|vGPU_(resident_on_partition|scheduled_to_be_resident_on_partition|partition_layout_generation)|Db\.GPU_partition\.get_(resident|scheduled)_VGPUs' \
+    -- 'ocaml/xapi/*.ml' ':!ocaml/xapi/xapi_gpu_partition.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)
+  if [ -z "$N" ] || [ "$N" -eq 0 ]; then
+    echo "OK found no direct reads of VGPU partition references"
+  else
+    echo "ERROR found $N direct reads of VGPU partition references outside xapi_gpu_partition.ml; use Xapi_gpu_partition.resolve_ref" 1>&2
+    exit 1
+  fi
+}
+
 list-hd
 verify-cert
 mli-files
@@ -154,3 +169,4 @@ ocamlyacc
 unixgetenv
 hashtblfind
 unnecessary-length
+partition-refs

@@ -31,6 +31,13 @@ let refs_of ~__context ~self =
 
 let fresh_vgpu ~__context = Test_common.make_vgpu ~__context ()
 
+(* A partition on a card. A chooser's pick is only written when it is on the
+   card the VGPU holds at the card level, so the positive controls below hold
+   that card too. *)
+let card_and_partition ~__context =
+  let pGPU = Test_common.make_pgpu ~__context () in
+  (pGPU, Test_common.make_gpu_partition ~__context ~pGPU ())
+
 (* -- inertness ------------------------------------------------------------ *)
 
 let test_every_transition_is_inert () =
@@ -87,8 +94,10 @@ let test_no_transition_sets_without_a_chooser () =
 
 let test_reserve_writes_when_a_chooser_picks () =
   let __context = Test_common.make_test_database () in
-  let self = fresh_vgpu ~__context in
-  let partition = Test_common.make_gpu_partition ~__context () in
+  let pgpu, partition = card_and_partition ~__context in
+  let self =
+    Test_common.make_vgpu ~__context ~scheduled_to_be_resident_on:pgpu ()
+  in
   let choose ~__context:_ ~self:_ = Some partition in
   Xapi_gpu_partition.apply ~__context ~self ~choose Lifecycle.Reserve ;
   let resident, scheduled = refs_of ~__context ~self in
@@ -98,9 +107,9 @@ let test_reserve_writes_when_a_chooser_picks () =
 
 let test_confirm_promotes_when_a_chooser_picks () =
   let __context = Test_common.make_test_database () in
-  let partition = Test_common.make_gpu_partition ~__context () in
+  let pgpu, partition = card_and_partition ~__context in
   let self =
-    Test_common.make_vgpu ~__context
+    Test_common.make_vgpu ~__context ~resident_on:pgpu
       ~scheduled_to_be_resident_on_partition:partition ()
   in
   let choose ~__context:_ ~self:_ = Some partition in
@@ -128,8 +137,8 @@ let test_release_halted_clears_a_bound_reference () =
    side has to populate it. *)
 let test_reverse_sets_are_generated () =
   let __context = Test_common.make_test_database () in
-  let self = fresh_vgpu ~__context in
-  let partition = Test_common.make_gpu_partition ~__context () in
+  let pgpu, partition = card_and_partition ~__context in
+  let self = Test_common.make_vgpu ~__context ~resident_on:pgpu () in
   let choose ~__context:_ ~self:_ = Some partition in
   Xapi_gpu_partition.apply ~__context ~self ~choose Lifecycle.Confirm ;
   let residents =
