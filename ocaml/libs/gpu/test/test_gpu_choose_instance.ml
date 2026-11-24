@@ -64,7 +64,15 @@ let test_type_lock () =
   check_choice "an instance bound to another type is not a candidate" None
     (choose [holding t12 1] (request "DC-1-24Q")) ;
   check_choice "so the empty instance is chosen" (Some 1)
-    (choose [holding t12 1; empty Blackwell.profile_1g] (request "DC-1-24Q"))
+    (choose [holding t12 1; empty Blackwell.profile_1g] (request "DC-1-24Q")) ;
+  (* DC-1-24Q fits once per instance, so an instance already holding a vGPU
+     has no room for it whatever the lock says. A DC-1-3Q fits eight times:
+     only the lock keeps it off an instance holding one DC-1-2Q. *)
+  let t2 = dc "DC-1-2Q" in
+  check_choice "a free slot of another type is not room" None
+    (choose [holding t2 1] (request "DC-1-3Q")) ;
+  check_choice "the empty instance, not the bound one" (Some 1)
+    (choose [holding t2 1; empty Blackwell.profile_1g] (request "DC-1-3Q"))
 
 let test_prefers_occupied_over_empty () =
   let t12 = dc "DC-1-12Q" in
