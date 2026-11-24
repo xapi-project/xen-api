@@ -55,6 +55,7 @@
     xapi_internal
     xml-light2
     xmlm
+    yojson
   )
   (deps
     (source_tree test_data)

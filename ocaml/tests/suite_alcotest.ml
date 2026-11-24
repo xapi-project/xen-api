@@ -47,6 +47,7 @@ let () =
      ; ("Test_certificates", Test_certificates.test)
      ; ("Test_caller_limit", Test_caller_limit.test)
      ; ("Test_message", Test_message.test)
+     ; ("Test_stream_vdi", Test_stream_vdi.test)
      ]
     @ Test_guest_agent.tests
     @ Test_nm.tests
