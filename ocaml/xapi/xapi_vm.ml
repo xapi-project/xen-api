@@ -345,9 +345,11 @@ let start ~__context ~vm ~start_paused ~force =
   ( match vmr.API.vM_VGPUs with
   | [] ->
       Xapi_xenops.start ~__context ~self:vm start_paused force
-  | _ ->
+  | vgpus ->
+      let pass_through = Xapi_gpumon.has_pass_through ~__context ~vgpus in
       Xapi_gpumon.with_gpumon_stopped ~timeout:!Xapi_globs.gpumon_stop_timeout
-        (fun () -> Xapi_xenops.start ~__context ~self:vm start_paused force
+        ~pass_through (fun () ->
+          Xapi_xenops.start ~__context ~self:vm start_paused force
       )
   ) ;
   Xapi_vm_helpers.start_delay ~__context ~vm

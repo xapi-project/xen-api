@@ -10,7 +10,7 @@
       test_ref test_xapi_helpers test_vm_group
       test_livepatch test_rpm test_updateinfo test_storage_smapiv1_wrapper test_storage_quicktest test_observer
       test_pool_periodic_update_sync test_pkg_mgr test_tar_ext test_pool_repository test_sr_allowed_operations
-      test_vgpu_refusal))
+      test_vgpu_refusal test_nvml_detach))
   (libraries
     alcotest
     angstrom
@@ -91,7 +91,7 @@
     test_clustering test_pusb test_daemon_manager test_repository test_repository_helpers
     test_livepatch test_rpm test_updateinfo test_pool_periodic_update_sync test_pkg_mgr
       test_xapi_helpers test_tar_ext test_pool_repository test_sr_allowed_operations
-      test_vgpu_refusal)
+      test_vgpu_refusal test_nvml_detach)
   (package xapi)
   (modes exe)
   (modules test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt test_bounded_psq test_auth_cache
@@ -99,7 +99,7 @@
     test_daemon_manager test_repository test_repository_helpers test_livepatch test_rpm
     test_updateinfo test_pool_periodic_update_sync test_pkg_mgr
     test_xapi_helpers test_tar_ext test_pool_repository test_sr_allowed_operations
-    test_vgpu_refusal)
+    test_vgpu_refusal test_nvml_detach)
   (libraries
     alcotest
     bos
