@@ -177,7 +177,12 @@ let test_fill_to_free_slots () =
         )
         Blackwell.types
     )
-    [("G1", Blackwell.g1); ("G2", Blackwell.g2); ("G3", Blackwell.g3)]
+    [
+      ("G1", Blackwell.g1)
+    ; ("G2", Blackwell.g2)
+    ; ("G3", Blackwell.g3)
+    ; ("two 2g", Blackwell.two_2g)
+    ]
 
 (* Against a direct reading of the policy, over every Blackwell type and every
    combination of a few occupancies on each reference geometry *)
@@ -242,7 +247,12 @@ let test_policy_exhaustive () =
         )
         Blackwell.types
     )
-    [("G1", Blackwell.g1); ("G2", Blackwell.g2); ("G3", Blackwell.g3)] ;
+    [
+      ("G1", Blackwell.g1)
+    ; ("G2", Blackwell.g2)
+    ; ("G3", Blackwell.g3)
+    ; ("two 2g", Blackwell.two_2g)
+    ] ;
   (* A floor, so an empty fixture cannot pass vacuously *)
   Alcotest.(check bool) "at least 1000 layouts checked" true (!checked >= 1000)
 

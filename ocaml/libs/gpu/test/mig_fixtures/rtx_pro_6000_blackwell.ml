@@ -329,8 +329,16 @@ let request (t : vgpu_type) =
   Gpu.Gpu_capacity.
     {profile= t.profile; vgpu_type= t.id; weight= t.max_instance_per_gi}
 
+(* Where noted, the layout was created on an RTX PRO 6000 Blackwell and the
+   driver placed its instances at these slices, as start:size out of 12 *)
+
+(* Measured: 0:3, 3:3, 6:3, 9:3 *)
 let g1 = [profile_1g; profile_1g; profile_1g; profile_1g]
 
 let g2 = [profile_1g; profile_1g]
 
+(* Measured: 0:6, 6:3, 9:3 *)
 let g3 = [profile_2g; profile_1g; profile_1g]
+
+(* Measured: 0:6, 6:6 *)
+let two_2g = [profile_2g; profile_2g]
