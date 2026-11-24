@@ -51,6 +51,15 @@ module Make (N : NVML) = struct
            gpumon attaches by itself. So ask again before re-attaching, and
            never let the re-attach mask what f returned or raised. *)
         let detached = ref false in
+        let attach () =
+          debug "%s: about to attach NVML" __FUNCTION__ ;
+          try N.attach ()
+          with e ->
+            error
+              "%s: NVML attach failed (%s); gpumon stays detached unless it \
+               still handles the request"
+              __FUNCTION__ (Printexc.to_string e)
+        in
         let reattach () =
           match is_attached () with
           | Ok true when !detached ->
@@ -61,18 +70,17 @@ module Make (N : NVML) = struct
           | Ok true ->
               debug "%s: NVML is still attached after the failed detach"
                 __FUNCTION__
-          | Ok false -> (
-              debug "%s: about to attach NVML" __FUNCTION__ ;
-              try N.attach ()
-              with e ->
-                error "%s: NVML attach failed (%s); gpumon stays detached"
-                  __FUNCTION__ (Printexc.to_string e)
-            )
+          | Ok false ->
+              attach ()
           | Error e ->
-              warn
-                "%s: gpumon does not answer after f (%s); a restarted gpumon \
-                 attaches by itself"
-                __FUNCTION__ (Printexc.to_string e)
+              (* A restarted gpumon attaches by itself, but a stuck one stays
+                 detached once it resumes: attach anyway, as attaching twice
+                 is harmless. Done here, under the caller's lock, rather than
+                 in the background, so that it cannot reach gpumon in the
+                 middle of the next start's detach. *)
+              warn "%s: gpumon does not answer after f (%s); attaching anyway"
+                __FUNCTION__ (Printexc.to_string e) ;
+              attach ()
         in
         Fun.protect ~finally:reattach (fun () ->
             debug "%s: about to detach NVML" __FUNCTION__ ;

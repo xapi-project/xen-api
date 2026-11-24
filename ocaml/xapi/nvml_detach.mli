@@ -45,7 +45,10 @@ module Make : functor (_ : NVML) -> sig
   (** [with_detached f] detaches NVML if it is attached, runs [f], then
       attaches it again. If gpumon does not answer, [f] runs without a
       detach. If NVML is attached again by the time [f] has finished (gpumon
-      was restarted, e.g. by sriov-manage), it is not attached a second time.
+      was restarted, e.g. by sriov-manage), it is not attached a second time;
+      if gpumon does not answer then, the attach is sent anyway, since
+      attaching twice is harmless and a stuck gpumon would otherwise stay
+      detached.
       The re-attach never raises: [f]'s result or exception is what the
       caller gets. If the detach raises, a warning is logged and [f] runs
       anyway; NVML is attached again afterwards only if it is detached. Each

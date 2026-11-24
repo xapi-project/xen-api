@@ -34,13 +34,18 @@ module Fake = struct
 
   let attach_fails = ref false
 
+  (* While gpumon is not answering, an attach call fails, but if [queued] the
+     request is still delivered, as message-switch does once gpumon resumes *)
+  let queued = ref false
+
   let reset () =
     calls := [] ;
     attached := true ;
     answers := true ;
     detach_fails := false ;
     detach_fails_after := false ;
-    attach_fails := false
+    attach_fails := false ;
+    queued := false
 
   let record s = calls := s :: !calls
 
@@ -58,6 +63,10 @@ module Fake = struct
   let attach () =
     record "attach" ;
     if !attach_fails then raise Gpumon_down ;
+    if not !answers then (
+      if !queued then attached := true ;
+      raise Gpumon_down
+    ) ;
     attached := true
 
   let restart () =
@@ -124,8 +133,8 @@ let test_down_before () =
   Alcotest.(check int) "result" 42 (run f_ok) ;
   check_calls ["is_attached"; "f"]
 
-(* gpumon stops answering while f runs (stopped, mid-restart): no attach is
-   attempted, and f's result comes back. *)
+(* gpumon stops answering while f runs (stopped, stuck): the attach is still
+   sent, its failure is logged, and f's result comes back. *)
 let test_down_after () =
   Fake.reset () ;
   let f () =
@@ -134,7 +143,21 @@ let test_down_after () =
     42
   in
   Alcotest.(check int) "result" 42 (run f) ;
-  check_calls ["is_attached"; "detach"; "f"; "is_attached"]
+  check_calls ["is_attached"; "detach"; "f"; "is_attached"; "attach"]
+
+(* gpumon is stuck across the re-attach and resumes later: the attach sent
+   anyway is delivered, so gpumon does not stay detached. *)
+let test_stuck_after () =
+  Fake.reset () ;
+  Fake.queued := true ;
+  let f () =
+    Fake.record "f" ;
+    Fake.answers := false ;
+    42
+  in
+  Alcotest.(check int) "result" 42 (run f) ;
+  check_calls ["is_attached"; "detach"; "f"; "is_attached"; "attach"] ;
+  check_attached true
 
 (* The attach fails: f's result is not masked. *)
 let test_attach_fails () =
@@ -229,6 +252,7 @@ let test =
   ; ("gpumon restarted during f", `Quick, test_restarted_during_f)
   ; ("gpumon down before f", `Quick, test_down_before)
   ; ("gpumon down after f", `Quick, test_down_after)
+  ; ("gpumon stuck after f", `Quick, test_stuck_after)
   ; ("attach fails", `Quick, test_attach_fails)
   ; ("f raises and attach fails", `Quick, test_f_raises_attach_fails)
   ; ("detach fails", `Quick, test_detach_fails)
