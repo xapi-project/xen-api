@@ -254,6 +254,11 @@ let gc_PGPUs ~__context =
     )
     affected_groups
 
+(* Unlike gc_VGPUs, this destroys nothing: a VGPU whose partition is gone still
+   belongs to its VM, so only the reference is cleared. *)
+let gc_VGPU_partition_refs ~__context =
+  Xapi_gpu_partition.clear_destroyed_refs ~__context
+
 let gc_VGPU_types ~__context =
   (* We delete a VGPU_type iff it does not appear in the supported_VGPU_types
      of any PGPU _and_ there doesn't exist a VGPU with this VGPU_type *)
@@ -713,6 +718,7 @@ let gc_subtask_list =
   ; ("PUSBs", gc_PUSBs)
   ; ("VGPUs", gc_VGPUs)
   ; ("PGPUs", gc_PGPUs)
+  ; ("VGPU partition refs", gc_VGPU_partition_refs)
   ; ("VGPU_types", gc_VGPU_types)
   ; ("PCIs", gc_PCIs)
   ; ("Features", gc_Features)
