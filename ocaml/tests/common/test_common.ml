@@ -502,13 +502,14 @@ let make_vgpu_type ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(size = 0L) ?(internal_config = []) ?(implementation = `passthrough)
     ?(identifier = "") ?(experimental = false)
     ?(compatible_model_names_in_vm = []) ?(compatible_model_names_on_pgpu = [])
-    () =
+    ?(partition_slices = 0L) ?(partition_max_vgpus = 0L) () =
   let compatible_types_in_vm = compatible_model_names_in_vm in
   let compatible_types_on_pgpu = compatible_model_names_on_pgpu in
   Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
     ~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y ~size
     ~internal_config ~implementation ~identifier ~experimental
-    ~compatible_types_in_vm ~compatible_types_on_pgpu ;
+    ~compatible_types_in_vm ~compatible_types_on_pgpu ~partition_slices
+    ~partition_max_vgpus ;
   ref
 
 let make_pvs_site ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())

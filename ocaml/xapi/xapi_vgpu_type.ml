@@ -158,7 +158,8 @@ let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
   Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
     ~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y ~size
     ~internal_config ~implementation ~identifier ~experimental
-    ~compatible_types_in_vm ~compatible_types_on_pgpu ;
+    ~compatible_types_in_vm ~compatible_types_on_pgpu ~partition_slices:0L
+    ~partition_max_vgpus:0L ;
   debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
     (Ref.string_of ref) vendor_name model_name ;
   ref

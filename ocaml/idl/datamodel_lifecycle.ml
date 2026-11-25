@@ -139,6 +139,10 @@ let prototyped_of_field = function
       Some "26.18.0-next"
   | "GPU_partition", "uuid" ->
       Some "26.18.0-next"
+  | "VGPU_type", "partition_max_vgpus" ->
+      Some "26.24.0-next"
+  | "VGPU_type", "partition_slices" ->
+      Some "26.24.0-next"
   | "VGPU", "partition_layout_generation" ->
       Some "26.18.0-next"
   | "VGPU", "scheduled_to_be_resident_on_partition" ->

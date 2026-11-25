@@ -8090,6 +8090,15 @@ module VGPU_type = struct
             ~ignore_foreign_key:true ~default_value:(Some (VSet []))
             ~internal_only:true "compatible_types_on_pgpu"
             "List of VGPU types which are compatible on one PGPU"
+        ; field ~qualifier:StaticRO ~ty:Int ~lifecycle:[] ~internal_only:true
+            ~default_value:(Some (VInt 0L)) "partition_slices"
+            "How many slices of a partitioned physical GPU one partition for \
+             this type is made of, as given by the driver's manifest. 0 means \
+             the manifest gives none: the type is not partition-backed"
+        ; field ~qualifier:StaticRO ~ty:Int ~lifecycle:[] ~internal_only:true
+            ~default_value:(Some (VInt 0L)) "partition_max_vgpus"
+            "How many VGPUs of this type can share one partition, as given by \
+             the driver's manifest. 0 means the manifest gives none"
         ]
       ()
 end
