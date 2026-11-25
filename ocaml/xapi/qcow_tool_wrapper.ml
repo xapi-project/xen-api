@@ -19,7 +19,7 @@ let receive (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
     (path : string) =
   let args = ["stream_decode"; path] in
   let qcow_tool = !Xapi_globs.qcow_stream_tool in
-  Vhd_qcow_parsing.run_tool qcow_tool progress_cb args ~input_fd:unix_fd
+  Vhd_qcow_parsing.run_tool qcow_tool args ~progress_cb ~input_fd:unix_fd
 
 let read_header qcow_path =
   let progress_cb _ = () in
@@ -28,7 +28,7 @@ let read_header qcow_path =
       (fun () ->
         Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () ->
-            Vhd_qcow_parsing.run_tool tool progress_cb args
+            Vhd_qcow_parsing.run_tool tool args ~progress_cb
               ~output_fd:pipe_writer ~replace_fds
           )
           (fun () -> Unix.close pipe_writer)
@@ -86,13 +86,14 @@ let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
   in
   let diff_fds = Option.map read_header relative_to_qcow_path in
 
+  let output_fd_string = Uuidx.(to_string (make ())) in
   let map_fd_string = Uuidx.(to_string (make ())) in
   let info_fd_string = Uuidx.(to_string (make ())) in
   let diff_map_fd_string = Uuidx.(to_string (make ())) in
   let diff_info_fd_string = Uuidx.(to_string (make ())) in
 
   let args =
-    [path]
+    [path; "--output"; output_fd_string]
     @ (match relative_to with None -> [] | Some vdi -> ["--diff"; vdi])
     @ ( match relative_to_qcow_path with
       | None ->
@@ -119,8 +120,10 @@ let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
   in
   let qcow_tool = !Xapi_globs.qcow_to_stdout in
   let replace_fds =
-    Option.map
-      (fun (map_fd, info_fd) ->
+    [(output_fd_string, unix_fd)]
+    @
+    match input_fds with
+    | Some (map_fd, info_fd) -> (
         let rfds = [(map_fd_string, map_fd); (info_fd_string, info_fd)] in
         match diff_fds with
         | Some (diff_map_fd, diff_info_fd) ->
@@ -130,12 +133,12 @@ let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
         | None ->
             rfds
       )
-      input_fds
+    | None ->
+        []
   in
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
-      Vhd_qcow_parsing.run_tool qcow_tool progress_cb args ~output_fd:unix_fd
-        ?replace_fds
+      Vhd_qcow_parsing.run_tool qcow_tool args ~progress_cb ~replace_fds
     )
     (fun () ->
       Option.iter (fun (x, y) -> Unix.close x ; Unix.close y) input_fds ;

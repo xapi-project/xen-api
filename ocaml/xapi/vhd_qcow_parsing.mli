@@ -17,7 +17,7 @@ val run_tool :
   -> ?replace_fds:(string * Unix.file_descr) list
   -> ?input_fd:Unix.file_descr
   -> ?output_fd:Unix.file_descr
-  -> (int -> unit)
+  -> progress_cb:(int -> unit)
   -> string list
   -> unit
 

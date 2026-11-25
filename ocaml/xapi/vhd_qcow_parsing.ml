@@ -16,18 +16,62 @@ module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
-let run_tool tool ?(replace_fds = []) ?input_fd ?output_fd
-    (_progress_cb : int -> unit) (args : string list) =
+let run_tool tool ?(replace_fds = []) ?input_fd ?output_fd ~progress_cb
+    (args : string list) =
   info "Executing %s %s" tool (String.concat " " args) ;
+  let to_close = ref [] in
+  let pipe_read, pipe_write =
+    match output_fd with
+    | None ->
+        let r, w = Unix.pipe () in
+        to_close := [r; w] ;
+        (Some r, Some w)
+    | Some x ->
+        (None, Some x)
+  in
+  let close x =
+    match x with
+    | Some x ->
+        if List.mem x !to_close then (
+          Unix.close x ;
+          to_close := List.filter (fun y -> y <> x) !to_close
+        )
+    | None ->
+        ()
+  in
   (* with_logfile_fd takes a name without slashes *)
   let log_name = Filename.basename tool in
   let open Forkhelpers in
+  let protect ~finally protected =
+    Xapi_stdext_pervasives.Pervasiveext.finally protected finally
+  in
+  protect ~finally:(fun () -> close pipe_read ; close pipe_write) @@ fun () ->
   match
     with_logfile_fd log_name (fun log_fd ->
         let pid =
-          safe_close_and_exec input_fd output_fd (Some log_fd) replace_fds tool
+          safe_close_and_exec input_fd pipe_write (Some log_fd) replace_fds tool
             args
         in
+        close pipe_write ;
+        ( match pipe_read with
+        | Some pipe_read -> (
+          try
+            let buf = Bytes.make 3 '\000' in
+            while true do
+              Xapi_stdext_unix.Unixext.really_read pipe_read buf 0
+                (Bytes.length buf) ;
+              progress_cb (int_of_string (Bytes.to_string buf))
+            done
+          with
+          | End_of_file ->
+              ()
+          | e ->
+              warn "unexpected error reading progress from vhd-tool: %s"
+                (Printexc.to_string e)
+        )
+        | None ->
+            ()
+        ) ;
         let _, status = waitpid pid in
         if status <> Unix.WEXITED 0 then (
           error "qcow-tool failed, returning VDI_IO_ERROR" ;
