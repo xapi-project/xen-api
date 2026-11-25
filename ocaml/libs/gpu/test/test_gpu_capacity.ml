@@ -152,7 +152,12 @@ let test_blackwell_table () =
 (* Laws over every Blackwell type and reference geometry *)
 
 let geometries =
-  [("G1", Blackwell.g1); ("G2", Blackwell.g2); ("G3", Blackwell.g3)]
+  [
+    ("G1", Blackwell.g1)
+  ; ("G2", Blackwell.g2)
+  ; ("G3", Blackwell.g3)
+  ; ("two 2g", Blackwell.two_2g)
+  ]
 
 let count_profile p profiles = List.length (List.filter (( = ) p) profiles)
 

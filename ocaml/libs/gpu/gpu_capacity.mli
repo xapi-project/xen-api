@@ -67,3 +67,30 @@ val free_slots :
     be judged. Treating a probe failure as no room would refuse every VM on the
     card. Nor is it room: a caller never admits a VM on [None], since the card
     may not hold it. *)
+
+val choose_instance :
+     geometry:(('profile, 'vgpu_type) instance * 'h) list
+  -> request:('profile, 'vgpu_type) request
+  -> 'h option
+(** [choose_instance ~geometry ~request] is the handle of the instance a vGPU
+    of [request.vgpu_type] should be placed on, or [None] when no instance has
+    a free slot for it. It is [Some _] exactly when {!free_slots} of the same
+    instances is positive.
+
+    Policy: best fit. Of the instances with a free slot for the request, it
+    picks the one with the fewest free slots left, which is the most occupied
+    one that still has room; an empty instance is picked only when no instance
+    already bound to the requested type has room. Ties go to the earliest in
+    [geometry], so the same input always gives the same answer, and a dry run
+    picks the instance the committing call will.
+
+    Fragmentation consequence: an empty instance is the only one that can take
+    a vGPU of a different type of its profile, since the first vGPU locks an
+    instance to its type. First fit would spread one type across empty
+    instances and lock each of them, so a later request for another type of
+    the same profile would be refused while slots stood free. Best fit keeps
+    empty instances empty for as long as possible. It does not move vGPUs, so
+    an instance emptied by a departing vGPU is reused only by a later request.
+
+    The handles are opaque: this function can only return one of them, so it
+    cannot read or change what they refer to. *)

@@ -59,3 +59,6 @@ val g2 : int list
 
 val g3 : int list
 (** G3: one 2g and two 1g instances, the heterogeneous layout *)
+
+val two_2g : int list
+(** Two 2g instances, filling the card *)
