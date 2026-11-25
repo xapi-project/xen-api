@@ -12,9 +12,17 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val with_gpumon_stopped : ?timeout:float -> (unit -> 'a) -> 'a
+val with_gpumon_stopped :
+  ?timeout:float -> ?pass_through:bool -> (unit -> 'a) -> 'a
 (** Stop gpumon if it's running, perform f, then start gpumon if
-  * no other threads which require gpumon to be stopped are running. *)
+  * no other threads which require gpumon to be stopped are running.
+  * With [Xapi_globs.nvidia_gpumon_detach] set and [pass_through] false,
+  * detach gpumon from NVML around f instead (see [Nvml_detach]). *)
+
+val has_pass_through : __context:Context.t -> vgpus:API.ref_VGPU list -> bool
+(** [has_pass_through ~__context ~vgpus] is true if any of [vgpus] needs a
+    whole GPU passed through to the VM
+    ([Xapi_vgpu_type.requires_passthrough] is [Some `PF]). *)
 
 val update_vgpu_metadata : __context:Context.t -> vm:API.ref_VM -> unit
 (** [update_vgpu_metadata] updates the vGPU compatibility metadata of

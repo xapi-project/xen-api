@@ -44,34 +44,37 @@ end)
 
 let gpumon_m = Mutex.create ()
 
-let with_gpumon_stopped ?(timeout = 30.0) f =
-  match !Xapi_globs.nvidia_gpumon_detach with
-  | false ->
+module Gpumon_nvml = Nvml_detach.Make (struct
+  module GPU = Gpumon_client.Client.Nvidia
+
+  let dbg = "Xapi_gpumon.with_gpumon_stopped"
+
+  let is_attached () = GPU.nvml_is_attached dbg
+
+  let detach () = GPU.nvml_detach dbg
+
+  let attach () = GPU.nvml_attach dbg
+end)
+
+let with_gpumon_stopped ?(timeout = 30.0) ?(pass_through = false) f =
+  match
+    Nvml_detach.how
+      ~detach_switch:!Xapi_globs.nvidia_gpumon_detach
+      ~pass_through
+  with
+  | Stop_gpumon ->
       Gpumon.with_daemon_stopped ~timeout f
-  | true -> (
+  | Detach_nvml ->
       debug "%s: about to acquire lock" __FUNCTION__ ;
-      with_lock gpumon_m @@ fun () ->
-      let module GPU = Gpumon_client.Client.Nvidia in
-      match GPU.nvml_is_attached __FUNCTION__ with
-      | false ->
-          (* nothing to do, just execute f *)
-          debug "%s: NVML is detached; nothing to do" __FUNCTION__ ;
-          f ()
-      | true ->
-          (* detach, execute f, re-attach in any case. Be aware
-             that both xenopsd, xapi call /usr/lib/nvidia/sriov-manage,
-             which may stop stop gpumon *)
-          Fun.protect
-            (fun () ->
-              debug "%s: about to detach NVML" __FUNCTION__ ;
-              GPU.nvml_detach __FUNCTION__ ;
-              f ()
-            )
-            ~finally:(fun () ->
-              debug "%s: about to attach NVML" __FUNCTION__ ;
-              GPU.nvml_attach __FUNCTION__
-            )
+      with_lock gpumon_m @@ fun () -> Gpumon_nvml.with_detached f
+
+let has_pass_through ~__context ~vgpus =
+  List.exists
+    (fun self ->
+      let vgpu_type = Db.VGPU.get_type ~__context ~self in
+      Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type = Some `PF
     )
+    vgpus
 
 module Nvidia = struct
   let key = "nvidia"
