@@ -1761,8 +1761,9 @@ module VGPUType : HandlerTools = struct
         let vgpu_type =
           log_reraise "failed to create VGPU_type"
             (fun value ->
-              (* size and internal_config are left as defaults for now. They'll
-                 						 * be updated if and when xapi comes across the real config file. *)
+              (* size, internal_config and the partition fields are left as
+                 defaults for now: an export does not carry them. They'll be
+                 updated if and when xapi comes across the real config file. *)
               Xapi_vgpu_type.create ~__context
                 ~vendor_name:value.API.vGPU_type_vendor_name
                 ~model_name:value.API.vGPU_type_model_name
@@ -1776,7 +1777,8 @@ module VGPUType : HandlerTools = struct
                 ~experimental:value.API.vGPU_type_experimental
                 ~compatible_model_names_in_vm:
                   value.API.vGPU_type_compatible_types_in_vm
-                ~compatible_model_names_on_pgpu:[]
+                ~compatible_model_names_on_pgpu:[] ~partition_slices:None
+                ~partition_max_vgpus:None
             )
             vgpu_type_record
         in

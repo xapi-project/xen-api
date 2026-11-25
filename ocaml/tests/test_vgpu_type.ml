@@ -23,7 +23,14 @@ module NvidiaTest = struct
   let string_of_vgpu_conf conf =
     let open Identifier in
     let open Vendor_nvidia in
-    Printf.sprintf "%04x %s %04x %04x %Ld %Ld %Ld %Ldx%Ld"
+    let opt = function
+      | Some n ->
+          Printf.sprintf "Some %Ld" n
+      | None ->
+          "None"
+    in
+    Printf.sprintf
+      "%04x %s %04x %04x %Ld %Ld %Ld %Ldx%Ld slices=%s max_vgpus=%s"
       conf.identifier.pdev_id
       ( match conf.identifier.psubdev_id with
       | Some id ->
@@ -33,6 +40,36 @@ module NvidiaTest = struct
       )
       conf.identifier.vdev_id conf.identifier.vsubdev_id conf.framebufferlength
       conf.num_heads conf.max_instance conf.max_x conf.max_y
+      (opt conf.partition_slices)
+      (opt conf.partition_max_vgpus)
+
+  (* A type supported by the partitioned test card 3336:4446 *)
+  let partitioned_conf ~vsubdev_id ~type_id ~name ~max_instance
+      ~partition_slices ~partition_max_vgpus =
+    Vendor_nvidia.
+      {
+        identifier=
+          Identifier.
+            {
+              pdev_id= 0x3336
+            ; psubdev_id= Some 0x4446
+            ; vdev_id= 0x1113
+            ; vsubdev_id
+            ; sriov= false
+            ; vclass= "Quadro"
+            }
+      ; framebufferlength= 0x10000000L
+      ; num_heads= 4L
+      ; max_instance
+      ; max_x= 7680L
+      ; max_y= 4320L
+      ; file_path= "test_data/nvidia-whitelist.xml"
+      ; type_id
+      ; compatible_model_names_in_vm= []
+      ; compatible_model_names_on_pgpu= [name]
+      ; partition_slices
+      ; partition_max_vgpus
+      }
 
   module ReadWhitelist = Generic.MakeStateless (struct
     module Io = struct
@@ -78,6 +115,8 @@ module NvidiaTest = struct
                 ; type_id= "11"
                 ; compatible_model_names_in_vm= []
                 ; compatible_model_names_on_pgpu= ["TYPE FOO1"]
+                ; partition_slices= None
+                ; partition_max_vgpus= None
                 }
             ]
           )
@@ -104,6 +143,8 @@ module NvidiaTest = struct
                 ; type_id= "11"
                 ; compatible_model_names_in_vm= []
                 ; compatible_model_names_on_pgpu= ["TYPE FOO1"]
+                ; partition_slices= None
+                ; partition_max_vgpus= None
                 }
             ]
           )
@@ -130,6 +171,8 @@ module NvidiaTest = struct
                 ; type_id= "20"
                 ; compatible_model_names_in_vm= []
                 ; compatible_model_names_on_pgpu= ["TYPE FOO2"]
+                ; partition_slices= None
+                ; partition_max_vgpus= None
                 }
             ; Vendor_nvidia.
                 {
@@ -152,7 +195,36 @@ module NvidiaTest = struct
                 ; type_id= "21"
                 ; compatible_model_names_in_vm= []
                 ; compatible_model_names_on_pgpu= ["TYPE FOO3"]
+                ; partition_slices= None
+                ; partition_max_vgpus= None
                 }
+            ]
+          )
+        ; (* The partition fields are read only when they hold a positive
+             integer. Every type is still returned, so a malformed value
+             neither raises nor hides the card's other types. *)
+          ( ("test_data/nvidia-whitelist.xml", 0x3336, 0x4446)
+          , [
+              (* both given *)
+              partitioned_conf ~vsubdev_id:0x2230 ~type_id:"30"
+                ~name:"TYPE PART2" ~max_instance:24L ~partition_slices:(Some 2L)
+                ~partition_max_vgpus:(Some 3L)
+            ; (* neither given: a whole-card type *)
+              partitioned_conf ~vsubdev_id:0x2231 ~type_id:"31"
+                ~name:"TYPE WHOLE" ~max_instance:4L ~partition_slices:None
+                ~partition_max_vgpus:None
+            ; (* not a number, and empty *)
+              partitioned_conf ~vsubdev_id:0x2232 ~type_id:"32"
+                ~name:"TYPE GARBAGE" ~max_instance:4L ~partition_slices:None
+                ~partition_max_vgpus:None
+            ; (* zero, and negative *)
+              partitioned_conf ~vsubdev_id:0x2233 ~type_id:"33"
+                ~name:"TYPE ZERO" ~max_instance:4L ~partition_slices:None
+                ~partition_max_vgpus:None
+            ; (* a self-closing element, and the other field alone *)
+              partitioned_conf ~vsubdev_id:0x2234 ~type_id:"34"
+                ~name:"TYPE EMPTY" ~max_instance:4L ~partition_slices:None
+                ~partition_max_vgpus:(Some 12L)
             ]
           )
         ]
@@ -581,12 +653,86 @@ let test_last_sync_wins () =
     "k100 compatible_types_on_pgpu is the last sync's" [k100_ref]
     (Db.VGPU_type.get_compatible_types_on_pgpu ~__context ~self:k100_ref)
 
+let int64_option = Alcotest.(option int64)
+
+(* Check what the database holds for a type's partition fields, both as
+   stored and as read through the accessors *)
+let check_partition ~__context ~self ~what ~stored:(slices, max_vgpus)
+    ~expected:(expected_slices, expected_max_vgpus) =
+  Alcotest.check Alcotest.int64
+    (what ^ ": stored partition_slices")
+    slices
+    (Db.VGPU_type.get_partition_slices ~__context ~self) ;
+  Alcotest.check Alcotest.int64
+    (what ^ ": stored partition_max_vgpus")
+    max_vgpus
+    (Db.VGPU_type.get_partition_max_vgpus ~__context ~self) ;
+  Alcotest.check int64_option
+    (what ^ ": partition_slices")
+    expected_slices
+    (partition_slices ~__context ~self) ;
+  Alcotest.check int64_option
+    (what ^ ": partition_max_vgpus")
+    expected_max_vgpus
+    (partition_max_vgpus ~__context ~self) ;
+  Alcotest.check Alcotest.bool (what ^ ": is_mig_backed")
+    (Option.is_some expected_slices)
+    (is_mig_backed ~__context ~self)
+
+let test_partition_fields_created () =
+  let __context = make_test_database () in
+  let whole = find_or_create ~__context k100 in
+  check_partition ~__context ~self:whole ~what:"whole-card type"
+    ~stored:(0L, 0L) ~expected:(None, None) ;
+  let partitioned =
+    find_or_create ~__context
+      {k140q with partition_slices= Some 2L; partition_max_vgpus= Some 3L}
+  in
+  check_partition ~__context ~self:partitioned ~what:"partition-backed type"
+    ~stored:(2L, 3L) ~expected:(Some 2L, Some 3L)
+
+let test_partition_fields_updated () =
+  let __context = make_test_database () in
+  (* As if the type was first read from a manifest that did not give the
+     values, then from one that does, then from one that no longer does *)
+  let self = find_or_create ~__context k100 in
+  let self' =
+    find_or_create ~__context
+      {k100 with partition_slices= Some 4L; partition_max_vgpus= Some 6L}
+  in
+  Alcotest.check
+    (Alcotest_comparators.ref ())
+    "New k100 type was created erroneously" self self' ;
+  check_partition ~__context ~self ~what:"after the manifest gives them"
+    ~stored:(4L, 6L) ~expected:(Some 4L, Some 6L) ;
+  let (_ : API.ref_VGPU_type) = find_or_create ~__context k100 in
+  check_partition ~__context ~self ~what:"after the manifest stops giving them"
+    ~stored:(0L, 0L) ~expected:(None, None)
+
+let test_partition_fields_default () =
+  let __context = make_test_database () in
+  (* A row written by a xapi that does not know the fields has the default 0 *)
+  let self = make_vgpu_type ~__context ~implementation:`nvidia () in
+  check_partition ~__context ~self ~what:"default" ~stored:(0L, 0L)
+    ~expected:(None, None) ;
+  (* A value that is not positive is never written, but is still read as
+     not given *)
+  let self =
+    make_vgpu_type ~__context ~implementation:`nvidia ~partition_slices:(-1L)
+      ~partition_max_vgpus:(-2L) ()
+  in
+  check_partition ~__context ~self ~what:"negative" ~stored:(-1L, -2L)
+    ~expected:(None, None)
+
 let test =
   [
     ("find_or_create", `Quick, test_find_or_create)
   ; ("identifier_lookup", `Quick, test_identifier_lookup)
   ; ("vendor_model_lookup", `Quick, test_vendor_model_lookup)
   ; ("last_sync_wins", `Quick, test_last_sync_wins)
+  ; ("partition_fields_created", `Quick, test_partition_fields_created)
+  ; ("partition_fields_updated", `Quick, test_partition_fields_updated)
+  ; ("partition_fields_default", `Quick, test_partition_fields_default)
   ]
 
 let tests =

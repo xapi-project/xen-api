@@ -113,6 +113,12 @@ type vgpu_type = {
   ; experimental: bool
   ; compatible_model_names_in_vm: string list
   ; compatible_model_names_on_pgpu: string list
+  ; partition_slices: int64 option
+        (** how many slices of a partitioned card one partition for this type
+            is made of; [None] when the type is not partition-backed *)
+  ; partition_max_vgpus: int64 option
+        (** how many vGPUs of this type can share one partition; [None] when
+            the manifest does not say *)
 }
 
 let passthrough_gpu =
@@ -129,12 +135,53 @@ let passthrough_gpu =
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= []
+  ; partition_slices= None
+  ; partition_max_vgpus= None
   }
+
+(* The partition fields of VGPU_type are Ints, which cannot hold "the manifest
+   gives none", so the database stores 0 for it. Only positive values are ever
+   kept, so 0 is never a real value. A row created by a xapi that does not know
+   these fields gets the default 0, and so reads as not partition-backed until
+   a xapi that does know them reads the manifest again. *)
+let stored_of_partition_value = function Some n when n > 0L -> n | _ -> 0L
+
+let partition_value_of_stored n =
+  if n > 0L then
+    Some n
+  else
+    None
+
+(** [partition_slices ~__context ~self] is how many slices of a partitioned
+    card one partition for the vGPU type [self] is made of, from the
+    [gpuInstanceSize] element of the driver's manifest, or [None] if the
+    manifest gives none.
+
+    This is a fact about the type, read from a file. It says nothing about how
+    any card is divided now, and it is not how many vGPUs fit on a partition:
+    that is {!partition_max_vgpus}. Neither is free capacity: treating it as
+    such admits a VM that has nowhere to run. *)
+let partition_slices ~__context ~self =
+  Db.VGPU_type.get_partition_slices ~__context ~self
+  |> partition_value_of_stored
+
+(** [partition_max_vgpus ~__context ~self] is how many vGPUs of the type
+    [self] can share one partition, from the [maxInstancePerGI] element of the
+    driver's manifest, or [None] if the manifest gives none. *)
+let partition_max_vgpus ~__context ~self =
+  Db.VGPU_type.get_partition_max_vgpus ~__context ~self
+  |> partition_value_of_stored
+
+(** [is_mig_backed ~__context ~self] is true when vGPUs of the type [self] run
+    on a partition of a card rather than on the whole card: exactly when the
+    manifest gives the type a partition size. *)
+let is_mig_backed ~__context ~self =
+  Option.is_some (partition_slices ~__context ~self)
 
 let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
     ~max_resolution_x ~max_resolution_y ~size ~internal_config ~implementation
     ~identifier ~experimental ~compatible_model_names_in_vm
-    ~compatible_model_names_on_pgpu =
+    ~compatible_model_names_on_pgpu ~partition_slices ~partition_max_vgpus =
   let ref = Ref.make () in
   let uuid = Uuidx.(to_string (make ())) in
   (* Currently Nvidia has only one type of vGPU in the VM and on pGPU
@@ -158,7 +205,9 @@ let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
   Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
     ~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y ~size
     ~internal_config ~implementation ~identifier ~experimental
-    ~compatible_types_in_vm ~compatible_types_on_pgpu ;
+    ~compatible_types_in_vm ~compatible_types_on_pgpu
+    ~partition_slices:(stored_of_partition_value partition_slices)
+    ~partition_max_vgpus:(stored_of_partition_value partition_max_vgpus) ;
   debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
     (Ref.string_of ref) vendor_name model_name ;
   ref
@@ -274,6 +323,18 @@ let find_or_create ~__context vgpu_type =
       then
         Db.VGPU_type.set_compatible_types_on_pgpu ~__context ~self:vgpu_type_ref
           ~value:compatible_types_on_pgpu ;
+      let partition_slices =
+        stored_of_partition_value vgpu_type.partition_slices
+      in
+      if partition_slices <> rc.Db_actions.vGPU_type_partition_slices then
+        Db.VGPU_type.set_partition_slices ~__context ~self:vgpu_type_ref
+          ~value:partition_slices ;
+      let partition_max_vgpus =
+        stored_of_partition_value vgpu_type.partition_max_vgpus
+      in
+      if partition_max_vgpus <> rc.Db_actions.vGPU_type_partition_max_vgpus then
+        Db.VGPU_type.set_partition_max_vgpus ~__context ~self:vgpu_type_ref
+          ~value:partition_max_vgpus ;
       vgpu_type_ref
   | None ->
       create ~__context ~vendor_name:vgpu_type.vendor_name
@@ -287,6 +348,8 @@ let find_or_create ~__context vgpu_type =
         ~experimental:vgpu_type.experimental
         ~compatible_model_names_in_vm:vgpu_type.compatible_model_names_in_vm
         ~compatible_model_names_on_pgpu:vgpu_type.compatible_model_names_on_pgpu
+        ~partition_slices:vgpu_type.partition_slices
+        ~partition_max_vgpus:vgpu_type.partition_max_vgpus
 
 module Passthrough = struct
   let find_or_create_supported_types ~__context ~pci:_ ~is_system_display_device
@@ -418,6 +481,8 @@ module Vendor_nvidia = struct
     ; type_id: string
     ; compatible_model_names_in_vm: string list
     ; compatible_model_names_on_pgpu: string list
+    ; partition_slices: int64 option  (** <gpuInstanceSize> *)
+    ; partition_max_vgpus: int64 option  (** <maxInstancePerGI> *)
   }
 
   type gpu = {device_id: int; subsys_id: int}
@@ -536,6 +601,22 @@ module Vendor_nvidia = struct
         d
     | _ ->
         failwith "get_data: no data node"
+
+  (* The positive integer held by the first [name] element under [t], or None
+     when there is no such element, it is empty, or it does not hold a positive
+     integer. Never raises: a malformed value means the manifest does not tell
+     us, not that the manifest cannot be read. *)
+  let positive_int64_of_child name t =
+    match find_by_name name t with
+    | E (_, _, [D d]) :: _ -> (
+      match Int64.of_string_opt d with
+      | Some n when n > 0L ->
+          Some n
+      | _ ->
+          None
+    )
+    | _ ->
+        None
 
   type vgpu_type = {max: int64; psubdev_id: int option; sriov: bool}
 
@@ -709,6 +790,15 @@ module Vendor_nvidia = struct
             | _ ->
                 ([], [name])
           in
+          (* Only partition-backed types carry <gpuInstanceSize>, the number
+             of slices of the card their partition is made of. It is not how
+             many vGPUs fit on a partition: that is <maxInstancePerGI>. *)
+          let partition_slices =
+            positive_int64_of_child "gpuInstanceSize" vgpu_type
+          in
+          let partition_max_vgpus =
+            positive_int64_of_child "maxInstancePerGI" vgpu_type
+          in
           Some
             {
               identifier
@@ -721,6 +811,8 @@ module Vendor_nvidia = struct
             ; type_id
             ; compatible_model_names_in_vm
             ; compatible_model_names_on_pgpu
+            ; partition_slices
+            ; partition_max_vgpus
             }
         ) else
           None
@@ -784,6 +876,8 @@ module Vendor_nvidia = struct
       ; experimental= false
       ; compatible_model_names_in_vm= conf.compatible_model_names_in_vm
       ; compatible_model_names_on_pgpu= conf.compatible_model_names_on_pgpu
+      ; partition_slices= conf.partition_slices
+      ; partition_max_vgpus= conf.partition_max_vgpus
       }
 end
 
@@ -887,6 +981,8 @@ module Vendor_intel = struct
         ; experimental= conf.experimental
         ; compatible_model_names_in_vm= []
         ; compatible_model_names_on_pgpu= [conf.model_name]
+        ; partition_slices= None
+        ; partition_max_vgpus= None
         }
 end
 
@@ -971,6 +1067,8 @@ module Vendor_amd = struct
         ; experimental= conf.experimental
         ; compatible_model_names_in_vm= []
         ; compatible_model_names_on_pgpu= [conf.model_name]
+        ; partition_slices= None
+        ; partition_max_vgpus= None
         }
 end
 
