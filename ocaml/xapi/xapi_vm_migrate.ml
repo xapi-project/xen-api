@@ -1537,16 +1537,17 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vdi_format_map ~vif_map
        chances that similar but smaller VDIs would arrive comparatively
        earlier, which can serve as base for incremental copying the larger
        ones. *)
+    (* Non-snapshots last, so they can use their snapshots as base. *)
+    let age v =
+      if Db.VDI.get_is_a_snapshot ~__context ~self:v.vdi then
+        Date.to_unix_time (Db.VDI.get_snapshot_time ~__context ~self:v.vdi)
+      else
+        Float.infinity
+    in
     let compare_fun v1 v2 =
       let r = Int64.compare v1.size v2.size in
       if r = 0 then
-        let t1 =
-          Date.to_unix_time (Db.VDI.get_snapshot_time ~__context ~self:v1.vdi)
-        in
-        let t2 =
-          Date.to_unix_time (Db.VDI.get_snapshot_time ~__context ~self:v2.vdi)
-        in
-        compare t1 t2
+        Float.compare (age v1) (age v2)
       else
         r
     in
