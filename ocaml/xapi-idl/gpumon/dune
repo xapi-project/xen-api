@@ -9,6 +9,7 @@
    threads
    xapi-idl
    xapi-log
+   xapi-stdext-std
  )
  (wrapped false)
  (preprocess (per_module ((pps ppx_deriving_rpc) Gpumon_interface))))

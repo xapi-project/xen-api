@@ -46,11 +46,18 @@ type t =
 
 (** One GPU's question to the helper, made once: its arguments and the
     decoding both read it *)
-type request = private {bdf: string; page_size: int}
+type request = private {
+    bdf: string
+  ; page_size: int
+  ; sections: Gpumon_interface.Partition_helper.V1_0.Section_token.t list
+}
+
+(** The checked pages of a reply whose case was read *)
+type pages
 
 (** One GPU's decoded reply, a record so that a field added later changes
     none of its readers *)
-type reply = private {probe: t}
+type reply = private {probe: t; pages: pages option; request: request}
 
 (** What the helper printed and its exit code, [None] on a signal *)
 type output = {exit: int option; stdout: string}
@@ -59,7 +66,14 @@ type output = {exit: int option; stdout: string}
 type run_result = (output, xapi_kind) result
 
 val request : page_size:int -> string -> request
-(** The question for the GPU at a PCI address, in pages of [page_size] bytes *)
+(** The question for the GPU at a PCI address, in pages of [page_size] bytes,
+    asking for no optional section *)
+
+val with_sections :
+     Gpumon_interface.Partition_helper.V1_0.Section_token.t list
+  -> request
+  -> request
+(** The same question, asking the helper for these optional sections *)
 
 val helper_args : request -> string list
 (** The helper's arguments for the GPU at a PCI address *)
@@ -72,3 +86,15 @@ val decode : request -> run_result -> reply
     none. Output that rpclib's parser accepts but cannot convert, such as a
     parenthesised list, which JSON does not allow, raises an exception that
     rpclib does not export *)
+
+(** What a reader of a decoded reply can ask about the GPU *)
+type _ question =
+  | Mode : t question  (** the case and the partition mode: [reply.probe] *)
+  | Creatable :
+      Gpumon_interface.Partition_helper.V1_0.Creatable.view option question
+      (** each GPU instance's creatable vGPU types, read with the sections
+          the request asked for; [None] when the case was not read, and
+          [Mode] says why *)
+
+val ask : 'a question -> reply -> 'a
+(** The answer to a question about a decoded reply *)

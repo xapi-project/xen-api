@@ -12,6 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
+(* A match that misses a case does not compile, in any build profile *)
+[@@@warning "@8"]
+
 open Idl
 
 module D = Debug.Make (struct let name = "gpumon_interface" end)
@@ -756,6 +759,526 @@ module Partition_helper = struct
       [@@deriving rpcty]
     end
 
+    (* The name of a section a caller asks for with --sections, as the
+       snapshot that defines the section prints it. Only the functor below
+       makes one, and each snapshot applies it once, in its Sections, so a
+       raw or misspelt name, or a value of another enumeration, does not
+       compile where a name is expected. Applied anywhere else, the functor
+       would make names that no snapshot defines. A later snapshot keeps
+       this module, so its names have this type too *)
+    module Section_token : sig
+      type t = private string
+
+      (* The rest of a snapshot's Sections, from its variant of sections:
+         the enumeration's typ, each section's name, and a name read back
+         as a section *)
+      module Make_sections (Variant : sig
+        type section
+
+        val typ_of_section : section Rpc.Types.typ
+      end) : sig
+        val typ_of : Variant.section open_enum Rpc.Types.typ
+
+        val token : Variant.section -> t
+
+        val of_token : t -> Variant.section open_enum
+      end
+    end = struct
+      type t = string
+
+      module Make_sections (Variant : sig
+        type section
+
+        val typ_of_section : section Rpc.Types.typ
+      end) =
+      struct
+        let typ_of = typ_of_open_enum Variant.typ_of_section
+
+        let token section =
+          Rpcmarshal.marshal typ_of (Known section) |> Rpc.string_of_rpc
+
+        let of_token t =
+          Rpcmarshal.unmarshal typ_of (Rpc.String t)
+          |> Result.value ~default:(Unknown t)
+      end
+    end
+
+    (* The optional sections a probe writes only when the caller names them
+       in --sections; a helper skips a name it does not write. Known
+       Creatable is the creatable section; Unknown s is a name this reader
+       does not know, from a newer helper's --version *)
+    module Sections = struct
+      type known = Creatable [@@deriving rpcty]
+
+      type t = known open_enum
+
+      include Section_token.Make_sections (struct
+        type section = known
+
+        let typ_of_section = typ_of_known
+      end)
+
+      (* The same section in this snapshot's names; each later snapshot maps
+         every section of 1.0 to its own *)
+      let of_v1_0 (section : known) : known = section
+    end
+
+    (* For each GPU instance of the same reply, the vGPU types the driver says
+       it could create there when the helper read them, after the vgpu section.
+       It is not a promise that a VM of such a type starts *)
+    module Creatable = struct
+      type vgpu_type = {type_id: integer} [@@deriving rpcty]
+
+      (* Builds a vGPU type; here and in make_entry and make below, a member
+         added later is one more optional argument, so callers do not change *)
+      let make_vgpu_type ~type_id () = {type_id}
+
+      type nullable_vgpu_type_list = vgpu_type list nullable
+
+      let typ_of_nullable_vgpu_type_list =
+        typ_of_nullable (Rpc.Types.List typ_of_vgpu_type)
+
+      (* An entry answers for the GPU instance gi_id of the same reply, so
+         gi_id is never null. vgpu_types is null unless status is ok, and []
+         when the driver can create none there; library_call is the failed
+         call, null unless status is error *)
+      type entry = {
+          gi_id: integer
+        ; status: Section_status.t
+        ; kind: Kind.nullable
+        ; library_call: Envelope.nullable_library_call
+        ; vgpu_types: nullable_vgpu_type_list
+      }
+      [@@deriving rpcty]
+
+      let make_entry ~gi_id ~status ~kind ~library_call ~vgpu_types () =
+        {gi_id; status; kind; library_call; vgpu_types}
+
+      type nullable_entry_list = entry list nullable
+
+      let typ_of_nullable_entry_list =
+        typ_of_nullable (Rpc.Types.List typ_of_entry)
+
+      (* The section as page 1 carries it *)
+      type t = {
+          status: Section_status.t
+        ; kind: Kind.nullable
+        ; gpu_instances: nullable_entry_list
+      }
+      [@@deriving rpcty]
+
+      let make ~status ~kind ~gpu_instances () = {status; kind; gpu_instances}
+
+      (* The section as a page after the first holds it: only its slice of
+         the list, and nothing when the page holds no slice. An entry that
+         starts on that page has every member; one continued from the page
+         before has only gi_id and its slice of vgpu_types, so status marks
+         where an entry starts *)
+      module Next = struct
+        type entry = {
+            gi_id: integer
+          ; status: Section_status.t option
+          ; kind: Kind.nullable option
+          ; library_call: Envelope.nullable_library_call option
+          ; vgpu_types: nullable_vgpu_type_list
+        }
+        [@@deriving rpcty]
+
+        type t = {gpu_instances: entry list option} [@@deriving rpcty]
+      end
+
+      (* The section as each page of one reply holds it, page 1 first: None
+         when the page does not carry it, an error when it cannot be read *)
+      type pages = {
+          first: (t option, [`Msg of string]) result
+        ; next: (Next.t option, [`Msg of string]) result list
+      }
+
+      (* The rpc typs from here to view are for printing, not for the wire *)
+
+      (* Why a GPU instance's creatable vGPU types were not read *)
+      type not_read =
+        | Not_asked (* the run that wrote the pages did not ask for them *)
+        | Section_absent
+          (* asked, but page 1 does not carry the section and no later page
+             holds a slice *)
+        | Section_malformed
+          (* unreadable on a page, ok without its list, an error without
+             its kind, or slices on a later page when page 1 opened no
+             list *)
+        | Section_not_attempted
+        | Section_failed of Kind.t
+        | Section_status_unknown of string
+        | No_entry
+        | Duplicate_entry
+          (* started twice, two slices on one page, or a GPU instance that
+             the reply names twice *)
+        | Slice_without_start
+          (* a slice with only gi_id and vgpu_types that is not the first
+             entry of its page, or whose page before does not end with its
+             entry *)
+        | Entry_malformed
+          (* ok without its list, an error without its kind, a list that
+             is null in one of its slices, or a slice with only some of the
+             members a start has *)
+        | Entry_not_attempted
+        | Entry_status_unknown of string
+        | Out_of_range (* a type id outside the unsigned 32-bit range *)
+      [@@deriving rpcty]
+
+      (* A failed read: its kind, and the failed call when there is one *)
+      type failure = {kind: Kind.t; library_call: Envelope.library_call option}
+      [@@deriving rpcty]
+
+      (* What the pages of one reply say about one GPU instance. Its strings
+         are the helper's text as read: not checked as UTF-8 and bounded only
+         by the page, so a caller checks and cuts them before it logs or
+         stores them. A list keeps the helper's order and repeats *)
+      type read =
+        | Listed of vgpu_type list
+        | Failed of failure
+        | Not_read of not_read
+      [@@deriving rpcty]
+
+      (* Ids, each once, in the order first met. of_list makes them; typ_of
+         is for printing, and what it reads is not checked *)
+      module First_met : sig
+        type t = private int list
+
+        (* The keys of the elements, each once, in the order first met *)
+        val of_list : ('a -> int) -> 'a list -> t
+
+        val typ_of : t Rpc.Types.typ
+      end = struct
+        module Seen = Set.Make (Int)
+
+        type t = int list [@@deriving rpcty]
+
+        let of_list key elements =
+          let new_key seen element =
+            let k = key element in
+            if Seen.mem k seen then
+              (seen, None)
+            else
+              (Seen.add k seen, Some k)
+          in
+          List.fold_left_map new_key Seen.empty elements
+          |> snd
+          |> List.filter_map Fun.id
+      end
+
+      (* One result per GPU instance asked about, in that order, and the ids
+         of the entries that name none of them *)
+      type view = {per_gi: (int * read) list; unmatched: First_met.t}
+      [@@deriving rpcty]
+
+      (* Reads the creatable section of one reply's pages for the GPU
+         instances of the same reply, given the sections its run asked for.
+         An entry that one page cannot hold continues on the next ones, and
+         is read as one. The pages are those of one whole reply, page 1
+         first, none missing or repeated, as the reader of the pages checks
+         them *)
+      include (
+        struct
+          module By_gi = Map.Make (Int)
+          module Listext = Xapi_stdext_std.Listext
+
+          (* A nullable member's value as an option, or as a result with the
+             given error for null *)
+          module Nullable = struct
+            let to_option = function Null -> None | Value v -> Some v
+
+            let to_result ~null v = Option.to_result ~none:null (to_option v)
+          end
+
+          let ( let* ) = Result.bind
+
+          (* Ok when the check holds, else its cause *)
+          let check ok cause =
+            if ok then
+              Ok ()
+            else
+              Error cause
+
+          (* A key's group: none when no element has that key *)
+          let group key groups =
+            Option.value ~default:[] (By_gi.find_opt key groups)
+
+          (* Each key's elements, in list order *)
+          let group_by key elements =
+            let add groups element =
+              let k = key element in
+              By_gi.add k (element :: group k groups) groups
+            in
+            List.fold_left add By_gi.empty elements |> By_gi.map List.rev
+
+          (* Whether the run asked for this section. Each name is read back
+             in this snapshot's names and every section is matched by
+             constructor, so a snapshot that adds a section and restates this
+             says what the new section means here *)
+          let asked_for (asked : Section_token.t list) =
+            List.exists
+              (fun token ->
+                match Sections.of_token token with
+                | Known Sections.Creatable ->
+                    true
+                | Unknown _ ->
+                    false
+              )
+              asked
+
+          (* A page that cannot be read makes the section malformed *)
+          let readable page =
+            Result.map_error (fun (`Msg _) -> Section_malformed) page
+
+          (* Each later page's entries, once every later page can be read: a
+             page without the section, or without its list, holds none *)
+          let later_entries next =
+            let entries (page : Next.t option) =
+              match page with
+              | Some {gpu_instances= Some entries} ->
+                  entries
+              | Some {gpu_instances= None} | None ->
+                  []
+            in
+            Listext.List.try_map (Result.map entries) next |> readable
+
+          (* The list that page 1 opens: an ok section's list, which must not
+             be null. A section that is absent or not ok opens none, and says
+             why *)
+          let opened (first : t option) =
+            match first with
+            | None ->
+                Error Section_absent
+            | Some {status; kind; gpu_instances} -> (
+              match status with
+              | Known Section_status.Ok ->
+                  Nullable.to_result ~null:Section_malformed gpu_instances
+              | Known Section_status.Error ->
+                  let* kind = Nullable.to_result ~null:Section_malformed kind in
+                  Error (Section_failed kind)
+              | Known Section_status.Not_attempted ->
+                  Error Section_not_attempted
+              | Unknown status ->
+                  Error (Section_status_unknown status)
+            )
+
+          (* Why page 1 opens no list, or Section_malformed when a later page
+             holds slices, which then continue no list *)
+          let orphaned later cause =
+            match List.concat later with
+            | [] ->
+                cause
+            | _ :: _ ->
+                Section_malformed
+
+          (* Page 1's entry in the form of a later page's: it has every member
+             of a start, so it starts its entry *)
+          let as_next ({gi_id; status; kind; library_call; vgpu_types} : entry)
+              : Next.entry =
+            {
+              gi_id
+            ; status= Some status
+            ; kind= Some kind
+            ; library_call= Some library_call
+            ; vgpu_types
+            }
+
+          (* Each page's entries, page 1's first, or why no GPU instance is
+             read *)
+          let section ~asked (pages : pages) =
+            let* () = check (asked_for asked) Not_asked in
+            let* later = later_entries pages.next in
+            let* first = readable pages.first in
+            let* entries = Result.map_error (orphaned later) (opened first) in
+            Ok (List.map as_next entries :: later)
+
+          (* The members of the slice that starts an entry *)
+          type start = {
+              status: Section_status.t
+            ; kind: Kind.nullable
+            ; library_call: Envelope.nullable_library_call
+          }
+
+          (* What a slice says about its entry *)
+          type role = Starts of start | Continues | Stray | Malformed
+
+          (* A slice with every member of a start starts its entry, and one
+             with only some is malformed. One with none of them continues the
+             entry that ends the page before when it is first on its page, and
+             is stray otherwise *)
+          let role_of ~before i (e : Next.entry) =
+            match (e.status, e.kind, e.library_call) with
+            | Some status, Some kind, Some library_call ->
+                Starts {status; kind; library_call}
+            | None, None, None
+              when i = 0 && Option.equal Int.equal before (Some e.gi_id) ->
+                Continues
+            | None, None, None ->
+                Stray
+            | (Some _ | None), (Some _ | None), (Some _ | None) ->
+                Malformed
+
+          (* One page's piece of an entry *)
+          type slice = {
+              gi_id: int
+            ; page: int
+            ; role: role
+            ; types: nullable_vgpu_type_list
+          }
+
+          (* Every slice of every page, in page order, from the entries of
+             each page. The fold carries the page number and the gi_id that
+             ends the page before *)
+          let slices_of pages_entries =
+            let on_page (page, before) entries =
+              let slice_at i (e : Next.entry) =
+                {
+                  gi_id= e.gi_id
+                ; page
+                ; role= role_of ~before i e
+                ; types= e.vgpu_types
+                }
+              in
+              let last_gi =
+                Listext.List.last entries
+                |> Option.map (fun (e : Next.entry) -> e.gi_id)
+              in
+              ((page + 1, last_gi), List.mapi slice_at entries)
+            in
+            let _, slices =
+              List.fold_left_map on_page (1, None) pages_entries
+            in
+            List.concat slices
+
+          let start_of slice =
+            match slice.role with
+            | Starts start ->
+                Some start
+            | Continues | Stray | Malformed ->
+                None
+
+          let stray slice =
+            match slice.role with
+            | Stray ->
+                true
+            | Starts _ | Continues | Malformed ->
+                false
+
+          let malformed slice =
+            match slice.role with
+            | Malformed ->
+                true
+            | Starts _ | Continues | Stray ->
+                false
+
+          (* The start of an entry, if it has one: two make a duplicate *)
+          let one_start slices =
+            match List.filter_map start_of slices with
+            | [] ->
+                Ok None
+            | [start] ->
+                Ok (Some start)
+            | _ :: _ :: _ ->
+                Error Duplicate_entry
+
+          (* Whether no two slices are on one page; rev_map keeps the stack
+             flat however long the list *)
+          let on_distinct_pages slices =
+            let pages = List.rev_map (fun slice -> slice.page) slices in
+            List.compare_lengths (List.sort_uniq Int.compare pages) pages = 0
+
+          (* An entry's list, from its slices in page order: one slice's list
+             as it is, else every slice's list joined, none of them null *)
+          let whole_list = function
+            | [slice] ->
+                Ok slice.types
+            | ([] | _ :: _ :: _) as slices ->
+                let list_of slice =
+                  Nullable.to_result ~null:Entry_malformed slice.types
+                in
+                let* lists = Listext.List.try_map list_of slices in
+                Ok (Value (List.concat lists))
+
+          (* The largest type id a reply may carry, 2^32 - 1 *)
+          let max_type_id = 0xffff_ffff
+
+          let in_range ({type_id} : vgpu_type) =
+            0 <= type_id && type_id <= max_type_id
+
+          (* An entry, from its start's members and its whole list: the
+             status says which other member is read *)
+          let classify ({status; kind; library_call} : start) types =
+            match status with
+            | Known Section_status.Ok ->
+                let* types = Nullable.to_result ~null:Entry_malformed types in
+                let* () = check (List.for_all in_range types) Out_of_range in
+                Ok (Listed types)
+            | Known Section_status.Error ->
+                let* kind = Nullable.to_result ~null:Entry_malformed kind in
+                Ok (Failed {kind; library_call= Nullable.to_option library_call})
+            | Known Section_status.Not_attempted ->
+                Error Entry_not_attempted
+            | Unknown status ->
+                Error (Entry_status_unknown status)
+
+          (* One GPU instance's read, from its slices in page order: the first
+             check that fails gives the cause *)
+          let merge slices =
+            let* start = one_start slices in
+            let* () = check (on_distinct_pages slices) Duplicate_entry in
+            let* () =
+              check (not (List.exists stray slices)) Slice_without_start
+            in
+            let* () =
+              check (not (List.exists malformed slices)) Entry_malformed
+            in
+            let* start = Option.to_result ~none:No_entry start in
+            let* types = whole_list slices in
+            classify start types
+
+          (* The view of every slice of every page: each GPU instance's read,
+             a duplicate when the reply names it twice, else its slices
+             merged; and the gi_ids of the slices that name none, in the order
+             first met *)
+          let view_of ~gi_ids slices =
+            let by_gi = group_by (fun slice -> slice.gi_id) slices in
+            (* each GPU instance asked about, as often as the reply names it *)
+            let names = group_by Fun.id gi_ids in
+            let read_of gi_id =
+              match group gi_id names with
+              | _ :: _ :: _ ->
+                  Not_read Duplicate_entry
+              | [] | [_] ->
+                  merge (group gi_id by_gi)
+                  |> Result.fold ~ok:Fun.id ~error:(fun cause -> Not_read cause)
+            in
+            let matches_none slice = not (By_gi.mem slice.gi_id names) in
+            {
+              per_gi= List.map (fun gi_id -> (gi_id, read_of gi_id)) gi_ids
+            ; unmatched=
+                List.filter matches_none slices
+                |> First_met.of_list (fun slice -> slice.gi_id)
+            }
+
+          let per_gpu_instance ~(asked : Section_token.t list)
+              ~(gi_ids : int list) (pages : pages) : view =
+            match section ~asked pages with
+            | Ok pages_entries ->
+                view_of ~gi_ids (slices_of pages_entries)
+            | Error cause ->
+                {
+                  per_gi= List.map (fun gi_id -> (gi_id, Not_read cause)) gi_ids
+                ; unmatched= First_met.of_list Fun.id []
+                }
+        end :
+          sig
+            val per_gpu_instance :
+              asked:Section_token.t list -> gi_ids:int list -> pages -> view
+          end
+      )
+    end
+
     (* The reply to a probe of one card: its sections, and the case it found *)
     module Probe = struct
       (* The case the probe found; named Case, as Result would hide Stdlib's
@@ -778,14 +1301,15 @@ module Partition_helper = struct
           mig_mode: Mig_mode.t option
         ; geometry: Geometry.t option
         ; vgpu: Vgpu.t option
+        ; creatable: Creatable.t option
         ; probe: t option
       }
       [@@deriving rpcty]
 
       (* Builds a probe's data; a member added later is one more optional
          argument, so its callers do not change *)
-      let make_data ?mig_mode ?geometry ?vgpu ?probe () =
-        {mig_mode; geometry; vgpu; probe}
+      let make_data ?mig_mode ?geometry ?vgpu ?creatable ?probe () =
+        {mig_mode; geometry; vgpu; creatable; probe}
 
       include Envelope.Reply (struct
         type t = data
@@ -817,17 +1341,21 @@ module Partition_helper = struct
       }
       [@@deriving rpcty]
 
+      (* sections lists the sections the helper writes when a caller names
+         them in --sections; a helper that lists none, as one older than this
+         member, leaves it out *)
       type data = {
           schema_versions: (integer * integer) list
         ; verbs: verb list
         ; page_encodings: string list
+        ; sections: Sections.t list option
       }
       [@@deriving rpcty]
 
       (* Builds a --version reply's data; a member added later is one more
          optional argument, so its callers do not change *)
-      let make_data ~schema_versions ~verbs ~page_encodings () =
-        {schema_versions; verbs; page_encodings}
+      let make_data ~schema_versions ~verbs ~page_encodings ?sections () =
+        {schema_versions; verbs; page_encodings; sections}
 
       include Envelope.Reply (struct
         type t = data

@@ -753,4 +753,185 @@ let starting_up =
         `Quick a_reason_of_the_host_does_not_copy_the_first_gpus_mode
     ]
 
-let test = starting_up @ decoding
+let asking_no_section_adds_no_sections_argument () =
+  helper_args (request ~page_size:4096 card)
+  |> List.filter (String.starts_with ~prefix:"--sections")
+  |> Alcotest.(check (list string)) "the --sections arguments" []
+
+let asking_creatable_adds_its_name_last () =
+  let creatable = Wire.Sections.(token Creatable) in
+  let args =
+    helper_args (with_sections [creatable] (request ~page_size:4096 card))
+  in
+  Alcotest.(check (option string))
+    "the last argument"
+    (Some ("--sections=" ^ (creatable :> string)))
+    (List.nth_opt (List.rev args) 0)
+
+let asking =
+  Alcotest.
+    [
+      test_case "asking for no section adds no --sections argument" `Quick
+        asking_no_section_adds_no_sections_argument
+    ; test_case
+        "asking for the creatable section adds its name last, in --sections"
+        `Quick asking_creatable_adds_its_name_last
+    ]
+
+(* The question for the GPU at bdf that asks for the creatable section *)
+let creatable_request bdf =
+  with_sections [Wire.Sections.(token Creatable)] (request ~page_size:4096 bdf)
+
+let creatable_type type_id = Wire.Creatable.make_vgpu_type ~type_id ()
+
+let listed ids = Wire.Creatable.Listed (List.map creatable_type ids)
+
+(* GPU instance gi_id's ok entry, with these vGPU type ids *)
+let ok_entry ~gi_id ids =
+  Wire.Creatable.make_entry ~gi_id ~status:(Known Wire.Section_status.Ok)
+    ~kind:Null ~library_call:Null
+    ~vgpu_types:(Value (List.map creatable_type ids))
+    ()
+
+(* Page 1 with an ok creatable section of these entries *)
+let with_creatable entries =
+  let section =
+    Wire.Creatable.make ~status:(Known Wire.Section_status.Ok) ~kind:Null
+      ~gpu_instances:(Value entries) ()
+  in
+  with_data (fun d -> {d with Probe.creatable= Some section})
+
+(* An item of the creatable list that is not an entry *)
+let not_an_entry = Rpc.Int 1L
+
+(* A page's members with these items as its slice of the creatable list, as a
+   page after the first holds them; on page 1, a section without its status,
+   which cannot be read. Passed to edit_members, which applies it after
+   after_the_first, which would drop them *)
+let with_creatable_slice items members =
+  match List.assoc_opt "data" members with
+  | Some (Rpc.Dict data) ->
+      let section = Rpc.Dict [("gpu_instances", Rpc.Enum items)] in
+      ("data", Rpc.Dict (("creatable", section) :: data))
+      :: List.remove_assoc "data" members
+  | Some _ | None ->
+      Alcotest.fail "a page without its data"
+
+let holding items = edit_members (with_creatable_slice items)
+
+(* Written pages, as the helper prints them *)
+let lines_of pages = String.concat "" (List.map (fun p -> p ^ "\n") pages)
+
+(* The reply decoded from these written pages, by default for a run that
+   asked for the creatable section *)
+let decoded ?(request = creatable_request card) pages =
+  decode request (Ok {exit= Some 0; stdout= lines_of pages})
+
+(* Each GPU instance's creatable vGPU types, as a failing check prints them *)
+let creatable_view : Wire.Creatable.view option Alcotest.testable =
+  let print v =
+    Rpcmarshal.marshal Wire.Creatable.typ_of_view v |> Jsonrpc.to_string
+  in
+  Alcotest.(option (testable (Fmt.of_to_string print) ( = )))
+
+(* One read per GPU instance, with no entry left unmatched *)
+let per_gi reads =
+  Some Wire.Creatable.{per_gi= reads; unmatched= First_met.of_list Fun.id []}
+
+let creatable_reads name ?request pages expected =
+  Alcotest.test_case name `Quick @@ fun () ->
+  ask Creatable (decoded ?request pages)
+  |> Alcotest.check creatable_view "creatable vGPU types" expected
+
+let reads_case_and_creatable name pages expected =
+  Alcotest.test_case name `Quick @@ fun () ->
+  let reply = decoded pages in
+  let probe = ask Mode reply in
+  ( (probe, Partition_mode.(to_api (of_observations (axes probe))))
+  , ask Creatable reply
+  )
+  |> Alcotest.(check (pair reading creatable_view))
+       "case, partition mode and creatable vGPU types" expected
+
+let a_decoded_reply_records_its_request () =
+  let {bdf; page_size; sections; _} = (decoded [written partitions]).request in
+  (bdf, page_size, (sections : Wire.Section_token.t list :> string list))
+  |> Alcotest.(check (triple string int (list string)))
+       "the request recorded"
+       (card, 4096, ["creatable"])
+
+let answering =
+  [
+    creatable_reads
+      "a reply that asked for creatable gives each GPU instance its list"
+      [written (with_creatable [ok_entry ~gi_id:1 [10; 11]] partitions)]
+      (per_gi [(1, listed [10; 11])])
+  ; creatable_reads "a creatable entry continued on page 2 reads as one list"
+      [
+        written
+          (page ~count:2 1 (with_creatable [ok_entry ~gi_id:1 [10]] partitions))
+      ; holding
+          [Jsonrpc.of_string {|{"gi_id": 1, "vgpu_types": [{"type_id": 11}]}|}]
+          (page ~count:2 2 later_page)
+      ]
+      (per_gi [(1, listed [10; 11])])
+  ; reads_case_and_creatable
+      "a creatable section that cannot be read costs only the creatable \
+       answer: the case is still read"
+      [holding [not_an_entry] partitions]
+      (partitioned, per_gi [(1, Wire.Creatable.(Not_read Section_malformed))])
+  ; reads_case_and_creatable
+      "a later page's creatable slice that cannot be read costs only the \
+       creatable answer"
+      [
+        written
+          (page ~count:2 1 (with_creatable [ok_entry ~gi_id:1 [10]] partitions))
+      ; holding [not_an_entry] (page ~count:2 2 later_page)
+      ]
+      (partitioned, per_gi [(1, Wire.Creatable.(Not_read Section_malformed))])
+  ; (* A request for another GPU, so the case is not read *)
+    creatable_reads "a reply whose case is not read carries no pages"
+      ~request:(creatable_request "0000:27:00.0")
+      [written (with_creatable [ok_entry ~gi_id:1 [10]] partitions)]
+      None
+  ; creatable_reads "the GPU instances of every page are read in page order"
+      [
+        written
+          (page ~count:2 1
+             (with_creatable
+                [ok_entry ~gi_id:2 [20]; ok_entry ~gi_id:1 [10]]
+                partitions
+             )
+          )
+      ; written
+          (page ~count:2 2
+             (with_geometry Wire.Geometry.Profiles_status.Ok
+                (Value [{gpu_instance with gi_id= 2}])
+                partitions
+             )
+          )
+      ]
+      (per_gi [(1, listed [10]); (2, listed [20])])
+  ; creatable_reads
+      "a reply that did not ask reads not asked for every GPU instance, even \
+       with a section"
+      ~request:(request ~page_size:4096 card)
+      [written (with_creatable [ok_entry ~gi_id:1 [10]] partitions)]
+      (per_gi [(1, Wire.Creatable.(Not_read Not_asked))])
+  ; (* A run that does not ask, as xapi's own read at start, with a section
+       that cannot be read on every page of one of the cases above *)
+    reads_output "the creatable field changes no reading of the mode"
+      (lines_of
+         (List.map (holding [not_an_entry]) (pages ~count:4 [1; 2; 3; 4]))
+      )
+      partitioned
+  ; Alcotest.test_case "a decoded reply records the request it was decoded with"
+      `Quick a_decoded_reply_records_its_request
+  ; (* A run that asked, from a helper that does not write the section *)
+    creatable_reads
+      "ask Creatable reads the sections of the request the reply records"
+      [written partitions]
+      (per_gi [(1, Wire.Creatable.(Not_read Section_absent))])
+  ]
+
+let test = starting_up @ decoding @ asking @ answering
