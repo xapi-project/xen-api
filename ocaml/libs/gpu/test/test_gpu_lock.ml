@@ -76,13 +76,15 @@ let hold_shared path =
   assert (Unixext.flock_try fd ~exclusive:false) ;
   fd
 
-let hold_elsewhere path =
+let hold_elsewhere ~span path =
   let ready, held = Unix.pipe () in
   match Unix.fork () with
   | 0 ->
       (* the child never returns to the tests *)
       (try ignore (hold path : Unix.file_descr) with _ -> Unix._exit 1) ;
-      Unix.close held ; Unix.sleep 60 ; Unix._exit 0
+      Unix.close held ;
+      Unix.sleepf (Clock.Timer.span_to_s span) ;
+      Unix._exit 0
   | child ->
       Unix.close held ;
       ignore (Unix.read ready (Bytes.create 1) 0 1 : int) ;
@@ -136,11 +138,13 @@ let same_blocker_fails_fast () =
   refused ~busy:true "behind its own hold" (run lock) ;
   check "own: waited again" true (waited (ms 250)) ;
   Unix.close own ;
-  Fun.protect ~finally:(hold_elsewhere path) (fun () ->
+  Fun.protect
+    ~finally:(hold_elsewhere ~span:(ms 60_000) path)
+    (fun () ->
       refused ~busy:true "a try" (run ~timeout:(ms 0) lock) ;
       check "waited" true (waited (ms 250)) ;
       check "at once" false (waited ~timeout:(ms 5000) (ms 2500))
-  )
+    )
 
 let no_mark_while_old_held () =
   let path, lock = world () in
@@ -204,6 +208,26 @@ let key_view () =
         (read_key_now lock = Ok (Some L.Pending) && listed lock (comm ()))
     )
 
+(* a key read behind a writer waits its whole timeout, then is refused as
+   busy, as xapi's release_gpu_lock is when a VF enable outlasts its wait *)
+let key_read_waits () =
+  let path, lock = world () in
+  check "ensured" true (L.Gate.ensure lock ~timeout:(ms 300) = Ok ()) ;
+  let writer = hold path in
+  let timer = Clock.Timer.start ~duration:(ms 300) in
+  let read = L.Gate.read_key lock ~timeout:(ms 300) in
+  Unix.close writer ;
+  refused ~busy:true "refused, busy" read ;
+  check "waited it all" true (Clock.Timer.has_expired timer)
+
+(* and it reads the key once a writer of another process leaves within it *)
+let key_read_after_wait () =
+  let path, lock = world () in
+  check "ensured" true (L.Gate.ensure lock ~timeout:(ms 300) = Ok ()) ;
+  Fun.protect ~finally:(hold_elsewhere ~span:(ms 200) path) @@ fun () ->
+  check "read" true
+    (L.Gate.read_key lock ~timeout:(ms 5000) = Ok (Some L.Pending))
+
 let busy n = Printf.sprintf "busy, tries: %d" n
 
 let text = function
@@ -257,6 +281,44 @@ let key_written (before, key) () =
   check "written, read back" true
     (set before = Ok () && set key = Ok () && read_key_now lock = Ok (Some key))
 
+let pci = Xcp_pci.string_of_address card
+
+(* a sysfs in a new world's directory where the count file of the device named
+   [pci] holds the text, if any *)
+let sysfs_with text =
+  let sysfs = Filename.dirname (fst (world ())) in
+  let dir = Filename.concat sysfs pci in
+  Unixext.mkdir_rec dir 0o700 ;
+  Option.iter (Unixext.write_string_to_file (dir ^ "/sriov_numvfs")) text ;
+  sysfs
+
+(* the device's VF count; an [Error]'s reason, for logs, is not compared *)
+let num_vfs_rows =
+  let row (name, text, count) =
+    Alcotest.test_case name `Quick @@ fun () ->
+    Alcotest.(check (result (option int) pass))
+      name count
+      (L.num_vfs ~sysfs:(sysfs_with text) pci)
+  in
+  List.map row
+    [
+      ("a count is read", Some "4\n", Ok (Some 4))
+    ; ("no file reads as no SR-IOV", None, Ok None)
+    ; ("text that is not a count is an error", Some "four\n", Error "")
+    ]
+
+(* a caller's message for the count file starts the error, and the exception
+   follows it *)
+let num_vfs_err =
+  Alcotest.test_case "a caller's message starts the error" `Quick @@ fun () ->
+  let sysfs = sysfs_with (Some "four\n") in
+  let err path = "Can't count the VFs in " ^ path in
+  let path = Printf.sprintf "%s/%s/sriov_numvfs" sysfs pci in
+  Alcotest.(check (result (option int) string))
+    "the caller's message, then the exception"
+    (Error (err path ^ ": " ^ Printexc.to_string (Failure "int_of_string")))
+    (L.num_vfs ~sysfs ~err pci)
+
 let () =
   Alcotest.run "gpu_lock"
     [
@@ -272,10 +334,13 @@ let () =
           ; ("a refusal counts holders, names none", refusal_counts_holders)
           ; ("a name with C1 control characters is listed escaped", escaped_name)
           ; ("the operator's view", key_view)
+          ; ("a key read waits for a writer, then refuses", key_read_waits)
+          ; ("a key read waits until a writer leaves", key_read_after_wait)
           ; ("key on written over pending", key_written (L.Pending, L.On))
           ; ("key off written over on", key_written (L.On, L.Off))
           ; ("key pending written over off", key_written (L.Off, L.Pending))
           ]
       )
     ; ("unbind lock", unbind_lock_rows)
+    ; ("num_vfs", num_vfs_rows @ [num_vfs_err])
     ]

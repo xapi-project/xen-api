@@ -107,3 +107,46 @@ let read_cards_at_start ~__context ~host ~read_card =
         Xapi_pgpu.set_not_checked ~__context ~self
   ) ;
   read_cards ~__context ~read_card cards
+
+type ('c, 'd) observation = {
+    reply: Gpu_partition_probe.reply
+  ; state:
+      ( ('c, 'd) Gpu.Gpu_partition_order.observed
+      , Gpu.Gpu_partition_order.refusal
+      )
+      result
+}
+
+(* The helper answers Partitions whenever it finds a partition *)
+let partitions_of_probe :
+    Gpu_partition_probe.t -> Gpu.Gpu_partition_order.partitions = function
+  | Partitions _ ->
+      Present
+  | None_carved _ | Not_applicable ->
+      Absent
+  | Unreadable _ ->
+      Unreadable
+
+let observe_card ?num_vfs ~read_card card =
+  let bdf = Xcp_pci.string_of_address card in
+  let err path = Printf.sprintf "Can't read %s to observe GPU %s" path bdf in
+  let num_vfs =
+    Option.value num_vfs ~default:(fun pci -> Gpu_lock.num_vfs ~err pci)
+  in
+  let vfs =
+    match num_vfs bdf with
+    | Ok count ->
+        count
+    | Error msg ->
+        Helpers.internal_error ~log_err:true "%s" msg
+  in
+  let reply = read_card bdf in
+  let probe = reply.Gpu_partition_probe.probe in
+  (* The mode that Xapi_pgpu.update_partition_mode stores for this reply *)
+  let mode =
+    Gpu.Partition_mode.of_observations (Gpu_partition_probe.axes probe)
+  in
+  {
+    reply
+  ; state= Gpu.Gpu_partition_order.observe ~vfs ~mode (partitions_of_probe probe)
+  }

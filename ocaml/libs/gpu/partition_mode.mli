@@ -28,8 +28,8 @@ type axis = private {
     capable: bool  (** the axis exists on this card *)
   ; enabled: bool  (** the axis is partitioned now *)
   ; after: bool
-        (** the axis is partitioned after the next reboot. This is an
-            absolute state, not a pending change *)
+        (** the axis is partitioned after the next reboot, or the next reset
+            of the card. This is an absolute state, not a pending change *)
 }
 
 val absent : axis

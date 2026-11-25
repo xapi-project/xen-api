@@ -36,7 +36,7 @@
 
 (cram
  (package xapi-stdext-unix)
- (deps test_systemd.exe))
+ (deps test_systemd.exe (package xapi-stdext-unix)))
 
 (test
  (modes exe)

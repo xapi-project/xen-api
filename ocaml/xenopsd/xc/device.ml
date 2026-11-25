@@ -1521,17 +1521,15 @@ module PCI = struct
 
   let nvidia_manage = "/usr/lib/nvidia/sriov-manage"
 
-  (** [num_vfs devstr] returns the number of PCI VFs of [devstr] or 0 if
-        [devstr] is not an SRIOV device *)
   let num_vfs devstr =
-    let path = sysfs_devices // devstr // "sriov_numvfs" in
-    try Some (Unixext.string_of_file path |> String.trim |> int_of_string) with
-    | Unix.(Unix_error (ENOENT, _, _)) ->
-        debug "File %s does not exist - assuming no SRIOV devices in use" path ;
-        None
-    | exn ->
-        internal_error "Can't read %s to reset Nvidia GPU %s: %s" path devstr
-          (Printexc.to_string exn)
+    let err path =
+      Printf.sprintf "Can't read %s to reset Nvidia GPU %s" path devstr
+    in
+    match Gpu_lock.num_vfs ~err devstr with
+    | Ok count ->
+        count
+    | Error msg ->
+        internal_error "%s" msg
 
   (** [vfs_of device] returns the PCI addresses of the virtual functions of PCI
         [device]. We find each virtual function by looking at the virtfnX symlink

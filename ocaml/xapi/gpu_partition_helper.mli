@@ -12,8 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Reads PGPU.partition_mode of a host's NVIDIA GPUs through the GPU partition
-    helper *)
+(** Reads PGPU.partition_mode of a host's NVIDIA GPUs, and the state of a GPU
+    before its partitions change, through the GPU partition helper *)
 
 val run_helper : string list -> Gpu_partition_probe.run_result
 (** Runs the helper, configured as gpu-partition-helper, with these arguments *)
@@ -40,3 +40,28 @@ val read_cards_at_start :
     read affects only its own GPU, unless the failure is host-wide: then the
     GPUs not yet read get its reason without a read. The host's other GPUs are
     set to not_checked. *)
+
+(** A GPU's state before a sequence of operations on it, with the reply that
+    the state was read from *)
+type ('c, 'd) observation = {
+    reply: Gpu_partition_probe.reply
+  ; state:
+      ( ('c, 'd) Gpu.Gpu_partition_order.observed
+      , Gpu.Gpu_partition_order.refusal
+      )
+      result
+}
+
+val observe_card :
+     ?num_vfs:(string -> (int option, string) result)
+  -> read_card:(string -> Gpu_partition_probe.reply)
+  -> Xcp_pci.address
+  -> ('c, 'd) observation
+(** Reads the VF count of the GPU at a PCI address with [num_vfs], by default
+    [Gpu_lock.num_vfs], then [read_card]'s answer for it: two reads, so a VF
+    count that changes between them is not seen. It
+    takes no GPU lock, and must not run while the caller holds the host's GPU
+    lock, which [read_card] may take. Raises an internal error when the VF
+    count cannot be read, as a VF enable does, and lets through what
+    [read_card] raises: a caller that observes several GPUs catches that for
+    each GPU, as [read_cards_at_start] does *)

@@ -538,19 +538,15 @@ let nvidia_vf_setup ~__context ~pf ~enable =
   let pci = Db.PCI.get_pci_id ~__context ~self:pf in
   let addr_of pci = Xenops_interface.Pci.address_of_string pci in
   let dequarantine pci = Xapi_pci.dequarantine ~__context (addr_of pci) in
-  (* [num_vfs pci] returns the number of PCI VFs of [pci] or 0 if
-     [pci] is not an SRIOV device
-  *)
   let num_vfs pci =
-    let path = Printf.sprintf "/sys/bus/pci/devices/%s/sriov_numvfs" pci in
-    try Some (Unixext.string_of_file path |> String.trim |> int_of_string) with
-    | Unix.(Unix_error (ENOENT, _, _)) ->
-        debug "File %s does not exist - assuming no SRIOV devices in use" path ;
-        None
-    | exn ->
-        Helpers.internal_error ~log_err:true
-          "Can't read %s to activate Nvidia GPU %s: %s" path pci
-          (Printexc.to_string exn)
+    let err path =
+      Printf.sprintf "Can't read %s to activate Nvidia GPU %s" path pci
+    in
+    match Gpu_lock.num_vfs ~err pci with
+    | Ok count ->
+        count
+    | Error msg ->
+        Helpers.internal_error ~log_err:true "%s" msg
   in
   let write_to path pci =
     try

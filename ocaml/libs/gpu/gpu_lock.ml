@@ -145,6 +145,20 @@ let sriov_manage bounds ~enable card run =
       (Xcp_pci.string_of_address card)
       Mtime.Span.pp sriov_manage_timeout left
 
+let num_vfs ?(sysfs = "/sys/bus/pci/devices") ?err pci =
+  let path = Printf.sprintf "%s/%s/sriov_numvfs" sysfs pci in
+  match Unixext.string_of_file path |> String.trim |> int_of_string with
+  | count ->
+      Ok (Some count)
+  | exception Unix.(Unix_error (ENOENT, _, _)) ->
+      D.debug "File %s does not exist - assuming no SRIOV devices in use" path ;
+      Ok None
+  | exception e ->
+      let what =
+        Option.fold ~none:("Can't read " ^ path) ~some:(fun err -> err path) err
+      in
+      Error (Printf.sprintf "%s: %s" what (Printexc.to_string e))
+
 type unbind_lock = Set_by_us | Already_set | Busy of {tries: int option}
 
 (* Where engaged, each try reads the flag first, so that a flag set by another
