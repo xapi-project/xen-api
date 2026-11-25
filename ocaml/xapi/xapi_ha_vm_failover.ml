@@ -1626,6 +1626,9 @@ let restart_auto_run_vms ~__context ~last_live_set ~live_set n =
       let is_best_effort r =
         r.API.vM_ha_restart_priority = Constants.ha_restart_best_effort
         && r.API.vM_power_state = `Halted
+        && (not r.API.vM_is_a_snapshot)
+        && (not r.API.vM_is_a_template)
+        && not r.API.vM_is_control_domain
       in
       let resets =
         !reset_vms
