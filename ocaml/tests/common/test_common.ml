@@ -193,6 +193,11 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
   Db.Host.set_cpu_info ~__context ~self:host ~value:default_cpu_info ;
   host
 
+(* Sets one key of the host's software_version *)
+let set_host_version ~__context ~host ~key value =
+  Db.Host.remove_from_software_version ~__context ~self:host ~key ;
+  Db.Host.add_to_software_version ~__context ~self:host ~key ~value
+
 let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(name_label = "host") ?(name_description = "description")
     ?(hostname = "localhost") ?(address = "127.0.0.1")
@@ -318,7 +323,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(recommendations = []) ?(license_server = [])
     ?(ha_reboot_vm_on_internal_shutdown = true)
     ?(limit_console_sessions = false) ?(vm_console_idle_timeout = 0L)
-    ?(auto_update_vm_secureboot_certificates = false) () =
+    ?(auto_update_vm_secureboot_certificates = false)
+    ?(gpu_partitioning = `default_policy) () =
   let pool_ref = Ref.make () in
   Db.Pool.create ~__context ~ref:pool_ref ~uuid:(make_uuid ()) ~name_label
     ~name_description ~master ~default_SR ~suspend_image_SR ~crash_dump_SR
@@ -341,7 +347,7 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~update_sync_enabled ~recommendations ~license_server
     ~ha_reboot_vm_on_internal_shutdown ~limit_console_sessions
     ~vm_console_idle_timeout ~auto_update_vm_secureboot_certificates
-    ~lldp_enabled:false ~lldp_multicast_address:`nearestbridge ;
+    ~lldp_enabled:false ~lldp_multicast_address:`nearestbridge ~gpu_partitioning ;
   pool_ref
 
 let default_sm_features =

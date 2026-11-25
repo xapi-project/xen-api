@@ -242,6 +242,496 @@ let release_or_leave
   in
   (name, `Quick, test)
 
+(* The pool's GPU partitioning setting and each host's call to apply it *)
+
+let gpu_partitioning ~__context =
+  Db.Pool.get_gpu_partitioning ~__context ~self:(Helpers.get_pool ~__context)
+  |> API.pool_gpu_partitioning_to_string
+
+let set_status ~__context value =
+  List.iter
+    (fun self -> Db.Host.set_gpu_partitioning_status ~__context ~self ~value)
+    (Db.Host.get_all ~__context)
+
+let mark_rolling_upgrade ~__context =
+  Db.Pool.add_to_other_config ~__context
+    ~self:(Helpers.get_pool ~__context)
+    ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"true"
+
+(* Runs the pool's setter with each host's call answered by [apply]; returns
+   the hosts called, in order, and the setting each saw stored *)
+let set_gpu_partitioning ?(apply = fun (_ : API.ref_host) -> ()) ~__context
+    value =
+  let calls = ref [] in
+  let rpc call =
+    match (call.Rpc.name, call.Rpc.params) with
+    | "host.apply_gpu_partitioning", [_session_id; host_rpc] ->
+        let host = API.ref_host_of_rpc host_rpc in
+        calls := (host, gpu_partitioning ~__context) :: !calls ;
+        apply host ;
+        Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
+    | _ ->
+        Mock_rpc.rpc __context call
+  in
+  Context.set_test_rpc __context rpc ;
+  Xapi_pool.set_gpu_partitioning ~__context
+    ~self:(Helpers.get_pool ~__context)
+    ~value ;
+  List.rev !calls
+
+let store ?apply ~__context value =
+  let (_ : (API.ref_host * string) list) =
+    set_gpu_partitioning ?apply ~__context value
+  in
+  ()
+
+let refused name code f =
+  match f () with
+  | (_ : (API.ref_host * string) list) ->
+      Alcotest.failf "%s: accepted" name
+  | exception Api_errors.Server_error (actual, _) ->
+      Alcotest.(check string) name code actual
+
+let test_set_enabled_stored () =
+  let __context = make_test_database () in
+  set_status ~__context `inactive ;
+  let host = Helpers.get_localhost ~__context in
+  let calls = set_gpu_partitioning ~__context `enabled in
+  Alcotest.(check (list (pair string string)))
+    "the host is called after the store"
+    [(Ref.string_of host, "enabled")]
+    (List.map (fun (h, seen) -> (Ref.string_of h, seen)) calls)
+
+let test_set_enabled_refused_in_rolling_upgrade () =
+  let __context = make_test_database () in
+  set_status ~__context `inactive ;
+  mark_rolling_upgrade ~__context ;
+  refused "upgrade marked" Api_errors.not_supported_during_upgrade (fun () ->
+      set_gpu_partitioning ~__context `enabled
+  ) ;
+  Alcotest.(check string)
+    "unchanged" "default_policy"
+    (gpu_partitioning ~__context)
+
+(* No upgrade mark: a pool operator can remove it by hand *)
+let test_set_enabled_refused_versions_differ () =
+  let __context = make_test_database () in
+  let host = make_host ~__context () in
+  set_host_version ~__context ~host ~key:Xapi_globs._platform_version "99.0.0" ;
+  set_status ~__context `inactive ;
+  refused "versions differ" Api_errors.not_supported_during_upgrade (fun () ->
+      set_gpu_partitioning ~__context `enabled
+  )
+
+let test_set_enabled_refused_not_reported () =
+  let __context = make_test_database () in
+  let host = Helpers.get_localhost ~__context in
+  Alcotest.check_raises "the host is named"
+    Api_errors.(
+      Server_error (gpu_partitioning_status_not_reported, [Ref.string_of host])
+    )
+    (fun () -> store ~__context `enabled) ;
+  Alcotest.(check string)
+    "unchanged" "default_policy"
+    (gpu_partitioning ~__context)
+
+(* The license is checked first: the host has not reported and an upgrade is
+   marked too *)
+let test_set_enabled_refused_unlicensed () =
+  let __context = make_test_database ~features:[] () in
+  mark_rolling_upgrade ~__context ;
+  refused "unlicensed" Api_errors.feature_restricted (fun () ->
+      set_gpu_partitioning ~__context `enabled
+  ) ;
+  Alcotest.(check string)
+    "unchanged" "default_policy"
+    (gpu_partitioning ~__context)
+
+(* The upgrade is checked before the hosts' reports: during an upgrade from a
+   version that does not report GPU partitioning, the older hosts read
+   not_reported *)
+let test_set_enabled_refused_upgrade_before_not_reported () =
+  let __context = make_test_database () in
+  mark_rolling_upgrade ~__context ;
+  refused "upgrade first" Api_errors.not_supported_during_upgrade (fun () ->
+      set_gpu_partitioning ~__context `enabled
+  )
+
+let test_set_disabled_accepted_in_rolling_upgrade () =
+  let __context = make_test_database () in
+  mark_rolling_upgrade ~__context ;
+  store ~__context `disabled ;
+  Alcotest.(check string) "stored" "disabled" (gpu_partitioning ~__context)
+
+(* The license is checked only for enabled: a pool whose license has lapsed
+   can still switch GPU partitioning off *)
+let test_set_disabled_accepted_unlicensed () =
+  let __context = make_test_database ~features:[] () in
+  store ~__context `disabled ;
+  Alcotest.(check string) "stored" "disabled" (gpu_partitioning ~__context)
+
+let test_set_default_policy_accepted_not_reported () =
+  let __context = make_test_database () in
+  set_status ~__context `inactive ;
+  store ~__context `enabled ;
+  Db.Host.set_gpu_partitioning_status ~__context
+    ~self:(Helpers.get_localhost ~__context)
+    ~value:`not_reported ;
+  store ~__context `default_policy ;
+  Alcotest.(check string) "stored" "default_policy" (gpu_partitioning ~__context)
+
+(* A repeated call with the same value makes every host apply it again *)
+let test_set_enabled_twice () =
+  let __context = make_test_database () in
+  set_status ~__context `inactive ;
+  let first = set_gpu_partitioning ~__context `enabled in
+  let second = set_gpu_partitioning ~__context `enabled in
+  Alcotest.(check (pair int int))
+    "every host called each time" (1, 1)
+    (List.length first, List.length second)
+
+(* The answer of a host whose evaluation is still running *)
+let busy host =
+  raise
+    Api_errors.(
+      Server_error (other_operation_in_progress, ["host"; Ref.string_of host])
+    )
+
+(* [fail] is the failing host's answer *)
+let test_set_failed_host_named fail () =
+  let __context = make_test_database () in
+  let failing = make_host ~__context () in
+  let apply host = if host = failing then fail host in
+  Alcotest.check_raises "the failed host is named"
+    Api_errors.(
+      Server_error
+        (set_gpu_partitioning_partially_failed, [Ref.string_of failing])
+    )
+    (fun () -> store ~apply ~__context `disabled) ;
+  Alcotest.(check string) "stored" "disabled" (gpu_partitioning ~__context)
+
+(* An offline host, or one of a version without the call, is not a failure:
+   the first applies the stored value at its next start, the second has
+   nothing to apply until it is upgraded *)
+let test_set_host_skipped code () =
+  let __context = make_test_database () in
+  let later = make_host ~__context () in
+  let apply host =
+    if host = later then
+      raise Api_errors.(Server_error (code, [Ref.string_of host]))
+  in
+  store ~apply ~__context `disabled ;
+  Alcotest.(check string) "stored" "disabled" (gpu_partitioning ~__context)
+
+(* With an NVIDIA GPU, the reason the host's evaluation writes. The evaluation
+   releases the GPU lock, so it runs as in the release cases: away from this
+   machine's GPU lock and xenopsd *)
+let nvidia_host_reason ~__context ?partition_mode evaluate =
+  no_host_gpu_lock () ;
+  let host = Helpers.get_localhost ~__context in
+  let pCI = make_pci ~__context ~host ~vendor_id:"10de" () in
+  let (_ : API.ref_PGPU) = make_pgpu ~__context ~pCI ~host ?partition_mode () in
+  let (_ : bool) =
+    with_gpu_lock_engaged ~engaged:false ~exists:false evaluate
+  in
+  Db.Host.get_gpu_partitioning_reason ~__context ~self:host
+
+let sync_reason ~__context () =
+  nvidia_host_reason ~__context (fun () ->
+      Xapi_host.sync_gpu_partitioning ~__context ~after_boot:false
+  )
+
+(* Until the evaluation reads the pool's setting, enabled changes nothing *)
+let test_sync_pool_enabled_still_pool_disabled () =
+  let __context = make_test_database () in
+  Db.Pool.set_gpu_partitioning ~__context
+    ~self:(Helpers.get_pool ~__context)
+    ~value:`enabled ;
+  sync_reason ~__context () |> Alcotest.(check string) "reason" "pool_disabled"
+
+let test_apply_leg_evaluates () =
+  let __context = make_test_database () in
+  nvidia_host_reason ~__context (fun () ->
+      Xapi_host.apply_gpu_partitioning ~__context
+        ~host:(Helpers.get_localhost ~__context)
+  )
+  |> Alcotest.(check string) "reason" "pool_disabled"
+
+(* The call evaluates as a xapi restart does, not as the first start after a
+   boot: the GPU keeps its partition_mode *)
+let test_apply_keeps_partition_mode () =
+  let __context = make_test_database () in
+  let host = Helpers.get_localhost ~__context in
+  let (_ : string) =
+    nvidia_host_reason ~__context ~partition_mode:`enabled (fun () ->
+        Xapi_host.apply_gpu_partitioning ~__context ~host
+    )
+  in
+  Db.Host.get_PGPUs ~__context ~self:host
+  |> List.map (fun self ->
+      API.partition_mode_to_string (Db.PGPU.get_partition_mode ~__context ~self)
+  )
+  |> Alcotest.(check (list string)) "kept" ["enabled"]
+
+let test_apply_leg_lock_held () =
+  let __context = make_test_database () in
+  let self = Helpers.get_localhost ~__context in
+  Xapi_stdext_threads.Threadext.Mutex.execute Xapi_host.gpu_partitioning_m
+    (fun () ->
+      Alcotest.check_raises "busy"
+        Api_errors.(
+          Server_error
+            (other_operation_in_progress, ["host"; Ref.string_of self])
+        )
+        (fun () ->
+          Xapi_host.apply_gpu_partitioning_within ~__context
+            ~timeout:Mtime.Span.(20 * ms)
+        )
+  ) ;
+  Alcotest.(check string)
+    "unchanged" "not_reported"
+    (API.host_gpu_partitioning_status_to_string
+       (Db.Host.get_gpu_partitioning_status ~__context ~self)
+    )
+
+(* Runs [f] with the force-off file setting naming a temporary path, where
+   [make] creates the file or not; restores the setting *)
+let with_forced_off_file ~make f =
+  let file = Filename.temp_file "gpu-partitioning-forced-off" "" in
+  let default = !Xapi_globs.gpu_partitioning_forced_off_file in
+  Sys.remove file ;
+  make file ;
+  Xapi_globs.gpu_partitioning_forced_off_file := file ;
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> f file)
+    (fun () ->
+      Xapi_globs.gpu_partitioning_forced_off_file := default ;
+      Xapi_stdext_unix.Unixext.unlink_safe file
+    )
+
+let holding contents file =
+  Xapi_stdext_unix.Unixext.write_string_to_file file contents
+
+let test_sync_forced_off () =
+  let __context = make_test_database () in
+  with_forced_off_file ~make:(holding "forced_off") (fun _ ->
+      sync_reason ~__context ()
+  )
+  |> Alcotest.(check string) "reason" "forced_off"
+
+(* A bounded read: the evaluation does not block on a FIFO *)
+let test_sync_forced_off_fifo () =
+  let __context = make_test_database () in
+  with_forced_off_file
+    ~make:(fun file -> Unix.mkfifo file 0o600)
+    (fun _ -> sync_reason ~__context ())
+  |> Alcotest.(check string) "reason" "forced_off"
+
+(* A bounded read: a file larger than the read's limit is not read *)
+let test_sync_forced_off_too_large () =
+  let __context = make_test_database () in
+  with_forced_off_file
+    ~make:(holding (String.make 65 'x'))
+    (fun _ -> sync_reason ~__context ())
+  |> Alcotest.(check string) "reason" "forced_off"
+
+let test_emergency_disable () =
+  let __context = make_test_database () in
+  with_forced_off_file ~make:ignore (fun file ->
+      let reason =
+        nvidia_host_reason ~__context (fun () ->
+            Xapi_host.emergency_disable_gpu_partitioning ~__context
+        )
+      in
+      (reason, Xapi_stdext_unix.Unixext.string_of_file file)
+  )
+  |> Alcotest.(check (pair string string))
+       "applied now, and kept"
+       ("forced_off", "forced_off")
+
+(* Another evaluation holds the lock too long: the file is kept, and the call
+   fails as busy, not as an internal error *)
+let test_emergency_disable_lock_held () =
+  let __context = make_test_database () in
+  let self = Helpers.get_localhost ~__context in
+  with_forced_off_file ~make:ignore (fun file ->
+      Xapi_stdext_threads.Threadext.Mutex.execute Xapi_host.gpu_partitioning_m
+        (fun () ->
+          Alcotest.check_raises "busy"
+            Api_errors.(
+              Server_error
+                (other_operation_in_progress, ["host"; Ref.string_of self])
+            )
+            (fun () ->
+              Xapi_host.set_gpu_partitioning_forced ~__context
+                ~timeout:Mtime.Span.(20 * ms)
+                Gpu.Host_partitioning.Forced
+            )
+      ) ;
+      Xapi_stdext_unix.Unixext.string_of_file file
+  )
+  |> Alcotest.(check string) "kept" "forced_off"
+
+let test_emergency_reenable () =
+  let __context = make_test_database () in
+  with_forced_off_file ~make:(holding "forced_off") (fun file ->
+      let reason =
+        nvidia_host_reason ~__context (fun () ->
+            Xapi_host.emergency_reenable_gpu_partitioning ~__context
+        )
+      in
+      (reason, Xapi_stdext_unix.Unixext.string_of_file file)
+  )
+  |> Alcotest.(check (pair string string))
+       "applied now, and kept"
+       ("pool_disabled", "not_forced")
+
+(* In emergency mode the call only writes the file *)
+let test_emergency_disable_in_emergency_mode () =
+  let __context = make_test_database () in
+  let self = Helpers.get_localhost ~__context in
+  with_forced_off_file ~make:ignore (fun file ->
+      Xapi_globs.slave_emergency_mode := true ;
+      Xapi_stdext_pervasives.Pervasiveext.finally
+        (fun () -> Xapi_host.emergency_disable_gpu_partitioning ~__context)
+        (fun () -> Xapi_globs.slave_emergency_mode := false) ;
+      ( Xapi_stdext_unix.Unixext.string_of_file file
+      , API.host_gpu_partitioning_status_to_string
+          (Db.Host.get_gpu_partitioning_status ~__context ~self)
+      )
+  )
+  |> Alcotest.(check (pair string string))
+       "written, not evaluated"
+       ("forced_off", "not_reported")
+
+(* Before xapi's start has synchronised the database, which sets
+   localhost_ref, the call only writes the file *)
+let test_emergency_disable_before_dbsync () =
+  let __context = make_test_database () in
+  let self = !Xapi_globs.localhost_ref in
+  with_forced_off_file ~make:ignore (fun file ->
+      Xapi_globs.localhost_ref := Ref.null ;
+      Xapi_stdext_pervasives.Pervasiveext.finally
+        (fun () -> Xapi_host.emergency_disable_gpu_partitioning ~__context)
+        (fun () -> Xapi_globs.localhost_ref := self) ;
+      ( Xapi_stdext_unix.Unixext.string_of_file file
+      , API.host_gpu_partitioning_status_to_string
+          (Db.Host.get_gpu_partitioning_status ~__context ~self)
+      )
+  )
+  |> Alcotest.(check (pair string string))
+       "written, not evaluated"
+       ("forced_off", "not_reported")
+
+let gpu_partitioning_tests =
+  [
+    ( "set: enabled is stored, then the host is called"
+    , `Quick
+    , test_set_enabled_stored
+    )
+  ; ( "set: enabled is refused while a rolling pool upgrade is marked"
+    , `Quick
+    , test_set_enabled_refused_in_rolling_upgrade
+    )
+  ; ( "set: no upgrade mark, versions differ: enabled is refused"
+    , `Quick
+    , test_set_enabled_refused_versions_differ
+    )
+  ; ( "set: enabled is refused while a host has not reported"
+    , `Quick
+    , test_set_enabled_refused_not_reported
+    )
+  ; ( "set: enabled is refused on an unlicensed pool, before the other checks"
+    , `Quick
+    , test_set_enabled_refused_unlicensed
+    )
+  ; ( "set: enabled is refused while an upgrade is marked, before the \
+       not-reported check"
+    , `Quick
+    , test_set_enabled_refused_upgrade_before_not_reported
+    )
+  ; ( "set: disabled is accepted during a rolling pool upgrade"
+    , `Quick
+    , test_set_disabled_accepted_in_rolling_upgrade
+    )
+  ; ( "set: disabled is accepted on an unlicensed pool"
+    , `Quick
+    , test_set_disabled_accepted_unlicensed
+    )
+  ; ( "set: default_policy is accepted while a host has not reported"
+    , `Quick
+    , test_set_default_policy_accepted_not_reported
+    )
+  ; ( "set: enabled twice, every host applies it each time"
+    , `Quick
+    , test_set_enabled_twice
+    )
+  ; ( "set: a host that fails is named, and the value stays stored"
+    , `Quick
+    , test_set_failed_host_named (fun _ -> failwith "unreachable")
+    )
+  ; ( "set: a busy host is named, not left to its next start"
+    , `Quick
+    , test_set_failed_host_named busy
+    )
+  ; ( "set: an offline host is left to its next start"
+    , `Quick
+    , test_set_host_skipped Api_errors.host_offline
+    )
+  ; ( "set: a host of a version without the call is not a failure"
+    , `Quick
+    , test_set_host_skipped Api_errors.message_method_unknown
+    )
+  ; ( "sync: the pool's setting enabled, an NVIDIA GPU still reads pool_disabled"
+    , `Quick
+    , test_sync_pool_enabled_still_pool_disabled
+    )
+  ; ("apply: the host's evaluation runs", `Quick, test_apply_leg_evaluates)
+  ; ( "apply: the GPU keeps its partition_mode, as at a xapi restart"
+    , `Quick
+    , test_apply_keeps_partition_mode
+    )
+  ; ( "apply: the lock held too long, it fails and changes nothing"
+    , `Quick
+    , test_apply_leg_lock_held
+    )
+  ; ( "force-off: the file forces an NVIDIA GPU off"
+    , `Quick
+    , test_sync_forced_off
+    )
+  ; ( "force-off: a FIFO at the path reads as forced off"
+    , `Quick
+    , test_sync_forced_off_fifo
+    )
+  ; ( "force-off: a file over the size limit reads as forced off"
+    , `Quick
+    , test_sync_forced_off_too_large
+    )
+  ; ( "force-off: emergency disable writes the file and applies it"
+    , `Quick
+    , test_emergency_disable
+    )
+  ; ( "force-off: emergency reenable writes the file and applies it"
+    , `Quick
+    , test_emergency_reenable
+    )
+  ; ( "force-off: the lock held too long, the file is kept and the call fails \
+       as busy"
+    , `Quick
+    , test_emergency_disable_lock_held
+    )
+  ; ( "force-off: in emergency mode the file is written and nothing else is \
+       called"
+    , `Quick
+    , test_emergency_disable_in_emergency_mode
+    )
+  ; ( "force-off: before xapi's start has synchronised the database, the file \
+       is written and nothing else is called"
+    , `Quick
+    , test_emergency_disable_before_dbsync
+    )
+  ]
+
 let test =
   ("test_host_join_restriction", `Quick, test_host_join_restriction)
   :: List.map sync_gpu_partitioning
@@ -403,3 +893,4 @@ let test =
         ("start: the engaged file exists, so xapi takes the lock", true)
       ; ("start: no engaged file, so xapi does not take the lock", false)
       ]
+  @ gpu_partitioning_tests

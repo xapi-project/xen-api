@@ -921,6 +921,11 @@ let gpu_partition_helper = ref "/opt/xensource/libexec/gpu-partition-helper"
 let gpu_lock_engaged_file =
   ref "/var/run/nonpersistent/xenopsd/classic/gpu-lock-engaged"
 
+(* The host's own setting that forces GPU partitioning off. It is kept across
+   restarts, and across upgrades by the host installer *)
+let gpu_partitioning_forced_off_file =
+  ref "/var/xapi/gpu-partitioning-forced-off"
+
 let igd_passthru_vendor_whitelist = ref []
 
 let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
@@ -1495,6 +1500,12 @@ let other_options =
     , Arg.Set_string gpu_lock_engaged_file
     , (fun () -> !gpu_lock_engaged_file)
     , "xenopsd's file whose presence makes xapi take the host GPU lock at start"
+    )
+  ; ( "gpu-partitioning-forced-off-file"
+    , Arg.Set_string gpu_partitioning_forced_off_file
+    , (fun () -> !gpu_partitioning_forced_off_file)
+    , "the file that forces GPU partitioning off on this host; an upgrade from \
+       the host installer keeps it only at the default path"
     )
   ; ( "nowatchdog"
     , Arg.Set nowatchdog

@@ -237,6 +237,8 @@ let prototyped_of_field = function
       Some "23.18.0"
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
+  | "pool", "gpu_partitioning" ->
+      Some "26.24.0-next"
   | "pool", "lldp_multicast_address" ->
       Some "26.21.1"
   | "pool", "lldp_enabled" ->
@@ -407,8 +409,14 @@ let prototyped_of_message = function
       Some "22.27.0"
   | "host", "rescan_drivers" ->
       Some "25.2.0"
+  | "host", "emergency_reenable_gpu_partitioning" ->
+      Some "26.24.0-next"
+  | "host", "emergency_disable_gpu_partitioning" ->
+      Some "26.24.0-next"
   | "host", "set_numa_affinity_policy" ->
       Some "24.0.0"
+  | "host", "apply_gpu_partitioning" ->
+      Some "26.24.0-next"
   | "VM", "sysprep" ->
       Some "25.24.0"
   | "VM", "update_secureboot_certificates_on_boot" ->
@@ -433,6 +441,8 @@ let prototyped_of_message = function
       Some "26.13.0"
   | "pool", "install_trusted_certificate" ->
       Some "26.13.0"
+  | "pool", "set_gpu_partitioning" ->
+      Some "26.24.0-next"
   | "pool", "set_ssh_auto_mode" ->
       Some "25.27.0"
   | "pool", "set_console_idle_timeout" ->

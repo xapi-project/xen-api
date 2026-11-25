@@ -15,9 +15,18 @@
  * @group Graphics
 *)
 
-val update_gpus : __context:Context.t -> unit
+type sync_result = [`Synced | `Held_back]
+
+val sync_gpus : __context:Context.t -> unit -> sync_result
 (** Synchronise the PGPU objects in the database with the actual devices
- *  in the local host. *)
+ *  in the local host, unless {!sync_held_back} holds for it. *)
+
+val gpu_partitioning_on : API.pool_gpu_partitioning -> bool
+(** Whether a value of the pool's GPU partitioning setting means enabled *)
+
+val assert_gpu_partitioning_can_be_enabled : __context:Context.t -> unit
+(** Raises NOT_SUPPORTED_DURING_UPGRADE while a rolling pool upgrade is marked
+    or the hosts' versions differ *)
 
 val add_enabled_VGPU_types :
   __context:Context.t -> self:API.ref_PGPU -> value:API.ref_VGPU_type -> unit
@@ -107,3 +116,10 @@ val set_not_checked : __context:Context.t -> self:API.ref_PGPU -> unit
 (** The GPU is not read, by design: it is not bound to the driver through
     which xapi reads its division. Any earlier value is replaced, as the
     GPU's division can change while another driver holds it *)
+
+(* Below exposed only for ease of testing *)
+
+val sync_held_back : __context:Context.t -> host:API.ref_host -> bool
+(** Whether the pool's GPU partitioning setting is enabled and [host] is behind
+    the pool's newest version, so that its GPU sync must not run. Production
+    code calls {!sync_gpus} *)

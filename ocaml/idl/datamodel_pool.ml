@@ -1478,6 +1478,46 @@ let lldp_multicast_address =
       ]
     )
 
+(* Lists every value from the first release on: an older pool member fails to
+   read a pool record that holds a value it does not know. Members of this
+   version read default_policy as disabled, whatever a later version makes
+   the default. *)
+let pool_gpu_partitioning =
+  Enum
+    ( "pool_gpu_partitioning"
+    , [
+        ("enabled", "GPU partitioning may be used on the pool's hosts")
+      ; ("disabled", "GPU partitioning is not used on the pool's hosts")
+      ; ( "default_policy"
+        , "Use the GPU partitioning setting that is the default for the \
+           current version"
+        )
+      ]
+    )
+
+let set_gpu_partitioning =
+  call ~name:"set_gpu_partitioning" ~lifecycle:[]
+    ~doc:
+      "Set whether GPU partitioning may be used on the pool's hosts, then make \
+       every host apply it. Enabling is refused during a pool update or \
+       upgrade, also while the hosts' versions differ with no rolling pool \
+       upgrade marked (the pool coordinator's log lists each host's versions), \
+       and while a host has not reported its GPU partitioning status. Enabling \
+       also needs a pool license that includes GPU features."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; (pool_gpu_partitioning, "value", "The new setting")
+      ]
+    ~errs:
+      [
+        Api_errors.feature_restricted
+      ; Api_errors.not_supported_during_upgrade
+      ; Api_errors.gpu_partitioning_status_not_reported
+      ; Api_errors.set_gpu_partitioning_partially_failed
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true
@@ -1579,6 +1619,7 @@ let t =
       ; set_ssh_enabled_timeout
       ; set_console_idle_timeout
       ; set_ssh_auto_mode
+      ; set_gpu_partitioning
       ; install_trusted_certificate
       ; uninstall_trusted_certificate
       ; sync_trusted_certificates_from
@@ -1916,6 +1957,11 @@ let t =
             "lldp_multicast_address"
             "The multicast MAC address used for LLDP advertising. To apply a \
              change, use pool.set_lldp_enabled(with force=true)."
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:pool_gpu_partitioning
+            ~default_value:(Some (VEnum "default_policy")) "gpu_partitioning"
+            "Whether GPU partitioning may be used on the pool's hosts. Set it \
+             with pool.set_gpu_partitioning. In this version, default_policy \
+             means disabled."
         ]
       )
     ()

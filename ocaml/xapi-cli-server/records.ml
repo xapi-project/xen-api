@@ -1367,6 +1367,16 @@ let pool_record rpc session_id pool =
               ~value:(Record_util.lldp_multicast_address_of_string v)
           )
           ()
+      ; make_field ~name:"gpu-partitioning"
+          ~get:(fun () ->
+            Record_util.pool_gpu_partitioning_to_string
+              (x ()).API.pool_gpu_partitioning
+          )
+          ~set:(fun v ->
+            Client.Pool.set_gpu_partitioning ~rpc ~session_id ~self:pool
+              ~value:(Record_util.pool_gpu_partitioning_of_string v)
+          )
+          ()
       ; make_field ~name:"gui-config"
           ~get:(fun () -> get_from_map (x ()).API.pool_gui_config)
           ~add_to_map:(fun key value ->

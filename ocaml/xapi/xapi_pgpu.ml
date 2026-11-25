@@ -40,12 +40,14 @@ let is_nvidia_vendor id =
   id = Xapi_pci.id_of_int Xapi_vgpu_type.Nvidia.vendor_id
 
 (* By PCI vendor, not by the driver bound now: a pass-through start unbinds a
-   card from its driver. *)
+   card from its driver. A GPU's row can outlive its PCI record until the next
+   GPU sync, which may be held back: such a GPU is not counted. *)
 let has_nvidia_gpu ~__context ~host =
   Db.Host.get_PGPUs ~__context ~self:host
   |> List.exists (fun self ->
       let pci = Db.PGPU.get_PCI ~__context ~self in
-      is_nvidia_vendor (Db.PCI.get_vendor_id ~__context ~self:pci)
+      Db.is_valid_ref __context pci
+      && is_nvidia_vendor (Db.PCI.get_vendor_id ~__context ~self:pci)
   )
 
 let nvidia_cards ~__context ~host =
@@ -259,6 +261,102 @@ let update_gpus ~__context =
             ~self:gpu_group
         )
         groups_to_update
+  )
+
+(* GPU partitioning while a pool is updated or upgraded. Each host derives the
+   pool-wide GPU records (vGPU types, GPU groups) from its own driver, and a
+   host behind the pool's newest version may run an older one. So:
+   - enabling the pool's GPU partitioning setting is refused while a rolling
+     pool upgrade is marked or the hosts' versions differ, so that it is only
+     enabled while every host runs one version;
+   - while it is enabled, a host behind the pool's newest version holds back
+     its GPU sync, which would replace records that upgraded hosts wrote; the
+     restart that ends its upgrade records its new version, then syncs.
+   While it is not enabled, every host syncs as before. *)
+
+(* The one place that says which values of the setting mean enabled *)
+let gpu_partitioning_on = function
+  | `enabled ->
+      true
+  | `disabled | `default_policy ->
+      false
+
+let gpu_partitioning_enabled ~__context =
+  match Db.Pool.get_all ~__context with
+  | [] ->
+      (* a first start, before the pool record exists *)
+      false
+  | pool :: _ -> (
+    match Db.Pool.get_gpu_partitioning ~__context ~self:pool with
+    | value ->
+        gpu_partitioning_on value
+    | exception Db_exn.DBCache_NotFound ("missing field", _, _) ->
+        info "%s: the pool coordinator's version has no GPU partitioning"
+          __FUNCTION__ ;
+        false
+    | exception Db_actions.String_to_DM.StringEnumTypeError _ ->
+        info
+          "%s: the pool's GPU partitioning value is one this version does not \
+           know"
+          __FUNCTION__ ;
+        false
+  )
+
+let sync_held_back ~__context ~host =
+  gpu_partitioning_enabled ~__context
+  && not
+       (Helpers.Checks.RPU.host_has_highest_version_in_pool ~__context
+          ~host:(Helpers.LocalObject host)
+       )
+
+let versions_of ~__context host =
+  Helpers.Checks.RPU.get_software_versions ~__context (Helpers.LocalObject host)
+  |> Helpers.Checks.versions_string_of
+
+let assert_gpu_partitioning_can_be_enabled ~__context =
+  if
+    Helpers.rolling_upgrade_in_progress ~__context
+    || Helpers.Checks.RPU.pool_has_different_host_platform_versions ~__context
+  then (
+    info "%s: refused during a pool update or upgrade; host versions: [ %s ]"
+      __FUNCTION__
+      (Db.Host.get_all ~__context
+      |> List.map (fun host ->
+          Printf.sprintf "%s: %s"
+            (Db.Host.get_uuid ~__context ~self:host)
+            (versions_of ~__context host)
+      )
+      |> String.concat "; "
+      ) ;
+    raise Api_errors.(Server_error (not_supported_during_upgrade, []))
+  )
+
+(* One sync of this host's GPU records at a time. Taken before pgpu_m (the
+   sync sets GPU groups) and, if both are ever held, before the host's GPU
+   partitioning evaluation lock *)
+let update_gpus_m = Mutex.create ()
+
+type sync_result = [`Synced | `Held_back]
+
+let sync_gpus ~__context () : sync_result =
+  let host = Helpers.get_localhost ~__context in
+  let fn = __FUNCTION__ in
+  with_lock update_gpus_m @@ fun () ->
+  if sync_held_back ~__context ~host then (
+    info
+      "%s: held back: this host's versions (%s) are behind the pool's newest \
+       (%s). Its GPU records are not refreshed until a start at the newest \
+       version. If it is not being upgraded: set the pool's gpu-partitioning \
+       to disabled, restart this host's toolstack, then that of a host with \
+       the newest GPU driver"
+      fn
+      (versions_of ~__context host)
+      (Helpers.Checks.RPU.max_version_in_pool ~__context
+      |> Helpers.Checks.versions_string_of
+      ) ;
+    `Held_back
+  ) else (
+    update_gpus ~__context ; `Synced
   )
 
 let update_group_enabled_VGPU_types ~__context ~self =

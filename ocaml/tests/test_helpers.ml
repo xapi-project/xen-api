@@ -606,6 +606,77 @@ module Version = struct
   let tests = [("Version compare tests", test)]
 end
 
+(* The rolling pool upgrade checks read the platform and xapi versions of
+   every host; a missing key reads as version 0.0.0 *)
+module RpuVersions = struct
+  let set_version ~__context ~host key value =
+    Db.Host.remove_from_software_version ~__context ~self:host ~key ;
+    Db.Host.add_to_software_version ~__context ~self:host ~key ~value
+
+  (* The test host as master and a second host, both at the same version on
+     every key the checks read. Returns the master and the second host *)
+  let make_pool_of_two () =
+    let __context = make_test_database () in
+    let master = !Xapi_globs.localhost_ref in
+    let host = make_host ~__context () in
+    List.iter
+      (fun key ->
+        set_version ~__context ~host:master key "8.4.0" ;
+        set_version ~__context ~host key "8.4.0"
+      )
+      Helpers.Checks.RPU.version_keys ;
+    (__context, master, host)
+
+  let is_newest ~__context host =
+    Helpers.Checks.RPU.host_has_highest_version_in_pool ~__context
+      ~host:(Helpers.LocalObject host)
+
+  let check_newest ~__context msg expected host =
+    Alcotest.(check bool) msg expected (is_newest ~__context host)
+
+  let check_versions_differ ~__context expected =
+    Alcotest.(check bool)
+      "the hosts' versions differ" expected
+      (Helpers.Checks.RPU.pool_has_different_host_platform_versions ~__context)
+
+  let test_same_versions () =
+    let __context, master, host = make_pool_of_two () in
+    check_newest ~__context "the master is newest" true master ;
+    check_newest ~__context "the other host is newest" true host ;
+    check_versions_differ ~__context false
+
+  let test_platform_version_ahead () =
+    let __context, master, host = make_pool_of_two () in
+    set_version ~__context ~host Xapi_globs._platform_version "8.5.0" ;
+    check_newest ~__context "the master is behind" false master ;
+    check_newest ~__context "the upgraded host is newest" true host ;
+    check_versions_differ ~__context true
+
+  let test_xapi_version_ahead () =
+    let __context, master, host = make_pool_of_two () in
+    set_version ~__context ~host Xapi_globs._xapi_version "8.5.0" ;
+    check_newest ~__context "the master is behind" false master ;
+    check_newest ~__context "the upgraded host is newest" true host ;
+    check_versions_differ ~__context true
+
+  (* Keys outside the checks' list, such as the Xen version, are ignored *)
+  let test_xen_version_ignored () =
+    let __context, master, host = make_pool_of_two () in
+    set_version ~__context ~host Xapi_globs._xen_version "4.20.0" ;
+    check_newest ~__context "the master is newest" true master ;
+    check_versions_differ ~__context false
+
+  let test =
+    [
+      ("Same versions", `Quick, test_same_versions)
+    ; ("Platform version ahead", `Quick, test_platform_version_ahead)
+    ; ("Xapi version ahead", `Quick, test_xapi_version_ahead)
+    ; ("Xen version ignored", `Quick, test_xen_version_ignored)
+    ]
+
+  let tests = [("Rolling pool upgrade version checks", test)]
+end
+
 let tests =
   make_suite "helpers_"
     [
@@ -617,3 +688,4 @@ let tests =
     ; ("run_in_parallel", RunInParallel.tests)
     ]
   @ Version.tests
+  @ RpuVersions.tests

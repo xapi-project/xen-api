@@ -8895,6 +8895,8 @@ let emergency_calls =
   ; (Datamodel_host.t, Datamodel_host.emergency_reset_server_certificate)
   ; (Datamodel_host.t, Datamodel_host.emergency_disable_tls_verification)
   ; (Datamodel_host.t, Datamodel_host.emergency_reenable_tls_verification)
+  ; (Datamodel_host.t, Datamodel_host.emergency_disable_gpu_partitioning)
+  ; (Datamodel_host.t, Datamodel_host.emergency_reenable_gpu_partitioning)
   ; (Datamodel_host.t, Datamodel_host.emergency_clear_mandatory_guidance)
   ; (Datamodel_host.t, Datamodel_host.update_firewalld_service_status)
   ]

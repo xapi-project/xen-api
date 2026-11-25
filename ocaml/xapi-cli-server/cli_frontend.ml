@@ -921,6 +921,32 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Neverforward]
       }
     )
+  ; ( "host-emergency-disable-gpu-partitioning"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          "Force GPU partitioning off on this host only, whatever the pool's \
+           setting. It is kept across restarts."
+      ; implementation=
+          No_fd_local_session
+            Cli_operations.host_emergency_disable_gpu_partitioning
+      ; flags= [Neverforward]
+      }
+    )
+  ; ( "host-emergency-reenable-gpu-partitioning"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          "End a force-off of GPU partitioning on this host only, so that it \
+           follows the pool's setting again."
+      ; implementation=
+          No_fd_local_session
+            Cli_operations.host_emergency_reenable_gpu_partitioning
+      ; flags= [Neverforward]
+      }
+    )
   ; ( "host-reset-server-certificate"
     , {
         reqd= []

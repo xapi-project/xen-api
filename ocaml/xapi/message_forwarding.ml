@@ -1256,6 +1256,12 @@ functor
           value ;
         Local.Pool.set_ssh_auto_mode ~__context ~self ~value
 
+      let set_gpu_partitioning ~__context ~self ~value =
+        info "Pool.set_gpu_partitioning: pool='%s' value='%s'"
+          (pool_uuid ~__context self)
+          (Record_util.pool_gpu_partitioning_to_string value) ;
+        Local.Pool.set_gpu_partitioning ~__context ~self ~value
+
       let install_trusted_certificate ~__context ~self ~ca ~cert ~purpose =
         Xapi_pool_helpers.with_pool_operation ~__context
           ~op:`copy_primary_host_certs ~doc:"Pool.install_trusted_certificate"
@@ -4151,6 +4157,13 @@ functor
         let remote_fn = Client.Host.apply_guest_agent_config ~host in
         do_op_on ~local_fn ~__context ~host ~remote_fn
 
+      let apply_gpu_partitioning ~__context ~host =
+        info "Host.apply_gpu_partitioning: host = '%s'"
+          (host_uuid ~__context host) ;
+        let local_fn = Local.Host.apply_gpu_partitioning ~host in
+        let remote_fn = Client.Host.apply_gpu_partitioning ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
+
       let mxgpu_vf_setup ~__context ~host =
         info "Host.mxgpu_vf_setup: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.mxgpu_vf_setup ~host in
@@ -4260,6 +4273,14 @@ functor
       let emergency_reenable_tls_verification ~__context =
         info "Host.emergency_reenable_tls_verification" ;
         Local.Host.emergency_reenable_tls_verification ~__context
+
+      let emergency_disable_gpu_partitioning ~__context =
+        info "Host.emergency_disable_gpu_partitioning" ;
+        Local.Host.emergency_disable_gpu_partitioning ~__context
+
+      let emergency_reenable_gpu_partitioning ~__context =
+        info "Host.emergency_reenable_gpu_partitioning" ;
+        Local.Host.emergency_reenable_gpu_partitioning ~__context
 
       let apply_updates ~__context ~self ~hash =
         let uuid = host_uuid ~__context self in

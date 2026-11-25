@@ -553,11 +553,40 @@ let test_vendor_model_lookup () =
     (Identifier.to_string k100.identifier)
     (Db.VGPU_type.get_identifier ~__context ~self:k100_ref_1)
 
+(* Every host's sync writes the same row of a type: the last data synced
+   wins, even when it is older than the data already stored *)
+let test_last_sync_wins () =
+  let __context = make_test_database () in
+  let newer_k100 =
+    {
+      k100 with
+      max_resolution_x= Int64.mul k100.max_resolution_x 2L
+    ; internal_config= [(Xapi_globs.vgpu_type_id, "type_id_newer")]
+    ; compatible_model_names_on_pgpu= []
+    }
+  in
+  let k100_ref = find_or_create ~__context newer_k100 in
+  Alcotest.check
+    (Alcotest_comparators.ref ())
+    "New k100 type was created erroneously" k100_ref
+    (find_or_create ~__context k100) ;
+  Alcotest.check Alcotest.int64 "k100 max_resolution_x is the last sync's"
+    k100.max_resolution_x
+    (Db.VGPU_type.get_max_resolution_x ~__context ~self:k100_ref) ;
+  Alcotest.(check (list (pair string string)))
+    "k100 internal_config is the last sync's" k100.internal_config
+    (Db.VGPU_type.get_internal_config ~__context ~self:k100_ref) ;
+  Alcotest.check
+    (Alcotest.list (Alcotest_comparators.ref ()))
+    "k100 compatible_types_on_pgpu is the last sync's" [k100_ref]
+    (Db.VGPU_type.get_compatible_types_on_pgpu ~__context ~self:k100_ref)
+
 let test =
   [
     ("find_or_create", `Quick, test_find_or_create)
   ; ("identifier_lookup", `Quick, test_identifier_lookup)
   ; ("vendor_model_lookup", `Quick, test_vendor_model_lookup)
+  ; ("last_sync_wins", `Quick, test_last_sync_wins)
   ]
 
 let tests =

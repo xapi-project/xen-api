@@ -4612,51 +4612,53 @@ let put_bundle_handler (req : Request.t) s _ =
           ()
   )
 
-module Ssh = struct
-  let operate ~__context ~action ~error =
-    let hosts = Db.Host.get_all ~__context in
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        let failed_hosts =
-          List.fold_left
-            (fun failed_hosts host ->
-              try
-                action ~rpc ~session_id ~self:host ;
-                failed_hosts
-              with _ -> Ref.string_of host :: failed_hosts
-            )
-            [] hosts
-        in
-        match failed_hosts with
-        | [] ->
-            ()
-        | _ ->
-            raise (Api_errors.Server_error (error, failed_hosts))
-    )
+(* Calls [action] on every host in turn, then raises [error] naming each host
+   whose call raised *)
+let call_on_all_hosts ~__context ~action ~error =
+  let hosts = Db.Host.get_all ~__context in
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      let failed_hosts =
+        List.fold_left
+          (fun failed_hosts host ->
+            try
+              action ~rpc ~session_id ~self:host ;
+              failed_hosts
+            with _ -> Ref.string_of host :: failed_hosts
+          )
+          [] hosts
+      in
+      match failed_hosts with
+      | [] ->
+          ()
+      | _ ->
+          raise (Api_errors.Server_error (error, failed_hosts))
+  )
 
+module Ssh = struct
   let enable ~__context ~self:_ =
-    operate ~__context ~action:Client.Host.enable_ssh
+    call_on_all_hosts ~__context ~action:Client.Host.enable_ssh
       ~error:Api_errors.enable_ssh_partially_failed
 
   let disable ~__context ~self:_ =
-    operate ~__context ~action:Client.Host.disable_ssh
+    call_on_all_hosts ~__context ~action:Client.Host.disable_ssh
       ~error:Api_errors.disable_ssh_partially_failed
 
   let set_enabled_timeout ~__context ~self:_ ~value =
-    operate ~__context
+    call_on_all_hosts ~__context
       ~action:(fun ~rpc ~session_id ~self ->
         Client.Host.set_ssh_enabled_timeout ~rpc ~session_id ~self ~value
       )
       ~error:Api_errors.set_ssh_timeout_partially_failed
 
   let set_console_timeout ~__context ~self:_ ~value =
-    operate ~__context
+    call_on_all_hosts ~__context
       ~action:(fun ~rpc ~session_id ~self ->
         Client.Host.set_console_idle_timeout ~rpc ~session_id ~self ~value
       )
       ~error:Api_errors.set_console_timeout_partially_failed
 
   let set_ssh_auto_mode ~__context ~self:_ ~value =
-    operate ~__context
+    call_on_all_hosts ~__context
       ~action:(fun ~rpc ~session_id ~self ->
         Client.Host.set_ssh_auto_mode ~rpc ~session_id ~self ~value
       )
@@ -4672,3 +4674,60 @@ let set_ssh_enabled_timeout = Ssh.set_enabled_timeout
 let set_console_idle_timeout = Ssh.set_console_timeout
 
 let set_ssh_auto_mode = Ssh.set_ssh_auto_mode
+
+let assert_every_host_reported_gpu_partitioning ~__context =
+  let not_reported self =
+    match Db.Host.get_gpu_partitioning_status ~__context ~self with
+    | `not_reported ->
+        Some (Ref.string_of self)
+    | `inactive | `entering | `active | `leaving ->
+        None
+  in
+  match List.filter_map not_reported (Db.Host.get_all ~__context) with
+  | [] ->
+      ()
+  | hosts ->
+      raise
+        Api_errors.(Server_error (gpu_partitioning_status_not_reported, hosts))
+
+(* Serialises the checks and the store of concurrent calls *)
+let set_gpu_partitioning_m = Mutex.create ()
+
+(* An offline host applies the stored value at its next xapi start, and a host
+   of a version without the call has nothing to apply until it is upgraded:
+   neither is a failure *)
+let call_apply_gpu_partitioning ~rpc ~session_id ~self:host =
+  match Client.Host.apply_gpu_partitioning ~rpc ~session_id ~host with
+  | () ->
+      ()
+  | exception Api_errors.Server_error (code, _)
+    when code = Api_errors.host_offline ->
+      info "%s: host %s applies the setting at its next start: %s" __FUNCTION__
+        (Ref.string_of host) code
+  | exception Api_errors.Server_error (code, _)
+    when code = Api_errors.message_method_unknown ->
+      info
+        "%s: host %s runs a version without this call; there is nothing to \
+         apply until it is upgraded"
+        __FUNCTION__ (Ref.string_of host)
+  | exception e ->
+      let fn = __FUNCTION__ in
+      Unixext.raise_with_preserved_backtrace e (fun () ->
+          warn "%s: host %s: %s" fn (Ref.string_of host) (Printexc.to_string e)
+      )
+
+(* The value is stored first: a host that does not apply it now, being
+   unreachable or busy, applies it at its next xapi start, or when the setting
+   is set again *)
+let set_gpu_partitioning ~__context ~self ~value =
+  with_lock set_gpu_partitioning_m (fun () ->
+      if Xapi_pgpu.gpu_partitioning_on value then (
+        if not (Pool_features.is_enabled ~__context Features.GPU) then
+          raise Api_errors.(Server_error (feature_restricted, [])) ;
+        Xapi_pgpu.assert_gpu_partitioning_can_be_enabled ~__context ;
+        assert_every_host_reported_gpu_partitioning ~__context
+      ) ;
+      Db.Pool.set_gpu_partitioning ~__context ~self ~value
+  ) ;
+  call_on_all_hosts ~__context ~action:call_apply_gpu_partitioning
+    ~error:Api_errors.set_gpu_partitioning_partially_failed

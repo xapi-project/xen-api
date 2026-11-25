@@ -2796,15 +2796,29 @@ let release_gpu_lock ~__context =
    before the status, so a client that sees a new status sees its reason. *)
 let gpu_partitioning_m = Mutex.create ()
 
-let sync_gpu_partitioning ~__context ~after_boot =
+(* A bounded read: a FIFO or a large file at the path forces it off rather
+   than block or fill memory *)
+let gpu_partitioning_forced () =
+  let file = !Xapi_globs.gpu_partitioning_forced_off_file in
+  Unixext.read_small_regular_file ~max_bytes:64 file
+  |> Gpu.Host_partitioning.forced_of_file
+       ~unexpected:
+         (warn
+            "%s: %s: %s, so GPU partitioning is forced off on this host; xe \
+             host-emergency-reenable-gpu-partitioning ends it"
+            __FUNCTION__ file
+         )
+
+(* Callers hold gpu_partitioning_m *)
+let evaluate_gpu_partitioning ~__context ~after_boot =
   let self = Helpers.get_localhost ~__context in
   let fn = __FUNCTION__ in
-  with_lock gpu_partitioning_m @@ fun () ->
   match
     Gpu.Host_partitioning.desired
       ~partitionable_gpu:(fun () ->
         Xapi_pgpu.has_nvidia_gpu ~__context ~host:self
       )
+      ~forced:gpu_partitioning_forced
       ~pool_enabled:(fun () -> false)
   with
   | Error reason ->
@@ -2819,8 +2833,9 @@ let sync_gpu_partitioning ~__context ~after_boot =
             release_gpu_lock ~__context
             |> Result.iter_error
                  (warn
-                    "%s: the GPU lock's release stopped: %s; a toolstack \
-                     restart retries it"
+                    "%s: the GPU lock's release stopped: %s; setting the \
+                     pool's GPU partitioning again, or a toolstack restart, \
+                     retries it"
                     fn
                  ) ;
             `inactive
@@ -2833,12 +2848,90 @@ let sync_gpu_partitioning ~__context ~after_boot =
       Db.Host.set_gpu_partitioning_reason ~__context ~self ~value ;
       Db.Host.set_gpu_partitioning_status ~__context ~self ~value:status
   | Ok () ->
-      (* Unreachable until the pool can enable partitioning. The GPUs are read
-         under gpu_partitioning_m, so no other evaluation runs meanwhile *)
+      (* Unreachable for now: the pool's GPU partitioning setting is not read
+         here yet, so a pool with it enabled behaves as one with it disabled,
+         except that hosts behind the pool's newest version hold back their
+         start-up GPU sync. The GPUs are read under gpu_partitioning_m, so no
+         other evaluation runs meanwhile *)
       Gpu_partition_helper.(
         read_cards_at_start ~__context ~host:self
           ~read_card:(read_card ~run:run_helper ~lock_args:no_lock_args)
       )
+
+let sync_gpu_partitioning ~__context ~after_boot =
+  with_lock gpu_partitioning_m @@ fun () ->
+  evaluate_gpu_partitioning ~__context ~after_boot
+
+(* An evaluation can wait tens of seconds for the GPU lock's holders; a call
+   that finds one still running changes nothing, and the next start or a
+   repeated call applies the setting *)
+let gpu_partitioning_apply_timeout = Mtime.Span.(5 * s)
+
+let apply_gpu_partitioning_within ~__context ~timeout =
+  let evaluate () = evaluate_gpu_partitioning ~__context ~after_boot:false in
+  match
+    Xapi_stdext_threads.Threadext.mutex_execute_within ~timeout
+      gpu_partitioning_m evaluate
+  with
+  | Some () ->
+      ()
+  | None ->
+      let self = Helpers.get_localhost ~__context in
+      raise
+        Api_errors.(
+          Server_error
+            (other_operation_in_progress, ["host"; Ref.string_of self])
+        )
+
+(* The pool's setting is stored before the coordinator calls each host, so
+   the call carries no value: the host re-evaluates from the stored state *)
+let apply_gpu_partitioning ~__context ~host:_ =
+  apply_gpu_partitioning_within ~__context
+    ~timeout:gpu_partitioning_apply_timeout
+
+(* The file is written first, so that the setting holds even if applying it
+   now fails. In emergency mode, or before xapi's start has synchronised the
+   database, which sets localhost_ref, the evaluation's database calls can
+   wait for an unreachable pool coordinator with no time limit, so it is left
+   to xapi's start, whose own evaluation comes later and reads the file. A
+   coordinator lost later, outside emergency mode, blocks the evaluation as
+   it does every database call of a member *)
+let set_gpu_partitioning_forced ~__context ~timeout forced =
+  let file = !Xapi_globs.gpu_partitioning_forced_off_file in
+  let value = Gpu.Host_partitioning.forced_token forced in
+  Unixext.write_string_to_file file value ;
+  info "%s: %s now holds %s" __FUNCTION__ file value ;
+  if !Xapi_globs.slave_emergency_mode || !Xapi_globs.localhost_ref = Ref.null
+  then
+    info
+      "%s: xapi is in emergency mode or still starting; it applies when xapi \
+       has finished its start"
+      __FUNCTION__
+  else
+    try apply_gpu_partitioning_within ~__context ~timeout with
+    | Api_errors.Server_error (code, _) as e
+      when code = Api_errors.other_operation_in_progress ->
+        let fn = __FUNCTION__ in
+        Unixext.raise_with_preserved_backtrace e (fun () ->
+            info
+              "%s: %s holds %s; it applies at the next xapi start, or when \
+               this command is run again"
+              fn file value
+        )
+    | e ->
+        Helpers.internal_error ~log_err:true
+          "%s holds %s, but applying it now failed: %s. It applies at the next \
+           xapi start, or when this command is run again or the pool's GPU \
+           partitioning is set again."
+          file value (Printexc.to_string e)
+
+let emergency_disable_gpu_partitioning ~__context =
+  set_gpu_partitioning_forced ~__context ~timeout:gpu_partitioning_apply_timeout
+    Gpu.Host_partitioning.Forced
+
+let emergency_reenable_gpu_partitioning ~__context =
+  set_gpu_partitioning_forced ~__context ~timeout:gpu_partitioning_apply_timeout
+    Gpu.Host_partitioning.Not_forced
 
 let apply_guest_agent_config ~__context ~host:_ =
   let pool = Helpers.get_pool ~__context in
