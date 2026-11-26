@@ -947,8 +947,6 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
   in
   gen_frontend rpc session_id
 
-(* the fields to show when doing `xe <class>-list`, whereas
-   `xe <class>-param-list uuid=...` shows all the non-hidden fields of a record *)
 let gen_cmds rpc session_id =
   let mk = make_param_funs in
   List.concat
@@ -4221,8 +4219,6 @@ let vm_install_real printer rpc session_id template name description params =
     (try Client.VM.destroy ~rpc ~session_id ~self:new_vm with _ -> ()) ;
     raise e
 
-(* The process of finding the VM in this case is special-cased since we want to call the
- * params 'template-name', like a foreign key, sort of *)
 let vm_install printer rpc session_id params =
   (* Filter on everything on the cmd line except params=... *)
   let template =
@@ -5160,8 +5156,6 @@ let vm_crashdump_list printer rpc session_id params =
   in
   ignore (do_vm_op printer rpc session_id op params [])
 
-(* Disk add creates a VDI with the size, sr specified. The name and sector size
- * can be optionally specified. A VBD is then creased with the device name as specified *)
 let vm_disk_add printer rpc session_id params =
   (* Required params *)
   let vdi_size =
@@ -8486,20 +8480,4 @@ module Rate_limit = struct
         ~uuid:(Cli_args.get "caller-uuid" params)
     in
     Client.Rate_limit.remove_caller ~rpc ~session_id ~self ~caller
-
-  let set_burst_size _printer rpc session_id params =
-    let self =
-      Client.Rate_limit.get_by_uuid ~rpc ~session_id
-        ~uuid:(Cli_args.get "uuid" params)
-    in
-    let value = float_of_string (Cli_args.get "value" params) in
-    Client.Rate_limit.set_burst_size ~rpc ~session_id ~self ~value
-
-  let set_fill_rate _printer rpc session_id params =
-    let self =
-      Client.Rate_limit.get_by_uuid ~rpc ~session_id
-        ~uuid:(Cli_args.get "uuid" params)
-    in
-    let value = float_of_string (Cli_args.get "value" params) in
-    Client.Rate_limit.set_fill_rate ~rpc ~session_id ~self ~value
 end

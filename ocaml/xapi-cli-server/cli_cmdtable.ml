@@ -22,9 +22,11 @@ type op =
   -> string Cli_args.t
   -> unit
 
+type op_with_fd = Unix.file_descr -> op
+
 type imp =
-  | With_fd of (Unix.file_descr -> op)
-  | With_fd_local_session of (Unix.file_descr -> op)
+  | With_fd of op_with_fd
+  | With_fd_local_session of op_with_fd
   | No_fd of op
   | No_fd_local_session of op
 
