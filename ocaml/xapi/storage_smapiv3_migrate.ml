@@ -75,10 +75,13 @@ let export_nbd_proxy ~proxy ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest =
     let dest_url = Http.Url.set_path (Http.Url.of_string remote_url) uri in
     D.debug "%s now waiting for connection at %s" __FUNCTION__ proxy.path ;
     let nbd_client, _addr = Unix.accept proxy.srv in
-    if stopped proxy then (
-      Unix.close nbd_client ;
-      failwith "nbd proxy stopped before the connection could be used"
-    ) ;
+    Fun.protect ~finally:(fun () ->
+        (try Unix.shutdown nbd_client Unix.SHUTDOWN_ALL with _ -> ()) ;
+        try Unix.close nbd_client with _ -> ()
+    )
+    @@ fun () ->
+    if stopped proxy then
+      failwith "nbd proxy stopped before the connection could be used" ;
     D.debug "%s connection accepted" __FUNCTION__ ;
     let request =
       Http.Request.make
