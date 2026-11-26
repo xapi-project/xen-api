@@ -280,14 +280,18 @@ let stream_nbd _common c s prezeroed ~export ?(progress = no_progress_bar) () =
         free := reusable_buffers @ !free ;
         return ()
   in
-  let take_free_buffer () =
+  let rec take_free_buffer () =
     (* [reap] blocks until at least one promise succeeds or fails,
-       [free] list is guaranteed to be non-empty after calling it *)
+       but it doesn't always return a reusable buffer, call it until
+       [free] is not empty *)
     (if !free = [] then reap () else return ()) >>= fun () ->
-    let index = List.hd !free in
-    free := List.tl !free ;
-    let buf = pool.(index) in
-    return (buf, Some index)
+    match !free with
+    | index :: tail ->
+        free := tail ;
+        let buf = pool.(index) in
+        return (buf, Some index)
+    | [] ->
+        take_free_buffer ()
   in
   let rec drain () =
     if !inflight = [] then return () else reap () >>= fun () -> drain ()
