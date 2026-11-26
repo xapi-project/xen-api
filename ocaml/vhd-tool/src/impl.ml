@@ -297,12 +297,20 @@ let stream_nbd _common c s prezeroed ~export ?(progress = no_progress_bar) () =
     if !inflight = [] then return () else reap () >>= fun () -> drain ()
   in
 
+  let rec wait_for_slot () =
+    if List.length !inflight < depth then
+      return ()
+    else
+      reap () >>= wait_for_slot
+  in
+
   (if not prezeroed then expand_empty s else return s) >>= fun s ->
   expand_copy s ~get_buffer:take_free_buffer >>= fun s ->
   fold_left
     (fun (sector, work_done) x ->
       ( match x with
         | `Sectors (data, i) ->
+            wait_for_slot () >>= fun () ->
             let t =
               Client.write server (Int64.mul sector 512L) [data] >>= function
               | Ok () ->
