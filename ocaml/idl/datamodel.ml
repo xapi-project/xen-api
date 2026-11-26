@@ -7903,6 +7903,11 @@ module VGPU = struct
             ~default_value:(Some (VRef null_ref)) "PCI"
             "Device passed trough to VM, either as full device or SR-IOV \
              virtual function"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _pci) ~lifecycle:[]
+            ~internal_only:true ~default_value:(Some (VRef null_ref))
+            "scheduled_to_be_assigned_to"
+            "SR-IOV virtual function reserved for this vGPU on the destination \
+             of a migration"
         ]
       ()
 end

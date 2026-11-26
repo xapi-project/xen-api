@@ -1537,6 +1537,8 @@ functor
         Db.VM.get_VGPUs ~__context ~self:vm
         |> List.iter (fun vgpu ->
             Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
+              ~value:Ref.null ;
+            Db.VGPU.set_scheduled_to_be_assigned_to ~__context ~self:vgpu
               ~value:Ref.null
         ) ;
         (* pcis *)

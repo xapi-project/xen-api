@@ -46,3 +46,15 @@ val allocate_vgpu_to_gpu :
 
 val vgpu_of_ref : __context:Context.t -> API.ref_VGPU -> vgpu_t
 (** Get a vgpu record from vgpu ref *)
+
+val assign_virtual_function :
+     __context:Context.t
+  -> API.ref_host
+  -> API.ref_VM
+  -> vgpu_t
+  -> API.ref_PCI
+  -> unit
+(** Assign an SR-IOV virtual function of the host to the vGPU. If the VM is
+    running, this is a migration and the VF is only reserved in
+    VGPU.scheduled_to_be_assigned_to; VGPU.PCI is also set if the source or
+    the destination host runs another version than the coordinator. *)

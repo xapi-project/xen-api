@@ -118,6 +118,29 @@ let add_pcis_to_vm ~__context _host vm vgpu pci =
     Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.igd_passthru_key
       ~value:"true"
 
+(* Reserve [vf] on [host], the destination of a migration of a running VM.
+   VGPU.PCI keeps naming the VF the VM holds on [source] until the
+   destination's pool_migrate_complete moves it to the reserved one. Hosts on
+   another version than the coordinator may take the destination VF only from
+   VGPU.PCI, and may not move it on completion, so set it there too while
+   either end of the migration runs one. *)
+let reserve_vf_for_migration ~__context ~source host vm vgpu vf =
+  Db.VGPU.set_scheduled_to_be_assigned_to ~__context ~self:vgpu.vgpu_ref
+    ~value:vf ;
+  let same_as_coordinator host =
+    Helpers.Checks.RPU.are_host_versions_same_on_master ~__context ~host
+  in
+  if not (same_as_coordinator source && same_as_coordinator host) then
+    add_pcis_to_vm ~__context host vm vgpu vf
+
+let assign_virtual_function ~__context host vm vgpu vf =
+  let source = Db.VM.get_resident_on ~__context ~self:vm in
+  let held = Db.VGPU.get_PCI ~__context ~self:vgpu.vgpu_ref in
+  if Db.is_valid_ref __context source && Db.is_valid_ref __context held then
+    reserve_vf_for_migration ~__context ~source host vm vgpu vf
+  else
+    add_pcis_to_vm ~__context host vm vgpu vf
+
 let reserve_free_virtual_function ~__context vm impl pf =
   let host = Db.PCI.get_host ~__context ~self:pf in
   let rec get retry =
@@ -186,7 +209,7 @@ let add_vgpus_to_vm ~__context host vm vgpus =
           in
           Db.PGPU.get_PCI ~__context ~self:pgpu
           |> reserve_free_virtual_function ~__context vm impl
-          |> add_pcis_to_vm ~__context host vm vgpu
+          |> assign_virtual_function ~__context host vm vgpu
       | None ->
           Pool_features.assert_enabled ~__context ~f:Features.VGPU ;
           debug "Creating virtual VGPUs" ;

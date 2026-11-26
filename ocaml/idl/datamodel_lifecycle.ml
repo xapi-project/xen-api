@@ -123,6 +123,8 @@ let prototyped_of_field = function
       Some "24.3.0"
   | "Cluster", "cluster_stack_version" ->
       Some "24.15.0"
+  | "VGPU", "scheduled_to_be_assigned_to" ->
+      Some "26.24.0-next"
   | "VTPM", "contents" ->
       Some "22.26.0"
   | "VTPM", "is_protected" ->

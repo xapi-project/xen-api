@@ -174,7 +174,8 @@ let release_locks ~__context =
   ) ;
   Db.VGPU.get_all ~__context
   |> List.iter (fun self ->
-      Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self ~value
+      Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self ~value ;
+      Db.VGPU.set_scheduled_to_be_assigned_to ~__context ~self ~value
   )
 
 let create_tools_sr __context name_label name_description sr_introduce

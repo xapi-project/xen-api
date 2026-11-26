@@ -413,22 +413,31 @@ let infer_vgpu_map ~__context ?remote vm =
   let vf_device_of x = "vf:" ^ x in
   match remote with
   | None -> (
-      let f vgpu =
-        let vgpu = Db.VGPU.get_record ~__context ~self:vgpu in
+      let f self =
+        let vgpu = Db.VGPU.get_record ~__context ~self in
         let pf () =
           vgpu.API.vGPU_scheduled_to_be_resident_on |> fun self ->
           Db.PGPU.get_PCI ~__context ~self |> fun self ->
           Db.PCI.get_pci_id ~__context ~self
           |> Xenops_interface.Pci.address_of_string
         in
+        (* A coordinator on an older version reserves the VF in VGPU.PCI *)
+        let vf_ref =
+          let reserved =
+            Db.VGPU.get_scheduled_to_be_assigned_to ~__context ~self
+          in
+          if Db.is_valid_ref __context reserved then
+            reserved
+          else
+            vgpu.API.vGPU_PCI
+        in
         let vf () =
-          vgpu.API.vGPU_PCI |> fun self ->
-          Db.PCI.get_pci_id ~__context ~self
+          Db.PCI.get_pci_id ~__context ~self:vf_ref
           |> Xenops_interface.Pci.address_of_string
         in
         let pf_device = vgpu.API.vGPU_device in
         let vf_device = vf_device_of pf_device in
-        if vgpu.API.vGPU_PCI <> API.Ref.null then
+        if vf_ref <> API.Ref.null then
           [(pf_device, pf ()); (vf_device, vf ())]
         else
           [(pf_device, pf ())]
@@ -574,6 +583,26 @@ let remove_stale_pcis ~__context ~vm =
   in
   List.iter remove stale_pcis
 
+(* Point VGPU.PCI at the VF that the coordinator reserved on this host. If it
+   has cleared the reservation already, sync_vgpu_pcis_from_xenopsd still
+   finds the VF. *)
+let take_reserved_vfs ~__context ~vm =
+  let localhost = Helpers.get_localhost ~__context in
+  Db.VM.get_VGPUs ~__context ~self:vm
+  |> List.iter (fun vgpu ->
+      let vf = Db.VGPU.get_scheduled_to_be_assigned_to ~__context ~self:vgpu in
+      if
+        Db.is_valid_ref __context vf
+        && Db.PCI.get_host ~__context ~self:vf = localhost
+      then (
+        debug "%s: VGPU %s of VM %s takes reserved VF %s" __FUNCTION__
+          (Ref.string_of vgpu) (Ref.string_of vm) (Ref.string_of vf) ;
+        Db.VGPU.set_PCI ~__context ~self:vgpu ~value:vf ;
+        Db.VGPU.set_scheduled_to_be_assigned_to ~__context ~self:vgpu
+          ~value:Ref.null
+      )
+  )
+
 let sync_vgpu_pcis_from_xenopsd ~__context ~vm ~queue_name ~dbg id =
   let open Xapi_xenops_queue in
   let module Client = (val make_client queue_name : XENOPS) in
@@ -631,6 +660,11 @@ let pool_migrate_complete ~__context ~vm ~host:_ =
   let dbg = Context.string_of_task __context in
   let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
   if Xapi_xenops.vm_exists_in_xenopsd queue_name dbg id then (
+    ( try take_reserved_vfs ~__context ~vm
+      with e ->
+        warn "%s: could not take the VM's reserved vGPU VFs: %s" __FUNCTION__
+          (Printexc.to_string e)
+    ) ;
     ( try sync_vgpu_pcis_from_xenopsd ~__context ~vm ~queue_name ~dbg id
       with e ->
         warn "%s: could not take the VM's vGPU VFs from xenopsd: %s"
@@ -1802,8 +1836,12 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vdi_format_map ~vif_map
           Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid
             (fun () ->
               let xenops_vgpu_map =
-                (* can raise VGPU_mapping *)
-                infer_vgpu_map ~__context ~remote new_vm
+                (* can raise VGPU_mapping. The VF reservation is not in the
+                   XenAPI, so read it from the database within a pool. *)
+                if is_intra_pool then
+                  infer_vgpu_map ~__context new_vm
+                else
+                  infer_vgpu_map ~__context ~remote new_vm
               in
               let verify_cert =
                 if is_intra_pool then
