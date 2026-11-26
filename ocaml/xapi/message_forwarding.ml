@@ -2054,7 +2054,6 @@ functor
         ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
-        let _ (* uuid *) = Db.VM.get_uuid ~__context ~self:vm in
         Vm_message.create ~__context ~vm (Started {host}) ;
         Rrdd_proxy.push_rrd ~__context
           ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
