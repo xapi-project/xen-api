@@ -253,9 +253,9 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   let snap_disks_snapshot_of = VDISet.map get_snapshot_of snap_disks_all in
 
   let vm_VBDs_all = Db.VM.get_VBDs ~__context ~self:vm |> VBDSet.of_list in
-  let vm_VBDs_disk, vm_VBDs_CD =
+  let vm_VBDs_disk =
     (* Filter VBDs to ensure that we don't read empty CDROMs *)
-    VBDSet.partition
+    VBDSet.filter
       (fun vbd -> Db.VBD.get_type ~__context ~self:vbd = `Disk)
       vm_VBDs_all
   in
@@ -311,15 +311,20 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
     )
   in
 
-  let vm_vbds_to_be_destroyed =
-    let ( +++ ) = VBDSet.union in
-    filter_vbds_from_vdis vm_VBDs_all vm_disks_to_be_destroyed
-    +++ filter_vbds_from_vdis vm_VBDs_all vm_disks_without_snapshot
-    +++ vm_VBDs_CD
-  in
+  let vm_vbds_to_be_destroyed = vm_VBDs_all in
 
   let snap_VBDs_reverted =
     filter_vbds_from_vdis snap_VBDs_disk snap_disks_reverted
+  in
+
+  let reverted_disks =
+    let snap_VBDs_reverted = VBDSet.elements snap_VBDs_reverted in
+    List.map
+      (fun self ->
+        let vdi = Db.VBD.get_VDI ~__context ~self |> get_snapshot_of in
+        (self, vdi, false)
+      )
+      snap_VBDs_reverted
   in
 
   (*
@@ -351,9 +356,7 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   let cloned_disks =
     (* the list of cloned VDIs maintains the order of the VBDs given, use this
        to correlate the VDI with the original VDI before the clone *)
-    let snap_VBDs_to_be_cloned =
-      snap_VBDs_to_be_cloned |> VBDSet.to_seq |> List.of_seq
-    in
+    let snap_VBDs_to_be_cloned = VBDSet.elements snap_VBDs_to_be_cloned in
     let snap_disks_previous_snapshot_of =
       snap_VBDs_to_be_cloned
       |> List.map (fun vbd ->
@@ -380,7 +383,7 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   in
   let@ () = with_vdis_on_error ~vdis:destroy_vdis_on_error in
   let cloned_CDs =
-    let snap_VBDs_CD = snap_VBDs_CD |> VBDSet.to_seq |> List.of_seq in
+    let snap_VBDs_CD = VBDSet.elements snap_VBDs_CD in
     Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone
       ~__context snap_VBDs_CD driver_params
   in
@@ -417,7 +420,7 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   in
   let destroy_vdis_on_error = cloned_suspend_VDI :: destroy_vdis_on_error in
   let@ () = with_vdis_on_error ~vdis:destroy_vdis_on_error in
-  let vbds_to_copy = List.map fst cloned_disks @ cloned_CDs in
+  let vbds_to_copy = List.map fst cloned_disks @ cloned_CDs @ reverted_disks in
   TaskHelper.set_progress ~__context 0.6 ;
   if vbds_to_copy <> [] then debug "%s: Copying the VBDs" __FUNCTION__ ;
   let (_ : [`VBD] Ref.t list) =
