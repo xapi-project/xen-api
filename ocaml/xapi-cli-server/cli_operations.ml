@@ -37,9 +37,9 @@ exception ExitWithError of int
 
 let bool_of_string param string =
   try Record_util.bool_of_string string
-  with Record_util.Record_failure msg ->
+  with Record_util.Record_failure msg as e ->
     let msg = Printf.sprintf "Failed to parse parameter '%s': %s" param msg in
-    raise (Record_util.Record_failure msg)
+    Backtrace.reraise e (Record_util.Record_failure msg)
 
 let get_bool_param params ?(default = false) param =
   Cli_args.get_opt param params
