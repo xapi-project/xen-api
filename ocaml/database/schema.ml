@@ -99,13 +99,32 @@ type absent = [`Absent]
 type maybe = [present | absent]
 
 module CachedValue = struct
-  type !+'a t = {v: 'a; marshalled: string}
+  type marshalled = Marshalled of string | Not_yet of Value.t
 
-  let v v = {v= `Present v; marshalled= Value.marshal v}
+  (* Concurrent first reads memoise the same string. *)
+  type !+'a t = {v: 'a; mutable marshalled: marshalled}
 
-  let of_string marshalled = {v= `Absent; marshalled}
+  (* Maps must be marshalled on write to reject empty keys. *)
+  let v v =
+    let marshalled =
+      match v with
+      | Value.Set _ ->
+          Not_yet v
+      | Value.String _ | Value.Pairs _ ->
+          Marshalled (Value.marshal v)
+    in
+    {v= `Present v; marshalled}
 
-  let string_of t = t.marshalled
+  let of_string marshalled = {v= `Absent; marshalled= Marshalled marshalled}
+
+  let string_of t =
+    match t.marshalled with
+    | Marshalled s ->
+        s
+    | Not_yet v ->
+        let s = Value.marshal v in
+        t.marshalled <- Marshalled s ;
+        s
 
   let value_of {v= `Present v; _} = v
 
@@ -114,17 +133,17 @@ module CachedValue = struct
     | `Present v ->
         v
     | `Absent ->
-        Value.unmarshal ty t.marshalled
+        Value.unmarshal ty (string_of t)
 
   let of_typed_string ty marshalled =
     let v = Value.unmarshal ty marshalled in
-    {v= `Present v; marshalled}
+    {v= `Present v; marshalled= Marshalled marshalled}
 
   let maybe_unmarshal ty = function
     | {v= `Present _; _} as p ->
         p
-    | {v= `Absent; marshalled} ->
-        of_typed_string ty marshalled
+    | {v= `Absent; _} as t ->
+        of_typed_string ty (string_of t)
 
   let open_present ({v= `Present _; _} as t) = t
 end

@@ -87,20 +87,6 @@ let obj_references_table : (string, (string * string) list) Hashtbl.t =
 let follow_references (obj_name : string) =
   Hashtbl.find obj_references_table obj_name
 
-(* Compute a modify event's snapshot by attemping to invoke its
-   getter. If the record cannot be found, the event is dropped (as the
-   reference is probably dangling). *)
-let snapshots_of_other_tbl_refs other_tbl_refs =
-  let try_get_records (table, field, getter) =
-    try Some (table, field, getter ())
-    with _ ->
-      (* Probably means the reference was dangling *)
-      warn "%s: skipping event for dangling reference %s: %s" __FUNCTION__ table
-        field ;
-      None
-  in
-  List.filter_map try_get_records other_tbl_refs
-
 open Xapi_database.Db_cache_types
 open Xapi_database.Db_action_helper
 
@@ -124,48 +110,58 @@ let strings_of_event_kind = function
   | Add ->
       ("add", "ADD")
 
+let record_thunk ctx table reference : snapshot =
+ fun () -> find_get_record table ~__context:(Lazy.force ctx) ~self:reference ()
+
+let related_record_thunk ctx table reference : snapshot =
+ fun () ->
+  try find_get_record table ~__context:(Lazy.force ctx) ~self:reference ()
+  with _ ->
+    (* Probably means the reference was dangling *)
+    warn "%s: skipping event for dangling reference on table %s: %s"
+      __FUNCTION__ table reference ;
+    None
+
 let emit_events ~kind events =
-  let kind, upper = strings_of_event_kind kind in
-  let emit = function
-    | tbl, ref, None ->
-        error "%s: Failed to generate %s event on %s %s" __FUNCTION__ upper tbl
-          ref
-    | tbl, ref, Some snapshot ->
-        events_notify ~snapshot tbl kind ref
+  let op, upper = strings_of_event_kind kind in
+  let emit (tbl, ref, thunk) =
+    let snapshot () =
+      match thunk () with
+      | Some _ as snapshot ->
+          snapshot
+      | None ->
+          error "%s: Failed to generate %s event on %s %s" __FUNCTION__ upper
+            tbl ref ;
+          None
+    in
+    events_notify ~snapshot tbl op ref
   in
   List.iter emit events
 
-let database_callback_inner event db ~__context =
+let database_callback_inner event db ~ctx =
   let other_tbl_refs tblname = follow_references tblname in
   let other_tbl_refs_for_this_field tblname fldname =
     List.filter (fun (_, fld) -> fld = fldname) (other_tbl_refs tblname)
   in
   let compute_other_table_events table kvs =
-    (* Given a table and a deleted/new row's key-values, compute event
-       snapshots for all objects potentially referenced by values in the
-       row. *)
     let get_potential_event (other_tbl, field) =
       (* If a deleted/new field could refer to a row within
          other_tbl, collect a potential event for it. *)
       let field_value = List.assoc field kvs in
       if is_valid_ref db field_value then
         let self = Schema.Value.Unsafe_cast.string field_value in
-        let getter = find_get_record other_tbl ~__context ~self in
-        Some (other_tbl, self, getter)
+        Some (other_tbl, self, related_record_thunk ctx other_tbl self)
       else
         None
     in
-    follow_references table
-    |> List.filter_map get_potential_event
-    |> snapshots_of_other_tbl_refs
+    follow_references table |> List.filter_map get_potential_event
   in
   match event with
   | RefreshRow (tblname, objref) ->
       (* To refresh a row, emit a modify event with the current record's
          snapshot. *)
-      let getter = find_get_record tblname ~__context ~self:objref in
-      let snapshot = getter () in
-      emit_events ~kind:Modify [(tblname, objref, snapshot)]
+      emit_events ~kind:Modify
+        [(tblname, objref, record_thunk ctx tblname objref)]
   | WriteField (tblname, objref, fldname, oldval, newval) ->
       (* When a field is written, both the new and old values of the
          field may be references to other objects, which have already
@@ -173,17 +169,13 @@ let database_callback_inner event db ~__context =
          emit events for the previously referenced object, the current
          row, and the newly referenced object.*)
       let other_tbl_refs = other_tbl_refs_for_this_field tblname fldname in
-      (* Compute list of potential events. Some snapshots may fail to
-         be reified because the reference is no longer valid (i.e. it's
-         dangling). *)
       let get_other_ref_events maybe_ref =
         if is_valid_ref db maybe_ref then
           let self = Schema.Value.Unsafe_cast.string maybe_ref in
           let go (other_tbl, _) =
-            let get_record = find_get_record other_tbl ~__context ~self in
-            (other_tbl, self, get_record)
+            (other_tbl, self, related_record_thunk ctx other_tbl self)
           in
-          List.map go other_tbl_refs |> snapshots_of_other_tbl_refs
+          List.map go other_tbl_refs
         else
           []
       in
@@ -194,16 +186,14 @@ let database_callback_inner event db ~__context =
       (* Emit modify events for records referenced by the old row's value. *)
       emit_events ~kind:Modify events_old_val ;
       (* Emit a modify event for the current row. *)
-      let getter = find_get_record tblname ~__context ~self:objref in
-      let snapshot = getter () in
-      emit_events ~kind:Modify [(tblname, objref, snapshot)] ;
+      emit_events ~kind:Modify
+        [(tblname, objref, record_thunk ctx tblname objref)] ;
       (* Emit modify events for records referenced by the new row's value. *)
       emit_events ~kind:Modify events_new_val
   | PreDelete (tblname, objref) ->
       (* Emit a deletion event for the deleted row. *)
-      let getter = find_get_record tblname ~__context ~self:objref in
-      let snapshot = getter () in
-      emit_events ~kind:Delete [(tblname, objref, snapshot)]
+      emit_events ~kind:Delete
+        [(tblname, objref, record_thunk ctx tblname objref)]
   | Delete (tblname, _objref, kvs) ->
       (* Deleting a row requires similar modify events as overwriting a
          field's value does. If any of the deleted cells may be a
@@ -212,14 +202,13 @@ let database_callback_inner event db ~__context =
       compute_other_table_events tblname kvs |> emit_events ~kind:Modify
   | Create (tblname, new_objref, kvs) ->
       (* Emit an add event for the new object. *)
-      let getter = find_get_record tblname ~__context ~self:new_objref in
-      let snapshot = getter () in
-      emit_events ~kind:Add [(tblname, new_objref, snapshot)] ;
+      emit_events ~kind:Add
+        [(tblname, new_objref, record_thunk ctx tblname new_objref)] ;
       (* Emit modification events for any newly-referenced objects. *)
       compute_other_table_events tblname kvs |> emit_events ~kind:Modify
 
 let database_callback event db =
-  let __context = Context.make __MODULE__ in
+  let ctx = lazy (Context.make __MODULE__) in
   Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () -> database_callback_inner event db ~__context)
-    (fun () -> Context.complete_tracing __context)
+    (fun () -> database_callback_inner event db ~ctx)
+    (fun () -> if Lazy.is_val ctx then Context.complete_tracing (Lazy.force ctx))

@@ -328,37 +328,43 @@ let make_attributes ?task_name ?task_id ?task_uuid ?session_id ?origin () =
   ]
   |> List.concat
 
-let start_tracing_helper ?(span_attributes = []) parent_fn task_name =
+let start_tracing_helper ?(span_attributes = fun () -> []) parent_fn task_name =
   let open Tracing in
-  let span_details_from_task_name task_name =
-    let uuid_length = 36 in
-    let dispatch_system_is_alive = "dispatch:system.isAlive:" in
-    let open String in
-    if starts_with ~prefix:dispatch_system_is_alive task_name then
-      let uuid = sub task_name (length dispatch_system_is_alive) uuid_length in
-      ( "dispatch:system.isAlive"
-      , ("xs.span.arg.vm.uuid", uuid) :: span_attributes
-      )
-    else
-      (task_name, span_attributes)
-  in
-  let span_name, span_attributes = span_details_from_task_name task_name in
-  let parent = parent_fn span_name in
-  let span_kind = span_kind_of_parent parent in
-  let tracer = Tracer.get_tracer ~name:span_name in
-  match
-    Tracer.start ~span_kind ~tracer ~attributes:span_attributes ~name:span_name
-      ~parent ()
-  with
-  | Ok x ->
-      Option.map
-        (fun span ->
-          span |> Span.to_propagation_context |> Span.with_trace_context span
+  if not (get_observe ()) then
+    None
+  else
+    let span_attributes = span_attributes () in
+    let span_details_from_task_name task_name =
+      let uuid_length = 36 in
+      let dispatch_system_is_alive = "dispatch:system.isAlive:" in
+      let open String in
+      if starts_with ~prefix:dispatch_system_is_alive task_name then
+        let uuid =
+          sub task_name (length dispatch_system_is_alive) uuid_length
+        in
+        ( "dispatch:system.isAlive"
+        , ("xs.span.arg.vm.uuid", uuid) :: span_attributes
         )
-        x
-  | Error e ->
-      R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
-      None
+      else
+        (task_name, span_attributes)
+    in
+    let span_name, span_attributes = span_details_from_task_name task_name in
+    let parent = parent_fn span_name in
+    let span_kind = span_kind_of_parent parent in
+    let tracer = Tracer.get_tracer ~name:span_name in
+    match
+      Tracer.start ~span_kind ~tracer ~attributes:span_attributes
+        ~name:span_name ~parent ()
+    with
+    | Ok x ->
+        Option.map
+          (fun span ->
+            span |> Span.to_propagation_context |> Span.with_trace_context span
+          )
+          x
+    | Error e ->
+        R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+        None
 
 (** constructors *)
 
@@ -381,7 +387,7 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
   let dbg = make_dbg http_other_config task_name task_id in
   info "task %s forwarded%s" dbg
     (trackid_of_session ~with_brackets:true ~prefix:" " session_id) ;
-  let span_attributes =
+  let span_attributes () =
     make_attributes ~task_id ~task_name ?session_id ~origin ()
   in
   let tracing =
@@ -438,7 +444,7 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
             " by task " ^ make_dbg [] "" subtask_of
         )
   ) ;
-  let span_attributes =
+  let span_attributes () =
     make_attributes ~task_id ~task_name ~origin ?session_id ~task_uuid ()
   in
   let tracing =
@@ -464,7 +470,7 @@ let make_subcontext ~__context ?task_in_database task_name =
   let tracing =
     Option.bind __context.tracing (fun parent ->
         let parent = Some parent in
-        let span_attributes = make_attributes ?session_id () in
+        let span_attributes () = make_attributes ?session_id () in
         start_tracing_helper ~span_attributes (fun _ -> parent) task_name
     )
   in
@@ -562,7 +568,7 @@ let with_forwarded_task ?http_other_config ?session_id ?origin task_id f =
 let with_tracing ?(attributes = []) ?originator ~__context name f =
   let open Tracing in
   let parent = __context.tracing in
-  let span_attributes =
+  let span_attributes () =
     Attributes.attr_of_originator originator
     @ attributes
     @ make_attributes ~task_id:__context.task_id

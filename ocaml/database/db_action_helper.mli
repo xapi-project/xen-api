@@ -12,7 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val events_register :
-  (?snapshot:Rpc.t -> string -> string -> string -> unit) -> unit
+(** Force only during [events_notify], under the writer's database lock.
+    [None] means the record could not be read; drop the event. *)
+type snapshot = unit -> Rpc.t option
 
-val events_notify : ?snapshot:Rpc.t -> string -> string -> string -> unit
+val events_register :
+  (?snapshot:snapshot -> string -> string -> string -> unit) -> unit
+
+val events_notify : ?snapshot:snapshot -> string -> string -> string -> unit

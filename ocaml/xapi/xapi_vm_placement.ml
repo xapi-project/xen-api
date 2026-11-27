@@ -21,14 +21,14 @@ open Vm_placement
 (* === Snapshot constructors ================================================ *)
 
 let create_guest_snapshot __context guest =
-  let r = Db.VM.get_record ~__context ~self:guest in
+  let self = guest in
   {
-    GS.id= r.API.vM_uuid
-  ; GS.memory_overhead= r.API.vM_memory_overhead
-  ; GS.memory_static_max= r.API.vM_memory_static_max
-  ; GS.memory_static_min= r.API.vM_memory_static_min
-  ; GS.memory_dynamic_max= r.API.vM_memory_dynamic_max
-  ; GS.memory_dynamic_min= r.API.vM_memory_dynamic_min
+    GS.id= Db.VM.get_uuid ~__context ~self
+  ; GS.memory_overhead= Db.VM.get_memory_overhead ~__context ~self
+  ; GS.memory_static_max= Db.VM.get_memory_static_max ~__context ~self
+  ; GS.memory_static_min= Db.VM.get_memory_static_min ~__context ~self
+  ; GS.memory_dynamic_max= Db.VM.get_memory_dynamic_max ~__context ~self
+  ; GS.memory_dynamic_min= Db.VM.get_memory_dynamic_min ~__context ~self
   }
 
 let create_host_snapshot __context host =
@@ -104,3 +104,123 @@ let select_host __context guest validate_host hosts =
       Db.Host.get_by_uuid ~__context ~uuid:host
   | None ->
       raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
+
+module StringSet = Set.Make (String)
+
+let add_guests_to_host_summary guests host =
+  let sum init guest_value =
+    List.fold_left (fun acc g -> acc ++ guest_value g) init guests
+  in
+  {
+    host with
+    HSS.memory_static_min_sum=
+      sum host.HSS.memory_static_min_sum (fun g -> g.GS.memory_static_min)
+  ; HSS.memory_dynamic_min_sum=
+      sum host.HSS.memory_dynamic_min_sum (fun g -> g.GS.memory_dynamic_min)
+  ; HSS.memory_dynamic_max_sum=
+      sum host.HSS.memory_dynamic_max_sum (fun g -> g.GS.memory_dynamic_max)
+  ; HSS.memory_static_max_sum=
+      sum host.HSS.memory_static_max_sum (fun g -> g.GS.memory_static_max)
+  ; HSS.memory_available_sum=
+      sum host.HSS.memory_available_sum (fun g -> 0L -- g.GS.memory_overhead)
+  }
+
+(** The caller must release the claim after reservation, including on failure. *)
+let select_host_claiming claims __context guest validate_host hosts =
+  (* A claim released during the snapshot may have become a reservation
+     after its host was read. *)
+  let claimed_before = Placement_claims.claims claims in
+  let pool = Helpers.get_pool ~__context in
+  let pool_snapshot = create_pool_subset_snapshot __context pool hosts in
+  let guest_snapshot = create_guest_snapshot __context guest in
+  let pool_summary = summarise_pool_snapshot [guest_snapshot] pool_snapshot in
+  let affinity_host_ids = affinity_host_ids_of_guest __context guest in
+  let random_fn =
+    if Xapi_fist.deterministic_host_selection () then
+      zero_fn
+    else
+      biased_random_fn
+  in
+  let master_bias = Db.Pool.get_coordinator_bias ~__context ~self:pool in
+  let not_counted =
+    List.fold_left
+      (fun acc host ->
+        List.fold_left
+          (fun acc g -> StringSet.add g.GS.id acc)
+          acc
+          (host.HS.guests_resident @ host.HS.guests_scheduled)
+      )
+      (StringSet.singleton guest_snapshot.GS.id)
+      pool_snapshot.PS.hosts
+  in
+  let counted claims =
+    List.filter_map
+      (fun (_, c) ->
+        if StringSet.mem c.Placement_claims.guest.GS.id not_counted then
+          None
+        else
+          Some c
+      )
+      claims
+  in
+  let counted_before = counted claimed_before in
+  let in_flight current =
+    let current = counted current in
+    let ids =
+      List.fold_left
+        (fun acc c -> StringSet.add c.Placement_claims.guest.GS.id acc)
+        StringSet.empty current
+    in
+    current
+    @ List.filter
+        (fun c -> not (StringSet.mem c.Placement_claims.guest.GS.id ids))
+        counted_before
+  in
+  let summary ~excluded in_flight =
+    let hosts =
+      List.filter_map
+        (fun host ->
+          if List.mem host.HSS.id excluded then
+            None
+          else
+            let claimed =
+              List.filter_map
+                (fun c ->
+                  if c.Placement_claims.host = host.HSS.id then
+                    Some c.Placement_claims.guest
+                  else
+                    None
+                )
+                in_flight
+            in
+            Some (add_guests_to_host_summary claimed host)
+        )
+        pool_summary.PSS.hosts
+    in
+    {pool_summary with PSS.hosts}
+  in
+  let rec select ~excluded =
+    let claimed =
+      Placement_claims.claim claims ~vm:guest (fun current ->
+          let summary = summary ~excluded (in_flight current) in
+          select_host_from_summary summary affinity_host_ids
+            (fun _ -> true)
+            master_bias random_fn
+          |> Option.map (fun host ->
+              {Placement_claims.host; guest= guest_snapshot}
+          )
+      )
+    in
+    match claimed with
+    | None ->
+        raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
+    | Some {host= uuid; _} ->
+        let host = Db.Host.get_by_uuid ~__context ~uuid in
+        if validate_host host then
+          host
+        else (
+          Placement_claims.release claims ~vm:guest ;
+          select ~excluded:(uuid :: excluded)
+        )
+  in
+  select ~excluded:[]

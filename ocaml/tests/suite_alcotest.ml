@@ -70,6 +70,7 @@ let () =
     @ Test_psr.tests
     @ Test_context.tests
     @ Test_session.tests
+    @ Test_rbac.tests
     @ Test_xapi_cmd_result.tests
     @ Test_extauth_plugin_ADwinbind.tests
     @ Test_rfb_client_msgtype_parser.tests

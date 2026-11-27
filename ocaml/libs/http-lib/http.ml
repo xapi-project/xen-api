@@ -271,6 +271,16 @@ let header_len_header = Printf.sprintf "\r\n%s:" Hdr.header_len
 
 let header_len_value_len = 5
 
+let peek fd buf off len =
+  match Unix.recv fd buf off len [Unix.MSG_PEEK] with
+  | n ->
+      Some n
+  | exception
+      Unix.Unix_error ((Unix.ENOTSOCK | Unix.EOPNOTSUPP | Unix.EINVAL), _, _) ->
+      None
+  | exception Unix.Unix_error (err, _, arg) ->
+      raise (Unix.Unix_error (err, "read", arg))
+
 let read_up_to ?deadline ?max buf already_read marker fd =
   let marker = Scanner.make marker in
   let hl_marker = Scanner.make header_len_header in
@@ -278,6 +288,33 @@ let read_up_to ?deadline ?max buf already_read marker fd =
   (* next free byte in [buf] *)
   let header_len = ref None in
   let header_len_value_at = ref None in
+  let can_peek = ref true in
+  let peek_and_consume len =
+    match peek fd buf !b len with
+    | None ->
+        can_peek := false ;
+        None
+    | Some 0 ->
+        Some 0
+    | Some n ->
+        let marker = {marker with Scanner.i= marker.Scanner.i} in
+        let hl_marker = {hl_marker with Scanner.i= hl_marker.Scanner.i} in
+        let rec scan j =
+          if j = n then
+            n
+          else
+            let c = Bytes.get buf (!b + j) in
+            Scanner.input marker c ;
+            Scanner.input hl_marker c ;
+            if Scanner.matched marker || Scanner.matched hl_marker then
+              j + 1
+            else
+              scan (j + 1)
+        in
+        let n = scan 0 in
+        Unixext.really_read fd buf !b n ;
+        Some n
+  in
   while not (Scanner.matched marker) do
     Option.iter
       (fun d ->
@@ -298,7 +335,27 @@ let read_up_to ?deadline ?max buf already_read marker fd =
       if !b < already_read then
         min safe_to_read (already_read - !b)
       else
-        Unix.read fd buf !b safe_to_read
+        let peeked =
+          match (!header_len_value_at, !header_len) with
+          | None, None when !can_peek ->
+              let len =
+                Option.fold
+                  ~none:(Bytes.length buf - !b)
+                  ~some:(fun m -> Int.min (Bytes.length buf) m - !b)
+                  max
+              in
+              if len > safe_to_read then
+                peek_and_consume len
+              else
+                None
+          | _ ->
+              None
+        in
+        match peeked with
+        | Some n ->
+            n
+        | None ->
+            Unix.read fd buf !b safe_to_read
     in
     if n = 0 then raise End_of_file ;
     for j = 0 to n - 1 do

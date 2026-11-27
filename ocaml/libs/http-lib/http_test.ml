@@ -296,7 +296,189 @@ module Header = struct
         )
     )
 
-  let tests = [("read http header", `Quick, test_read_http_request_header)]
+  let with_socket ?(slowly = false) input f =
+    let reader, writer = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+    Unix.setsockopt_float reader Unix.SO_RCVTIMEO 5. ;
+    let write () =
+      if slowly then
+        String.iter
+          (fun c ->
+            ignore (Unix.write_substring writer (String.make 1 c) 0 1) ;
+            Thread.yield ()
+          )
+          input
+      else
+        ignore (Unix.write_substring writer input 0 (String.length input))
+    in
+    let writer_thread = Thread.create write () in
+    Fun.protect
+      ~finally:(fun () ->
+        Thread.join writer_thread ; Unix.close reader ; Unix.close writer
+      )
+      (fun () -> f reader)
+
+  let rec read_exactly fd n =
+    if n = 0 then
+      ""
+    else
+      let buf = Bytes.create n in
+      let r = Unix.read fd buf 0 n in
+      if r = 0 then failwith "unexpected end of file" ;
+      Bytes.sub_string buf 0 r ^ read_exactly fd (n - r)
+
+  let body = String.init 256 (fun i -> Char.chr (32 + (i mod 90)))
+
+  let check_rest fd expected =
+    Alcotest.(check string)
+      "the bytes after the header are left unread" expected
+      (read_exactly fd (String.length expected))
+
+  let request_header =
+    "POST / HTTP/1.1\r\n\
+     content-length: 256\r\n\
+     user-agent: xen-api-libs/1.0\r\n\
+     connection: keep-alive\r\n\
+     \r\n"
+
+  let read_request fd =
+    Http.read_http_request_header ~read_timeout:None ~total_timeout:None
+      ~max_length:(Some 16384) fd
+
+  let check_request (frame, header, proxy) ~frame:f ~proxy:p =
+    Alcotest.(check bool) "frame" f frame ;
+    Alcotest.(check string) "header" request_header header ;
+    Alcotest.(check (option string)) "proxy" p proxy
+
+  let test_request_body ~slowly () =
+    with_socket ~slowly (request_header ^ body) @@ fun fd ->
+    check_request (read_request fd) ~frame:false ~proxy:None ;
+    check_rest fd body
+
+  let test_pipelined_requests () =
+    let one = request_header ^ body in
+    with_socket (one ^ one) @@ fun fd ->
+    check_request (read_request fd) ~frame:false ~proxy:None ;
+    check_rest fd body ;
+    check_request (read_request fd) ~frame:false ~proxy:None ;
+    check_rest fd body
+
+  let test_framed_and_proxied_request () =
+    let proxy = "TCP4 10.0.0.1 10.0.0.2 53772 443" in
+    let input =
+      Printf.sprintf "PROXY %s\r\n%s%s%s" proxy
+        (Http.make_frame_header request_header)
+        request_header body
+    in
+    with_socket input @@ fun fd ->
+    check_request (read_request fd) ~frame:true ~proxy:(Some proxy) ;
+    check_rest fd body
+
+  let test_header_length_header () =
+    let prefix = "GET / HTTP/1.1\r\nhdr:" and suffix = "\r\nx: y\r\n\r\n" in
+    let length = String.length prefix + 5 + String.length suffix in
+    let header = Printf.sprintf "%s%05d%s" prefix length suffix in
+    with_socket (header ^ body) @@ fun fd ->
+    let _, actual, _ = read_request fd in
+    Alcotest.(check string) "header" header actual ;
+    check_rest fd body
+
+  let test_request_too_large () =
+    let header =
+      "GET / HTTP/1.1\r\nx-padding: " ^ String.make 2048 'x' ^ "\r\n\r\n"
+    in
+    with_socket header @@ fun fd ->
+    match
+      Http.read_http_request_header ~read_timeout:None ~total_timeout:None
+        ~max_length:(Some 1024) fd
+    with
+    | exception Http.Too_large ->
+        ()
+    | _ ->
+        Alcotest.fail "expected Too_large"
+
+  let test_request_stalled () =
+    let partial = "GET / HTTP/1.1\r\nuser-agent: stalled\r\n" in
+    with_socket partial @@ fun fd ->
+    match
+      Http.read_http_request_header ~read_timeout:(Some 0.2)
+        ~total_timeout:(Some 1.) ~max_length:(Some 16384) fd
+    with
+    | exception Unix.Unix_error (Unix.EAGAIN, "read", _) ->
+        ()
+    | exception Http.Timeout ->
+        ()
+    | _ ->
+        Alcotest.fail "expected a timeout"
+
+  let response_header ?(padding = 0) () =
+    let padding =
+      List.init padding (fun i ->
+          Printf.sprintf "x-padding-%03d: %s\r\n" i (String.make 100 'p')
+      )
+    in
+    String.concat ""
+      (["HTTP/1.1 200 OK\r\n"; "content-length: 256\r\n"; "x-a: b\r\n"]
+      @ padding
+      @ ["\r\n"]
+      )
+
+  let check_response ?(padding = 0) response =
+    match response with
+    | None ->
+        Alcotest.fail "no response"
+    | Some r ->
+        Alcotest.(check string) "code" "200" r.Http.Response.code ;
+        Alcotest.(check (option int64))
+          "content-length" (Some 256L) r.Http.Response.content_length ;
+        Alcotest.(check (option string))
+          "x-a" (Some "b")
+          (List.assoc_opt "x-a" r.Http.Response.additional_headers) ;
+        Alcotest.(check int)
+          "number of headers" (padding + 1)
+          (List.length r.Http.Response.additional_headers)
+
+  let test_response ~use_fastpath ~padding ~slowly () =
+    with_socket ~slowly (response_header ~padding () ^ body) @@ fun fd ->
+    check_response ~padding (Http_client.response_of_fd ~use_fastpath fd) ;
+    check_rest fd body
+
+  let test_response_pipe () =
+    with_fd (response_header ~padding:20 () ^ body) @@ fun fd ->
+    check_response ~padding:20 (Http_client.response_of_fd fd) ;
+    check_rest fd body
+
+  let tests =
+    [
+      ("read http header", `Quick, test_read_http_request_header)
+    ; ("request, then body", `Quick, test_request_body ~slowly:false)
+    ; ("request sent slowly, then body", `Quick, test_request_body ~slowly:true)
+    ; ("pipelined requests", `Quick, test_pipelined_requests)
+    ; ("framed, proxied request", `Quick, test_framed_and_proxied_request)
+    ; ("header length header", `Quick, test_header_length_header)
+    ; ("request header too large", `Quick, test_request_too_large)
+    ; ("stalled request times out", `Quick, test_request_stalled)
+    ; ( "response, then body"
+      , `Quick
+      , test_response ~use_fastpath:false ~padding:0 ~slowly:false
+      )
+    ; ( "response sent slowly, then body"
+      , `Quick
+      , test_response ~use_fastpath:false ~padding:0 ~slowly:true
+      )
+    ; ( "large response, then body"
+      , `Quick
+      , test_response ~use_fastpath:false ~padding:60 ~slowly:false
+      )
+    ; ( "response (fastpath), then body"
+      , `Quick
+      , test_response ~use_fastpath:true ~padding:0 ~slowly:false
+      )
+    ; ( "response (fastpath) sent slowly, then body"
+      , `Quick
+      , test_response ~use_fastpath:true ~padding:0 ~slowly:true
+      )
+    ; ("response over a pipe, then body", `Quick, test_response_pipe)
+    ]
 end
 
 let () =

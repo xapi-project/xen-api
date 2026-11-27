@@ -70,7 +70,11 @@ module CachedValue : sig
   val v : Value.t -> [> present] t
   (** [v value] creates a cached value, storing the value and its serialized form.
 
-      [O(1)] for strings, and [O(n)] for sets and maps, where [n] is the result size in marshalled form.
+      [O(1)] for strings, and [O(n)] for maps, where [n] is the result size in marshalled form.
+      Marshalling a map also checks that its keys are not empty, raising
+      {!Db_exn.Empty_key_in_map} otherwise.
+      For sets the serialized form is only computed by the first {!val:string_of}, so this is
+      [O(1)] as well.
    *)
 
   val of_string : string -> [> absent] t
@@ -85,7 +89,9 @@ module CachedValue : sig
 
     This works on any cached value types.
 
-    [O(1)] operation, marshaling happens at construction time.
+    [O(1)] operation, marshaling happens at construction time, except for the
+    first call on a set created by {!val:v}, which marshals it in [O(n)] and
+    caches the result.
     *)
 
   val of_typed_string : Type.t -> string -> [> present] t

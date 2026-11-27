@@ -1393,9 +1393,57 @@ module Slave1EvacuationPlan = Generic.MakeStateful (struct
       ]
 end)
 
+let test_all_protected_vms () =
+  let __context = Test_common.make_test_database () in
+  let combinations =
+    List.concat_map
+      (fun always_run ->
+        List.map
+          (fun priority -> (always_run, priority))
+          ["restart"; "best-effort"; ""]
+      )
+      [true; false]
+  in
+  let vms =
+    List.map
+      (fun (ha_always_run, ha_restart_priority) ->
+        Test_common.make_vm ~__context ~ha_always_run ~ha_restart_priority ()
+      )
+      combinations
+  in
+  let expected =
+    List.filter
+      (fun vm ->
+        Helpers.vm_should_always_run
+          (Db.VM.get_ha_always_run ~__context ~self:vm)
+          (Db.VM.get_ha_restart_priority ~__context ~self:vm)
+      )
+      vms
+    |> List.sort compare
+  in
+  let actual =
+    Xapi_ha_vm_failover.all_protected_vms ~__context
+    |> List.map (fun (vm, record) ->
+        Alcotest.(check bool)
+          "record belongs to the reference" true
+          (record.API.vM_uuid = Db.VM.get_uuid ~__context ~self:vm) ;
+        vm
+    )
+    |> List.sort compare
+  in
+  Alcotest.(check int)
+    "exactly one protected combination" 1 (List.length expected) ;
+  Alcotest.(check (list string))
+    "protected VMs"
+    (List.map Ref.string_of expected)
+    (List.map Ref.string_of actual)
+
 let tests =
   [
     ("plan_for_n_failures", PlanForNFailures.tests)
+  ; ( "all_protected_vms"
+    , [("all_protected_vms", `Quick, test_all_protected_vms)]
+    )
   ; ( "anti-affinity spread evenly plan"
     , Slave1EvacuationVMAntiAffinitySpreadEvenlyPlan.tests
     )
