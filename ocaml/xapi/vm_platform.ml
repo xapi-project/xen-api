@@ -49,6 +49,8 @@ let pv_postinstall_ramdisk_max_size = "pv-postinstall-ramdisk-max-size"
 
 let usb = "usb"
 
+let usb_controller = "usb-controller"
+
 let usb_tablet = "usb_tablet"
 
 let parallel = "parallel"
@@ -102,6 +104,7 @@ let filtered_flags =
   ; pv_postinstall_kernel_max_size
   ; pv_postinstall_ramdisk_max_size
   ; usb
+  ; usb_controller
   ; usb_tablet
   ; parallel
   ; vga
@@ -223,6 +226,18 @@ let sanity_check ~platformdata ~firmware ~vcpu_max ~vcpu_at_startup:_
     else
       false
   in
+  (* usb-controller has three states. It is either not set, legacy or xhci. *)
+  ( match List.assoc_opt usb_controller platformdata with
+  | None | Some "legacy" | Some "xhci" ->
+      ()
+  | Some v ->
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.invalid_value
+           , [Printf.sprintf "platform:%s" usb_controller; v]
+           )
+        )
+  ) ;
   let platformdata =
     Xapi_stdext_std.Listext.List.update_assoc
       [

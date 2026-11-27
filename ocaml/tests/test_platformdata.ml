@@ -345,6 +345,31 @@ module SanityCheck = Generic.MakeStateless (struct
                )
             )
         )
+      ; (* Check usb-controller values are accepted/rejected with and without filtering *)
+        ( ([("usb-controller", "legacy")], Bios, false, 0L, 0L, `hvm)
+        , Ok (usb_defaults @ [("usb-controller", "legacy")])
+        )
+      ; ( ([("usb-controller", "xhci")], Bios, false, 0L, 0L, `hvm)
+        , Ok (usb_defaults @ [("usb-controller", "xhci")])
+        )
+      ; ( ([("usb-controller", "foo")], Bios, false, 0L, 0L, `hvm)
+        , Error
+            (Api_errors.Server_error
+               (Api_errors.invalid_value, ["platform:usb-controller"; "foo"])
+            )
+        )
+      ; ( ([("usb-controller", "legacy")], Bios, true, 0L, 0L, `hvm)
+        , Ok (usb_defaults @ [("usb-controller", "legacy")])
+        )
+      ; ( ([("usb-controller", "xhci")], Bios, true, 0L, 0L, `hvm)
+        , Ok (usb_defaults @ [("usb-controller", "xhci")])
+        )
+      ; ( ([("usb-controller", "foo")], Bios, true, 0L, 0L, `hvm)
+        , Error
+            (Api_errors.Server_error
+               (Api_errors.invalid_value, ["platform:usb-controller"; "foo"])
+            )
+        )
       ]
 end)
 

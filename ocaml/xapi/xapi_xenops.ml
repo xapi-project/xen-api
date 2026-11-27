@@ -1261,6 +1261,18 @@ module MD = struct
         ~filter_out_unknowns:
           (not (Pool_features.is_enabled ~__context Features.No_platform_filter))
     in
+    (* If VM doesn't set platform:usb-controller, use the pool default (if any). *)
+    let platformdata =
+      if List.mem_assoc Vm_platform.usb_controller platformdata then
+        (* Keep VM choice *)
+        platformdata
+      else
+        match Helpers.pool_default_usb_controller ~__context with
+        | None ->
+            platformdata
+        | Some ctrl ->
+            (Vm_platform.usb_controller, ctrl) :: platformdata
+    in
     (* Replace the timeoffset in the platform data too, to avoid confusion *)
     let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in
     let platformdata =

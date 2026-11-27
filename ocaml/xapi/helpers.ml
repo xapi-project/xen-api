@@ -1389,6 +1389,26 @@ let gethostbyname host =
     with _ -> throw_resolve_error ()
   )
 
+(** Read the pool-wide default USB controller from pool other-config:usb-controller.
+    This default only applies to VMs whose platform:usb-controller is not set.
+    Returns None if the key is unset or has an invalid value. *)
+let pool_default_usb_controller ~__context =
+  try
+    let pool = get_pool ~__context in
+    let other_config = Db.Pool.get_other_config ~__context ~self:pool in
+    match List.assoc_opt Xapi_globs.pool_usb_controller other_config with
+    | Some (("legacy" | "xhci") as v) ->
+        Some v
+    | Some s ->
+        warn
+          "pool other-config:%s has invalid value %s, ignoring (valid values \
+           are xhci or legacy)"
+          Xapi_globs.pool_usb_controller s ;
+        None
+    | None ->
+        None
+  with _ -> None
+
 (** Indicate whether VM.clone should be allowed on suspended VMs *)
 let clone_suspended_vm_enabled ~__context =
   try
