@@ -58,7 +58,11 @@ val from_list : 'a list -> 'a t
 (** construct a [t] value from list *)
 
 val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
-(** Lexicographic comparison. Terminates on cyclic lists. *)
+(** Lexicographic comparison of the sequences of values, using the given
+    comparison on values. A cyclic list is compared as the infinite sequence
+    it represents. Terminates on cyclic lists. *)
 
 val equal : 'a t -> 'a t -> bool
-(** Structural equality on the sequence of values. Terminates on cyclic lists. *)
+(** Structural equality on the sequence of values; a cyclic list is
+    compared as the infinite sequence it represents. Terminates on cyclic
+    lists. *)

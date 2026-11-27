@@ -43,6 +43,12 @@ let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let noop () = ()
 
+(* Thread.delay fails with EINVAL for a delay that does not fit in a timespec
+   (about 2^63 s), which a tiny fill rate or a large debt can produce. The
+   worker checks the bucket again after every sleep, so sleeping at most an
+   hour at a time does not change when a request is served. *)
+let max_delay = 3600.
+
 (* The worker thread is responsible for calling the callback when the token
    amount becomes available *)
 let rec worker_loop ~bucket ~process_queue ~process_queue_lock
@@ -67,7 +73,7 @@ let rec worker_loop ~bucket ~process_queue ~process_queue_lock
       (* Queue is empty only when termination was signalled *)
       D.debug "%s: queue empty in deleted rate limiter; exiting" __FUNCTION__
   | Some (cost, delay) ->
-      if delay > 0. then Thread.delay delay ;
+      if delay > 0. then Thread.delay (Float.min delay max_delay) ;
       let item_opt =
         with_lock process_queue_lock (fun () ->
             if Token_bucket.consume bucket cost then
@@ -79,7 +85,12 @@ let rec worker_loop ~bucket ~process_queue ~process_queue_lock
       Option.iter
         (fun {callback; on_worker_end; _} ->
           safe_observe "on_end" on_worker_end ;
-          callback ()
+          (* An exception must not end the worker thread: the requests
+             queued behind this one would never be served. *)
+          try callback ()
+          with e ->
+            D.warn "Rate_limit: queued callback raised: %s"
+              (Printexc.to_string e)
         )
         item_opt ;
       worker_loop ~bucket ~process_queue ~process_queue_lock ~worker_thread_cond
@@ -120,11 +131,21 @@ let delete data =
       Atomic.set data.should_terminate true ;
       Condition.signal data.worker_thread_cond
   ) ;
-  Thread.join data.worker_thread
+  (* Called from a queued callback, [delete] runs on the worker thread, which
+     cannot wait for itself: joining would deadlock. The worker exits by
+     itself once the callback has returned and the queue is empty. *)
+  if Thread.id (Thread.self ()) <> Thread.id data.worker_thread then
+    Thread.join data.worker_thread
 
+exception Deleted
+
+(* Call with [process_queue_lock] held. [delete] sets the flag under the same
+   lock, and the worker exits only once it sees the flag with an empty queue,
+   so an item queued after a successful check is always served. Checked
+   without the lock, [delete] and the worker's exit can both happen between
+   the check and the enqueue, and the item would never be served. *)
 let check_not_terminated should_terminate =
-  if Atomic.get should_terminate then
-    invalid_arg "Rate_limit: submit called on a deleted rate limiter"
+  if Atomic.get should_terminate then raise Deleted
 
 (* The callback should return quickly - if it is a longer task it is
    responsible for creating a thread to do the task *)
@@ -137,7 +158,6 @@ let submit_async
     ; should_terminate
     ; _
     } ?observer ~callback ~caller_details amount =
-  check_not_terminated should_terminate ;
   let on_start, on_worker_end =
     match observer with
     | Some {on_start; on_end} ->
@@ -147,10 +167,14 @@ let submit_async
   in
   let run_immediately =
     with_lock process_queue_lock (fun () ->
+        check_not_terminated should_terminate ;
         let immediate =
           Queue.is_empty process_queue && Token_bucket.consume bucket amount
         in
         if not immediate then (
+          (* Start observing before releasing the lock: from then on the
+             worker may take the item and call [on_worker_end]. *)
+          safe_observe "on_start" on_start ;
           Queue.add {cost= amount; callback; on_worker_end} process_queue ;
           Condition.signal worker_thread_cond
         ) ;
@@ -159,14 +183,11 @@ let submit_async
   in
   if run_immediately then
     callback ()
-  else (
-    D.debug "%s: rate limiting call from %s" __FUNCTION__ caller_details ;
-    safe_observe "on_start" on_start
-  )
+  else
+    D.debug "%s: rate limiting call from %s" __FUNCTION__ caller_details
 
 (* Block and execute on the same thread *)
 let submit_sync bucket_data ?observer ~callback ~caller_details amount =
-  check_not_terminated bucket_data.should_terminate ;
   let on_start, on_end =
     match observer with
     | Some {on_start; on_end} ->
@@ -176,6 +197,7 @@ let submit_sync bucket_data ?observer ~callback ~caller_details amount =
   in
   let channel_opt =
     with_lock bucket_data.process_queue_lock (fun () ->
+        check_not_terminated bucket_data.should_terminate ;
         if
           Queue.is_empty bucket_data.process_queue
           && Token_bucket.consume bucket_data.bucket amount

@@ -20,6 +20,13 @@ val default_token_cost : float
 
 val get_token_cost : string -> float
 
+val load_token_costs : ?path:string -> unit -> unit
+(** [load_token_costs ~path ()] replaces the table of call costs with the
+    costs in the file [path] (default [!Xapi_globs.call_costs_file]), one
+    "Class.method = cost" per line. A cost that is not a finite number of
+    at least zero is ignored with a warning. If the file cannot be read, the
+    table is left empty. *)
+
 val submit_sync :
      ?parent:Tracing.Span.t
   -> user_agent:string
@@ -31,6 +38,29 @@ val submit_sync :
 (** [parent], when supplied, is the parent span used to record a
     [xapi.rate_limit.delay] child span whenever the call is actually
     queued/delayed. No span is emitted when tokens are available immediately. *)
+
+val submit_to_limiter :
+     submit_fn:
+       (   Rate_limit_lib.Rate_limit.t
+        -> ?observer:Rate_limit_lib.Rate_limit.delay_observer
+        -> callback:(unit -> 'a)
+        -> caller_details:string
+        -> float
+        -> 'a
+       )
+  -> rate_limit_ref:API.ref_Rate_limit
+  -> ?observer:Rate_limit_lib.Rate_limit.delay_observer
+  -> callback:(unit -> 'a)
+  -> caller_details:string
+  -> float
+  -> Rate_limit_lib.Rate_limit.t
+  -> 'a
+(** [submit_to_limiter ~submit_fn ~rate_limit_ref ~callback ~caller_details
+    amount rl] submits [callback] to [rl], the limiter found for the rate
+    limit [rate_limit_ref], with [submit_fn]. If [rl] has been deleted since
+    it was found, because the rate limit was changed or destroyed, it looks
+    the rate limit's limiter up again and submits to it, or runs [callback]
+    without limit if the rate limit has none. *)
 
 val submit_async :
      ?parent:Tracing.Span.t
@@ -76,4 +106,6 @@ val group_totals : unit -> (string * float * int) list
 val register : __context:Context.t -> unit
 (** Populate caller_table from persisted Caller rows and install
     [Xapi_rate_limit]'s caller-refresh callback. Must run after
-    [Xapi_rate_limit.register] so that bucket lookups succeed. *)
+    [Xapi_rate_limit.register] so that bucket lookups succeed. Of two rows with
+    the same pattern, an administrator's keeps it and an auto-registered one is
+    destroyed. *)

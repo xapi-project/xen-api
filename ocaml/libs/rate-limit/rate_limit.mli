@@ -21,17 +21,35 @@ type t
 val create : burst_size:float -> fill_rate:float -> t
 (** [create ~burst_size ~fill_rate] creates a new rate limiter with the given
     token bucket parameters.
-    @raises Invalid_argument if the parameters are invalid
-    (e.g. non-positive fill rate).
+    @raises Invalid_argument if the parameters are invalid: a fill rate
+    that is not a positive finite number, or a NaN burst size.
     @param burst_size Maximum number of tokens in the bucket
     @param fill_rate Number of tokens added per second *)
 
 val delete : t -> unit
 (** [delete t] signals the worker thread to terminate. The worker thread
     processes any remaining queued callbacks, then exits. Blocks the caller
-    until the worker thread has finished. Subsequent calls to [submit_async]
-    or [submit_sync] will raise [Invalid_argument]. *)
+    until the worker thread has finished, except when called from a queued
+    callback of [t]: that runs on the worker thread itself, so [delete]
+    returns at once and the worker exits after the rest of the queue.
+    Subsequent calls to [submit_async] or [submit_sync] will raise
+    [Deleted]. *)
 
+(** Raised by [submit_async] and [submit_sync] on a rate limiter that
+    [delete] has been called on. The callback has been neither run nor
+    queued. A caller that looked the limiter up in a table can look it up
+    again, as the limiter may have been replaced. *)
+exception Deleted
+
+(** Observes the delay of a request that cannot run at once; neither
+    function is called for a request that runs at once. [on_start] runs on
+    the submitting thread when the request is delayed. [on_end] runs when
+    the delay is over, just before the callback: on the worker thread for
+    [submit_async], on the submitting thread for [submit_sync]. An exception
+    from either is logged and ignored. For [submit_async], [on_start] runs
+    while the queue lock of the limiter is held, so it must return quickly
+    and must not call [delete], [submit_async] or [submit_sync] on the same
+    limiter. *)
 type delay_observer = {on_start: unit -> unit; on_end: unit -> unit}
 
 val submit_async :
@@ -45,7 +63,15 @@ val submit_async :
     If tokens are immediately available and no callbacks are queued, the
     callback runs synchronously on the calling thread. Otherwise it is
     enqueued and will be executed by a worker thread when tokens become
-    available. Returns immediately. *)
+    available. Returns immediately.
+
+    A queued callback runs on the single worker thread of [t], which serves
+    every queued request of [t] in turn. It must therefore return quickly
+    (a long task should start its own thread), and it must not use anything
+    that the submitter releases once [submit_async] has returned, such as a
+    connection. Use [submit_sync] to run work on the submitting thread.
+    An exception raised by a queued callback is logged and otherwise
+    ignored; the worker goes on to serve the rest of the queue. *)
 
 val submit_sync :
      t

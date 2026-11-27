@@ -373,6 +373,166 @@ let test_observer_exception_isolated () =
   Alcotest.(check bool) "sync callback ran" true !sync_ran ;
   Rate_limit.delete rl
 
+(* Wait until [cond] holds, for at most [timeout] seconds; true iff it holds *)
+let wait_until timeout cond =
+  let start = Mtime_clock.counter () in
+  let elapsed () = Mtime.Span.to_float_ns (Mtime_clock.count start) *. 1e-9 in
+  while (not (cond ())) && elapsed () < timeout do
+    Thread.delay 0.01
+  done ;
+  cond ()
+
+(* Run [f] on another thread; true iff it returns within [timeout] seconds.
+   A test that would otherwise hang fails instead. *)
+let completes_within timeout f =
+  let finished = Atomic.make false in
+  let _ : Thread.t =
+    Thread.create (fun () -> f () ; Atomic.set finished true) ()
+  in
+  wait_until timeout (fun () -> Atomic.get finished)
+
+let test_raising_callback_keeps_worker () =
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:20.0 in
+  (* Drain the bucket, so that the next two submissions are queued *)
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) ~caller_details:"" 1.0 ;
+  Rate_limit.submit_async rl
+    ~callback:(fun () -> failwith "queued callback raised")
+    ~caller_details:"" 1.0 ;
+  let result = ref 0 in
+  let served =
+    completes_within 5.0 (fun () ->
+        result :=
+          Rate_limit.submit_sync rl
+            ~callback:(fun () -> 42)
+            ~caller_details:"" 1.0
+    )
+  in
+  Alcotest.(check bool)
+    "request queued behind a raising callback is served" true served ;
+  Alcotest.(check int) "it returns its result" 42 !result ;
+  Rate_limit.delete rl
+
+let test_delete_from_own_callback () =
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:20.0 in
+  (* Drain the bucket, so that the next submissions are queued *)
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) ~caller_details:"" 1.0 ;
+  let deleted = Atomic.make false and later = Atomic.make false in
+  Rate_limit.submit_async rl
+    ~callback:(fun () -> Rate_limit.delete rl ; Atomic.set deleted true)
+    ~caller_details:"" 1.0 ;
+  Rate_limit.submit_async rl
+    ~callback:(fun () -> Atomic.set later true)
+    ~caller_details:"" 1.0 ;
+  ignore (wait_until 5.0 (fun () -> Atomic.get later)) ;
+  Alcotest.(check bool)
+    "delete returned in the callback" true (Atomic.get deleted) ;
+  Alcotest.(check bool)
+    "the request queued behind it was served" true (Atomic.get later) ;
+  Alcotest.match_raises "submit after delete is refused"
+    (function Rate_limit.Deleted -> true | _ -> false)
+    (fun () ->
+      Rate_limit.submit_async rl ~callback:(fun () -> ()) ~caller_details:"" 1.0
+    ) ;
+  (* The worker has exited, so a second delete returns at once *)
+  Alcotest.(check bool)
+    "second delete returns" true
+    (completes_within 5.0 (fun () -> Rate_limit.delete rl))
+
+let test_long_delay_keeps_worker () =
+  let uncaught = Atomic.make None in
+  Thread.set_uncaught_exception_handler (fun e ->
+      Atomic.set uncaught (Some (Printexc.to_string e))
+  ) ;
+  (* An oversized request is admitted from a full bucket and leaves a debt
+     of about 1e19 tokens. At 1 token/s the next request must wait about
+     1e19 s, longer than Thread.delay accepts. *)
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:1.0 in
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) ~caller_details:"" 1e19 ;
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) ~caller_details:"" 1.0 ;
+  Thread.delay 0.5 ;
+  Thread.set_uncaught_exception_handler
+    Thread.default_uncaught_exception_handler ;
+  Alcotest.(check (option string))
+    "worker thread is still alive" None (Atomic.get uncaught)
+(* [rl] is not deleted: its worker waits for the debt to be repaid, and
+   [delete] would wait with it. *)
+
+(* A submission racing [delete] is either served or refused with
+   Deleted; it is never left in the queue of a worker that has
+   exited. To place [delete] at the worst moment deterministically, a memprof
+   callback runs it in the submitting thread at that thread's first
+   allocation after entering [submit_sync], which is as if the submitter had
+   been descheduled there and another thread had deleted the limiter. *)
+let test_submit_racing_delete () =
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:0.001 in
+  (* Drain the bucket, so that the next submission has to be queued *)
+  Rate_limit.submit_async rl ~callback:(fun () -> ()) ~caller_details:"" 1.0 ;
+  let armed = Atomic.make false and target = Atomic.make (-1) in
+  let deleted = Atomic.make false in
+  let tracker =
+    {
+      Gc.Memprof.null_tracker with
+      alloc_minor=
+        (fun _ ->
+          if Atomic.get armed && Thread.id (Thread.self ()) = Atomic.get target
+          then (
+            Atomic.set armed false ;
+            Rate_limit.delete rl ;
+            Atomic.set deleted true
+          ) ;
+          None
+        )
+    }
+  in
+  let _ = Gc.Memprof.start ~sampling_rate:1.0 ~callstack_size:0 tracker in
+  let refused = Atomic.make false in
+  let finished =
+    completes_within 5.0 (fun () ->
+        Atomic.set target (Thread.id (Thread.self ())) ;
+        Atomic.set armed true ;
+        try
+          Rate_limit.submit_sync rl
+            ~callback:(fun () -> ())
+            ~caller_details:"" 1.0
+        with Rate_limit.Deleted -> Atomic.set refused true
+    )
+  in
+  Gc.Memprof.stop () ;
+  Alcotest.(check bool)
+    "delete ran during the submission" true (Atomic.get deleted) ;
+  Alcotest.(check bool) "the submission did not block" true finished ;
+  Alcotest.(check bool) "the submission was refused" true (Atomic.get refused)
+
+let test_observer_order_async () =
+  (* With a fast refill the worker serves a queued item almost at once,
+     possibly before submit_async has returned. Its on_end must still come
+     after on_start. *)
+  let rl = Rate_limit.create ~burst_size:1.0 ~fill_rate:1e6 in
+  let inversions = ref 0 and queued = ref 0 in
+  for _ = 1 to 2000 do
+    let started = Atomic.make false in
+    let observer =
+      Rate_limit.
+        {
+          on_start= (fun () -> Atomic.set started true)
+        ; on_end=
+            (fun () ->
+              incr queued ;
+              if not (Atomic.get started) then incr inversions
+            )
+        }
+    in
+    Rate_limit.submit_async rl ~observer
+      ~callback:(fun () -> ())
+      ~caller_details:"" 1.0
+  done ;
+  Rate_limit.delete rl ;
+  (* Only a queued request is observed: with none, nothing was checked *)
+  Alcotest.(check bool) "some requests were queued" true (!queued > 0) ;
+  Alcotest.(check int)
+    (Printf.sprintf "on_end before on_start (of %d queued)" !queued)
+    0 !inversions
+
 let test =
   [
     ("Create invalid", `Quick, test_create_invalid)
@@ -399,6 +559,14 @@ let test =
     , test_observer_fired_when_delayed_async
     )
   ; ("Observer exception isolated", `Slow, test_observer_exception_isolated)
+  ; ("Long delay keeps the worker", `Quick, test_long_delay_keeps_worker)
+  ; ("Submit racing delete", `Quick, test_submit_racing_delete)
+  ; ("Observer order when queued", `Quick, test_observer_order_async)
+  ; ( "Raising callback keeps the worker"
+    , `Quick
+    , test_raising_callback_keeps_worker
+    )
+  ; ("Delete from own callback", `Quick, test_delete_from_own_callback)
   ]
 
 let () = Alcotest.run "Rate limit library" [("Rate limit tests", test)]

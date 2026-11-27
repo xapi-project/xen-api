@@ -45,7 +45,8 @@ type t
 
 val create : burst_size:float -> fill_rate:float -> t
 (** Create token bucket with given parameters.
-    @raises Invalid_argument if the fill rate is 0 or negative.
+    @raises Invalid_argument if the fill rate is not a positive finite
+    number, or if the burst size is NaN.
     @param burst_size Maximum number of tokens that can fit in the bucket
     @param fill_rate Number of tokens added to the bucket per second
     *)
@@ -88,7 +89,8 @@ val delay_then_consume : t -> float -> unit
 val create_with_timestamp :
   Mtime.span -> burst_size:float -> fill_rate:float -> t
 (** Create token bucket with given parameters and supplied inital timestamp.
-    @raises Invalid_argument if the fill_rate is 0 or negative.
+    @raises Invalid_argument if the fill_rate is not a positive finite
+    number, or if the burst_size is NaN.
     @param timestamp Initial timestamp
     @param burst_size Maximum number of tokens that can fit in the bucket
     @param fill_rate Number of tokens added to the bucket per second

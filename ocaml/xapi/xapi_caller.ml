@@ -54,19 +54,18 @@ type entry = {
 let caller_table : entry Caller_table.t = Caller_table.create ()
 
 (* Number of auto-registered entries currently in [caller_table]. Mutated only
-   under [caller_table_mutex] (or single-threaded in [register]) so it stays in
-   step with the table. Lets [maybe_autocreate] decide in O(1) whether the cap
-   has been reached without scanning the table. *)
+   under [caller_table_mutex] so it stays in step with the table. Lets
+   [maybe_autocreate] decide in O(1) whether the cap has been reached without
+   scanning the table. *)
 let auto_registered_count = ref 0
 
-(* Serialises ALL mutations of [caller_table] on the master. Caller_table
-   itself uses Atomic for lock-free reads, but its writers are non-CAS
-   Atomic.get/set pairs and its higher-level "delete then insert" refresh
-   is not atomic - two concurrent refreshes for the same caller can
-   otherwise interleave so that the later insert is silently refused
-   as a duplicate, leaving the table with stale state. Held around
-   create/destroy/refresh_caller_rate_limit and the auto-create path.
-   NOT held by [register] because that runs single-threaded at startup. *)
+(* Serialises ALL mutations of [caller_table] on the master. Each
+   Caller_table operation is atomic on its own, but the higher-level
+   "delete then insert" refresh is not - two concurrent refreshes for the
+   same caller can otherwise interleave so that the later insert is silently
+   refused as a duplicate, leaving the table with stale state. Held around
+   create/destroy/refresh_caller_rate_limit, the auto-create path and
+   [register], which runs at startup while calls are already served. *)
 let caller_table_mutex = Mutex.create ()
 
 let with_caller_table_mutex f =
@@ -126,10 +125,9 @@ let validate_request_fields ~user_agent ~client_ip =
           )
       )
 
-(* All [insert_entry_locked] callers must hold [caller_table_mutex], except
-   [register] which runs single-threaded at startup. Does not touch
-   [auto_registered_count]; the create/destroy helpers own that counter so a
-   delete-then-insert refresh does not perturb it. A freshly inserted entry is
+(* All [insert_entry_locked] callers must hold [caller_table_mutex]. Does not
+   touch [auto_registered_count]; the create/destroy helpers own that counter so
+   a delete-then-insert refresh does not perturb it. A freshly inserted entry is
    stamped with the current [call_sequence] so a just-registered caller is
    treated as recently used rather than an immediate eviction candidate. *)
 let insert_entry_locked ~caller_ref ~stats ~pattern_key ~rate_limit_ref
@@ -221,17 +219,20 @@ let create ~__context ~name_label ~name_description ~user_agent ~client_ip =
   )
 
 (* Body of [destroy]; assumes [caller_table_mutex] is held. Also used by the
-   eviction path. Keeps [auto_registered_count] in step with the table. *)
+   eviction path. Keeps [auto_registered_count] in step with the table. The
+   database can hold two rows with one pattern (see [register_caller_locked]),
+   and only one of them has the table entry: the entry is deleted only if it is
+   [self]'s. *)
 let destroy_locked ~__context ~self =
   let record = Db.Caller.get_record ~__context ~self in
   let pattern_key = pattern_key_of_record record in
   ( match Caller_table.get_exact caller_table ~pattern:pattern_key with
-  | Some entry when entry.auto_registered ->
-      decr auto_registered_count
-  | _ ->
+  | Some entry when entry.caller_ref = self ->
+      if entry.auto_registered then decr auto_registered_count ;
+      Caller_table.delete caller_table ~pattern:pattern_key
+  | Some _ | None ->
       ()
   ) ;
-  Caller_table.delete caller_table ~pattern:pattern_key ;
   Db.Caller.destroy ~__context ~self
 
 let destroy ~__context ~self =
@@ -431,8 +432,16 @@ let add_cost_line line =
   match Config_file.parse_line line with
   | Some (name, value) -> (
     match float_of_string_opt (String.trim value) with
-    | Some cost ->
+    | Some cost when Float.is_finite cost && cost >= 0. ->
         Hashtbl.replace token_costs name cost
+    | Some cost when Float.is_finite cost ->
+        (* A negative cost would add tokens to the caller's bucket: every
+           such call would refill it, and the caller would not be limited. *)
+        warn "Ignoring call cost for %s: %S is negative" name value
+    | Some _ ->
+        (* A NaN cost never admits the call, and an infinite one leaves the
+           bucket in debt for ever. *)
+        warn "Ignoring call cost for %s: %S is not a finite number" name value
     | None ->
         warn "Ignoring call cost for %s: %S is not a number" name value
   )
@@ -599,6 +608,30 @@ let make_observer ~parent ~entry ~user_agent ~client_ip ~cost =
   let on_end () = ignore (Tracing.Tracer.finish !span) in
   {Rate_limit.on_start; on_end}
 
+(* A dispatch looks up the limiter of its rate limit before it submits to
+   it. If the rate limit is changed or destroyed in between, the limiter it
+   found has been deleted and refuses the call with Rate_limit.Deleted,
+   before running or queueing it. Look the limiter up again once: the rate
+   limit's new limiter, or none if the rate limit was destroyed, in which
+   case the call is no longer limited. *)
+let submit_to_limiter ~submit_fn ~rate_limit_ref ?observer ~callback
+    ~caller_details amount rl =
+  let unlimited () =
+    debug "%s: the rate limit of %s was removed; running the call" __FUNCTION__
+      caller_details ;
+    callback ()
+  in
+  try submit_fn rl ?observer ~callback ~caller_details amount
+  with Rate_limit.Deleted -> (
+    match Xapi_rate_limit.find_bucket rate_limit_ref with
+    | Some rl -> (
+      try submit_fn rl ?observer ~callback ~caller_details amount
+      with Rate_limit.Deleted -> unlimited ()
+    )
+    | None ->
+        unlimited ()
+  )
+
 let submit ~submit_fn ?parent ~user_agent ~client_ip ~callback ~task_create
     amount =
   if not !Xapi_globs.rate_limit_enabled then
@@ -620,7 +653,8 @@ let submit ~submit_fn ?parent ~user_agent ~client_ip ~callback ~task_create
         let caller_details =
           Printf.sprintf "client_ip: %s, user_agent: %s" client_ip user_agent
         in
-        submit_fn rl ?observer ~callback ~caller_details amount
+        submit_to_limiter ~submit_fn ~rate_limit_ref:entry.rate_limit_ref
+          ?observer ~callback ~caller_details amount rl
     | None ->
         callback ()
 
@@ -747,58 +781,96 @@ let start_reporter () =
   with e ->
     warn "Failed to start caller RRD reporter: %s" (Printexc.to_string e)
 
+(* Body of [register] for one Caller row; assumes [caller_table_mutex] is held.
+   Calls are served before [register] takes [caller_table_mutex], so a call
+   can have auto-registered a caller for the exact pattern of a row that is not
+   in the table yet, and that row persists: the database can hold two rows with
+   one pattern, from this boot or an earlier one. Only one of them can have a
+   table entry. An administrator's row takes the pattern from an
+   auto-registered one, and an auto-registered row that does not get the
+   pattern is destroyed, as an evicted one would be. *)
+let register_caller_locked ~__context self =
+  if Db.is_valid_ref __context self then
+    let record = Db.Caller.get_record ~__context ~self in
+    let pattern_key = pattern_key_of_record record in
+    let insert () =
+      insert_entry_locked ~caller_ref:self
+        ~stats:(Caller_statistics.create ~caller_uuid:record.caller_uuid)
+        ~pattern_key ~rate_limit_ref:record.API.caller_rate_limit
+        ~auto_registered:record.API.caller_auto_registered
+        ~groups:record.API.caller_groups ()
+    in
+    let log_drop ~self ~holder =
+      debug "Destroying auto-registered caller %s: caller %s has its pattern"
+        (Ref.string_of self) (Ref.string_of holder)
+    in
+    match Caller_table.get_exact caller_table ~pattern:pattern_key with
+    | Some entry when entry.caller_ref = self ->
+        (* Auto-registered by a call before [register] reached it. *)
+        ()
+    | Some entry when record.API.caller_auto_registered ->
+        log_drop ~self ~holder:entry.caller_ref ;
+        Db.Caller.destroy ~__context ~self
+    | Some entry when entry.auto_registered ->
+        log_drop ~self:entry.caller_ref ~holder:self ;
+        destroy_locked ~__context ~self:entry.caller_ref ;
+        insert ()
+    | None | Some _ ->
+        insert ()
+
 let register ~__context =
   if not !Xapi_globs.rate_limit_enabled then
     debug
       "Rate limiting disabled (rate_limit=false); skipping caller registration"
   else (
     load_token_costs () ;
-    (* Runs single-threaded at start-of-day, so bypasses caller_table_mutex. *)
-    auto_registered_count := 0 ;
-    List.iter
-      (fun self ->
-        let record = Db.Caller.get_record ~__context ~self in
-        let pattern_key = pattern_key_of_record record in
-        insert_entry_locked ~caller_ref:self
-          ~stats:(Caller_statistics.create ~caller_uuid:record.caller_uuid)
-          ~pattern_key ~rate_limit_ref:record.API.caller_rate_limit
-          ~auto_registered:record.API.caller_auto_registered
-          ~groups:record.API.caller_groups () ;
-        if record.API.caller_auto_registered then incr auto_registered_count
-      )
-      (Db.Caller.get_all ~__context) ;
-    (* Auto-registered callers persist across restarts, so the database may
-       already hold more than the current cap (e.g. after lowering it, or after
-       disabling auto-registration with a limit of 0). Trim the excess, dropping
-       those with the least recent call first. A negative limit means unbounded,
-       so nothing is trimmed. Recency here comes from the persisted [last_access]
-       field - the only recency signal available before any calls have been seen
-       this boot. This reads [last_access] once per auto-registered caller, but
-       only on the rare boot where the database already exceeds the cap. *)
-    let limit = !Xapi_globs.max_auto_registered_callers in
-    ( if limit >= 0 && !auto_registered_count > limit then
-        let auto_callers =
-          entries_of_table ()
-          |> List.filter (fun entry -> entry.auto_registered)
-          |> List.map (fun entry ->
-              let last_access =
-                try Db.Caller.get_last_access ~__context ~self:entry.caller_ref
-                with _ -> Clock.Date.epoch
-              in
-              (entry.caller_ref, last_access)
+    (* Calls are already served, and auto-register callers under
+       [caller_table_mutex]: holding it, an auto-registration waits until every
+       row has its entry, and then finds the entry of its caller. *)
+    with_caller_table_mutex (fun () ->
+        List.iter
+          (register_caller_locked ~__context)
+          (Db.Caller.get_all ~__context) ;
+        auto_registered_count :=
+          List.length
+            (List.filter
+               (fun entry -> entry.auto_registered)
+               (entries_of_table ())
+            ) ;
+        (* Auto-registered callers persist across restarts, so the database
+           may already hold more than the current cap (e.g. after lowering it,
+           or after disabling auto-registration with a limit of 0). Trim the
+           excess, dropping those with the least recent call first. A negative
+           limit means unbounded, so nothing is trimmed. Recency here comes from
+           the persisted [last_access] field - the only recency signal available
+           before any calls have been seen this boot. This reads [last_access]
+           once per auto-registered caller, but only on the rare boot where the
+           database already exceeds the cap. *)
+        let limit = !Xapi_globs.max_auto_registered_callers in
+        if limit >= 0 && !auto_registered_count > limit then
+          let auto_callers =
+            entries_of_table ()
+            |> List.filter (fun entry -> entry.auto_registered)
+            |> List.map (fun entry ->
+                let last_access =
+                  try
+                    Db.Caller.get_last_access ~__context ~self:entry.caller_ref
+                  with _ -> Clock.Date.epoch
+                in
+                (entry.caller_ref, last_access)
+            )
+            |> List.sort (fun (_, a) (_, b) -> Clock.Date.compare a b)
+          in
+          let to_drop = !auto_registered_count - limit in
+          auto_callers
+          |> List.filteri (fun i _ -> i < to_drop)
+          |> List.iter (fun (self, _) ->
+              debug
+                "Auto-registered caller count exceeds limit (%d) at startup; \
+                 evicting least recently used caller %s"
+                limit (Ref.string_of self) ;
+              destroy_locked ~__context ~self
           )
-          |> List.sort (fun (_, a) (_, b) -> Clock.Date.compare a b)
-        in
-        let to_drop = !auto_registered_count - limit in
-        auto_callers
-        |> List.filteri (fun i _ -> i < to_drop)
-        |> List.iter (fun (self, _) ->
-            debug
-              "Auto-registered caller count exceeds limit (%d) at startup; \
-               evicting least recently used caller %s"
-              limit (Ref.string_of self) ;
-            destroy_locked ~__context ~self
-        )
     ) ;
     start_reporter ()
   )

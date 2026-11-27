@@ -93,33 +93,83 @@ let from_list xs =
   List.iter (fun x -> append t (node x)) xs ;
   t
 
+(* Nodes are compared by identity: a cyclic list has no structural equality *)
+let same_node a b = a == b
+
+let step = function None -> None | Some n -> n.next
+
+(* [cycle_of first] follows [next] from [first]. It returns [None] if the
+   chain ends, and [Some (start, length)] if it runs into a cycle: [start] is
+   the position of the first node on the cycle, and [length] the number of
+   nodes on it (Floyd's tortoise-and-hare algorithm). *)
+let cycle_of first =
+  let rec meet slow fast =
+    let slow = step slow and fast = step (step fast) in
+    match (slow, fast) with
+    | _, None ->
+        None
+    | Some s, Some f when same_node s f ->
+        Some s
+    | _ ->
+        meet slow fast
+  in
+  match meet first first with
+  | None ->
+      None
+  | Some m ->
+      let rec length n k =
+        match n.next with
+        | Some x when same_node x m ->
+            k
+        | Some x ->
+            length x (k + 1)
+        | None ->
+            k (* unreachable: [m] is on a cycle *)
+      in
+      let rec start a b k =
+        match (a, b) with
+        | Some x, Some y when same_node x y ->
+            k
+        | _ ->
+            start (step a) (step b) (k + 1)
+      in
+      Some (start first (Some m) 0, length m 1)
+
 let compare cmp t1 t2 =
-  (* Floyd's tortoise-and-hare: slow pointer advances 1 step, fast 2.
-     Physical equality on nodes detects a cycle in either list. *)
-  let next2 n =
-    Option.bind (Option.bind n (fun x -> x.next)) (fun x -> x.next)
+  (* Two cyclic lists repeat with period [lcm l1 l2] after position
+     [max s1 s2], so if they agree on that many elements they agree on all
+     of them. If either list ends, the walk ends with it. *)
+  let rec gcd a b =
+    if b = 0 then
+      a
+    else
+      gcd b (a mod b)
   in
-  let cycle a b = match (a, b) with Some x, Some y -> x == y | _ -> false in
-  let rec loop sa sb fa fb =
-    match (sa, sb) with
-    | None, None ->
-        0
-    | None, Some _ ->
-        -1
-    | Some _, None ->
-        1
-    | Some na, Some nb ->
-        let c = cmp na.value nb.value in
-        if c <> 0 then
-          c
-        else
-          let sa' = na.next and sb' = nb.next in
-          let fa' = next2 fa and fb' = next2 fb in
-          if cycle fa' sa' || cycle fb' sb' then
-            0
+  let limit =
+    match (cycle_of t1.first, cycle_of t2.first) with
+    | Some (s1, l1), Some (s2, l2) ->
+        Some (max s1 s2 + (l1 / gcd l1 l2 * l2))
+    | _ ->
+        None
+  in
+  let rec loop a b k =
+    if Some k = limit then
+      0
+    else
+      match (a, b) with
+      | None, None ->
+          0
+      | None, Some _ ->
+          -1
+      | Some _, None ->
+          1
+      | Some na, Some nb ->
+          let c = cmp na.value nb.value in
+          if c <> 0 then
+            c
           else
-            loop sa' sb' fa' fb'
+            loop na.next nb.next (k + 1)
   in
-  loop t1.first t2.first t1.first t2.first
+  loop t1.first t2.first 0
 
 let equal t1 t2 = compare Stdlib.compare t1 t2 = 0

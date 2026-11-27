@@ -182,9 +182,19 @@ let test_lru_filter_repeated =
   let b = LRU.filter lru ~f:combined in
   LRU.to_list a = LRU.to_list b
 
+let test_lru_add_present_key =
+  QCheck.Test.make ~name:"LRU add of a present key changes nothing" lru ~count
+  @@ fun lru ->
+  let before = LRU.to_list lru in
+  (* Adding the least recently used key would move it to the end if add
+     counted as a use. *)
+  (match before with (k, _) :: _ -> ignore (LRU.add lru k 12345) | [] -> ()) ;
+  LRU.to_list lru = before
+
 let test =
   [
     QCheck_alcotest.to_alcotest test_lru_length
+  ; QCheck_alcotest.to_alcotest test_lru_add_present_key
   ; QCheck_alcotest.to_alcotest test_lru_drop
   ; QCheck_alcotest.to_alcotest test_lru_growth
   ; QCheck_alcotest.to_alcotest test_lru_lookup

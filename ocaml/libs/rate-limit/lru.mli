@@ -40,9 +40,11 @@ val remove : ('k, 'v) t -> 'k -> unit
 (** [remove t key] removes the entry for [key]; does nothing if absent. *)
 
 val add : ('k, 'v) t -> 'k -> 'v -> bool
-(** [add t key value] inserts [(key, value)] if [key] is not already
-    present. Returns [true] if the cache now exceeds its capacity,
-    signalling the caller to call [trim]. *)
+(** [add t key value] inserts [(key, value)] as the most recently used
+    entry if [key] is not already present. If it is present, the cache is
+    unchanged: the value is not replaced and the entry keeps its place in
+    the least-recently-used order. Returns [true] if the cache now exceeds
+    its capacity, signalling the caller to call [trim]. *)
 
 val drop_while : ('k, 'v) t -> evict:('k * 'v -> bool -> bool) -> unit
 (** [drop_while t ~evict] drops entries in least-recently-used order

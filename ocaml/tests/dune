@@ -41,6 +41,7 @@
     xapi-idl.xen.interface
     xapi-idl.xen.interface.types
     xapi-log
+    xapi-rate-limit
     clock
     xapi-stdext-pervasives
     xapi-stdext-std
