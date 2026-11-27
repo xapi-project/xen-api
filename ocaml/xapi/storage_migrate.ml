@@ -64,33 +64,38 @@ module MigrateLocal = struct
         ( match alm.State.Send_state.remote_info with
         | Some remote_info -> (
             let sr, vdi = State.of_mirror_id id in
-            let vdis = Local.SR.scan dbg sr in
-            let local_vdi =
-              match List.find_opt (fun x -> x.vdi = vdi) vdis with
-              | None ->
-                  failwith_fmt "Local VDI %s not found"
-                    (Storage_interface.Vdi.string_of vdi)
-              | Some v ->
-                  v
-            in
-            let local_vdi = add_to_sm_config local_vdi "mirror" "null" in
-            let local_vdi = remove_from_sm_config local_vdi "base_mirror" in
-            (* Disable mirroring on the local machine *)
-            let snapshot = Local.VDI.snapshot dbg sr local_vdi in
-            Local.VDI.destroy dbg sr snapshot.vdi ;
-            (* Destroy the snapshot, if it still exists *)
-            let snap =
-              List.find_opt
-                (fun x -> List.assoc_opt "base_mirror" x.sm_config = Some id)
-                vdis
-            in
-            ( match snap with
-            | Some s ->
-                debug "Found snapshot VDI: %s"
-                  (Storage_interface.Vdi.string_of s.vdi) ;
-                Local.VDI.destroy dbg sr s.vdi
-            | None ->
-                debug "Snapshot VDI already cleaned up"
+            ( match Storage_mux_reg.smapi_version_of_sr sr with
+            | SMAPIv1 -> (
+                let vdis = Local.SR.scan dbg sr in
+                let local_vdi =
+                  match List.find_opt (fun x -> x.vdi = vdi) vdis with
+                  | None ->
+                      failwith_fmt "Local VDI %s not found"
+                        (Storage_interface.Vdi.string_of vdi)
+                  | Some v ->
+                      v
+                in
+                let local_vdi = add_to_sm_config local_vdi "mirror" "null" in
+                let local_vdi = remove_from_sm_config local_vdi "base_mirror" in
+                (* Disable mirroring on the local machine *)
+                let snapshot = Local.VDI.snapshot dbg sr local_vdi in
+                Local.VDI.destroy dbg sr snapshot.vdi ;
+                (* Destroy the snapshot, if it still exists *)
+                let snap =
+                  List.find_opt
+                    (fun x -> List.assoc_opt "base_mirror" x.sm_config = Some id)
+                    vdis
+                in
+                match snap with
+                | Some s ->
+                    debug "Found snapshot VDI: %s"
+                      (Storage_interface.Vdi.string_of s.vdi) ;
+                    Local.VDI.destroy dbg sr s.vdi
+                | None ->
+                    debug "Snapshot VDI already cleaned up"
+              )
+            | SMAPIv2 | SMAPIv3 ->
+                ()
             ) ;
             try
               MigrateRemote.receive_cancel2 ~dbg ~mirror_id:id ~sr
