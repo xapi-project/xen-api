@@ -22,6 +22,7 @@ SHORT_COMMAND_NAME = Path(__file__).name
 
 XE_SERIAL = "xe-serial"
 XEN_CMDLINE = "/opt/xensource/libexec/xen-cmdline"
+XEN_HOST_DISPLAY_HELPER = "/opt/xensource/libexec/xen-host-display"
 
 
 def send_to_syslog(msg):
@@ -34,10 +35,11 @@ def doexec(args, with_stdout=False):
     send_to_syslog(args)
     return runCmd(args, with_stdout)
 
-def disable(bootloader):
+def disable_cmdline(bootloader):
     """
     Configure the host not to output its console to the physical display on
-    next boot.
+    next boot. This legacy version uses XEN_CMDLINE and requires a parsed bootloader
+    configuration.
     """
     if bootloader.default == XE_SERIAL:
         doexec([XEN_CMDLINE, "--set-xen", "console=%s" % (_get_com_port())])
@@ -46,10 +48,11 @@ def disable(bootloader):
         doexec([XEN_CMDLINE, "--delete-xen", "console"])
 
 
-def enable(bootloader):
+def enable_cmdline(bootloader):
     """
     Configure the host to output its console to the physical display on
-    next boot.
+    next boot. This legacy version uses XEN_CMDLINE and requires a parsed bootloader
+    configuration.
     """
     if bootloader.default == XE_SERIAL:
         doexec([XEN_CMDLINE, "--set-xen", "console=%s,vga" % (_get_com_port())])
@@ -58,10 +61,11 @@ def enable(bootloader):
         doexec([XEN_CMDLINE, "--set-dom0", "console=hvc0 console=tty0"])
 
 
-def status(_):
+def status_cmdline(_):
     """
     Determine from the bootloader config whether the host is currently
-    configured to output its console to the physical display.
+    configured to output its console to the physical display. This legacy version
+    uses XEN_CMDLINE
     """
     (_, stdout) = doexec([XEN_CMDLINE, "--get-xen", "console"], with_stdout=True)
     if "vga" in stdout:
@@ -69,15 +73,52 @@ def status(_):
     else:
         sys.stdout.write("disabled")
 
-COMMANDS = {
-    'disable': disable,
-    'enable': enable,
-    'status': status
+def disable_helper(_):
+    """
+    Configure the host not to output its console to the physical display on
+    next boot. This version invokes the XEN_HOST_DISPLAY_HELPER and does not
+    require a parsed bootloader configuration.
+    """
+    doexec([XEN_HOST_DISPLAY_HELPER, "disable"])
+
+def enable_helper(_):
+    """
+    Configure the host to output its console to the physical display on
+    next boot. This version invokes the XEN_HOST_DISPLAY_HELPER and does not
+    require a parsed bootloader configuration.
+    """
+    doexec([XEN_HOST_DISPLAY_HELPER, "enable"])
+
+def status_helper(_):
+    """
+    Determine from the bootloader config whether the host is currently
+    configured to output its console to the physical display. This version
+    invokes the XEN_HOST_DISPLAY_HELPER.
+    """
+    (_, stdout) = doexec([XEN_HOST_DISPLAY_HELPER, "status"], with_stdout=True)
+    if "enabled" in stdout:
+        sys.stdout.write("enabled")
+    else:
+        sys.stdout.write("disabled")
+
+
+COMMANDS_CMDLINE = {
+    'disable': disable_cmdline,
+    'enable': enable_cmdline,
+    'status': status_cmdline
 }
+
+COMMANDS_HELPER = {
+    'disable': disable_helper,
+    'enable': enable_helper,
+    'status': status_helper
+}
+
 
 def _get_com_port():
     """
-    Determine from the current bootloader config which COM port is in use
+    Determine from the current bootloader config which COM port is in use, This is not
+    called when XEN_HOST_DISPLAY_HELPER is in use.
     """
     (_, stdout) = doexec([XEN_CMDLINE, "--get-xen", "console"], with_stdout=True)
     m = re.match(r"console=.*(com\d).*", stdout.strip())
@@ -89,15 +130,21 @@ def _get_com_port():
 
 def usage():
     """Display a usage string."""
-    command_names = sorted(COMMANDS.keys())
+    command_names = sorted(COMMANDS_CMDLINE.keys())
     print("Usage:")
     print("    %s {%s}" % (sys.argv[0], "|".join(command_names)))
 
 
 def main():
     """Program entry point."""
+    COMMANDS = COMMANDS_CMDLINE
     if len(sys.argv) == 2 and sys.argv[1] in COMMANDS:
-        bootloader = Bootloader.loadExisting()
+        if os.path.exists(XEN_HOST_DISPLAY_HELPER):
+            COMMANDS = COMMANDS_HELPER
+            bootloader = None
+        else:
+            bootloader = Bootloader.loadExisting()
+
         command = COMMANDS[sys.argv[1]]
         command(bootloader)
     else:
