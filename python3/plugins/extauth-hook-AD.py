@@ -6,7 +6,7 @@
 # - /etc/nsswitch.conf
 # - /etc/pam.d/sshd
 # - /etc/pam.d/hcp_users
-# - /etc/ssh/ssh_config
+# - /etc/ssh/sshd_config.d/50-xapi-extauth-AD.conf
 #
 # This module can be called directly as a plugin.  It handles
 # Active Directory being enabled or disabled as the hosts external_auth_type,
@@ -32,6 +32,9 @@ import XenAPIPlugin
 
 HCP_USERS = "/etc/security/hcp_ad_users.conf"
 HCP_GROUPS = "/etc/security/hcp_ad_groups.conf"
+SSHD_CONFIG = "/etc/ssh/sshd_config"
+SSHD_DROPIN_DIR = "/etc/ssh/sshd_config.d"
+SSHD_DROPIN = os.path.join(SSHD_DROPIN_DIR, "50-xapi-extauth-AD.conf")
 
 
 def setup_logger():
@@ -338,18 +341,92 @@ class NssConfig(KeyValueConfig):
         self._update_key_value("shadow", modules)
 
 
-class SshdConfig(KeyValueConfig):
-    """Class to manage sshd configuration"""
+class SshdConfig(ADConfig):
+    """
+    Class to manage the sshd settings required by AD authentication
+
+    The settings are written to a drop-in file rather than to sshd_config,
+    which openssh updates overwrite. sshd keeps the first value it reads
+    for a keyword, so the drop-in directory must be included before any
+    other directive of sshd_config: add the Include line if it is missing.
+    """
+
+    ad_sshd_config = """# Managed by xapi (extauth-hook-AD.py), do not edit.
+KbdInteractiveAuthentication yes
+GSSAPIAuthentication yes
+GSSAPICleanupCredentials yes
+"""
+    include = "Include {}/*.conf"
+
+    # Settings that earlier versions of this hook set in sshd_config
+    legacy_keys = (
+        "ChallengeResponseAuthentication",
+        "GSSAPIAuthentication",
+        "GSSAPICleanupCredentials",
+    )
 
     def __init__(self, session, args, ad_enabled=True):
-        super(SshdConfig, self).__init__("/etc/ssh/sshd_config", session, args, ad_enabled,
-                                         sep=" ")
-        value = "yes" if ad_enabled else "no"
-        self._update_key_value("ChallengeResponseAuthentication", value)
-        self._update_key_value("GSSAPIAuthentication", value)
-        self._update_key_value("GSSAPICleanupCredentials", value)
+        super(SshdConfig, self).__init__(
+            SSHD_DROPIN, session, args, ad_enabled, load_existing=False, file_mode=0o600
+        )
+
+    def _apply_to_cache(self):
+        self._lines = self.ad_sshd_config.split("\n") if self._ad_enabled else []
+
+    def _install(self):
+        if self._ad_enabled:
+            if not os.path.isdir(SSHD_DROPIN_DIR):
+                os.makedirs(SSHD_DROPIN_DIR, mode=0o700)
+            super(SshdConfig, self)._install()
+        elif os.path.exists(self._file_path):
+            os.remove(self._file_path)
+
+    def _updated_sshd_config(self, lines):
+        """
+        Return the lines of sshd_config to write, or None if they are fine:
+        - reset the settings left by earlier versions of this hook to "no",
+          the packaged default, so they do not outlive AD being disabled
+        - when AD is enabled, include the drop-in directory before the
+          first directive if sshd_config does not include it yet
+        """
+        include = self.include.format(SSHD_DROPIN_DIR).split()
+        result = []
+        has_include = False
+        for line in lines:
+            item = line.split()
+            if len(item) == 2 and item[0] in self.legacy_keys and item[1] == "yes":
+                line = "{} no".format(item[0])
+            has_include = has_include or item == include
+            result.append(line)
+        if self._ad_enabled and not has_include:
+            first = next(
+                (
+                    i
+                    for i, l in enumerate(result)
+                    if l.strip() and not l.lstrip().startswith("#")
+                ),
+                len(result),
+            )
+            result.insert(first, " ".join(include))
+        return result if result != lines else None
+
+    def _update_sshd_config(self):
+        if not os.path.exists(SSHD_CONFIG):
+            return
+        with open(SSHD_CONFIG, "r", encoding="utf-8") as file:
+            lines = file.read().splitlines()
+        lines = self._updated_sshd_config(lines)
+        if lines is None:
+            return
+        logger.info("Updating %s to use %s", SSHD_CONFIG, SSHD_DROPIN)
+        with tempfile.NamedTemporaryFile(prefix="extauth-", delete=False) as file:
+            file.write(("\n".join(lines) + "\n").encode("utf-8"))
+            file.flush()
+            shutil.copymode(SSHD_CONFIG, file.name)
+            shutil.move(file.name, SSHD_CONFIG)
 
     def apply(self):
+        self._update_sshd_config()
         super(SshdConfig, self).apply()
         run_cmd(["/usr/bin/systemctl", "reload-or-restart", "sshd"])
 
