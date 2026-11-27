@@ -182,7 +182,10 @@ class TestConnectNbd(unittest.TestCase):
         # Assertions
         self.assertEqual(result, "/dev/nbd0")
         mock_find_unused.assert_called_once()
-        mock_call.assert_called()
+        mock_call.assert_any_call(
+            ["nbd-client", "-unix", "/path/of/socket/file", "/dev/nbd0",
+             "-timeout", "90", "-name", "export_name"],
+            raise_err=False, log_err=True)
         mock_wait_for_nbd.assert_called_once_with(nbd_device="/dev/nbd0", connected=True)
         mock_persist_info.assert_called_once_with(
             "/dev/nbd0", "/path/of/socket/file", "export_name"
