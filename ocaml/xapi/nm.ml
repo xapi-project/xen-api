@@ -894,14 +894,21 @@ let bring_pif_down ~__context ?(force = false) (pif : API.ref_PIF) =
                     )
                 in
                 let tunnels = Db.Tunnel.get_records_where ~__context ~expr in
-                let still_plugged_on_host (_, tunnel_rec) =
+                let attached_own_pifs =
+                  Db.PIF.get_refs_where ~__context
+                    ~expr:
+                      (And
+                         ( Eq (Field "host", Literal (Ref.string_of host))
+                         , Eq (Field "currently_attached", Literal "true")
+                         )
+                      )
+                in
+                let is_own_attached_pif (_, tunnel_rec) =
                   let pif_ref = tunnel_rec.API.tunnel_access_PIF in
-                  let pif_record = Db.PIF.get_record ~__context ~self:pif_ref in
-                  host = pif_record.API.pIF_host
-                  && pif_record.API.pIF_currently_attached
+                  List.mem pif_ref attached_own_pifs
                 in
                 let no_more_vxlan =
-                  not (List.exists still_plugged_on_host tunnels)
+                  not (Valid_ref_list.exists is_own_attached_pif tunnels)
                 in
                 if no_more_vxlan then (
                   debug "Last VxLAN tunnel was closed, closing VxLAN UDP port" ;
