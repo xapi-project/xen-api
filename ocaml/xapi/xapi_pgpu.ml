@@ -385,6 +385,31 @@ let mxgpu_vf_setup ~__context =
    * already loaded before xapi was (re)started. *)
   Xapi_pci.update_pcis ~__context
 
+(* sriov-manage exits with "Cannot obtain unbindLock for <pf>" when the NVIDIA
+   driver will not let go of the GPU, which can happen for a moment while a
+   vGPU starts on another GPU of the same host. It fails before touching the
+   PF, so it is safe to run it again. *)
+let retry_on_unbind_lock ?(delay = 0.5) ~timeout f =
+  let started = Mtime_clock.counter () in
+  let seconds_left () =
+    timeout -. (Mtime.Span.to_float_ns (Mtime_clock.count started) /. 1e9)
+  in
+  let rec attempt n delay =
+    try f ()
+    with
+    | Forkhelpers.Spawn_internal_error (stderr, _, _)
+    when Astring.String.is_infix ~affix:"unbindLock" stderr
+         && seconds_left () > delay
+    ->
+      warn
+        "%s: attempt %d could not obtain the GPU's unbind lock (%s); retrying \
+         in %.1fs"
+        __FUNCTION__ n (String.trim stderr) delay ;
+      Thread.delay delay ;
+      attempt (n + 1) (Float.min (2. *. delay) 4.)
+  in
+  attempt 1 delay
+
 (* This must be run LOCALLY on the host that is about to start a VM that is
  * going to use a vgpu backed by an nvidia pgpu. *)
 let nvidia_vf_setup_mutex = Mutex.create ()
@@ -452,7 +477,10 @@ let nvidia_vf_setup ~__context ~pf ~enable =
     | Some 0 when Sys.file_exists script ->
         debug "PCI %s has 0 VFs - calling %s" pci script ;
         let out, _ =
-          Forkhelpers.execute_command_get_output script [enable'; pci]
+          retry_on_unbind_lock
+            ~timeout:!Xapi_globs.nvidia_sriov_manage_retry_timeout (fun () ->
+              Forkhelpers.execute_command_get_output script [enable'; pci]
+          )
         in
         debug "Activating NVidia vGPUs %s yielded: '%s'" pci (String.escaped out)
     | Some n when n > 0 ->
