@@ -576,25 +576,63 @@ functor
               )
               (Sr.find vdi sr_t)
 
-      (* Attempt to clear leaked datapaths associed with this vdi *)
-      let remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ?vm which next =
+      (* Attempt to clear leaked datapaths associed with this vdi.
+         Also clear stale VDIs using the same datapath, if [dp] is provided *)
+      let remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ?dp ?vm which
+          next =
         let dpv =
           match Host.find sr !Host.host with
           | None ->
               []
-          | Some sr_t -> (
-            match Sr.find vdi sr_t with
-            | Some vdi_t ->
-                List.filter (fun (dp, _vm) -> which vdi_t dp) (Vdi.dpv vdi_t)
-            | None ->
-                []
-          )
+          | Some sr_t ->
+              let other_stale_vdis_on_same_dp =
+                match dp with
+                | Some dp ->
+                    (* Clear attached-but-not-activated stale VDIs on the same
+                       DP here, before there are two VDIs on the same datapath.
+                       To get here, xapi already verified that no two VBDs
+                       have the same device, so the stale VBD only exists in
+                       storage.db, not from xapi's point of view, so it's safe
+                       to clean up *)
+                    let vdis = Sr.list sr_t in
+                    let vdis_with_dp =
+                      vdis
+                      |> List.filter_map (fun (vdi, vdi_t) ->
+                          match
+                            (Vdi.dp_on_vdi dp vdi_t, Vdi.get_dp_state dp vdi_t)
+                          with
+                          | true, Vdi_automaton.Attached _ ->
+                              let dpv =
+                                Vdi.dpv vdi_t
+                                |> List.map (fun (dp, vm) ->
+                                    ("stale", vdi, dp, vm)
+                                )
+                              in
+                              Some dpv
+                          | _ ->
+                              None
+                      )
+                    in
+                    List.flatten vdis_with_dp
+                | None ->
+                    []
+              in
+
+              let other_dps_on_same_vdi =
+                match Sr.find vdi sr_t with
+                | Some vdi_t ->
+                    List.filter (fun (dp, _vm) -> which vdi_t dp) (Vdi.dpv vdi_t)
+                    |> List.map (fun (dp, vm) -> ("leaked", vdi, dp, vm))
+                | None ->
+                    []
+              in
+              List.append other_stale_vdis_on_same_dp other_dps_on_same_vdi
         in
         let failures =
           List.fold_left
-            (fun acc (dp, vm') ->
-              info "Attempting to destroy datapath dp:%s sr:%s vdi:%s" dp
-                (s_of_sr sr) (s_of_vdi vdi) ;
+            (fun acc (reason, vdi, dp, vm') ->
+              info "Attempting to destroy %s datapath dp:%s sr:%s vdi:%s" reason
+                dp (s_of_sr sr) (s_of_vdi vdi) ;
               try
                 let vm = match vm with None -> vm' | Some vm -> vm in
                 destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~vm
@@ -624,8 +662,8 @@ functor
           dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) read_write ;
         let dbg = Debug_info.to_string di in
         with_vdi sr vdi (fun () ->
-            remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
-              (fun () ->
+            remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~dp ~vm
+              Vdi.leaked (fun () ->
                 let state =
                   perform_nolock context ~dbg ~dp ~sr ~vdi ~vm
                     (Vdi_automaton.Attach
