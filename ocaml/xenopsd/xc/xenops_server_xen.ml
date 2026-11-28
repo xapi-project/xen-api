@@ -2854,6 +2854,19 @@ module VM = struct
           )
     )
 
+  let get_memory_offset vm =
+    with_xs (fun xs ->
+        match domid_of_uuid ~xs (uuid_of_vm vm) with
+        | None ->
+            0L
+        | Some domid -> (
+            (* written by squeezed once the guest has booted *)
+            let path = xs.Xs.getdomainpath domid ^ "/memory/memory-offset" in
+            try xs.Xs.read path |> Int64.of_string |> Memory.bytes_of_kib
+            with Xs_protocol.Enoent _ | Failure _ -> 0L
+          )
+    )
+
   let assert_can_save vm =
     with_xs (fun xs ->
         let uuid = uuid_of_vm vm in

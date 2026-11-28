@@ -124,11 +124,34 @@ let create_nolock _ vm () =
     in
     DB.write vm.Vm.id domain
 
+(* Like Xen, count in memory_actual some pages of a domain that its guest
+   does not see, which squeezed records as memory-offset. Keep it within the
+   1 MiB that xapi tolerates between memory_actual and memory_target. *)
+let memory_offset = Int64.mul 512L 1024L
+
+(* TESTING: the memory the guest of a running domain uses, given the
+   dynamic_max of the domain. By default the balloon driver reaches it at
+   once. *)
+let guest_memory = ref Fun.id
+
 let get_state_nolock vm () =
   if DB.exists vm.Vm.id then
     let d = DB.read_exn vm.Vm.id in
+    let memory =
+      if d.Domain.suspended then
+        halted_vm
+      else
+        let target = d.Domain.memory_dynamic_max in
+        let actual = Int64.add (!guest_memory target) memory_offset in
+        {
+          halted_vm with
+          Vm.memory_target= target
+        ; memory_actual= actual
+        ; memory_limit= actual
+        }
+    in
     {
-      halted_vm with
+      memory with
       Vm.power_state=
         ( if d.Domain.suspended then
             Suspended
@@ -618,6 +641,8 @@ module VM = struct
 
   let wait_shutdown _ _vm _reason _timeout = true
 
+  let assert_can_save _vm = ()
+
   let save _ _cb vm flags data vgpu_data _pre_suspend_callback =
     with_lock m (save_nolock vm flags data vgpu_data)
 
@@ -631,6 +656,8 @@ module VM = struct
   let soft_reset _ _vm = ()
 
   let get_state vm = with_lock m (get_state_nolock vm)
+
+  let get_memory_offset _vm = memory_offset
 
   let request_rdp _vm _enabled = ()
 

@@ -344,6 +344,13 @@ let options =
     , (fun () -> !Xenops_server.migration_compressor)
     , "Compression method; one of 'stream' (default), 'xenguest'"
     )
+  ; ( "migration-balloon-down-first"
+    , Arg.Bool (fun x -> Xenops_server.migration_balloon_down_first := x)
+    , (fun () -> string_of_bool !Xenops_server.migration_balloon_down_first)
+    , "True (default) to balloon a VM down to its dynamic_min before migrating \
+       it to another host. False to migrate it at its current size and balloon \
+       it down only if the destination cannot take it at that size"
+    )
   ; ( "migration-tls"
     , Arg.String
         (fun s ->
