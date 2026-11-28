@@ -618,6 +618,8 @@ module VM = struct
 
   let wait_shutdown _ _vm _reason _timeout = true
 
+  let assert_can_save _vm = ()
+
   let save _ _cb vm flags data vgpu_data _pre_suspend_callback =
     with_lock m (save_nolock vm flags data vgpu_data)
 

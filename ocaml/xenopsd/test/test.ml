@@ -409,8 +409,8 @@ let vm_assert_equal vm vm' =
             x.devices x'.devices
     )
 
-let with_vm id f =
-  let vm = create_vm id in
+let with_vm ?(customise = Fun.id) id f =
+  let vm = customise (create_vm id) in
   let (id : Vm.id) = Client.VM.add dbg vm in
   finally
     (fun () -> f id)
@@ -631,6 +631,136 @@ let vm_test_suspend_resume _ =
       Client.VM.unpause dbg id |> wait_for_task |> success_task ;
       Client.VM.shutdown dbg id None |> wait_for_task |> success_task ;
       Client.VM.destroy dbg id |> wait_for_task |> success_task
+  )
+
+module Handshake = Xenops_migrate.Handshake
+
+(* Act as the destination of the migration [task] on [sock], and make it fail
+   once the source has pinned the memory of the VM: either the destination
+   reports an error, or (with [cancel]) the migration task is cancelled. The
+   source runs on a xenopsd worker thread. Every connection is closed when
+   leaving, even on error, so that the source never waits for us. *)
+let fake_destination ~cancel sock task =
+  let with_connection f =
+    let fd, _ = Unix.accept sock in
+    finally
+      (fun () ->
+        Unix.setsockopt_float fd Unix.SO_RCVTIMEO 30. ;
+        f fd
+      )
+      (fun () -> Unix.close fd)
+  in
+  let read_request fd =
+    let ic = Unix.in_channel_of_descr fd in
+    let rec read_headers length =
+      match String.lowercase_ascii (String.trim (input_line ic)) with
+      | "" ->
+          length
+      | header ->
+          read_headers
+            ( try Scanf.sscanf header "content-length: %d" Fun.id
+              with Scanf.Scan_failure _ | Failure _ | End_of_file -> length
+            )
+    in
+    really_input_string ic (read_headers 0)
+  in
+  let write fd s =
+    let (_ : int) = Unix.write_substring fd s 0 (String.length s) in
+    ()
+  in
+  (* Wait until the source closes the connection *)
+  let drain fd =
+    let buf = Bytes.create 4096 in
+    let rec loop () =
+      match Unix.read fd buf 0 (Bytes.length buf) with
+      | 0 ->
+          ()
+      | _ ->
+          loop ()
+      | exception Unix.Unix_error _ ->
+          ()
+    in
+    loop ()
+  in
+  (* VM.import_metadata, the source only logs the id it returns *)
+  with_connection (fun fd ->
+      let (_ : string) = read_request fd in
+      let response = Xmlrpc.string_of_response (Rpc.success (Rpc.String "")) in
+      write fd
+        (Printf.sprintf "HTTP/1.1 200 OK\r\ncontent-length: %d\r\n\r\n%s"
+           (String.length response) response
+        )
+  ) ;
+  (* Memory migration, after the pin *)
+  with_connection (fun vm_fd ->
+      let (_ : string) = read_request vm_fd in
+      ( if cancel then (
+          (* the source notices at its next cancellation point, in VM_save *)
+          Client.TASK.cancel dbg task ;
+          Handshake.send vm_fd Handshake.Success ;
+          with_connection (fun mem_fd ->
+              let (_ : string) = read_request mem_fd in
+              Handshake.send mem_fd Handshake.Success ;
+              drain mem_fd
+          )
+        ) else
+          let error =
+            Rpcmarshal.marshal Errors.error.Rpc.Types.ty
+              (Errors.Vms_failed_to_cooperate [])
+          in
+          Handshake.send vm_fd (Handshake.Error (Jsonrpc.to_string error))
+      ) ;
+      drain vm_fd
+  )
+
+(* A failed or cancelled migration must restore the memory dynamic range of
+   the source VM, which it pinned to stop ballooning *)
+let vm_test_migrate_failure_restores_memory ~cancel _ =
+  let customise vm = {vm with Vm.memory_dynamic_min= 64L ** 1024L ** 1024L} in
+  with_vm ~customise example_uuid (fun id ->
+      Client.VM.create dbg id |> wait_for_task |> success_task ;
+      Client.VM.build dbg id false |> wait_for_task |> success_task ;
+      Client.VM.create_device_model dbg id false
+      |> wait_for_task
+      |> success_task ;
+      Client.VM.unpause dbg id |> wait_for_task |> success_task ;
+      let sock = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+      finally
+        (fun () ->
+          (* in case the source never connects *)
+          Unix.setsockopt_float sock Unix.SO_RCVTIMEO 30. ;
+          Unix.bind sock (Unix.ADDR_INET (Unix.inet_addr_loopback, 0)) ;
+          Unix.listen sock 1 ;
+          let port =
+            match Unix.getsockname sock with
+            | Unix.ADDR_INET (_, port) ->
+                port
+            | _ ->
+                assert false
+          in
+          let url = Printf.sprintf "http://127.0.0.1:%d" port in
+          let task = Client.VM.migrate dbg id [] [] [] url false false false in
+          fake_destination ~cancel sock task ;
+          expect_exception
+            (function
+              | Cancelled _ ->
+                  cancel
+              | Vms_failed_to_cooperate _ ->
+                  not cancel
+              | _ ->
+                  false
+              )
+            (fun () -> wait_for_task task |> success_task) ;
+          let vm = customise (create_vm id) in
+          let domain = Xenops_server_simulator.DB.read_exn id in
+          assert_equal ~msg:"memory_dynamic_min" ~printer:Int64.to_string
+            vm.Vm.memory_dynamic_min
+            domain.Xenops_server_simulator.Domain.memory_dynamic_min ;
+          assert_equal ~msg:"memory_dynamic_max" ~printer:Int64.to_string
+            vm.Vm.memory_dynamic_max
+            domain.Xenops_server_simulator.Domain.memory_dynamic_max
+        )
+        (fun () -> Unix.close sock)
   )
 
 module type DEVICE = sig
@@ -1034,6 +1164,14 @@ let _ =
         )
       ; ("vif_remove_running", `Quick, VifDeviceTests.remove_running)
       ; ("vm_test_suspend_resume", `Quick, vm_test_suspend_resume)
+      ; ( "vm_test_migrate_failure_restores_memory"
+        , `Quick
+        , vm_test_migrate_failure_restores_memory ~cancel:false
+        )
+      ; ( "vm_test_migrate_cancel_restores_memory"
+        , `Quick
+        , vm_test_migrate_failure_restores_memory ~cancel:true
+        )
       ; ("ionice_qos_scheduler", `Quick, ionice_qos_scheduler)
       ; ("ionice_output", `Quick, ionice_output)
       ; ("barrier_ordering", `Quick, barrier_ordering)
