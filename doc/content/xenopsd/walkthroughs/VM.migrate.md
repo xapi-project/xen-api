@@ -95,6 +95,26 @@ where `XXX...` is the reference id of the original VM.
 One of the first steps the setup of the VM's memory: The backend checks that there
 is no ballooning operation in progress. If so, the migration could fail.
 
+If the VM can balloon (its dynamic-min and dynamic-max differ), the sender
+first sets its dynamic range to a single value, so that the balloon does not
+move during the migration. By default, for a migration to another host, this
+value is dynamic-min: the VM is ballooned down, and the destination needs less
+memory. For a migration on the same host, it is the current size of the
+guest, within its dynamic range.
+
+With `migration-balloon-down-first=false` in `xenopsd.conf`, which is read on
+the sending host only, a migration to another host also keeps the VM at its
+current size. The destination must then reserve that size before any memory is
+sent, and it squeezes its other VMs toward their dynamic-min to make room. If
+it still cannot (`Cannot_free_this_much_memory` or `Vms_failed_to_cooperate`),
+it answers only after retrying its reservation for about a minute; the sender
+then balloons the VM down to dynamic-min and, if that makes the VM smaller,
+opens a new connection to try again, once, so that case is slower than with
+the default. VMs with a vGPU are not sent again. xapi's admission check still
+assumes dynamic-min, so concurrent VM starts or migrations onto a nearly full
+host can be refused or delayed where they were not before. While it migrates
+at its current size, the VM cannot be squeezed on the sending host.
+
 Once memory has been checked, the daemon will get the state of the VM (running, halted, ...) and
 The backend retrieves the domain's platform data (memory, vCPUs setc) from the Xenstore.
 

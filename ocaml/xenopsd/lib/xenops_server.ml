@@ -71,6 +71,11 @@ let backend = ref None
 
 let migration_compressor = ref "stream"
 
+(* Balloon a VM down to its dynamic_min before migrating it to another host.
+   When false, migrate it at its current size, and balloon it down only if the
+   destination cannot take it at that size. *)
+let migration_balloon_down_first = ref true
+
 let feature_flags_path = ref "/etc/xenserver/features.d"
 
 let get_backend () =
@@ -2450,43 +2455,94 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
       restore_memory_dynamic_range_on_failure @@ fun () ->
       (* CA-78365: set the memory dynamic range to a single value
          to stop ballooning, if ballooning is enabled at all *)
-      ( if vm.memory_dynamic_min <> vm.memory_dynamic_max then
-          (* There's no need to balloon down when doing localhost migration -
-             we're not copying any memory in the first place. This would
-             likely increase VDI migration time as swap would be engaged.
-             Instead change the ballooning target to the current state *)
-          let new_balloon_target =
-            if vmm.vmm_localhost_migration then
-              (* memory_actual also counts the pages the guest does not see
-                 (squeezed's memory-offset): a target that includes them is
-                 above the guest's size, above dynamic_max, even above
-                 static_max, for a guest at dynamic_max, and the guest could
-                 never reach it. Use the guest's size, within the dynamic
-                 range. *)
-              Int64.sub (B.VM.get_state vm).memory_actual
-                (B.VM.get_memory_offset vm)
-              |> Int64.min vm.memory_dynamic_max
-              |> Int64.max vm.memory_dynamic_min
-            else
-              vm.memory_dynamic_min
-          in
-          let atomic =
-            VM_set_memory_dynamic_range
-              (id, new_balloon_target, new_balloon_target)
-          in
-          let (_ : unit) =
-            range_pinned := true ;
-            perform_atomic ~progress_callback:(fun _ -> ()) atomic t
-          in
-          (* Waiting here is not essential but adds a degree of safety and
-             reducess unnecessary memory copying. *)
-          try B.VM.wait_ballooning t vm
-          with Xenopsd_error Ballooning_timeout_before_migration -> ()
-      ) ;
+      let pin_memory size =
+        let atomic = VM_set_memory_dynamic_range (id, size, size) in
+        range_pinned := true ;
+        perform_atomic ~progress_callback:(fun _ -> ()) atomic t ;
+        (* Waiting here is not essential but adds a degree of safety and
+           reducess unnecessary memory copying. *)
+        try B.VM.wait_ballooning t vm
+        with Xenopsd_error Ballooning_timeout_before_migration -> ()
+      in
       (* Find out the VM's current memory_limit: this will be used to allocate
          memory on the receiver *)
-      let state = B.VM.get_state vm in
-      info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit ;
+      let memory_state () =
+        let state = B.VM.get_state vm in
+        info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit ;
+        state
+      in
+      (* Unless migration_balloon_down_first is set, send the VM to another
+         host at its current size, and balloon it down only if the destination
+         cannot take it at that size *)
+      let balloon_down_on_refusal =
+        (not vmm.vmm_localhost_migration) && not !migration_balloon_down_first
+      in
+      (* There's no need to balloon down when doing localhost migration -
+         we're not copying any memory in the first place. This would
+         likely increase VDI migration time as swap would be engaged.
+         Instead change the ballooning target to the current state *)
+      let pinned_size () =
+        if vmm.vmm_localhost_migration || balloon_down_on_refusal then
+          (* memory_actual also counts the pages the guest does not see
+             (squeezed's memory-offset): a target that includes them is
+             above the guest's size, above dynamic_max, even above
+             static_max, for a guest at dynamic_max, and the guest could
+             never reach it. Use the guest's size, within the dynamic
+             range. *)
+          Int64.sub (B.VM.get_state vm).memory_actual (B.VM.get_memory_offset vm)
+          |> Int64.min vm.memory_dynamic_max
+          |> Int64.max vm.memory_dynamic_min
+        else
+          vm.memory_dynamic_min
+      in
+      (* Whether to balloon down and try again if the destination refuses the
+         VM, and whether it did. The destination refuses it before any memory
+         is sent if it cannot reserve memory_limit for the domain, even after
+         squeezing its other VMs. Its VM_receive_memory has then ended,
+         leaving the metadata imported above and no domain: it accepts another
+         attempt. *)
+      let retry_on_refusal = ref false and memory_refused = ref false in
+      let with_memory_pinned send_vm =
+        if vm.memory_dynamic_min = vm.memory_dynamic_max then
+          send_vm (memory_state ())
+        else
+          let size = pinned_size () in
+          pin_memory size ;
+          retry_on_refusal :=
+            balloon_down_on_refusal
+            && size > vm.memory_dynamic_min
+            (* the destination might not accept a new vGPU connection yet *)
+            && VGPU_DB.ids id = [] ;
+          let state = memory_state () in
+          try send_vm state
+          with Xenopsd_error _ as e when !memory_refused ->
+            Backtrace.is_important e ;
+            let give_up fmt =
+              Printf.ksprintf
+                (fun reason ->
+                  error "cannot transmit vm to host: %s (%s)"
+                    (Printexc.to_string e) reason ;
+                  raise e
+                )
+                fmt
+            in
+            info
+              "VM.migrate %s: the destination cannot take the VM at %Ld bytes \
+               (%s): ballooning it down to dynamic_min %Ld"
+              id size (Printexc.to_string e) vm.memory_dynamic_min ;
+            ( try pin_memory vm.memory_dynamic_min with
+            | Xenopsd_error (Cancelled _) as e' ->
+                raise e'
+            | e' ->
+                give_up "cannot balloon down: %s" (Printexc.to_string e')
+            ) ;
+            let state' = memory_state () in
+            if state'.Vm.memory_limit >= state.Vm.memory_limit then
+              give_up "the VM did not balloon down" ;
+            info "VM.migrate %s: trying again" id ;
+            retry_on_refusal := false ;
+            send_vm state'
+      in
       let url = make_url "/migrate/vm/" new_dest_id in
       let https = Uri.scheme url = Some "https" in
       (* One transport for all the connections of this migration *)
@@ -2496,6 +2552,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
         else
           Migrate_connect.Migration_tls.Stunnel
       in
+      with_memory_pinned @@ fun state ->
       Migrate_connect.with_open_uri ~verify_cert tls url (fun vm_fd ->
           let module Handshake = Xenops_migrate.Handshake in
           let do_request fd extra_cookies url =
@@ -2544,19 +2601,29 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
             ( match Handshake.recv vm_fd with
             | Handshake.Success ->
                 ()
-            | Handshake.Error msg -> (
-                error "cannot transmit vm to host: %s" msg ;
-                match
-                  Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty
-                    (Jsonrpc.of_string msg)
-                with
-                | Ok e ->
-                    raise (Xenopsd_error e)
-                | Error _ ->
-                    raise (Xenopsd_error (Internal_error msg))
-                | exception _ ->
-                    raise (Xenopsd_error (Internal_error msg))
-              )
+            | Handshake.Error msg ->
+                let e =
+                  match
+                    Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty
+                      (Jsonrpc.of_string msg)
+                  with
+                  | Ok e ->
+                      e
+                  | Error _ ->
+                      Internal_error msg
+                  | exception _ ->
+                      Internal_error msg
+                in
+                ( match e with
+                | (Cannot_free_this_much_memory _ | Vms_failed_to_cooperate _)
+                  when !retry_on_refusal ->
+                    memory_refused := true ;
+                    info "VM.migrate: the destination cannot reserve memory: %s"
+                      msg
+                | _ ->
+                    error "cannot transmit vm to host: %s" msg
+                ) ;
+                raise (Xenopsd_error e)
             ) ;
             debug "VM.migrate: Synchronisation point 1"
           in
