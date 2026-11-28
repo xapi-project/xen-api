@@ -768,11 +768,6 @@ let spawnvp ?(pid_callback = fun _ -> ()) cmd args =
       (try pid_callback pid with _ -> ()) ;
       snd (Unix.waitpid [] pid)
 
-external set_tcp_nodelay : Unix.file_descr -> bool -> unit
-  = "stub_unixext_set_tcp_nodelay"
-
-external fsync : Unix.file_descr -> unit = "stub_unixext_fsync"
-
 external get_max_fd : unit -> int = "stub_unixext_get_max_fd"
 
 let int_of_file_descr (x : Unix.file_descr) : int = Obj.magic x

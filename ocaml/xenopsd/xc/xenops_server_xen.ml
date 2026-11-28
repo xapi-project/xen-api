@@ -2795,7 +2795,7 @@ module VM = struct
         false
 
   let fsync fd =
-    try Unixext.fsync fd
+    try Unix.fsync fd
     with Unix.Unix_error (Unix.EIO, _, _) ->
       error "Caught EIO in fsync after suspend; suspend image may be corrupt" ;
       raise (Xenopsd_error IO_error)

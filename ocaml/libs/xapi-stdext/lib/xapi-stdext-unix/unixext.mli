@@ -163,11 +163,6 @@ val read_data_in_chunks :
 val spawnvp :
   ?pid_callback:(int -> unit) -> string -> string array -> Unix.process_status
 
-external set_tcp_nodelay : Unix.file_descr -> bool -> unit
-  = "stub_unixext_set_tcp_nodelay"
-
-external fsync : Unix.file_descr -> unit = "stub_unixext_fsync"
-
 val int_of_file_descr : Unix.file_descr -> int
 
 val close_all_fds_except : Unix.file_descr list -> unit

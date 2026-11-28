@@ -12,9 +12,6 @@
  * GNU Lesser General Public License for more details.
  */
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/tcp.h>
-#include <netinet/in.h>
 #include <sys/un.h>
 #include <unistd.h> /* needed for _SC_OPEN_MAX */
 #include <sys/statvfs.h>
@@ -29,32 +26,6 @@
 #include <caml/callback.h>
 #include <caml/unixsupport.h>
 #include <caml/threads.h>
-
-/* Set the TCP_NODELAY flag on a Unix.file_descr */
-CAMLprim value stub_unixext_set_tcp_nodelay (value fd, value nodelay)
-{
-	CAMLparam2 (fd, nodelay);
-	int c_fd = Int_val(fd);
-	int opt = (Bool_val(nodelay)) ? 1 : 0;
-	if (setsockopt(c_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&opt, sizeof(opt)) != 0){
-		uerror("setsockopt", Nothing);
-	}
-	CAMLreturn(Val_unit);
-}
-
-CAMLprim value stub_unixext_fsync (value fd)
-{
-	CAMLparam1(fd);
-	int c_fd = Int_val(fd);
-	int rc;
-
-	caml_release_runtime_system();
-	rc = fsync(c_fd);
-	caml_acquire_runtime_system();
-	if (rc != 0) uerror("fsync", Nothing);
-	CAMLreturn(Val_unit);
-}
-
 
 CAMLprim value stub_unixext_get_max_fd (value unit)
 {

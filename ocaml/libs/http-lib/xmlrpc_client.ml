@@ -310,7 +310,7 @@ let with_transport ?(stunnel_wait_disconnect = true) transport f =
       let fd = Unixext.open_connection_fd host port in
       finally
         (fun () ->
-          Unixext.set_tcp_nodelay fd true ;
+          Unix.setsockopt fd Unix.TCP_NODELAY true ;
           f fd
         )
         (fun () -> Unix.close fd)
