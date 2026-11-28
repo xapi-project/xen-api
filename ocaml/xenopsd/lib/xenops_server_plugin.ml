@@ -170,6 +170,10 @@ module type S = sig
 
     val get_state : Vm.t -> Vm.state
 
+    val get_memory_offset : Vm.t -> int64
+    (** The memory, in bytes, that [get_state] counts in [memory_actual] but
+        the guest does not see (squeezed's memory-offset), 0 if unknown *)
+
     val request_rdp : Vm.t -> bool -> unit
 
     val run_script : Xenops_task.task_handle -> Vm.t -> string -> Rpc.t

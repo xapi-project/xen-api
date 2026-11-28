@@ -2457,7 +2457,16 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
              Instead change the ballooning target to the current state *)
           let new_balloon_target =
             if vmm.vmm_localhost_migration then
-              (B.VM.get_state vm).memory_actual
+              (* memory_actual also counts the pages the guest does not see
+                 (squeezed's memory-offset): a target that includes them is
+                 above the guest's size, above dynamic_max, even above
+                 static_max, for a guest at dynamic_max, and the guest could
+                 never reach it. Use the guest's size, within the dynamic
+                 range. *)
+              Int64.sub (B.VM.get_state vm).memory_actual
+                (B.VM.get_memory_offset vm)
+              |> Int64.min vm.memory_dynamic_max
+              |> Int64.max vm.memory_dynamic_min
             else
               vm.memory_dynamic_min
           in

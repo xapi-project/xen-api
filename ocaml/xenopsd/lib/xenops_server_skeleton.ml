@@ -125,6 +125,8 @@ module VM = struct
 
   let wait_ballooning _ _ = ()
 
+  let get_memory_offset _ = 0L
+
   let minimum_reboot_delay = 0.
 end
 

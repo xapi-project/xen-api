@@ -635,12 +635,23 @@ let vm_test_suspend_resume _ =
 
 module Handshake = Xenops_migrate.Handshake
 
-(* Act as the destination of the migration [task] on [sock], and make it fail
-   once the source has pinned the memory of the VM: either the destination
-   reports an error, or (with [cancel]) the migration task is cancelled. The
-   source runs on a xenopsd worker thread. Every connection is closed when
-   leaving, even on error, so that the source never waits for us. *)
-let fake_destination ~cancel sock task =
+(* What the destination of a migration does with each connection on
+   /migrate/vm: the source opens a new one for every attempt to send the VM *)
+type fake_attempt =
+  | Refuse of Errors.error
+      (** report this error, as the destination does when it cannot reserve
+          memory for the VM *)
+  | Cancel  (** accept the VM, then cancel the migration task *)
+
+(* For each attempt: the memory dynamic range of the source domain and the
+   memory_limit the source sent *)
+type fake_observed = {pinned: int64 * int64; memory_limit: int64}
+
+(* Act as the destination of the migration [task] of [id] on [sock], following
+   [attempts], and return what each attempt observed. The source runs on a
+   xenopsd worker thread. Every connection is closed when leaving, even on
+   error, so that the source never waits for us. *)
+let fake_destination sock id task attempts =
   let with_connection f =
     let fd, _ = Unix.accept sock in
     finally
@@ -650,19 +661,44 @@ let fake_destination ~cancel sock task =
       )
       (fun () -> Unix.close fd)
   in
+  (* Return the headers, with lowercase names *)
   let read_request fd =
     let ic = Unix.in_channel_of_descr fd in
-    let rec read_headers length =
-      match String.lowercase_ascii (String.trim (input_line ic)) with
+    let rec read_headers acc =
+      match String.trim (input_line ic) with
       | "" ->
-          length
-      | header ->
-          read_headers
-            ( try Scanf.sscanf header "content-length: %d" Fun.id
-              with Scanf.Scan_failure _ | Failure _ | End_of_file -> length
-            )
+          acc
+      | line -> (
+        match String.index_opt line ':' with
+        | Some i ->
+            let name = String.lowercase_ascii (String.sub line 0 i) in
+            let value =
+              String.trim (String.sub line (i + 1) (String.length line - i - 1))
+            in
+            read_headers ((name, value) :: acc)
+        | None ->
+            read_headers acc
+      )
     in
-    really_input_string ic (read_headers 0)
+    let headers = read_headers [] in
+    let length =
+      Option.fold ~none:0 ~some:int_of_string
+        (List.assoc_opt "content-length" headers)
+    in
+    let (_ : string) = really_input_string ic length in
+    headers
+  in
+  let cookie headers key =
+    List.assoc "cookie" headers
+    |> String.split_on_char ';'
+    |> List.find_map (fun kv ->
+        match String.split_on_char '=' (String.trim kv) with
+        | [k; v] when k = key ->
+            Some v
+        | _ ->
+            None
+    )
+    |> Option.get
   in
   let write fd s =
     let (_ : int) = Unix.write_substring fd s 0 (String.length s) in
@@ -684,84 +720,145 @@ let fake_destination ~cancel sock task =
   in
   (* VM.import_metadata, the source only logs the id it returns *)
   with_connection (fun fd ->
-      let (_ : string) = read_request fd in
+      let (_ : (string * string) list) = read_request fd in
       let response = Xmlrpc.string_of_response (Rpc.success (Rpc.String "")) in
       write fd
         (Printf.sprintf "HTTP/1.1 200 OK\r\ncontent-length: %d\r\n\r\n%s"
            (String.length response) response
         )
   ) ;
-  (* Memory migration, after the pin *)
-  with_connection (fun vm_fd ->
-      let (_ : string) = read_request vm_fd in
-      ( if cancel then (
-          (* the source notices at its next cancellation point, in VM_save *)
-          Client.TASK.cancel dbg task ;
-          Handshake.send vm_fd Handshake.Success ;
-          with_connection (fun mem_fd ->
-              let (_ : string) = read_request mem_fd in
-              Handshake.send mem_fd Handshake.Success ;
-              drain mem_fd
-          )
-        ) else
-          let error =
-            Rpcmarshal.marshal Errors.error.Rpc.Types.ty
-              (Errors.Vms_failed_to_cooperate [])
-          in
-          Handshake.send vm_fd (Handshake.Error (Jsonrpc.to_string error))
-      ) ;
-      drain vm_fd
-  )
+  let attempt what =
+    with_connection @@ fun vm_fd ->
+    let headers = read_request vm_fd in
+    let domain = Xenops_server_simulator.DB.read_exn id in
+    let observed =
+      {
+        pinned=
+          Xenops_server_simulator.Domain.
+            (domain.memory_dynamic_min, domain.memory_dynamic_max)
+      ; memory_limit= Int64.of_string (cookie headers "memory_limit")
+      }
+    in
+    ( match what with
+    | Refuse error ->
+        let error = Rpcmarshal.marshal Errors.error.Rpc.Types.ty error in
+        Handshake.send vm_fd (Handshake.Error (Jsonrpc.to_string error))
+    | Cancel ->
+        (* the source notices at its next cancellation point, in VM_save *)
+        Client.TASK.cancel dbg task ;
+        Handshake.send vm_fd Handshake.Success ;
+        with_connection (fun mem_fd ->
+            let (_ : (string * string) list) = read_request mem_fd in
+            Handshake.send mem_fd Handshake.Success ;
+            drain mem_fd
+        )
+    ) ;
+    drain vm_fd ; observed
+  in
+  List.map attempt attempts
+
+let mib = 1024L ** 1024L
+
+(* By default the VM of the migration tests balloons between 64 and 128 MiB *)
+let ballooning vm = {vm with Vm.memory_dynamic_min= 64L ** mib}
+
+(* Run [f] with the simulator reporting [guest_memory] as the memory of the
+   guest, given its dynamic_max *)
+let with_guest_memory guest_memory f =
+  let old = !Xenops_server_simulator.guest_memory in
+  Xenops_server_simulator.guest_memory := guest_memory ;
+  finally f (fun () -> Xenops_server_simulator.guest_memory := old)
+
+(* Start a VM whose guest uses [guest_memory] and migrate it to
+   [fake_destination], which follows [attempts]. Then check [error], the
+   error of the migration, and that the memory dynamic range of the VM is the
+   original one. Return what the destination observed. *)
+let migrate_to_fake_destination ?(customise = ballooning)
+    ?(guest_memory = Fun.id) ?(localhost = false) attempts error =
+  with_guest_memory guest_memory @@ fun () ->
+  with_vm ~customise example_uuid @@ fun id ->
+  Client.VM.create dbg id |> wait_for_task |> success_task ;
+  Client.VM.build dbg id false |> wait_for_task |> success_task ;
+  Client.VM.create_device_model dbg id false |> wait_for_task |> success_task ;
+  Client.VM.unpause dbg id |> wait_for_task |> success_task ;
+  let sock = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+  finally
+    (fun () ->
+      (* in case the source never connects *)
+      Unix.setsockopt_float sock Unix.SO_RCVTIMEO 30. ;
+      Unix.bind sock (Unix.ADDR_INET (Unix.inet_addr_loopback, 0)) ;
+      Unix.listen sock 1 ;
+      let port =
+        match Unix.getsockname sock with
+        | Unix.ADDR_INET (_, port) ->
+            port
+        | _ ->
+            assert false
+      in
+      let url = Printf.sprintf "http://127.0.0.1:%d" port in
+      let task = Client.VM.migrate dbg id [] [] [] url false false localhost in
+      let observed = fake_destination sock id task attempts in
+      expect_exception error (fun () -> wait_for_task task |> success_task) ;
+      let vm = customise (create_vm id) in
+      let domain = Xenops_server_simulator.DB.read_exn id in
+      assert_equal ~msg:"memory_dynamic_min" ~printer:Int64.to_string
+        vm.Vm.memory_dynamic_min
+        domain.Xenops_server_simulator.Domain.memory_dynamic_min ;
+      assert_equal ~msg:"memory_dynamic_max" ~printer:Int64.to_string
+        vm.Vm.memory_dynamic_max
+        domain.Xenops_server_simulator.Domain.memory_dynamic_max ;
+      observed
+    )
+    (fun () -> Unix.close sock)
+
+(* The source pinned the memory dynamic range at [expected], then sent the
+   memory_limit of the domain with a guest that uses [guest_memory] *)
+let assert_pinned ?(guest_memory = Fun.id) ~msg expected observed =
+  let printer (min, max) = Printf.sprintf "(%Ld, %Ld)" min max in
+  assert_equal ~msg ~printer (expected, expected) observed.pinned ;
+  assert_equal ~msg:(msg ^ ": memory_limit") ~printer:Int64.to_string
+    (Int64.add (guest_memory expected) Xenops_server_simulator.memory_offset)
+    observed.memory_limit
 
 (* A failed or cancelled migration must restore the memory dynamic range of
    the source VM, which it pinned to stop ballooning *)
 let vm_test_migrate_failure_restores_memory ~cancel _ =
-  let customise vm = {vm with Vm.memory_dynamic_min= 64L ** 1024L ** 1024L} in
-  with_vm ~customise example_uuid (fun id ->
-      Client.VM.create dbg id |> wait_for_task |> success_task ;
-      Client.VM.build dbg id false |> wait_for_task |> success_task ;
-      Client.VM.create_device_model dbg id false
-      |> wait_for_task
-      |> success_task ;
-      Client.VM.unpause dbg id |> wait_for_task |> success_task ;
-      let sock = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-      finally
-        (fun () ->
-          (* in case the source never connects *)
-          Unix.setsockopt_float sock Unix.SO_RCVTIMEO 30. ;
-          Unix.bind sock (Unix.ADDR_INET (Unix.inet_addr_loopback, 0)) ;
-          Unix.listen sock 1 ;
-          let port =
-            match Unix.getsockname sock with
-            | Unix.ADDR_INET (_, port) ->
-                port
-            | _ ->
-                assert false
-          in
-          let url = Printf.sprintf "http://127.0.0.1:%d" port in
-          let task = Client.VM.migrate dbg id [] [] [] url false false false in
-          fake_destination ~cancel sock task ;
-          expect_exception
-            (function
-              | Cancelled _ ->
-                  cancel
-              | Vms_failed_to_cooperate _ ->
-                  not cancel
-              | _ ->
-                  false
-              )
-            (fun () -> wait_for_task task |> success_task) ;
-          let vm = customise (create_vm id) in
-          let domain = Xenops_server_simulator.DB.read_exn id in
-          assert_equal ~msg:"memory_dynamic_min" ~printer:Int64.to_string
-            vm.Vm.memory_dynamic_min
-            domain.Xenops_server_simulator.Domain.memory_dynamic_min ;
-          assert_equal ~msg:"memory_dynamic_max" ~printer:Int64.to_string
-            vm.Vm.memory_dynamic_max
-            domain.Xenops_server_simulator.Domain.memory_dynamic_max
-        )
-        (fun () -> Unix.close sock)
-  )
+  let attempts =
+    if cancel then
+      [Cancel]
+    else
+      [Refuse (Vms_failed_to_cooperate [])]
+  in
+  let (_ : fake_observed list) =
+    migrate_to_fake_destination attempts (function
+      | Cancelled _ ->
+          cancel
+      | Vms_failed_to_cooperate _ ->
+          not cancel
+      | _ ->
+          false
+      )
+  in
+  ()
+
+(* A localhost migration pins the memory of the VM at the size of its guest,
+   which uses [guest_memory], within the dynamic range: memory_actual also
+   counts the pages the guest does not see *)
+let vm_test_migrate_localhost_pins ~guest_memory expected _ =
+  let observed =
+    migrate_to_fake_destination ~guest_memory ~localhost:true
+      [Refuse (Vms_failed_to_cooperate [])] (function
+      | Vms_failed_to_cooperate _ ->
+          true
+      | _ ->
+          false
+      )
+  in
+  match observed with
+  | [o] ->
+      assert_pinned ~guest_memory ~msg:"pinned at the guest's size" expected o
+  | _ ->
+      Alcotest.fail "one attempt expected"
 
 module type DEVICE = sig
   type t
@@ -1171,6 +1268,28 @@ let _ =
       ; ( "vm_test_migrate_cancel_restores_memory"
         , `Quick
         , vm_test_migrate_failure_restores_memory ~cancel:true
+        )
+      ; ( "vm_test_migrate_localhost_pins_at_dynamic_max"
+        , `Quick
+        , vm_test_migrate_localhost_pins ~guest_memory:Fun.id (128L ** mib)
+        )
+      ; ( "vm_test_migrate_localhost_pins_above_dynamic_max"
+        , `Quick
+        , vm_test_migrate_localhost_pins
+            ~guest_memory:(Fun.const (160L ** mib))
+            (128L ** mib)
+        )
+      ; ( "vm_test_migrate_localhost_pins_at_guest_size"
+        , `Quick
+        , vm_test_migrate_localhost_pins
+            ~guest_memory:(Int64.min (96L ** mib))
+            (96L ** mib)
+        )
+      ; ( "vm_test_migrate_localhost_pins_at_dynamic_min"
+        , `Quick
+        , vm_test_migrate_localhost_pins
+            ~guest_memory:(Int64.min (32L ** mib))
+            (64L ** mib)
         )
       ; ("ionice_qos_scheduler", `Quick, ionice_qos_scheduler)
       ; ("ionice_output", `Quick, ionice_output)
