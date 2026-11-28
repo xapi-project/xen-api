@@ -13,8 +13,6 @@
  *)
 (** A collection of extensions to the [Unix] module. *)
 
-val _exit : int -> unit
-
 val raise_with_preserved_backtrace : exn -> (unit -> unit) -> 'b
 (** A wrapper that preserves the backtrace (otherwise erased by calling
     formatting functions, for example) *)
@@ -43,8 +41,6 @@ val with_file :
 
 val with_input_channel : string -> (in_channel -> 'a) -> 'a
 
-val with_directory : string -> (Unix.dir_handle -> 'a) -> 'a
-
 (** Exception to be raised in function to break out of [file_lines_fold]. *)
 exception Break
 
@@ -64,21 +60,11 @@ val read_lines : path:string -> string list
 val file_lines_iter : (string -> unit) -> string -> unit
 (** Applies function [f] to every line in the file at [file_path]. *)
 
-val fd_blocks_fold : int -> ('a -> bytes -> 'a) -> 'a -> Unix.file_descr -> 'a
-(** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
-    from the fd [fd] with initial value [start] *)
-
 val readfile_line : (string -> 'a) -> string -> unit
 (** Alias for function [file_lines_iter]. *)
 
-val buffer_of_fd : Unix.file_descr -> Buffer.t
-(** [buffer_of_fd fd] returns a Buffer.t containing all data read from [fd] up to EOF *)
-
 val string_of_fd : Unix.file_descr -> string
 (** [string_of_fd fd] returns a string containing all data read from [fd] up to EOF *)
-
-val buffer_of_file : string -> Buffer.t
-(** [buffer_of_file file] returns a Buffer.t containing the contents of [file] *)
 
 val string_of_file : string -> string
 (** [string_of_file file] returns a string containing the contents of [file] *)
@@ -93,12 +79,6 @@ val write_string_to_file : ?perms:Unix.file_perm -> string -> string -> unit
 (** [write_string_to_file fname contents] creates a file with path [fname]
     with the string [contents] as its contents, atomically *)
 
-val write_bytes_to_file : ?perms:Unix.file_perm -> string -> bytes -> unit
-(** [write_string_to_file fname contents] creates a file with path [fname]
-    with the buffer [contents] as its contents, atomically *)
-
-val execv_get_output : string -> string array -> int * Unix.file_descr
-
 val copy_file : ?limit:int64 -> Unix.file_descr -> Unix.file_descr -> int64
 
 val file_exists : string -> bool
@@ -108,13 +88,6 @@ val touch_file : string -> unit
 (** Sets both the access and modification times of the file
  *  at the given path to the current time. Creates an empty
  *  file at the given path if no such file already exists.  *)
-
-val is_empty_file : string -> bool
-(** Returns true if and only if an empty file exists at the given path. *)
-
-val delete_empty_file : string -> bool
-(** Safely deletes a file at the given path if (and only if) the
- *  file exists and is empty. Returns true if a file was deleted. *)
 
 exception Host_not_found of string
 
@@ -166,9 +139,6 @@ val time_limited_write_substring :
 
 val time_limited_read : Unix.file_descr -> int -> float -> string
 
-val time_limited_single_read :
-  Unix.file_descr -> int -> max_wait:float -> string
-
 val select :
      Unix.file_descr list
   -> Unix.file_descr list
@@ -193,23 +163,7 @@ val read_data_in_chunks :
 val spawnvp :
   ?pid_callback:(int -> unit) -> string -> string array -> Unix.process_status
 
-val double_fork : (unit -> unit) -> unit
-
-external set_tcp_nodelay : Unix.file_descr -> bool -> unit
-  = "stub_unixext_set_tcp_nodelay"
-
-external set_sock_keepalives : Unix.file_descr -> int -> int -> int -> unit
-  = "stub_unixext_set_sock_keepalives"
-
-external fsync : Unix.file_descr -> unit = "stub_unixext_fsync"
-
-external get_max_fd : unit -> int = "stub_unixext_get_max_fd"
-
-external blkgetsize64 : Unix.file_descr -> int64 = "stub_unixext_blkgetsize64"
-
 val int_of_file_descr : Unix.file_descr -> int
-
-val file_descr_of_int : int -> Unix.file_descr
 
 val close_all_fds_except : Unix.file_descr list -> unit
 
@@ -220,17 +174,6 @@ val seek_to : Unix.file_descr -> int -> int
 val seek_rel : Unix.file_descr -> int -> int
 
 val current_cursor_pos : Unix.file_descr -> int
-
-val wait_for_path : string -> (float -> unit) -> int -> unit
-
-val send_fd :
-     Unix.file_descr
-  -> bytes
-  -> int
-  -> int
-  -> Unix.msg_flag list
-  -> Unix.file_descr
-  -> int
 
 val send_fd_substring :
      Unix.file_descr

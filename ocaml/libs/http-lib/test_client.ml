@@ -19,7 +19,7 @@ let with_connection ip port f =
   let addr = Unix.ADDR_INET (inet_addr, port) in
   let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
   (try Unix.connect s addr with e -> Unix.close s ; raise e) ;
-  Unixext.set_tcp_nodelay s true ;
+  Unix.setsockopt s Unix.TCP_NODELAY true ;
   finally (fun () -> f s) (fun () -> Unix.close s)
 
 let with_stunnel ip port f =

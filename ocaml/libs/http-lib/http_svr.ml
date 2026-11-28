@@ -621,7 +621,7 @@ let bind ?(listen_backlog = 128) sockaddr name =
     Unix.setsockopt sock Unix.SO_KEEPALIVE true ;
     ( match sockaddr with
     | Unix.ADDR_INET _ ->
-        Unixext.set_tcp_nodelay sock true
+        Unix.setsockopt sock Unix.TCP_NODELAY true
     | _ ->
         ()
     ) ;

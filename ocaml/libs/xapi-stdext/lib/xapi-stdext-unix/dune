@@ -13,7 +13,5 @@
     xapi-stdext-pervasives)
   (foreign_stubs
     (language c)
-    (names
-      blkgetsize_stubs
-      unixext_stubs))
+    (names unixext_stubs))
 )

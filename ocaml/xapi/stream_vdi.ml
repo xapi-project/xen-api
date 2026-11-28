@@ -630,7 +630,7 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
             stream_from suffix (Int64.add skipped_size (Int64.add offset length))
           )
         in
-        stream_from "-1" 0L ; Unixext.fsync ofd
+        stream_from "-1" 0L ; Unix.fsync ofd
     )
   in
   ( try for_each_vdi __context (recv_one ifd __context) prefix_vdis
