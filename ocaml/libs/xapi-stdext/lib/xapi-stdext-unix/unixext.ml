@@ -15,8 +15,6 @@ open Xapi_stdext_pervasives.Pervasiveext
 
 exception Unix_error of int
 
-let _exit = Unix._exit
-
 let raise_with_preserved_backtrace exn f =
   let bt = Printexc.get_raw_backtrace () in
   f () ;
@@ -150,12 +148,6 @@ let fd_blocks_fold block_size f start fd =
   in
   fold start
 
-let with_directory dir f =
-  let dh = Unix.opendir dir in
-  Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () -> f dh)
-    (fun () -> Unix.closedir dh)
-
 let buffer_of_fd fd =
   fd_blocks_fold 1024
     (fun b s -> Buffer.add_bytes b s ; b)
@@ -200,24 +192,6 @@ let write_bytes_to_file ?(perms = 0o644) fname b =
 let write_string_to_file ?(perms = 0o644) fname s =
   write_bytes_to_file fname ~perms (Bytes.unsafe_of_string s)
 
-let execv_get_output cmd args =
-  let pipe_exit, pipe_entrance = Unix.pipe () in
-  let r =
-    try
-      Unix.set_close_on_exec pipe_exit ;
-      true
-    with _ -> false
-  in
-  match Unix.fork () with
-  | 0 -> (
-      Unix.dup2 pipe_entrance Unix.stdout ;
-      Unix.close pipe_entrance ;
-      if not r then Unix.close pipe_exit ;
-      try Unix.execv cmd args with _ -> exit 127
-    )
-  | pid ->
-      Unix.close pipe_entrance ; (pid, pipe_exit)
-
 let copy_file_internal ?limit reader writer =
   let buffer = Bytes.make 65536 '\000' in
   let buffer_len = Int64.of_int (Bytes.length buffer) in
@@ -252,18 +226,6 @@ let touch_file file_path =
   in
   Unix.close fd ;
   Unix.utimes file_path 0.0 0.0
-
-let is_empty_file file_path =
-  try
-    let stats = Unix.stat file_path in
-    stats.Unix.st_size = 0
-  with Unix.Unix_error (Unix.ENOENT, _, _) -> false
-
-let delete_empty_file file_path =
-  if is_empty_file file_path then (
-    Sys.remove file_path ; true
-  ) else
-    false
 
 (** Create a new file descriptor, connect it to host:port and return it *)
 exception Host_not_found of string
@@ -689,20 +651,6 @@ let time_limited_read filedesc length target_response_time =
   else (* we ran out of time *)
     raise Timeout
 
-let time_limited_single_read filedesc length ~max_wait =
-  let buf = Bytes.make length '\000' in
-  with_polly_wait Polly.Events.inp filedesc @@ fun wait filedesc ->
-  wait max_wait ;
-  let bytes =
-    try Unix.read filedesc buf 0 length
-    with
-    | Unix.Unix_error (Unix.EAGAIN, _, _)
-    | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
-    ->
-      0
-  in
-  Bytes.sub_string buf 0 bytes
-
 (** see [select(2)] "Correspondence between select() and poll() notifications".
     Note that HUP and ERR are ignored in events and returned only in revents.
     For simplicity we use the same event mask from the manual in both cases
@@ -820,32 +768,10 @@ let spawnvp ?(pid_callback = fun _ -> ()) cmd args =
       (try pid_callback pid with _ -> ()) ;
       snd (Unix.waitpid [] pid)
 
-let double_fork f =
-  match Unix.fork () with
-  | 0 -> (
-    match Unix.fork () with
-    (* NB: use _exit (calls C lib _exit directly) to avoid
-       		     calling at_exit handlers and flushing output channels
-       		     which wouild cause intermittent deadlocks if we
-       		     forked from a threaded program *)
-    | 0 ->
-        (try f () with _ -> ()) ;
-        _exit 0
-    | _ ->
-        _exit 0
-  )
-  | pid ->
-      ignore (Unix.waitpid [] pid)
-
 external set_tcp_nodelay : Unix.file_descr -> bool -> unit
   = "stub_unixext_set_tcp_nodelay"
 
-external set_sock_keepalives : Unix.file_descr -> int -> int -> int -> unit
-  = "stub_unixext_set_sock_keepalives"
-
 external fsync : Unix.file_descr -> unit = "stub_unixext_fsync"
-
-external blkgetsize64 : Unix.file_descr -> int64 = "stub_unixext_blkgetsize64"
 
 external get_max_fd : unit -> int = "stub_unixext_get_max_fd"
 
@@ -924,19 +850,7 @@ let current_cursor_pos fd =
   (* 'seek' to the current position, exploiting the return value from Unix.lseek as the new cursor position *)
   Unix.lseek fd 0 Unix.SEEK_CUR
 
-let wait_for_path path delay timeout =
-  let rec inner ttl =
-    if ttl = 0 then failwith "No path!" ;
-    try ignore (Unix.stat path)
-    with _ ->
-      delay 0.5 ;
-      inner (ttl - 1)
-  in
-  inner (timeout * 2)
-
 let _ = Callback.register_exception "unixext.unix_error" (Unix_error 0)
-
-let send_fd = Fd_send_recv.send_fd
 
 let send_fd_substring = Fd_send_recv.send_fd_substring
 
