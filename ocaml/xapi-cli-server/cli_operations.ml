@@ -201,7 +201,7 @@ let create_owner_vbd_and_plug rpc session_id vm vdi device_name bootable rw cd
    --------------------------------------------------------------------- *)
 
 let user_password_change _ rpc session_id params =
-  let old_pwd = Cli_args.get_default "old" params ""
+  let old_pwd = Cli_args.get "old" ~default:"" params
   (* "new" must be in params here, since it is a required parameter. *)
   and new_pwd = Cli_args.get "new" params in
   Client.Session.change_password ~rpc ~session_id ~old_pwd ~new_pwd
@@ -2557,7 +2557,7 @@ let parse_host_uuid ?(default_master = true) rpc session_id params =
 
 let sr_create fd _printer rpc session_id params =
   let name_label = Cli_args.get "name-label" params in
-  let name_description = Cli_args.get_default "name-description" params "" in
+  let name_description = Cli_args.get "name-description" ~default:"" params in
   let shared = Cli_args.get_bool "shared" params in
   let host = parse_host_uuid ~default_master:shared rpc session_id params in
   let physical_size =
@@ -2567,7 +2567,7 @@ let sr_create fd _printer rpc session_id params =
     with _ -> 0L
   in
   let _type = Cli_args.get "type" params in
-  let content_type = Cli_args.get_default "content-type" params "" in
+  let content_type = Cli_args.get "content-type" ~default:"" params in
   let device_config = map_contents (Cli_maps.device_config params) in
   (* If the device-config parameter is of the form k-filename=v, then we assume the
      	   key is 'k' and the value is stored in a file named 'v' *)
@@ -2599,9 +2599,9 @@ let sr_create fd _printer rpc session_id params =
 
 let sr_introduce printer rpc session_id params =
   let name_label = Cli_args.get "name-label" params in
-  let name_description = Cli_args.get_default "name-description" params "" in
+  let name_description = Cli_args.get "name-description" ~default:"" params in
   let _type = Cli_args.get "type" params in
-  let content_type = Cli_args.get_default "content-type" params "" in
+  let content_type = Cli_args.get "content-type" ~default:"" params in
   let uuid = Cli_args.get "uuid" params in
   let shared = Cli_args.get_bool "shared" params in
   let sm_config = map_contents (Cli_maps.sm_config params) in
@@ -2776,7 +2776,7 @@ let vif_create printer rpc session_id params =
   let device = Cli_args.get "device" params in
   let network_uuid = Cli_args.get "network-uuid" params in
   let vm_uuid = Cli_args.get "vm-uuid" params in
-  let mac = Cli_args.get_default "mac" params "" in
+  let mac = Cli_args.get "mac" ~default:"" params in
   let mAC =
     if mac = "random" then
       Record_util.random_mac_local ()
@@ -2826,8 +2826,8 @@ let vif_configure_ipv4 _printer rpc session_id params =
     Record_util.vif_ipv4_configuration_mode_of_string
       (Cli_args.get "mode" params)
   in
-  let address = Cli_args.get_default "address" params "" in
-  let gateway = Cli_args.get_default "gateway" params "" in
+  let address = Cli_args.get "address" ~default:"" params in
+  let gateway = Cli_args.get "gateway" ~default:"" params in
   if mode = `Static && address = "" then
     failwith "Required parameter not found: address" ;
   Client.VIF.configure_ipv4 ~rpc ~session_id ~self:vif ~mode ~address ~gateway
@@ -2840,8 +2840,8 @@ let vif_configure_ipv6 _printer rpc session_id params =
     Record_util.vif_ipv6_configuration_mode_of_string
       (Cli_args.get "mode" params)
   in
-  let address = Cli_args.get_default "address" params "" in
-  let gateway = Cli_args.get_default "gateway" params "" in
+  let address = Cli_args.get "address" ~default:"" params in
+  let gateway = Cli_args.get "gateway" ~default:"" params in
   if mode = `Static && address = "" then
     failwith "Required parameter not found: address" ;
   Client.VIF.configure_ipv6 ~rpc ~session_id ~self:vif ~mode ~address ~gateway
@@ -2857,14 +2857,14 @@ let vif_move _printer rpc session_id params =
 
 let net_create printer rpc session_id params =
   let network = Cli_args.get "name-label" params in
-  let descr = Cli_args.get_default "name-description" params "" in
+  let descr = Cli_args.get "name-description" ~default:"" params in
   let mTU =
     if Cli_args.exists "MTU" params then
       Int64.of_string (Cli_args.get "MTU" params)
     else
       1500L
   in
-  let bridge = Cli_args.get_default "bridge" params "" in
+  let bridge = Cli_args.get "bridge" ~default:"" params in
   let managed = Cli_args.get_bool "managed" ~default:true params in
   let net =
     Client.Network.create ~rpc ~session_id ~name_label:network
@@ -2894,7 +2894,7 @@ let net_attach _printer rpc session_id params =
 
 let vm_create printer rpc session_id params =
   let name_label = Cli_args.get "name-label" params in
-  let name_description = Cli_args.get_default "name-description" params "" in
+  let name_description = Cli_args.get "name-description" ~default:"" params in
   let ( ** ) = Int64.mul in
   let mib = 1024L ** 1024L in
   let memory_max = 256L ** mib in
@@ -5682,7 +5682,7 @@ let download_file_with_task fd rpc session_id filename uri query label task_name
 
 let pool_retrieve_wlb_report fd _printer rpc session_id params =
   let report = Cli_args.get "report" params in
-  let filename = Cli_args.get_default "filename" params "" in
+  let filename = Cli_args.get "filename" ~default:"" params in
   let other_params = params_except ["report"; "filename"] params in
   download_file_with_task fd rpc session_id filename Constants.wlb_report_uri
     (Printf.sprintf "report=%s%s%s" (Http.urlencode report)
@@ -5704,7 +5704,7 @@ let pool_retrieve_wlb_report fd _printer rpc session_id params =
     (Printf.sprintf "WLB report: %s" report)
 
 let pool_retrieve_wlb_diagnostics fd _printer rpc session_id params =
-  let filename = Cli_args.get_default "filename" params "" in
+  let filename = Cli_args.get "filename" ~default:"" params in
   download_file_with_task fd rpc session_id filename
     Constants.wlb_diagnostics_uri "" "WLB diagnostics download"
     "WLB diagnostics download"
@@ -5946,7 +5946,7 @@ let blob_put fd _printer rpc session_id params =
 
 let blob_create printer rpc session_id params =
   let name = Cli_args.get "name" params in
-  let mime_type = Cli_args.get_default "mime-type" params "" in
+  let mime_type = Cli_args.get "mime-type" ~default:"" params in
   let public = Cli_args.get_bool "public" params in
   if Cli_args.exists "vm-uuid" params then
     let uuid = Cli_args.get "vm-uuid" params in
@@ -6330,7 +6330,7 @@ let tunnel_create printer rpc session_id params =
   in
   let protocol =
     Record_util.tunnel_protocol_of_string
-      (Cli_args.get_default "protocol" params "gre")
+      (Cli_args.get "protocol" ~default:"gre" params)
   in
   let tunnel =
     Client.Tunnel.create ~rpc ~session_id ~transport_PIF:pif ~network ~protocol
@@ -6546,8 +6546,8 @@ let pif_reconfigure_ip _printer rpc session_id params =
     Record_util.ip_configuration_mode_of_string (Cli_args.get "mode" params)
   in
   let iP = Cli_args.assoc_default_ci "IP" params in
-  let netmask = Cli_args.get_default "netmask" params "" in
-  let gateway = Cli_args.get_default "gateway" params "" in
+  let netmask = Cli_args.get "netmask" ~default:"" params in
+  let gateway = Cli_args.get "gateway" ~default:"" params in
   let dNS = Cli_args.assoc_default_ci "DNS" params in
   let () =
     Client.PIF.reconfigure_ip ~rpc ~session_id ~self:pif ~mode ~iP ~netmask
@@ -6563,7 +6563,7 @@ let pif_reconfigure_ipv6 _printer rpc session_id params =
     Record_util.ipv6_configuration_mode_of_string (Cli_args.get "mode" params)
   in
   let iPv6 = Cli_args.assoc_default_ci "IPv6" params in
-  let gateway = Cli_args.get_default "gateway" params "" in
+  let gateway = Cli_args.get "gateway" ~default:"" params in
   let dNS = Cli_args.assoc_default_ci "DNS" params in
   let () =
     Client.PIF.reconfigure_ipv6 ~rpc ~session_id ~self:pif ~mode ~iPv6 ~gateway
@@ -6618,7 +6618,7 @@ let pif_scan _printer rpc session_id params =
 let pif_introduce printer rpc session_id params =
   let host_uuid = Cli_args.get "host-uuid" params in
   let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid:host_uuid in
-  let mAC = Cli_args.get_default "mac" params "" in
+  let mAC = Cli_args.get "mac" ~default:"" params in
   let device = Cli_args.get "device" params in
   let managed = Cli_args.get_bool "managed" ~default:true params in
   let pif = Client.PIF.introduce ~rpc ~session_id ~host ~mAC ~device ~managed in
@@ -6639,7 +6639,7 @@ let pif_db_forget _printer rpc session_id params =
 
 let bond_create printer rpc session_id params =
   let network_uuid = Cli_args.get "network-uuid" params in
-  let mAC = Cli_args.get_default "mac" params "" in
+  let mAC = Cli_args.get "mac" ~default:"" params in
   let network =
     Client.Network.get_by_uuid ~rpc ~session_id ~uuid:network_uuid
   in
@@ -6649,7 +6649,7 @@ let bond_create printer rpc session_id params =
     List.map (fun uuid -> Client.PIF.get_by_uuid ~rpc ~session_id ~uuid) uuids
   in
   let mode =
-    Record_util.bond_mode_of_string (Cli_args.get_default "mode" params "")
+    Record_util.bond_mode_of_string (Cli_args.get "mode" ~default:"" params)
   in
   let properties = map_contents (Cli_maps.properties params) in
   let bond =
@@ -6668,7 +6668,7 @@ let bond_set_mode _printer rpc session_id params =
   let uuid = Cli_args.get "uuid" params in
   let bond = Client.Bond.get_by_uuid ~rpc ~session_id ~uuid in
   let mode =
-    Record_util.bond_mode_of_string (Cli_args.get_default "mode" params "")
+    Record_util.bond_mode_of_string (Cli_args.get "mode" ~default:"" params)
   in
   Client.Bond.set_mode ~rpc ~session_id ~self:bond ~value:mode
 
@@ -6807,7 +6807,7 @@ let host_crash_upload _printer rpc session_id params =
     Client.Host_crashdump.get_by_uuid ~rpc ~session_id
       ~uuid:(Cli_args.get "uuid" params)
   in
-  let url = Cli_args.get_default "url" params "" in
+  let url = Cli_args.get "url" ~default:"" params in
   (* pass everything else in as an option *)
   let options =
     params
@@ -6825,7 +6825,7 @@ let host_crash_destroy _printer rpc session_id params =
 
 let host_bugreport_upload _printer rpc session_id params =
   let op _ host =
-    let url = Cli_args.get_default "url" params "" in
+    let url = Cli_args.get "url" ~default:"" params in
     (* pass everything else in as an option *)
     let options =
       params
@@ -7046,7 +7046,7 @@ let host_get_system_status_capabilities printer rpc session_id params =
 
 let host_get_system_status fd _printer rpc session_id params =
   let filename = Cli_args.get "filename" params in
-  let entries = Cli_args.get_default "entries" params "" in
+  let entries = Cli_args.get "entries" ~default:"" params in
   let output = try Cli_args.get "output" params with _ -> "tar.bz2" in
   ( match output with
   | "tar.bz2" | "tar" | "zip" ->
@@ -7387,7 +7387,7 @@ let host_signal_networking_change _printer rpc session_id _params =
 
 let host_notify _printer rpc session_id params =
   let ty = Cli_args.get "type" params in
-  let args = Cli_args.get_default "params" params "" in
+  let args = Cli_args.get "params" ~default:"" params in
   Client.Host.notify ~rpc ~session_id ~ty ~params:args
 
 let host_syslog_reconfigure _printer rpc session_id params =
@@ -7435,8 +7435,8 @@ let subject_remove _printer rpc session_id params =
   Client.Subject.destroy ~rpc ~session_id ~self:subject
 
 let subject_role_common rpc session_id params =
-  let role_uuid = Cli_args.get_default "role-uuid" params "" in
-  let role_name = Cli_args.get_default "role-name" params "" in
+  let role_uuid = Cli_args.get "role-uuid" ~default:"" params in
+  let role_name = Cli_args.get "role-name" ~default:"" params in
   if role_uuid = "" && role_name = "" then
     failwith "Required parameter not found: role-uuid or role-name"
   else if role_uuid <> "" && role_name <> "" then
@@ -7632,7 +7632,7 @@ let vm_appliance_assert_can_be_recovered _printer rpc session_id params =
 
 let gpu_group_create printer rpc session_id params =
   let name_label = Cli_args.get "name-label" params in
-  let name_description = Cli_args.get_default "name-description" params "" in
+  let name_description = Cli_args.get "name-description" ~default:"" params in
   let gpu_group =
     Client.GPU_group.create ~rpc ~session_id ~name_label ~name_description
       ~other_config:[]
@@ -7765,8 +7765,8 @@ let get_dom0_access_status printer rpc session_id params =
 module PVS_site = struct
   let introduce printer rpc session_id params =
     let name_label = Cli_args.get "name-label" params in
-    let name_description = Cli_args.get_default "name-description" params "" in
-    let pVS_uuid = Cli_args.get_default "pvs-uuid" params "" in
+    let name_description = Cli_args.get "name-description" ~default:"" params in
+    let pVS_uuid = Cli_args.get "pvs-uuid" ~default:"" params in
     let ref =
       Client.PVS_site.introduce ~rpc ~session_id ~name_label ~name_description
         ~pVS_uuid
@@ -8290,7 +8290,7 @@ end
 module VM_group = struct
   let create printer rpc session_id params =
     let name_label = Cli_args.get "name-label" params in
-    let name_description = Cli_args.get_default "name-description" params "" in
+    let name_description = Cli_args.get "name-description" ~default:"" params in
     let placement =
       Record_util.vm_placement_policy_of_string (Cli_args.get "placement" params)
     in

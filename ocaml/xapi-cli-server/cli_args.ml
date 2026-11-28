@@ -79,12 +79,16 @@ let get_opt key t =
   | None ->
       None
 
-let get key t = match get_opt key t with Some v -> v | None -> raise Not_found
+let get ?default key t =
+  match (get_opt key t, default) with
+  | Some v, _ ->
+      v
+  | None, Some default ->
+      default
+  | None, None ->
+      raise Not_found
 
-let get_default key t default =
-  match get_opt key t with None -> default | Some v -> v
-
-(* Like [get_default key t ""] but matching [key] case-insensitively; marks the
+(* Like [get ~default:"" key t] but matching [key] case-insensitively; marks the
    matched entry as read. *)
 let assoc_default_ci key t =
   let key = String.lowercase_ascii key in

@@ -37,13 +37,11 @@ val reserved : string list
 
 val is_reserved : string -> bool
 
-val get : string -> 'a t -> 'a
-(** [get key t] is the value bound to [key]. Raises [Not_found] if absent. *)
+val get : ?default:'a -> string -> 'a t -> 'a
+(** [get ?default key t] is the value bound to [key], or [default] if absent.
+    Raises [Not_found] if [key] is absent and no [default] is given. *)
 
 val get_opt : string -> 'a t -> 'a option
-
-val get_default : string -> 'a t -> 'a -> 'a
-(** [get_default key t default] is the value bound to [key], or [default]. *)
 
 val assoc_default_ci : string -> string t -> string
 (** [assoc_default_ci key t] is the value bound to [key] matched

@@ -45,8 +45,8 @@ let test_get_marks () =
 let test_absent_lookup_marks_nothing () =
   let t = t_of [("a", "1")] in
   ignore (get_opt "zzz" t) ;
-  Alcotest.check Alcotest.string "get_default falls back" "d"
-    (get_default "zzz" t "d") ;
+  Alcotest.check Alcotest.string "get with a default falls back" "d"
+    (get "zzz" ~default:"d" t) ;
   check_unused "absent lookups mark nothing" ["a"] t
 
 let test_exists_marks () =
