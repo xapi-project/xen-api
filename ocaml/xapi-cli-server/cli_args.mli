@@ -37,13 +37,11 @@ val reserved : string list
 
 val is_reserved : string -> bool
 
-val get : string -> 'a t -> 'a
-(** [get key t] is the value bound to [key]. Raises [Not_found] if absent. *)
+val get : ?default:'a -> string -> 'a t -> 'a
+(** [get ?default key t] is the value bound to [key], or [default] if absent.
+    Raises [Not_found] if [key] is absent and no [default] is given. *)
 
 val get_opt : string -> 'a t -> 'a option
-
-val get_default : string -> 'a t -> 'a -> 'a
-(** [get_default key t default] is the value bound to [key], or [default]. *)
 
 val assoc_default_ci : string -> string t -> string
 (** [assoc_default_ci key t] is the value bound to [key] matched
@@ -54,6 +52,42 @@ val get_all : string -> 'a t -> 'a list
     appear more than once). *)
 
 val exists : string -> 'a t -> bool
+
+(** {2 Typed readers of string parameters} *)
+
+val parse_bool : string -> string -> bool
+(** [parse_bool key value] is [value] read as a boolean. Raises
+    [Record_util.Record_failure], naming [key], if [value] is not one. *)
+
+val get_bool : ?default:bool -> string -> string t -> bool
+(** [get_bool ?default key t] is the value bound to [key] read as a boolean,
+    or [default] (false by default) if absent. *)
+
+val get_float : default:float -> string -> string t -> float
+(** [get_float ~default key t] is the value bound to [key] read as a float, or
+    [default] if absent or not a float. *)
+
+val get_set : ?default:string list -> string -> string t -> string list
+(** [get_set ?default key t] is the comma-separated list bound to [key], or
+    [default] ([[]] by default) if absent. *)
+
+val get_map :
+     ?default:(string * string) list
+  -> string
+  -> string t
+  -> (string * string) list
+(** [get_map ?default key t] is the comma-separated list of [k:v] pairs bound
+    to [key], items not of that form being ignored, or [default] ([[]] by
+    default) if absent. *)
+
+(** Raised by [get_unique] with the key that is bound more than once. *)
+exception Multiple_definitions of string
+
+val get_unique : string -> 'a t -> 'a option
+(** [get_unique key t] is the value bound to [key], if any. Raises
+    [Multiple_definitions key] if [key] is bound more than once, so that the
+    CLI does not have to choose between values the user may not have meant to
+    give together. *)
 
 val consume : 'a t -> 'a t
 (** Mark every entry visible through [t] as read, and return [t]. For call sites

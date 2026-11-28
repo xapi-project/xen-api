@@ -79,12 +79,16 @@ let get_opt key t =
   | None ->
       None
 
-let get key t = match get_opt key t with Some v -> v | None -> raise Not_found
+let get ?default key t =
+  match (get_opt key t, default) with
+  | Some v, _ ->
+      v
+  | None, Some default ->
+      default
+  | None, None ->
+      raise Not_found
 
-let get_default key t default =
-  match get_opt key t with None -> default | Some v -> v
-
-(* Like [get_default key t ""] but matching [key] case-insensitively; marks the
+(* Like [get ~default:"" key t] but matching [key] case-insensitively; marks the
    matched entry as read. *)
 let assoc_default_ci key t =
   let key = String.lowercase_ascii key in
@@ -107,6 +111,51 @@ let get_all key t =
     (visible t)
 
 let exists key t = Option.is_some (get_opt key t)
+
+(* Typed readers of string parameters *)
+
+exception Multiple_definitions of string
+
+let parse_bool key value =
+  try Record_util.bool_of_string value
+  with Record_util.Record_failure msg as e ->
+    let msg = Printf.sprintf "Failed to parse parameter '%s': %s" key msg in
+    Backtrace.reraise e (Record_util.Record_failure msg)
+
+let get_bool ?(default = false) key t =
+  get_opt key t |> Option.map (parse_bool key) |> Option.value ~default
+
+let get_float ~default key t =
+  get_opt key t
+  |> Fun.flip Option.bind float_of_string_opt
+  |> Option.value ~default
+
+let get_set ?(default = []) key t =
+  get_opt key t
+  |> Option.map (String.split_on_char ',')
+  |> Option.value ~default
+
+let get_map ?(default = []) key t =
+  let pairs x =
+    String.split_on_char ',' x
+    |> List.filter_map (fun x ->
+        match String.split_on_char ':' x with
+        | [k; v] ->
+            Some (k, v)
+        | _ ->
+            None
+    )
+  in
+  get_opt key t |> Option.map pairs |> Option.value ~default
+
+let get_unique key t =
+  match get_all key t with
+  | [] ->
+      None
+  | [value] ->
+      Some value
+  | _ :: _ :: _ ->
+      raise (Multiple_definitions key)
 
 let keys t = List.map fst (visible t)
 

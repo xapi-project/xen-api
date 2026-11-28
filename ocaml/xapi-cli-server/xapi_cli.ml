@@ -338,7 +338,8 @@ let param_error s t sock =
     ) ;
   marshal sock (Command (PrintStderr "For usage run: 'xe help'\n"))
 
-let other_error msg sock = marshal sock (Command (PrintStderr (msg ^ "\n")))
+let other_error msg sock =
+  marshal sock (Command (PrintStderr ("Error: " ^ msg ^ "\n")))
 
 let multiple_error errs sock =
   List.iter
@@ -380,8 +381,14 @@ let exception_handler s e =
       param_error "Required parameter not found" str s
   | Cli_operations.Multiple_failure errs ->
       multiple_error errs s
+  | Cli_args.Multiple_definitions key ->
+      other_error
+        (Printf.sprintf
+           "Parameter %s is defined multiple times, define it only once." key
+        )
+        s
   | Cli_util.Cli_failure str ->
-      other_error ("Error: " ^ str) s
+      other_error str s
   | Api_errors.Server_error (code, params) ->
       if code = Api_errors.session_authentication_failed then
         let uname = List.hd params in
@@ -394,7 +401,7 @@ let exception_handler s e =
   | Records.CLI_failed_to_find_param name ->
       Cli_util.server_error "Missing parameter" [name] s
   | Record_util.Record_failure str ->
-      other_error ("Error: " ^ str) s
+      other_error str s
   | Xml.Error exn ->
       Cli_util.server_error Api_errors.internal_error
         ["XML error: " ^ Xml.error exn]
@@ -432,7 +439,7 @@ let handler (req : Http.Request.t) (s : Unix.file_descr) _ =
     | `Error (e, bt) ->
         exception_handler s e ;
         (* Command execution errors can use --trace *)
-        if Cli_operations.get_bool_param (get_params cmd) "trace" then (
+        if Cli_args.get_bool "trace" (get_params cmd) then (
           marshal s
             (Command
                (PrintStderr (Printf.sprintf "Raised %s\n" (Printexc.to_string e))
