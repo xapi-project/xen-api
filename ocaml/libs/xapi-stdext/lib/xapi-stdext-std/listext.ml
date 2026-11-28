@@ -29,16 +29,6 @@ module List = struct
 
   let set_equiv s1 s2 = subset s1 s2 && subset s2 s1
 
-  let iteri_right f list = iteri f (rev list)
-
-  let rec inv_assoc k = function
-    | [] ->
-        raise Not_found
-    | (v, k') :: _ when k = k' ->
-        v
-    | _ :: t ->
-        inv_assoc k t
-
   (* Tail-recursive map. *)
 
   let[@tail_mod_cons] rec map_tr f l =
@@ -52,18 +42,6 @@ module List = struct
         let fx2 = f x2 in
         fx1 :: fx2 :: map_tr f xs
 
-  let count pred l =
-    fold_left
-      (fun count e ->
-        count
-        +
-        if pred e then
-          1
-        else
-          0
-      )
-      0 l
-
   let position pred l =
     let aux (i, is) e =
       ( i + 1
@@ -74,17 +52,6 @@ module List = struct
       )
     in
     snd (fold_left aux (0, []) l)
-
-  let rev_mapi f l =
-    let rec aux n accu = function
-      | h :: t ->
-          aux (n + 1) (f n h :: accu) t
-      | [] ->
-          accu
-    in
-    aux 0 [] l
-
-  let mapi_tr f l = rev (rev_mapi f l)
 
   let try_map f l =
     let rec loop acc = function
@@ -159,71 +126,17 @@ module List = struct
     | h :: t ->
         h :: e :: between e t
 
-  let between_tr e l =
-    let rec aux accu e = function
-      | [] ->
-          rev accu
-      | [h] ->
-          rev (h :: accu)
-      | h :: t ->
-          aux (e :: h :: accu) e t
-    in
-    aux [] e l
-
-  let inner fold_left2 base f l1 l2 g =
-    fold_left2 (fun accu e1 e2 -> g accu (f e1 e2)) base l1 l2
-
-  let rec is_sorted compare list =
-    match list with
-    | x :: y :: list ->
-        if compare x y <= 0 then
-          is_sorted compare (y :: list)
-        else
-          false
-    | _ ->
-        true
-
   let intersect xs ys = List.filter (fun x -> List.mem x ys) xs
 
   let set_difference a b = List.filter (fun x -> not (List.mem x b)) a
 
   let assoc_default k l d = Option.value ~default:d (List.assoc_opt k l)
 
-  let map_assoc_with_key op al = List.map (fun (k, v1) -> (k, op k v1)) al
-
-  (* Thanks to sharing we only use linear space. (Roughly double the space needed for the spine of the original list) *)
-  let rec tails = function [] -> [[]] | _ :: xs as l -> l :: tails xs
-
   let replace_assoc key new_value existing =
     (key, new_value) :: List.filter (fun (k, _) -> k <> key) existing
 
   let update_assoc update existing =
     update @ List.filter (fun (k, _) -> not (List.mem_assoc k update)) existing
-
-  let make_assoc op l = map (fun key -> (key, op key)) l
-
-  let unbox_list l = List.filter_map Fun.id l
-
-  let restrict_with_default default keys al =
-    make_assoc (fun k -> assoc_default k al default) keys
-
-  let range lower =
-    let rec aux accu upper =
-      if lower >= upper then
-        accu
-      else
-        aux ((upper - 1) :: accu) (upper - 1)
-    in
-    aux []
-
-  let find_minimum compare =
-    let min a b =
-      if compare a b <= 0 then
-        a
-      else
-        b
-    in
-    function [] -> None | x :: xs -> Some (List.fold_left min x xs)
 
   let find_index f l =
     let rec loop i = function

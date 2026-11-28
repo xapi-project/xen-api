@@ -12,11 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 module List : sig
-  (** {1 Comparison} *)
-
-  val is_sorted : ('a -> 'a -> int) -> 'a list -> bool
-  (** [is_sorted cmp l] returns whether [l] is sorted according to [cmp]. *)
-
   (** {1 Iterators} *)
 
   val take : int -> 'a list -> 'a list
@@ -55,34 +50,13 @@ module List : sig
       first [Ok] result encountered or, if all elements produce errors, returns
       all the [Error] results in a list. *)
 
-  val rev_mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
-  (** [rev_map f l] gives the same result as {!Stdlib.List.rev}[ (]
-      {!Stdlib.List.mapi}[ f l)], but is tail-recursive and more efficient. *)
-
   val map_tr : ('a -> 'b) -> 'a list -> 'b list
   (** [map_tr f l] is {!Stdlib.List.rev}[ (]{!Stdlib.List.rev_map}[ f l)]. *)
-
-  val mapi_tr : (int -> 'a -> 'b) -> 'a list -> 'b list
-  (** [mapi_tr f l] is {!Stdlib.List.rev}[ (]{!rev_mapi}[ f l)]. *)
-
-  val unbox_list : 'a option list -> 'a list
-  (** Unbox all values from the option list. *)
-
-  val count : ('a -> bool) -> 'a list -> int
-  (** Count the number of list elements matching the given predicate. *)
 
   val position : ('a -> bool) -> 'a list -> int list
   (** Find the indices of all elements matching the given predicate. *)
 
-  val iteri_right : (int -> 'a -> unit) -> 'a list -> unit
-  (** [iteri_right f l] is {!Stdlib.List.iteri}[ f (]{!Stdlib.List.rev}[ l)] *)
-
   (** {1 List searching} *)
-
-  val find_minimum : ('a -> 'a -> int) -> 'a list -> 'a option
-  (** [find_minimum cmp l] returns the lowest element in [l] according to
-      the sort order of [cmp], or [None] if the list is empty. When two ore
-      more elements match the lowest value, the left-most is returned. *)
 
   val find_index : ('a -> bool) -> 'a list -> int option
   (** [find_index f l] returns the position of the first element in [l] that
@@ -92,8 +66,6 @@ module List : sig
       instead. *)
 
   (** {1 Association Lists} *)
-
-  val make_assoc : ('a -> 'b) -> 'a list -> ('a * 'b) list
 
   val assoc_default : 'a -> ('a * 'b) list -> 'b -> 'b
   (** Act as List.assoc, but return the given default value if the
@@ -110,47 +82,11 @@ module List : sig
       which the key does not exist in [update]. In other words, it is like [replace_assoc]
       but then given a whole assoc list of updates rather than a single key/value pair. *)
 
-  val map_assoc_with_key :
-    ('k -> 'v1 -> 'v2) -> ('k * 'v1) list -> ('k * 'v2) list
-  (** [map_assoc_with_key op al] transforms every value in [al] based on the
-      key and the value using [op]. *)
-
-  val inv_assoc : 'a -> ('b * 'a) list -> 'b
-  (** Perform a lookup on an association list of (value, key) pairs. *)
-
-  val restrict_with_default : 'v -> 'k list -> ('k * 'v) list -> ('k * 'v) list
-  (** [restrict_with_default default keys al] makes a new association map
-      from [keys] to previous values for [keys] in [al]. If a key is not found
-      in [al], the [default] is used. *)
-
-  (** {1 Run-length encoded lists}
-      There are no known users of these functions. *)
-
   (** {1 Generative functions}
       These are usually useful for coding challenges like Advent of Code.*)
 
-  val range : int -> int -> int list
-  (** range lower upper = [lower; lower + 1; ...; upper - 1]
-      Returns the empty list if lower >= upper.
-      Consider building an {!Stdlib.Seq}, it's more flexible *)
-
   val between : 'a -> 'a list -> 'a list
   (** [between e l] Intersperses [e] between elements of [l]. *)
-
-  val between_tr : 'a -> 'a list -> 'a list
-  (** Tail-recursive {!between}. *)
-
-  val inner :
-       (('a -> 'b -> 'c -> 'd) -> 'e -> 'f -> 'g -> 'h)
-    -> 'e
-    -> ('b -> 'c -> 'i)
-    -> 'f
-    -> 'g
-    -> ('a -> 'i -> 'd)
-    -> 'h
-  (** Compute the inner product of two lists. *)
-
-  val tails : 'a list -> 'a list list
 
   (** {1 Lists as sets, avoid}
       Please use Set.Make instead, these functions have quadratic costs! *)
