@@ -2422,6 +2422,32 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
           ~path:(Uri.path_unencoded url ^ snippet ^ id_str)
           ~query:(Uri.query url) ()
       in
+      (* True while the domain known as id has a pinned memory dynamic range:
+         from the pin below (written to xenstore only) until that domain is
+         suspended and renamed to new_src_id. If the migration fails or is
+         cancelled meanwhile, the domain keeps running here: restore its
+         range, otherwise it stays ballooned down. *)
+      let range_pinned = ref false in
+      let restore_memory_dynamic_range_on_failure f =
+        try f ()
+        with e ->
+          Backtrace.is_important e ;
+          if !range_pinned then (
+            let min = vm.memory_dynamic_min and max = vm.memory_dynamic_max in
+            debug "VM.migrate %s: restoring memory dynamic range (%Ld, %Ld)" id
+              min max ;
+            (* t may have been cancelled, and then every atomic performed with
+               it fails: use a new task, like the cleanup actions *)
+            try
+              immediate_operation dbg id
+                (Atomic (VM_set_memory_dynamic_range (id, min, max)))
+            with e' ->
+              warn "VM.migrate %s: failed to restore memory dynamic range: %s"
+                id (Printexc.to_string e')
+          ) ;
+          raise e
+      in
+      restore_memory_dynamic_range_on_failure @@ fun () ->
       (* CA-78365: set the memory dynamic range to a single value
          to stop ballooning, if ballooning is enabled at all *)
       ( if vm.memory_dynamic_min <> vm.memory_dynamic_max then
@@ -2440,6 +2466,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
               (id, new_balloon_target, new_balloon_target)
           in
           let (_ : unit) =
+            range_pinned := true ;
             perform_atomic ~progress_callback:(fun _ -> ()) atomic t
           in
           (* Waiting here is not essential but adds a degree of safety and
@@ -2567,6 +2594,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
                   ; VM_rename (id, new_src_id, Pre_migration)
                   ]
                   t ;
+                range_pinned := false ;
                 debug "VM.migrate: Synchronisation point 2"
             )
           in

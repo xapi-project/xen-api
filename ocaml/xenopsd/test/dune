@@ -8,6 +8,7 @@
   result
   rpclib.core
   rpclib.json
+  rpclib.xml
   unix
   xapi-idl
   xapi-idl.xen.interface
